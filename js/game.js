@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=128';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=128';
+} from './data.js?v=129';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=129';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 128;   // keep equal to the ?v= number in index.html
+const BUILD = 129;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -333,7 +333,7 @@ function secretaryPos() {
   const sp = target ? 1 / 1.6 : 1 / 1.2;
   secU = target > secU ? Math.min(1, secU + sp * dt) : target < secU ? Math.max(0, secU - sp * dt) : secU;   // BUG fixed: at the goal she used to slip back every other frame (the jitter she saw)
   const s = SLOTS.REC, home = { x: OFFICER.x, y: OFFICER.y };
-  const goal = (secTrip === 'board' || (secTrip === 'back' && secGoal === 'board')) ? { x: s.x0 + 1.85, y: s.y0 + 0.5 } : { x: s.x0 + 0.55, y: s.y0 + 1.3 };   // under the school map on the back wall (she pins notes to it) / scroll shelf
+  const goal = (secTrip === 'board' || (secTrip === 'back' && secGoal === 'board')) ? { x: s.x0 + 1.3, y: s.y0 + 0.5 } : { x: s.x0 + 0.55, y: s.y0 + 1.3 };   // under the school map on the back wall (she pins notes to it) / scroll shelf
   if (secTrip === 'board' || secTrip === 'shelf') secGoal = secTrip;
   const k = 0.5 - 0.5 * Math.cos(secU * Math.PI);
   const moving = secU > 0 && secU < 1;
