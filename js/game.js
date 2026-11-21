@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=47';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=47';
+} from './data.js?v=48';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=48';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 47;   // keep equal to the ?v= number in index.html
+const BUILD = 48;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -103,11 +103,11 @@ const ART = {                                               // room pictures wit
 };
 function genLayout() {
   for (const k of Object.keys(SLOTS)) delete SLOTS[k];
-  const rows = Math.ceil(NCLS / 2), CW = 3;                        // CW: depth of a cross corridor
+  const rows = Math.ceil(NCLS / 2), CW = 4;   // corridors are wider than what a tall wall hides                        // CW: depth of a cross corridor
   let y = 0;
   // top: exam hall across the whole width, graduates' garden next to it (outside, no walls)
-  SLOTS.EXAM = slot(7, y, [[13, y + 5], [13, y + 6]], {}, 15, 6, [[[14, y + 5], [14, y + 6]], [[15, y + 5], [15, y + 6]], [[21, y + 3], [22, y + 3]]]);
-  SLOTS.GARDEN = slot(22, y, [[22, y + 3], [21, y + 3]], {}, 6, 6);
+  SLOTS.EXAM = slot(7, y, [[13, y + 5], [13, y + 6]], {}, 16, 6, [[[14, y + 5], [14, y + 6]], [[15, y + 5], [15, y + 6]], [[16, y + 5], [16, y + 6]], [[22, y + 3], [23, y + 3]]]);
+  SLOTS.GARDEN = slot(23, y, [[23, y + 3], [22, y + 3]], {}, 6, 6);
   y += 6;
   const hallTop = y; y += CW;
   let lastGap = null;
@@ -116,7 +116,7 @@ function genLayout() {
     const d = Math.max(depthOf(li), ri < NCLS ? depthOf(ri) : ROOM);
     const h1 = depthOf(li), y1 = y + d - h1, ym = y1 + Math.floor(h1 / 2);
     SLOTS['C' + li] = slot(7, y1, [[12, ym], [13, ym]], {}, ROOM, h1);                       // door to the main corridor (front side)
-    if (ri < NCLS) { const h2 = depthOf(ri), y2 = y + d - h2; SLOTS['C' + ri] = slot(16, y2, [[18, y2 + h2 - 1], [18, y2 + h2]], {}, ROOM, h2, [[[19, y2 + h2 - 1], [19, y2 + h2]]]); }   // door to the cross corridor below
+    if (ri < NCLS) { const h2 = depthOf(ri), y2 = y + d - h2; SLOTS['C' + ri] = slot(17, y2, [[19, y2 + h2 - 1], [19, y2 + h2]], {}, ROOM, h2, [[[20, y2 + h2 - 1], [20, y2 + h2]]]); }   // door to the cross corridor below
     y += d;
     lastGap = [y, y + CW]; y += CW;
   }
@@ -124,18 +124,18 @@ function genLayout() {
   // front block: library | reception | dorms
   SLOTS.LIB = slot(4, recY, [[6, recY], [6, recY - 1]], {}, 6, 6, [[[7, recY], [7, recY - 1]]]);
   SLOTS.REC = slot(10, recY, [[13, recY], [13, recY - 1]], {}, 9, 9,
-    [[[14, recY], [14, recY - 1]], [[15, recY], [15, recY - 1]], [[14, recY + 8], [14, recY + 9]], [[15, recY + 8], [15, recY + 9]], [[18, recY + 3], [19, recY + 3]]]);
+    [[[14, recY], [14, recY - 1]], [[15, recY], [15, recY - 1]], [[16, recY], [16, recY - 1]], [[14, recY + 8], [14, recY + 9]], [[15, recY + 8], [15, recY + 9]], [[18, recY + 3], [19, recY + 3]]]);
   SLOTS.DORM = slot(19, recY, [[19, recY + 3], [18, recY + 3]], {});
   SLOTS.DORM2 = slot(25, recY, [[25, recY + 3], [24, recY + 3]], {});
   BUILDING = { x0: 4, y0: hallTop, x1: 31, y1: recY };
   HALLS = [
-    { x0: 7, y0: hallTop, x1: 22, y1: recY },                       // rows + corridors (rooms are cut out of it)
+    { x0: 7, y0: hallTop, x1: 23, y1: recY },                       // rows + corridors (rooms are cut out of it)
     { x0: 4, y0: lastGap[0], x1: 31, y1: recY },                     // the wide corridor along the front block
     { x0: 13, y0: recY + 9, x1: 16, y1: recY + 14 },                // path from the gate
   ];
   GATE_TILE = { x: 14.5, y: recY + 12.5 };
   GATE_Y = recY + 9;
-  GH = recY + 16; GW = 32;
+  GH = recY + 16; GW = 33;
 }
 let GATE_Y = 0;
 // region grid (rebuilt with the layout)
@@ -490,7 +490,7 @@ function drawStatic() {
   for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) {
     if (regAt(x, y) !== 'hall') continue;
     const inside = x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
-    const carpet = inside && x === 14 && y > BUILDING.y0;
+    const carpet = inside && (x === 14 || x === 15) && y > BUILDING.y0;
     const col = carpet ? (y % 2 ? '#d98f97' : '#dd979f') : inside ? (x % 2 ? '#d7a46e' : '#dcab76') : ((x + y) % 2 ? '#e9dcc4' : '#efe4cf');
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
     if (carpet && y % 3 === 0) { const m = P(x + 0.5, y + 0.5); emoji('✦', m.x, m.y, 7, c); }
@@ -516,14 +516,15 @@ function wallColor(id) {
   if (ci >= 0) return CLASSES[ci].wall;
   return { REC: '#d9c4f0', DORM: '#bcd3f2', DORM2: '#bcd3f2', LIB: '#d8b48a', hall: '#e9e1f3' }[id] || '#e9e1f3';
 }
-function drawEdge(c, e) {
+function drawEdge(c, e, capOnly = false) {
   const { x, y, side } = e, h = e.tall ? TALL_H() : KNEE_H();
   let a, b, a2, b2;                                    // base line (a,b) and the cap's far line (a2,b2)
   if (side === 'x0') { a = P(x, y + 1); b = P(x, y); a2 = P(x - TH, y + 1); b2 = P(x - TH, y); }
   if (side === 'y0') { a = P(x, y); b = P(x + 1, y); a2 = P(x, y - TH); b2 = P(x + 1, y - TH); }
   if (side === 'x1') { a = P(x + 1, y); b = P(x + 1, y + 1); a2 = P(x + 1 + TH, y); b2 = P(x + 1 + TH, y + 1); }
   if (side === 'y1') { a = P(x + 1, y + 1); b = P(x, y + 1); a2 = P(x + 1, y + 1 + TH); b2 = P(x, y + 1 + TH); }
-  if (e.tall) {   // inner face painted in the room colour, darker on the left side
+  if (capOnly) { /* the room's picture is the face */ }
+  else if (e.tall) {   // inner face painted in the room colour, darker on the left side
     const col = wallColor(e.id);
     poly(c, [a, b, up(b, h), up(a, h)], side === 'x0' ? shade(col, -16) : col);
     poly(c, [a, b, up(b, 5), up(a, 5)], shade(col, -45));
@@ -600,9 +601,9 @@ function drawSlot(c, id) {
     const m11 = U[0] * ia + V[0] * ib, m12 = U[0] * ic + V[0] * id2, m21 = U[1] * ia + V[1] * ib, m22 = U[1] * ic + V[1] * id2;
     const e = L.x - (m11 * A.L[0] + m12 * A.L[1]), f = L.y - (m21 * A.L[0] + m22 * A.L[1]);
     c.save();
-    if (false) {
-      const rail = WALLH * 0.24, hl = s.cut.left ? rail : 2000, hr = s.cut.right ? rail : 2000;
-      poly(c, [{ x: L.x - 60, y: F.y + 60 }, { x: L.x - 60, y: L.y - hl }, { x: B.x, y: B.y - Math.min(hl, hr) }, { x: R.x + 60, y: R.y - hr }, { x: R.x + 60, y: F.y + 60 }]); c.clip();
+    {   // painted walls are cut to the common wall height
+      const h = TALL_H();
+      poly(c, [{ x: L.x - 60, y: F.y + 60 }, { x: L.x - 60, y: L.y }, up(L, h), up(B, h), up(R, h), { x: R.x + 60, y: R.y }, { x: R.x + 60, y: F.y + 60 }]); c.clip();
     }
     c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
 
@@ -789,12 +790,12 @@ function render() {
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: () => drawSlot(ctx, id) }); }
   list.push({ k1: 14.5 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
   for (const e of EDGES) {
-    if (e.id !== 'hall' && e.tall && WORLD === 1 && arts[CLASS_SLOT.indexOf(e.id) >= 0 ? CLASSES[CLASS_SLOT.indexOf(e.id)].id : e.id]?.naturalWidth) continue;   // painted rooms keep their own back walls for now
+    const painted = e.id !== 'hall' && e.tall && WORLD === 1 && !!arts[CLASS_SLOT.indexOf(e.id) >= 0 ? CLASSES[CLASS_SLOT.indexOf(e.id)].id : e.id]?.naturalWidth;   // painted rooms: only the cap on top of their own walls
     if (e.id === 'DORM2' && !dorm2Built()) continue;
     if (e.id !== 'hall' && CLASS_SLOT.indexOf(e.id) >= 0 && !S.classes[CLASS_SLOT.indexOf(e.id)].built) continue;
     const sl = SLOTS[e.id];
     const k1 = e.id === 'hall' ? e.x + e.y : (sl.x0 + sl.x1 + sl.y0 + sl.y1) / 2;
-    list.push({ k1, k2: e.tall ? -1e9 + 1 : 1e9, draw: () => drawEdge(ctx, e) });
+    list.push({ k1, k2: e.tall ? -1e9 + 1 : 1e9, draw: () => drawEdge(ctx, e, painted) });
   }
   for (let i = 0; i < CLASSES.length; i++) {
     const st = S.classes[i]; if (!st.built) continue;
@@ -1410,7 +1411,7 @@ function frame(now) {
   render();
   requestAnimationFrame(frame);
 }
-const LAYOUT = 6;
+const LAYOUT = 7;
 function relayout() {   // rebuild the map (a class was expanded): creatures keep their task, seats move with the rooms
   const snap = agents.length ? (save(), S.world) : null;
   genLayout(); buildGrid(); buildEdges(); decorateEdges();
