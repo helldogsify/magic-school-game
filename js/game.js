@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=54';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=54';
+} from './data.js?v=55';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=55';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 54;   // keep equal to the ?v= number in index.html
+const BUILD = 55;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -127,20 +127,20 @@ function genLayout() {
   const recY = y;
   // front block: library | reception | dorms
   SLOTS.LIB = slot(0, recY, [[2, recY], [2, recY - 1]], {}, 6, 8, [[[3, recY], [3, recY - 1]], [[5, recY + 3], [6, recY + 3]], [[5, recY + 4], [6, recY + 4]]]);   // own space: the reception's tall wall must not hide it
-  SLOTS.REC = slot(10, recY, [[13, recY], [13, recY - 1]], {}, 9, 9,
-    [[[14, recY], [14, recY - 1]], [[15, recY], [15, recY - 1]], [[16, recY], [16, recY - 1]], [[17, recY], [17, recY - 1]], [[14, recY + 8], [14, recY + 9]], [[15, recY + 8], [15, recY + 9]], [[18, recY + 3], [19, recY + 3]]]);
-  SLOTS.DORM = slot(19, recY, [[19, recY + 3], [18, recY + 3]], {}, ROOM, dormDepth(1));
-  SLOTS.DORM2 = slot(25, recY, [[25, recY + 3], [24, recY + 3]], {}, ROOM, dormDepth(2));
-  BUILDING = { x0: 0, y0: hallTop, x1: 31, y1: recY + 8 };
+  SLOTS.REC = slot(12, recY, [[13, recY], [13, recY - 1]], {}, 9, 9,
+    [[[14, recY], [14, recY - 1]], [[15, recY], [15, recY - 1]], [[16, recY], [16, recY - 1]], [[17, recY], [17, recY - 1]], [[14, recY + 8], [14, recY + 9]], [[15, recY + 8], [15, recY + 9]], [[20, recY + 3], [21, recY + 3]]]);
+  SLOTS.DORM = slot(21, recY, [[21, recY + 3], [20, recY + 3]], {}, ROOM, dormDepth(1));
+  SLOTS.DORM2 = slot(27, recY, [[27, recY + 3], [26, recY + 3]], {}, ROOM, dormDepth(2));
+  BUILDING = { x0: 0, y0: hallTop, x1: 33, y1: recY + 8 };
   HALLS = [
     { x0: 7, y0: hallTop, x1: 24, y1: recY },                       // rows + corridors (rooms are cut out of it)
-    { x0: 0, y0: lastGap[0], x1: 31, y1: recY },                     // the wide corridor along the front block
-    { x0: 6, y0: recY, x1: 10, y1: recY + 8 },                       // reading court between the library and the reception
+    { x0: 0, y0: lastGap[0], x1: 33, y1: recY },                     // the wide corridor along the front block
+    { x0: 6, y0: recY, x1: 12, y1: recY + 8 },                       // reading court: as wide as what the reception's wall hides
     { x0: 13, y0: recY + 9, x1: 16, y1: recY + 14 },                // path from the gate
   ];
   GATE_TILE = { x: 14.5, y: recY + 12.5 };
   GATE_Y = recY + 9;
-  GH = recY + 16; GW = 34;
+  GH = recY + 16; GW = 36;
 }
 let GATE_Y = 0;
 // region grid (rebuilt with the layout)
@@ -854,6 +854,10 @@ function render() {
     if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else add(a.x, a.y, draw);
   }
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
+  // x-ray: every creature is drawn once more, faintly, on top: the ones hidden behind a wall show through as ghosts
+  ctx.globalAlpha = 0.38;
+  for (const a of agents) if (a.state !== 'fly') drawCreature(a, a.x, a.y, 30);
+  ctx.globalAlpha = 1;
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
   if (tourStep >= 0 && tourAt(TOUR[tourStep])) { const ta = tourAt(TOUR[tourStep]), f = P(ta[0], ta[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
