@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=112';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=112';
+} from './data.js?v=113';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=113';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 112;   // keep equal to the ?v= number in index.html
+const BUILD = 113;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -318,7 +318,10 @@ function secretaryPos() {
   secU = target > secU ? Math.min(1, secU + sp * dt) : Math.max(0, secU - sp * dt);
   const s = SLOTS.REC, home = { x: OFFICER.x, y: OFFICER.y }, board = { x: s.x0 + 3.6, y: s.y0 + 0.9 };
   const k = 0.5 - 0.5 * Math.cos(secU * Math.PI);
-  return { x: home.x + (board.x - home.x) * k, y: home.y + (board.y - home.y) * k, moving: secU > 0 && secU < 1 && secU !== target, left: target === 0 };
+  // behind the counter she is never still: she paces along it (papers, the scroll shelf) and turns (her report «всегда стоит на одном месте боком»)
+  const T = now % 7, pace = T < 2.5 ? T / 2.5 : T < 3.5 ? 1 : T < 6 ? 1 - (T - 3.5) / 2.5 : 0, pk = (0.5 - 0.5 * Math.cos(pace * Math.PI)) * (1 - k);
+  const walkingBehind = (T < 2.5 || (T >= 3.5 && T < 6)) && k < 0.05;
+  return { x: home.x + (board.x - home.x) * k, y: home.y + (board.y - home.y) * k + pk * 1.6, moving: (secU > 0 && secU < 1 && secU !== target) || walkingBehind, left: walkingBehind ? T >= 3.5 : (k < 0.05 ? T >= 6 || T < 1 : target === 0) };
 }
 function teacherWalk(i) {
   const b = teacherPos(i), s = slotOf(i), T = performance.now() / 1000 + i * 3.7;
