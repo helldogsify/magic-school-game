@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <div id="app">
@@ -27,6 +27,14 @@
 </div>
 <div id="sheet-wrap" class="hidden"><div id="sheet-bg"></div><div id="sheet"></div></div>
 <div id="fx"></div>
-<script type="module" src="js/game.js?v=3"></script>
+<script>
+// Show any startup error on screen so a phone screenshot tells what broke.
+function showErr(m){var d=document.getElementById('err')||document.body.appendChild(Object.assign(document.createElement('pre'),{id:'err'}));d.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#fff;color:#b00;font:12px monospace;white-space:pre-wrap;padding:8px;border-radius:8px';d.textContent+='Ошибка: '+m+'
+';}
+window.addEventListener('error',function(e){showErr(e.message+' @'+(e.filename||'').split('/').pop()+':'+e.lineno);});
+window.addEventListener('unhandledrejection',function(e){showErr(String(e.reason));});
+if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h){this.rect(x,y,w,h);};}
+</script>
+<script type="module" src="js/game.js?v=4"></script>
 </body>
 </html>
