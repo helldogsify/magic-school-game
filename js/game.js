@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=41';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=41';
+} from './data.js?v=42';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=42';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 41;   // keep equal to the ?v= number in index.html
+const BUILD = 42;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -861,6 +861,8 @@ function settingsPanel() {
     <h3>Отзыв</h3>
     <input id="fb-name" class="fb" placeholder="Твоё имя" value="${(localStorage.getItem('magicschool.name') || '').replace(/"/g, '&quot;')}">
     <textarea id="fb-text" class="fb" rows="4" placeholder="Что понравилось? Что сломалось или было непонятно?"></textarea>
+    <div id="fb-pics" class="fb-pics"></div>
+    <label class="btn ghost wide fb-add">📷 Добавить картинку (до 3)<input id="fb-file" type="file" accept="image/*" multiple hidden></label>
     <button class="btn wide" data-feedback>💌 Отправить отзыв</button>
     <button class="btn ghost wide" data-tour-again>❓ Как играть (обучение)</button>
     <button class="btn ghost wide" data-reset>Начать игру заново</button>`;
@@ -872,6 +874,30 @@ function deviceName() {
   return (m ? m[0].replace(/_/g, '.') : ua.slice(0, 60)) + ` · экран ${screen.width}x${screen.height}`;
 }
 const FEEDBACK_URL = 'https://lazy.vazuza.love/game/feedback';   // relay of the family bot: goes straight to Maria's Telegram
+// pictures for the feedback: shrunk to <= 1280 px JPEG in the browser before sending
+let fbPics = [];
+function drawFbPics() {
+  const el = $('#fb-pics'); if (!el) return;
+  el.innerHTML = fbPics.map((d, k) => `<div class="fb-pic"><img src="${d}" alt=""><button class="x" data-fb-del="${k}">✕</button></div>`).join('');
+}
+function shrinkImage(file) {
+  return new Promise((ok, bad) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, 1280 / Math.max(im.naturalWidth, im.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      ok(c.toDataURL('image/jpeg', 0.82));
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); bad(new Error('image')); };
+    im.src = url;
+  });
+}
+document.addEventListener('change', async (e) => {
+  if (e.target.id !== 'fb-file') return;
+  for (const f of [...e.target.files].slice(0, 3 - fbPics.length)) { try { fbPics.push(await shrinkImage(f)); } catch (err) { toast('Не получилось открыть картинку'); } }
+  e.target.value = ''; drawFbPics();
+});
 async function sendFeedback() {
   const msg = ($('#fb-text').value || '').trim();
   const name = ($('#fb-name').value || '').trim().slice(0, 40);
@@ -887,8 +913,8 @@ ${msg}
 — монет ${fmt(S.coins)}, классов ${built}, выпускников ${S.stats.graduated}, ушли ${S.stats.left || 0}`;
   const btn = document.querySelector('[data-feedback]'); if (btn) { btn.disabled = true; btn.textContent = 'Отправляю…'; }
   try {
-    const r = await fetch(FEEDBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
-    if (r.ok) { $('#fb-text').value = ''; toast('Отзыв отправлен, спасибо! 💜'); if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; } return; }
+    const r = await fetch(FEEDBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, images: fbPics }) });
+    if (r.ok) { $('#fb-text').value = ''; fbPics = []; drawFbPics(); toast('Отзыв отправлен, спасибо! 💜'); if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; } return; }
     if (r.status === 429) { toast('Слишком много отзывов подряд, попробуй через 10 минут'); if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; } return; }
   } catch (e) { /* no network or relay down: fall back to sharing */ }
   if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; }
@@ -1091,8 +1117,9 @@ document.addEventListener('click', (e) => {
   if (d.close !== undefined) { closePanel(); return; }
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.mission !== undefined) { claimMission(d.mission); if (panel === missionsPanel) refreshPanel(); return; }
-  if (t.id === 'btn-settings') { openPanel(settingsPanel); return; }
+  if (t.id === 'btn-settings') { openPanel(settingsPanel); drawFbPics(); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
+  if (d.fbDel !== undefined) { fbPics.splice(+d.fbDel, 1); drawFbPics(); return; }
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
   if (d.cloudLoad !== undefined) { cloudLoad(); return; }
   if (d.cloudCopy !== undefined) { navigator.clipboard?.writeText(cloudCode()).then(() => toast('Код скопирован'), () => window.prompt('Твой код:', cloudCode())); return; }

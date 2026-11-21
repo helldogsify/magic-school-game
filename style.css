@@ -224,3 +224,9 @@ img.em { height: 1.15em; width: 1.15em; vertical-align: -0.2em; margin: 0 .03em;
 @keyframes mpulse { 50% { transform: scale(1.07); } }
 .mbtn .badge { position: absolute; top: -4px; right: -4px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 12px; background: #ff4d6d; color: #fff; font: 800 14px/24px ui-rounded, "Nunito", sans-serif; border: 2px solid #fff; }
 #sheet .qbar .q { font-size: 13.5px; padding: 8px 10px; }
+
+.fb-pics { display: flex; gap: 8px; margin: 8px 0 0; flex-wrap: wrap; }
+.fb-pic { position: relative; width: 72px; height: 72px; border-radius: 12px; overflow: hidden; border: 2px solid #e4d8f7; }
+.fb-pic img { width: 100%; height: 100%; object-fit: cover; }
+.fb-pic .x { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; border-radius: 50%; background: #fffc; font-size: 12px; }
+.fb-add { text-align: center; margin-top: 8px; }
