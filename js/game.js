@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=32';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=32';
+} from './data.js?v=33';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=33';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 32;   // keep equal to the ?v= number in index.html
+const BUILD = 33;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -525,8 +525,14 @@ function drawSign(c, id) {
   signRects.push({ id, x0: sp.x - tw / 2, y0: sp.y - hgt / 2, x1: sp.x + tw / 2, y1: sp.y + hgt / 2 });
   if (ci >= 0) {   // how many wait for this class in the dorm: shows the bottleneck at a glance
     const z = sleepersFor(ci);
-    if (z > 0) { const bx = sp.x + tw / 2 + 4, t = `💤${z}`; c.font = '800 11px ui-rounded,"Nunito","Segoe UI",sans-serif'; const bw = 34;
-      c.fillStyle = '#5b7fd6'; c.beginPath(); c.roundRect(bx, sp.y - 10, bw, 20, 10); c.fill(); text(t, bx + bw / 2, sp.y + 0.5, 11, '#ffffff', c); }
+    if (z > 0) {
+      const bx = sp.x + tw / 2 + 4, t = `💤 ${z} ждут`; c.font = '800 11px ui-rounded,"Nunito","Segoe UI",sans-serif';
+      const bw = c.measureText(`${z} ждут`).width + 30;
+      c.save(); c.shadowColor = '#3a2f4a44'; c.shadowBlur = 5; c.fillStyle = '#ffffff'; c.beginPath(); c.roundRect(bx, sp.y - 11, bw, 22, 11); c.fill(); c.restore();
+      c.strokeStyle = '#5b7fd6'; c.lineWidth = 2; c.beginPath(); c.roundRect(bx, sp.y - 11, bw, 22, 11); c.stroke();
+      text(t, bx + bw / 2, sp.y + 0.5, 11, '#3d5fb8', c);
+      signRects.push({ id, x0: bx, y0: sp.y - 11, x1: bx + bw, y1: sp.y + 11 });   // the badge opens the class too
+    }
   }
 }
 const SIGN_BG = { REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f' };
