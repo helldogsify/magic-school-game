@@ -181,3 +181,5 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #stage { background: #a9d98f; }
 
 .fb { width: 100%; border: 2px solid #e4d8f7; border-radius: 14px; padding: 10px; font: inherit; font-size: 15px; color: var(--ink); background: #faf6ff; resize: none; user-select: text; -webkit-user-select: text; }
+
+input.fb { margin-bottom: 8px; }

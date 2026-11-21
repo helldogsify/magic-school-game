@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=15';
+} from './data.js?v=16';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 15;   // keep equal to the ?v= number in index.html
+const BUILD = 16;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -639,6 +639,7 @@ function settingsPanel() {
     <p class="muted">Версия ${VERSION} (сборка ${BUILD}). Это тестовая версия, картинки пока не все.</p>
     <p>Экзаменов сдано: ${S.stats.passed} · не сдано: ${S.stats.failed} · выпускников: ${S.stats.graduated}</p>
     <h3>Отзыв</h3>
+    <input id="fb-name" class="fb" placeholder="Твоё имя" value="${(localStorage.getItem('magicschool.name') || '').replace(/"/g, '&quot;')}">
     <textarea id="fb-text" class="fb" rows="4" placeholder="Что понравилось? Что сломалось или было непонятно?"></textarea>
     <button class="btn wide" data-feedback>💌 Отправить отзыв</button>
     <button class="btn ghost wide" data-reset>Начать игру заново</button>`;
@@ -649,21 +650,29 @@ function deviceName() {
   const m = ua.match(/iPhone OS [\d_]+|iPad; CPU OS [\d_]+|Android [\d.]+[^;)]*;?[^;)]*/);
   return (m ? m[0].replace(/_/g, '.') : ua.slice(0, 60)) + ` · экран ${screen.width}x${screen.height}`;
 }
+const FEEDBACK_URL = 'https://lazy.vazuza.love/game/feedback';   // relay of the family bot: goes straight to Maria's Telegram
 async function sendFeedback() {
   const msg = ($('#fb-text').value || '').trim();
+  const name = ($('#fb-name').value || '').trim().slice(0, 40);
   if (!msg) { toast('Напиши пару слов в поле отзыва'); return; }
+  localStorage.setItem('magicschool.name', name);
   const built = S.classes.filter((c) => c.built).length;
-  const text = `Отзыв о «Школе магии»
+  const text = `Отзыв о «Школе магии» от ${name || 'без имени'}:
 
 ${msg}
 
 — версия ${VERSION} (сборка ${BUILD})
 — ${deviceName()}
 — монет ${fmt(S.coins)}, классов ${built}, выпускников ${S.stats.graduated}, ушли ${S.stats.left || 0}`;
+  const btn = document.querySelector('[data-feedback]'); if (btn) { btn.disabled = true; btn.textContent = 'Отправляю…'; }
   try {
-    if (navigator.share) { await navigator.share({ text }); toast('Спасибо за отзыв! 💜'); return; }
-  } catch (e) { if (e && e.name === 'AbortError') return; }
-  try { await navigator.clipboard.writeText(text); toast('Отзыв скопирован: вставь его в сообщение автору игры'); }
+    const r = await fetch(FEEDBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+    if (r.ok) { $('#fb-text').value = ''; toast('Отзыв отправлен, спасибо! 💜'); if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; } return; }
+    if (r.status === 429) { toast('Слишком много отзывов подряд, попробуй через 10 минут'); if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; } return; }
+  } catch (e) { /* no network or relay down: fall back to sharing */ }
+  if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; }
+  try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(text); toast('Не получилось отправить: отзыв скопирован, вставь его в сообщение автору'); }
   catch (e) { window.prompt('Скопируй отзыв и отправь автору игры:', text); }
 }
 
