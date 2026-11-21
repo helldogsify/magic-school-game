@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=31';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=31';
+} from './data.js?v=32';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=32';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 31;   // keep equal to the ?v= number in index.html
+const BUILD = 32;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -274,21 +274,30 @@ function seat(a, i, d) {
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
-  const bonus = a.prepared ? 0.15 : 0; a.prepared = false;
+  const bonus = a.prepared ? libBonus() : 0; a.prepared = false;
   if (Math.random() < Math.min(0.99, success(i) + bonus)) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
 const LS = SLOTS.LIB;
-const LIB_SPOTS = []; for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) LIB_SPOTS.push({ x: LS.x0 + 1.2 + c * 1.25, y: LS.y0 + 2.4 + r * 1.9 });
-const LIB_TIME = 6;
+// 16 reading places (4x4); upgrades open more of them, speed up reading and raise the exam bonus
+const LIB_SPOTS = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) LIB_SPOTS.push({ x: LS.x0 + 1.1 + c * 1.3, y: LS.y0 + 1.5 + r * 1.2 });
+const MAX_LIB_SEATS = 16, MAX_LIB_LVL = 10;
+const libUp = () => (S.libUp ||= { seats: 1, speed: 1, bonus: 1 });
+const libSeats = () => Math.min(MAX_LIB_SEATS, 7 + libUp().seats);           // 8 seats at level 1
+const libTime = () => 6 * Math.pow(0.88, libUp().speed - 1);
+const libBonus = () => 0.15 + 0.03 * (libUp().bonus - 1);
+const libSeatsCost = () => Math.round(200 * Math.pow(1.6, libUp().seats - 1));
+const libSpeedCost = () => Math.round(150 * Math.pow(1.5, libUp().speed - 1));
+const libBonusCost = () => Math.round(250 * Math.pow(1.55, libUp().bonus - 1));
 const lib = Array(LIB_SPOTS.length).fill(null);
-const libFree = () => lib.indexOf(null) >= 0;
+const libSeat = () => { for (let k = 0; k < libSeats(); k++) if (!lib[k]) return k; return -1; };
+const libFree = () => libSeat() >= 0;
 function freeDeskOf(a) { const i = a.c; deskOcc[i][a.desk] = null; a.desk = -1; pullWaiting(i); }
-function goLibrary(a, i, seatNo = lib.indexOf(null), t = 0) {
+function goLibrary(a, i, seatNo = libSeat(), t = 0) {
   lib[seatNo] = a; a.seat = seatNo; a.goal = { t: 'l', i }; a.c = -1; a.state = 'walk';
   const p = LIB_SPOTS[seatNo];
-  walk(a, p.x, p.y, () => { a.state = 'read'; a.t = t; a.dur = LIB_TIME; a.flip = true; });
+  walk(a, p.x, p.y, () => { a.state = 'read'; a.t = t; a.dur = libTime(); a.flip = true; });
 }
 function finishReading(a) {
   lib[a.seat] = null; a.seat = -1; a.prepared = true;
@@ -479,7 +488,7 @@ function drawSlot(c, id) {
       poly(c, [up(a, rh * 0.35), up(b, rh * 0.35), up(b, rh * 0.8), up(a, rh * 0.8)], '#3f5f4a', '#a77b4f');
     }
     if (id === 'REC') { const q = (x, y) => P(s.x0 + x, s.y0 + y); emoji('🪴', q(0.6, 0.6).x, q(0.6, 0.6).y - 8, 18, c); emoji('🪴', q(9.4, 7.4).x, q(9.4, 7.4).y - 8, 18, c); emoji('🗺️', q(0.2, 2).x, q(0.2, 2).y - 34, 16, c); poly(c, [q(4, 0.3), q(6, 0.3), q(6, 7.7), q(4, 7.7)], '#e9b8c9'); poly(c, [q(2.6, 3.9), q(9.5, 3.9), q(9.5, 5.1), q(2.6, 5.1)], '#c7b5ee88'); }
-    if (id === 'LIB') { const q = (x, y) => P(s.x0 + x, s.y0 + y); [[0.5, 0.5], [2, 0.4], [3.5, 0.4], [5, 0.4]].forEach(([x, y]) => emoji('📚', q(x, y).x, q(x, y).y - 14, 20, c)); emoji('🕯️', q(5.5, 5.5).x, q(5.5, 5.5).y - 8, 14, c); LIB_SPOTS.forEach((p) => { const t = P(p.x, p.y + 0.55); emoji('📖', t.x, t.y - 4, 12, c); }); }
+    if (id === 'LIB') { const q = (x, y) => P(s.x0 + x, s.y0 + y); [[0.5, 0.5], [2, 0.4], [3.5, 0.4], [5, 0.4]].forEach(([x, y]) => emoji('📚', q(x, y).x, q(x, y).y - 14, 20, c)); emoji('🕯️', q(5.5, 5.5).x, q(5.5, 5.5).y - 8, 14, c); LIB_SPOTS.slice(0, libSeats()).forEach((p) => { const t = P(p.x, p.y + 0.55); emoji('📖', t.x, t.y - 4, 12, c); }); }
     if (id === 'DORM2') emoji('🧸', F.x - 20, F.y - 14, 16, c);
     if (id === 'DORM') emoji('🪴', B.x, B.y + 8, 16, c);
   }
@@ -760,6 +769,18 @@ function dormPanel() {
     <p class="muted">У консьержки в очереди: ${dormLine.length}</p>
     ${CLASSES.map((C, i) => [C, sleepersFor(i)]).filter((x) => x[1]).map(([C, n]) => `<p class="muted">Ждут место в классе ${C.emoji} ${C.name}: <b>${n}</b></p>`).join('')}`;
 }
+function libPanel() {
+  const u = libUp(), used = lib.filter(Boolean).length;
+  return `<div class="sh-head"><span class="remoji big">📚</span><div><h2>Библиотека</h2><div class="muted">Здесь готовятся те, кто не сдал экзамен</div></div><button class="x" data-close>✕</button></div>
+    <div class="stats3"><div><span>📖</span><b>${used}/${libSeats()}</b><i>места</i></div><div><span>⏱️</span><b>${sec(libTime())}</b><i>подготовка</i></div><div><span>🎯</span><b>+${Math.round(libBonus() * 100)}%</b><i>к пересдаче</i></div></div>
+    <div class="card up"><span class="remoji">📖</span><div class="grow"><b>Больше мест</b> <span class="muted">${libSeats()}/${MAX_LIB_SEATS}</span><div class="muted">+1 стол: больше учеников готовятся сразу</div></div>
+      ${libSeats() >= MAX_LIB_SEATS ? '<span class="done">макс.</span>' : costBtn('+1', libSeatsCost(), 'libseats')}</div>
+    <div class="card up"><span class="remoji">⏳</span><div class="grow"><b>Быстрее подготовка</b> <span class="muted">ур. ${u.speed}/${MAX_LIB_LVL}</span><div class="muted">−12% времени за книгами</div></div>
+      ${u.speed >= MAX_LIB_LVL ? '<span class="done">макс.</span>' : costBtn('↑', libSpeedCost(), 'libspeed')}</div>
+    <div class="card up"><span class="remoji">💡</span><div class="grow"><b>Лучше подготовка</b> <span class="muted">ур. ${u.bonus}/${MAX_LIB_LVL}</span><div class="muted">+3% к шансу сдать после библиотеки</div></div>
+      ${u.bonus >= MAX_LIB_LVL ? '<span class="done">макс.</span>' : costBtn('↑', libBonusCost(), 'libbonus')}</div>
+    <p class="muted">После библиотеки урок у ученика в 2 раза короче, а шанс сдать выше на ${Math.round(libBonus() * 100)}%.</p>`;
+}
 function receptionPanel() {
   return `<div class="sh-head"><span class="remoji big">🛎️</span><div><h2>Приёмная</h2><div class="muted">Здесь новые ученики поступают в школу</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🪙</span><b>${fee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${sec(procTime())}</b><i>оформление</i></div><div><span>🚶</span><b>${sec(arrivalInterval())}</b><i>новый ученик</i></div></div>
@@ -916,7 +937,7 @@ function openRoom(id) {
     }
     if (id === 'REC') { openPanel(receptionPanel); return; }
     if (id === 'GARDEN') { toast(`🎓 Выпускников: ${S.stats.graduated}`); return; }
-    if (id === 'LIB') { toast(`📚 Библиотека: готовятся к пересдаче ${lib.filter(Boolean).length}/${lib.length}`); return; }
+    if (id === 'LIB') { openPanel(libPanel); return; }
     if (id === 'DORM' || id === 'DORM2') { openPanel(dormPanel); return; }
   }
 }
@@ -946,6 +967,9 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'ads') { if (spend(adsCost())) S.reception.ads++; }
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
+  else if (d.act === 'libseats') { if (libSeats() < MAX_LIB_SEATS && spend(libSeatsCost())) libUp().seats++; }
+  else if (d.act === 'libspeed') { if (libUp().speed < MAX_LIB_LVL && spend(libSpeedCost())) libUp().speed++; }
+  else if (d.act === 'libbonus') { if (libUp().bonus < MAX_LIB_LVL && spend(libBonusCost())) libUp().bonus++; }
   else if (d.act === 'conc') { if (dormUp().conc < MAX_CONC && spend(concCost())) dormUp().conc++; }
   else if (d.act === 'build') { if (spend(CLASSES[i].build)) { st.built = true; st.buildEnd = Date.now() + CLASSES[i].buildTime * 1000; panel = classPanel(i); } }
   else return;
@@ -1091,7 +1115,7 @@ function restoreWorld() {
       if (bed >= 0 && a.state === 'sleep') { dorm[bed] = a; a.bed = bed; const p = DORM_SPOTS[bed]; a.x = p.x; a.y = p.y; continue; }
       if (bed >= 0) { goDorm(a, g.i, bed); continue; }
     }
-    if (g.t === 'l') { const n = (a.seat >= 0 && a.seat < lib.length && !lib[a.seat]) ? a.seat : lib.indexOf(null); if (n >= 0) { goLibrary(a, g.i, n, a.state === 'read' ? a.t : 0); continue; } a.prepared = true; route(a, g.i); continue; }
+    if (g.t === 'l') { const n = (a.seat >= 0 && a.seat < libSeats() && !lib[a.seat]) ? a.seat : libSeat(); if (n >= 0) { goLibrary(a, g.i, n, a.state === 'read' ? a.t : 0); continue; } a.prepared = true; route(a, g.i); continue; }
     if (g.t === 'x') { a.state = 'walk'; walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; }); continue; }
     if (g.t === 's' && isOpen(g.i)) { const d = deskOcc[g.i][g.d] ? freeDesk(g.i) : g.d; if (d >= 0 && d < S.classes[g.i].desks) seat(a, g.i, d); else goClass(a, g.i); }
     else if (g.t === 'c' && isOpen(g.i)) goClass(a, g.i);
