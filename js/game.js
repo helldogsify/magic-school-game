@@ -2,7 +2,7 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js';
+} from './data.js?v=3';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.2';
