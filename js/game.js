@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=77';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=77';
+} from './data.js?v=78';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=78';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 77;   // keep equal to the ?v= number in index.html
+const BUILD = 78;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -122,7 +122,7 @@ const DECOR = { chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 
 const PROP_H = { tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=77`; parts[k + '/' + n] = im;
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=78`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -585,8 +585,8 @@ function inspResultPanel() {
 const mmss = (x) => `${Math.floor(Math.max(0, x) / 60)}:${String(Math.floor(Math.max(0, x) % 60)).padStart(2, '0')}`;
 function calmBlock() {
   return calm()
-    ? `<p class="muted">Спокойный режим включён: инспектор не приходит, новые классы строятся без звёзд. Новых звёзд в этом режиме не будет.</p><button class="btn ghost wide" data-calm="0">🧐 Выключить спокойный режим</button>`
-    : `<p class="muted">В спокойном режиме инспектор не приходит: никаких проверок и штрафов. Новые классы строятся без звёзд, но и новых звёзд не будет. Включить и выключить можно в любой момент.</p><button class="btn ghost wide" data-calm="1">😌 Включить спокойный режим</button>`;
+    ? `<p class="muted">Спокойный режим включён: инспектор не приходит, проверок и штрафов нет. Звёзды школы в этом режиме не появляются — когда захочешь их заработать (они нужны для новых классов), выключи спокойный режим.</p><button class="btn ghost wide" data-calm="0">🧐 Выключить спокойный режим</button>`
+    : `<p class="muted">В спокойном режиме инспектор не приходит: никаких проверок и штрафов, но и новых звёзд школы не будет. Звёзды нужны для новых классов — зарабатывай их, когда есть настроение. Включить и выключить можно в любой момент.</p><button class="btn ghost wide" data-calm="1">😌 Включить спокойный режим</button>`;
 }
 function inspPanel() {
   const I = insp(), c = I.cur;
@@ -1377,11 +1377,11 @@ function buildPanel(i) {
     return `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">Новый класс</div></div><button class="x" data-close>✕</button></div>
       <p>Ученики будут приходить сюда после предыдущего урока. Плата за урок: <b>🪙${fmt(C.tuition)}</b>.</p>
       <p class="muted">Стройка займёт ${C.buildTime >= 60 ? Math.round(C.buildTime / 60) + ' мин' : C.buildTime + ' с'}.</p>
-      ${starsNeed(i) > schoolStars() ? `<p class="muted">Нужно звёзд школы: <b>⭐ ${schoolStars()}/${starsNeed(i)}</b>. Звёзды дают проверки инспектора 🧐.</p>` : ''}
+      ${starsNeed(i) > schoolStars() ? `<p class="muted">Нужно звёзд школы: <b>⭐ ${schoolStars()}/${starsNeed(i)}</b>. Звёзды дают проверки инспектора 🧐${calm() ? ' — выключи спокойный режим в ⚙️, чтобы он приходил' : ''}.</p>` : ''}
       <button class="btn wide" data-cost="${C.build}" data-act="build" data-i="${i}" ${starsNeed(i) > schoolStars() ? 'disabled' : ''}>Построить <span class="cost">🪙${fmt(C.build)}</span></button>`;
   };
 }
-const starsNeed = (i) => (WORLD === 1 && !calm() ? [0, 0, 0, 1, 3, 5][i] || 0 : 0);   // calm mode: no stars needed   // charms 1, flight 3, elements 5 stars (classes already built stay)
+const starsNeed = (i) => (WORLD === 1 ? [0, 0, 0, 1, 3, 5][i] || 0 : 0);   // stars are needed in calm mode too: the player turns the inspector on when in the mood to earn them (her ruling 2026-11-21)   // charms 1, flight 3, elements 5 stars (classes already built stay)
 function settingsPanel() {
   return `<div class="sh-head"><h2>Настройки</h2><button class="x" data-close>✕</button></div>
     <p class="muted">Версия ${VERSION} (сборка ${BUILD}). Это тестовая версия, картинки пока не все. Значки: Twemoji (CC-BY 4.0).</p>
