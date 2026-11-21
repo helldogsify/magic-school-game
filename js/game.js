@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=110';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=110';
+} from './data.js?v=111';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=111';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 110;   // keep equal to the ?v= number in index.html
+const BUILD = 111;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -175,7 +175,7 @@ const DECOR = { portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3
 const PROP_H = { desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=110`; parts[k + '/' + n] = im;
+  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=111`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
@@ -308,6 +308,18 @@ function teacherGlow(tp, hh, col = 'rgba(255,244,205,0.6)') {   // soft light ar
   const q = P(tp.x, tp.y), g = ctx.createRadialGradient(q.x, q.y - hh * 0.5, 2, q.x, q.y - hh * 0.5, hh * 0.75);
   g.addColorStop(0, col); g.addColorStop(1, 'rgba(255,240,200,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.x, q.y - hh * 0.5, hh * 0.75, 0, Math.PI * 2); ctx.fill();
 }
+// the secretary leaves the counter only while nobody waits (her idea 2026-11-21): she pins notes on the board, then comes back
+let secIdle = 0, secLast = 0, secU = 0;
+function secretaryPos() {
+  const now = performance.now() / 1000, dt = Math.min(0.2, now - (secLast || now)); secLast = now;
+  const busy = processing || queue.some((q) => q.state === 'queue');   // only someone already standing at the counter calls her back
+  secIdle = busy ? 0 : secIdle + dt;
+  const target = !busy && secIdle > 3 ? 1 : 0, sp = target ? 1 / 2.5 : 1 / 1.4;     // waits 3 s, strolls out in 2.5 s, hurries back in 1.4 s
+  secU = target > secU ? Math.min(1, secU + sp * dt) : Math.max(0, secU - sp * dt);
+  const s = SLOTS.REC, home = { x: OFFICER.x, y: OFFICER.y }, board = { x: s.x0 + 3.6, y: s.y0 + 0.9 };
+  const k = 0.5 - 0.5 * Math.cos(secU * Math.PI);
+  return { x: home.x + (board.x - home.x) * k, y: home.y + (board.y - home.y) * k, moving: secU > 0 && secU < 1 && secU !== target, left: target === 0 };
+}
 function teacherWalk(i) {
   const b = teacherPos(i), s = slotOf(i), T = performance.now() / 1000 + i * 3.7;
   const span = Math.max(0.8, Math.min(2.2, (s.x1 - s.x0) / 2 - 1.4));
@@ -337,8 +349,9 @@ function spawn() {
   agents.push(a); queue.push(a); goQueue(a);
 }
 function goQueue(a) { const p = queueSlot(queue.indexOf(a)); a.goal = { t: 'q' }; a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'queue'; }); }
-function startNextProcess() {
+function startNextProcess(live) {
   if (processing || !queue.length) return;
+  if (live && secU > 0.02) return;   // the secretary first walks back to her counter
   const a = queue[0]; if (a.state !== 'queue') return;
   processing = a; procT = 0; a.state = 'process';
 }
@@ -718,7 +731,7 @@ function stepWorld(dt, live = false) {
   stepInspector(dt, live);
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6) spawn(); }
-  startNextProcess();
+  startNextProcess(live);
   if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime()) finishProcess(); }
   stepConcierge(dt);
   wakeSleepers();
@@ -1361,7 +1374,8 @@ function render() {
     poly(ctx, [d, cc, up(cc, h), up(d, h)], '#7d8fb8'); poly(ctx, [cc, b, up(b, h), up(cc, h)], '#6a7ca5'); poly(ctx, [up(a, h), up(b, h), up(cc, h), up(d, h)], '#a9b9dd', '#5d6f98');
     const m = P(DS.x0 + 1.35, DS.y0 + 1.2); emoji('🗝️', m.x, m.y - 15, 10); const n = P(DS.x0 + 1.35, DS.y0 + 1.8); emoji('📒', n.x, n.y - 15, 10);
   });
-  add(OFFICER.x, OFFICER.y, () => drawCreature(staffSprite('secretary') ? { ...officer, sp: 'staff_secretary' } : officer, OFFICER.x, OFFICER.y, staffSprite('secretary') ? 52 : 34, (x, y) => {
+  const so = secretaryPos();
+  add(so.x, so.y, () => drawCreature(staffSprite('secretary') ? { ...officer, sp: 'staff_secretary', flip: so.left, path: so.moving ? [1] : [] } : officer, so.x, so.y, staffSprite('secretary') ? 52 : 34, (x, y) => {
     if (!staffSprite('secretary')) drawHat(x, y - 32, '#d14f8f');
     if (processing) ring(x + 18, y - 30, Math.min(1, procT / procTime()), '#ff8a3d');
   }));
@@ -2266,7 +2280,7 @@ watchEmoji();
 load();
 relayout();   // the map depends on the saved class sizes
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
-window.__test = { P, SLOTS, focusTile, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
