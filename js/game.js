@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=126';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=126';
+} from './data.js?v=127';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=127';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 126;   // keep equal to the ?v= number in index.html
+const BUILD = 127;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -803,8 +803,7 @@ function drawSecretary(so) {
   const bob = so.moving && so.pose !== 'carry' ? Math.abs(Math.sin(performance.now() / 260)) * 1.2 : 0;   // no shaking with the stack of papers (her report 2026-11-21); a slow gentle step otherwise
   ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(q.x, q.y, H * 0.3, H * 0.12, 0, 0, Math.PI * 2); ctx.fill();
   ctx.drawImage(im, q.x - w / 2, q.y - lift - h - bob + (so.hit || 0), w, h);
-  if (so.pose === 'write') emoji('✏️', q.x + w * 0.3 + Math.sin(performance.now() / 90) * 3, q.y - lift - h * 0.35, 13);   // the pencil moves: she is writing
-  if (so.pose === 'pin') emoji('📌', q.x + w * 0.35, q.y - h * 1.02, 10);
+  // no extra emoji: the pose pictures already show the pencil and the pin (her report 2026-11-21)
 }
 for (const f of STAFF_OTHER) { const im = new Image(); im.src = `assets/staff/${f}.png?v=1`; sprites['staff_' + f] = im; }
 const staffSprite = (f) => WORLD === 1 && STAFF_OTHER.includes(f) && sprites['staff_' + f]?.naturalWidth;
