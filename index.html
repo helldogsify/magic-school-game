@@ -29,8 +29,7 @@
 <div id="fx"></div>
 <script>
 // Show any startup error on screen so a phone screenshot tells what broke.
-function showErr(m){var d=document.getElementById('err')||document.body.appendChild(Object.assign(document.createElement('pre'),{id:'err'}));d.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#fff;color:#b00;font:12px monospace;white-space:pre-wrap;padding:8px;border-radius:8px';d.textContent+='Ошибка: '+m+'
-';}
+function showErr(m){var d=document.getElementById('err')||document.body.appendChild(Object.assign(document.createElement('pre'),{id:'err'}));d.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#fff;color:#b00;font:12px monospace;white-space:pre-wrap;padding:8px;border-radius:8px';d.textContent+='Ошибка: '+m+String.fromCharCode(10);}
 window.addEventListener('error',function(e){showErr(e.message+' @'+(e.filename||'').split('/').pop()+':'+e.lineno);});
 window.addEventListener('unhandledrejection',function(e){showErr(String(e.reason));});
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h){this.rect(x,y,w,h);};}
