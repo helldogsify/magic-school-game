@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=16';
+} from './data.js?v=17';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 16;   // keep equal to the ?v= number in index.html
+const BUILD = 17;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -731,6 +731,13 @@ scroller.addEventListener('wheel', (e) => {   // desktop: Ctrl + wheel
 // ======================= input =======================
 let down = null;
 scroller.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, sl: scroller.scrollLeft, st: scroller.scrollTop }; });
+// PC: drag the map with the mouse (touch screens already pan natively)
+scroller.addEventListener('pointermove', (e) => {
+  if (!down || e.pointerType !== 'mouse' || !(e.buttons & 1)) return;
+  scroller.scrollLeft = down.sl - (e.clientX - down.x); scroller.scrollTop = down.st - (e.clientY - down.y);
+  scroller.style.cursor = 'grabbing';
+});
+window.addEventListener('pointerup', () => { scroller.style.cursor = ''; });
 scroller.addEventListener('pointerup', (e) => {
   if (!down) return;
   const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y) + Math.abs(scroller.scrollTop - down.st) + Math.abs(scroller.scrollLeft - down.sl);
