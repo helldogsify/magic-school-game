@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=113';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=113';
+} from './data.js?v=114';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=114';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 113;   // keep equal to the ?v= number in index.html
+const BUILD = 114;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -321,7 +321,7 @@ function secretaryPos() {
   // behind the counter she is never still: she paces along it (papers, the scroll shelf) and turns (her report «всегда стоит на одном месте боком»)
   const T = now % 7, pace = T < 2.5 ? T / 2.5 : T < 3.5 ? 1 : T < 6 ? 1 - (T - 3.5) / 2.5 : 0, pk = (0.5 - 0.5 * Math.cos(pace * Math.PI)) * (1 - k);
   const walkingBehind = (T < 2.5 || (T >= 3.5 && T < 6)) && k < 0.05;
-  return { x: home.x + (board.x - home.x) * k, y: home.y + (board.y - home.y) * k + pk * 1.6, moving: (secU > 0 && secU < 1 && secU !== target) || walkingBehind, left: walkingBehind ? T >= 3.5 : (k < 0.05 ? T >= 6 || T < 1 : target === 0) };
+  return { x: home.x + (board.x - home.x) * k, y: home.y + (board.y - home.y) * k + pk * 1.6, moving: (secU > 0 && secU < 1 && secU !== target) || walkingBehind, left: true };   // always turned toward the queue and the viewer, never to the wall (her report 2026-11-21)
 }
 function teacherWalk(i) {
   const b = teacherPos(i), s = slotOf(i), T = performance.now() / 1000 + i * 3.7;
@@ -768,7 +768,7 @@ const STAFF_ART = { herbs: 'moss', potions: 'bubble', stars: 'lun', charms: 'spa
 const STAFF_H = { moss: 58, bubble: 54, lun: 68, spark: 62, breeze: 56, storm: 68, owl: 60 };   // teachers clearly taller than students (30) — her ruling 2026-11-21
 const STAFF_GLOW = { lun: 'rgba(255,240,190,0.95)' }, STAFF_GLOW_ALL = 'rgba(255,244,205,0.6)';   // every teacher glows softly (her wish 2026-11-21), Lun a bit more   // drawn height: Lun is tall, Bubble small and round
 // school staff outside classes (secretary, concierge, director): own sprites, one by one with her approval
-const STAFF_OTHER = ['secretary'];
+const STAFF_OTHER = ['secretary', 'concierge'];
 for (const f of STAFF_OTHER) { const im = new Image(); im.src = `assets/staff/${f}.png?v=1`; sprites['staff_' + f] = im; }
 const staffSprite = (f) => WORLD === 1 && STAFF_OTHER.includes(f) && sprites['staff_' + f]?.naturalWidth;
 for (const [k, f] of Object.entries(STAFF_ART)) { const im = new Image(); im.src = `assets/staff/${f}.png?v=3`; sprites['staff_' + k] = im; }
@@ -1368,8 +1368,8 @@ function render() {
     for (const o of (T.extras ? T.extras(s) : [])) { const oo = { ...o, th }; add(oo.x, oo.y, () => drawProp(oo)); }
   }
   // reception desk + officer
-  add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(concierge, CONCIERGE.x, CONCIERGE.y, 34, (x, y) => {
-    drawHat(x, y - 32, '#2f9e7a');
+  add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(staffSprite('concierge') ? { ...concierge, sp: 'staff_concierge', flip: false } : concierge, CONCIERGE.x, CONCIERGE.y, staffSprite('concierge') ? 50 : 34, (x, y) => {
+    if (!staffSprite('concierge')) drawHat(x, y - 32, '#2f9e7a');
     if (checkin) ring(x + 18, y - 30, Math.min(1, checkinT / checkinTime()), '#2f9e7a');
   }));
   if (!themeOf('DORM')) add(CONCIERGE.x + 0.75, CONCIERGE.y, () => {
