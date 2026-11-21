@@ -72,7 +72,7 @@ const MAGIC_CLASSES = [
 // The current world is chosen before the game starts (switching worlds reloads the page).
 export const WORLDS = [
   { id: 1, name: 'Школа магии', emoji: '🪄', desc: 'Травы, зелья, звёзды и чары', need: null },
-  { id: 2, name: 'Подземное королевство гномов', emoji: '⛏️', desc: 'Руны, кузни, тоннели и самоцветы', need: { grads: 10000, coins: 50000000 } },
+  { id: 2, name: 'Подземное королевство гномов', emoji: '⛏️', desc: 'Руны, кузни, тоннели и самоцветы', need: { grads: 10000, coins: 50000000, stars: 8 } },
   { id: 3, name: 'Небесный город', emoji: '☁️', desc: 'Скоро: облака, ветра и драконы', soon: true },
   { id: 4, name: 'Город будущего', emoji: '🤖', desc: 'Скоро: роботы, звездолёты и нейромагия', soon: true },
 ];
