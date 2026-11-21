@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=42';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=42';
+} from './data.js?v=43';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=43';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 42;   // keep equal to the ?v= number in index.html
+const BUILD = 43;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -489,6 +489,33 @@ function roomColors(id) {
   if (id === 'LIB') return { floor: '#e9dccb', wall: '#c9a27a' };
   return { floor: '#bfe6a6', wall: null };
 }
+// ---- one wall rule for the whole school ----
+// tall wall: outer walls and walls with nothing behind them (plaster in the room colour, windows, white cap, baseboard)
+function tallWall(c, a, b, color, shadeD = 0, windows = true) {
+  const h = WALLH * 0.72, A2 = up(a, h), B2 = up(b, h);
+  poly(c, [a, b, B2, A2], shadeD ? shade(color, shadeD) : color, '#00000014');
+  poly(c, [a, b, up(b, 6), up(a, 6)], shade(color, -40));                                   // baseboard
+  poly(c, [A2, B2, up(b, h + 4), up(a, h + 4)], '#ffffff');                                  // cap
+  if (!windows) return;
+  const len = Math.hypot(b.x - a.x, b.y - a.y) / (HW * 1.18);                               // tiles along the wall
+  const n = Math.max(1, Math.floor(len / 3));
+  for (let k = 0; k < n; k++) {
+    const t0 = (k + 0.5) / n - 0.09, t1 = (k + 0.5) / n + 0.09, lerp = (t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    const p0 = lerp(t0), p1 = lerp(t1), lo = h * 0.32, hi = h * 0.78;
+    poly(c, [up(p0, lo), up(p1, lo), up(p1, hi), up(p0, hi)], '#fff7dc', '#a77b4f');     // window with a warm glow
+    const m = lerp((t0 + t1) / 2); c.strokeStyle = '#a77b4f'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(up(m, lo).x, up(m, lo).y); c.lineTo(up(m, hi).x, up(m, hi).y); c.stroke();
+  }
+}
+// low partition: a wooden railing towards a hall or a room behind, so the view stays open
+function railing(c, a, b) {
+  const h = WALLH * 0.2, len = Math.hypot(b.x - a.x, b.y - a.y) / (HW * 1.18), n = Math.max(2, Math.round(len * 1.5));
+  for (let k = 0; k <= n; k++) {
+    const t = k / n, p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+    c.fillStyle = '#c99a68'; c.fillRect(p.x - 1.5, p.y - h, 3, h);
+  }
+  poly(c, [up(a, h), up(b, h), up(b, h + 4), up(a, h + 4)], '#b98457', '#8a5f3a');
+  poly(c, [a, b, up(b, 3), up(a, 3)], '#a57b4f');
+}
 function drawSlot(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id);
   const L = P(s.x0, s.y1), B = P(s.x0, s.y0), R = P(s.x1, s.y0), F = P(s.x1, s.y1);
@@ -523,14 +550,15 @@ function drawSlot(c, id) {
       poly(c, [{ x: L.x - 60, y: F.y + 60 }, { x: L.x - 60, y: L.y - hl }, { x: B.x, y: B.y - Math.min(hl, hr) }, { x: R.x + 60, y: R.y - hr }, { x: R.x + 60, y: F.y + 60 }]); c.clip();
     }
     c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
+    if (s.cut.left) railing(c, L, B);
+    if (s.cut.right) railing(c, B, R);
   } else {
     poly(c, [L, B, R, F], col.floor, '#00000012');
     c.strokeStyle = '#0000000d'; c.lineWidth = 1;
     for (let k = 1; k < ROOM; k++) { const a = P(s.x0 + k, s.y0), b = P(s.x0 + k, s.y1); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); }
-    const lh = s.cut.left ? 8 : WALLH * 0.7, rh = s.cut.right ? 8 : WALLH * 0.7;
-    poly(c, [L, B, up(B, lh), up(L, lh)], shade(col.wall, -14));
-    poly(c, [B, R, up(R, rh), up(B, rh)], col.wall);
-    c.fillStyle = '#ffffff'; poly(c, [up(L, lh), up(B, lh), up(B, lh + 3), up(L, lh + 3)], '#fff'); poly(c, [up(B, rh), up(R, rh), up(R, rh + 3), up(B, rh + 3)], '#fff');
+    const lh = s.cut.left ? 8 : WALLH * 0.72, rh = s.cut.right ? 8 : WALLH * 0.72;
+    if (s.cut.left) railing(c, L, B); else tallWall(c, L, B, col.wall, -14);
+    if (s.cut.right) railing(c, B, R); else tallWall(c, B, R, col.wall, 0, ci < 0);
     if (ci >= 0 && !s.cut.right) { // chalkboard on the right wall
       const a = P(s.x0 + 2.2, s.y0), b = P(s.x0 + 4.6, s.y0);
       poly(c, [up(a, rh * 0.35), up(b, rh * 0.35), up(b, rh * 0.8), up(a, rh * 0.8)], '#3f5f4a', '#a77b4f');
@@ -546,9 +574,9 @@ function drawSlot(c, id) {
 // outer stone walls of the building where no room supplies a wall: [x0, y0, x1, y1, height]
 // OUTER_WALLS come from genLayout()
 function wallSeg([x0, y0, x1, y1, k]) {
-  const a = P(x0, y0), b = P(x1, y1), h = WALLH * 0.72 * k;
-  poly(ctx, [a, b, up(b, h), up(a, h)], x0 === x1 ? '#b7a3cf' : '#cbb9e2', '#8f7aa8');
-  poly(ctx, [up(a, h), up(b, h), up(b, h + 3), up(a, h + 3)], '#fff');
+  const a = P(x0, y0), b = P(x1, y1);
+  if (k < 0.5) { railing(ctx, a, b); return; }
+  tallWall(ctx, a, b, '#cbb9e2', x0 === x1 ? -14 : 0, true);
 }
 function drawGate(c) {
   const g = P(13, GATE_TILE.y - 1), g2 = P(16, GATE_TILE.y - 1);
