@@ -201,3 +201,6 @@ input.fb { margin-bottom: 8px; }
 .cloud-code { font: 800 26px ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 2px; text-align: center; background: #f3edff; color: #5a3fb0; border-radius: 14px; padding: 12px; margin: 6px 0; user-select: text; -webkit-user-select: text; }
 
 #tour.under-panel { display: none; }
+
+img.em { height: 1.15em; width: 1.15em; vertical-align: -0.2em; margin: 0 .03em; }
+.res .ico img.em, #tabs img.em { height: 1em; width: 1em; }

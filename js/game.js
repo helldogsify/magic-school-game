@@ -2,11 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=23';
+} from './data.js?v=24';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji } from './emoji.js?v=24';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 23;   // keep equal to the ?v= number in index.html
+const BUILD = 24;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -354,8 +355,26 @@ function resize() {
   staticKey = '';
 }
 function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
-function emoji(e, x, y, size, c = ctx) { c.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(e, x, y); }
-function text(t, x, y, size, color, c = ctx, weight = 800) { c.font = `${weight} ${size}px ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = color; c.fillText(t, x, y); }
+// emoji are drawn from the bundled Twemoji pictures (same look on every device); text may contain emoji
+function emoji(e, x, y, size, c = ctx) {
+  const im = emojiImage(e);
+  if (im) { const k = size * 1.15; c.drawImage(im, x - k / 2, y - k / 2, k, k); return; }
+  c.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(e, x, y);
+}
+function text(t, x, y, size, color, c = ctx, weight = 800) {
+  c.font = `${weight} ${size}px ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",sans-serif`; c.textBaseline = 'middle'; c.fillStyle = color;
+  EMOJI_RE.lastIndex = 0;
+  if (!EMOJI_RE.test(t)) { c.textAlign = 'center'; c.fillText(t, x, y); return; }
+  // split into text and emoji parts, measure, then draw left to right around the centre
+  const parts = []; let last = 0, m; EMOJI_RE.lastIndex = 0;
+  while ((m = EMOJI_RE.exec(t))) { if (m.index > last) parts.push([0, t.slice(last, m.index)]); parts.push([1, m[0]]); last = m.index + m[0].length; }
+  if (last < t.length) parts.push([0, t.slice(last)]);
+  const em = size * 1.15, wOf = (p) => (p[0] ? em : c.measureText(p[1]).width);
+  let cx = x - parts.reduce((a, p) => a + wOf(p), 0) / 2;
+  c.textAlign = 'left';
+  for (const p of parts) { const w = wOf(p); if (p[0]) emoji(p[1], cx + w / 2, y, size, c); else c.fillText(p[1], cx, y); cx += w; }
+  c.textAlign = 'center';
+}
 function poly(c, pts, fill, stroke) { c.beginPath(); pts.forEach((p, k) => (k ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y))); c.closePath(); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.stroke(); } }
 const up = (p, h) => ({ x: p.x, y: p.y - h });
 
@@ -715,7 +734,7 @@ function buildPanel(i) {
 }
 function settingsPanel() {
   return `<div class="sh-head"><h2>Настройки</h2><button class="x" data-close>✕</button></div>
-    <p class="muted">Версия ${VERSION} (сборка ${BUILD}). Это тестовая версия, картинки пока не все.</p>
+    <p class="muted">Версия ${VERSION} (сборка ${BUILD}). Это тестовая версия, картинки пока не все. Значки: Twemoji (CC-BY 4.0).</p>
     <p>Экзаменов сдано: ${S.stats.passed} · не сдано: ${S.stats.failed} · выпускников: ${S.stats.graduated}</p>
     ${cloudBlock()}
     <h3>Отзыв</h3>
@@ -1059,6 +1078,8 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => { if (S) save(); });
 window.addEventListener('resize', resize);
 
+preloadEmoji();
+watchEmoji();
 load();
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
 window.__test = { P, get scale() { return scale; } };   // test hook: world -> screen
