@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=66';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=66';
+} from './data.js?v=67';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=67';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 66;   // keep equal to the ?v= number in index.html
+const BUILD = 67;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -98,7 +98,6 @@ const depthOf = (i) => ROOM + 2 * (sizeOf(i) - 1);                // 6, 8, 10 ti
 const maxDesksOf = (i) => (CLASSES[i].final ? 21 : 6 + 4 * (sizeOf(i) - 1));   // 6, 10, 14; the wide exam hall: 21 (3 rows of 7)
 const MAX_DESKS_ABS = 21;
 const ART = {                                               // room pictures with floor corners in image px
-  potions: { src: 'assets/rooms/potions.webp', L: [102, 651], R: [936, 650], F: [511, 895], floor: '#c9b6b8' },
   DORM: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898], floor: '#d7e3ea' },
   DORM2: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898], floor: '#d7e3ea' },
   REC: { src: 'assets/rooms/reception.webp', L: [102, 667], R: [920, 650], F: [512, 900] },
@@ -108,14 +107,18 @@ const ART = {                                               // room pictures wit
 const THEMES = {
   herbs: { dir: 'assets/parts/herbs/', wallTiles: 4, floorTiles: 3, board: 'board',
     decor: ['window', 'herbs_rack', 'clock', 'shelf', 'window2'], iso: true, back: ['plant', 'lavender'], side: ['bookcase', 'table'], front: ['magic_pot', 'basket', 'barrel'], rug: 'rug' },
+  // Potions (her wish 2026-11-21: no school board, students brew at their own cauldrons instead of sitting at desks)
+  potions: { dir: 'assets/parts/potions/', wallTiles: 4, floorTiles: 3, board: 'poster', isoOnly: true, iso: true,
+    decor: ['window', 'shelf', 'herbs_rack', 'cabinet', 'round_window'], back: ['barrel', 'barrel'], side: ['bookcase', 'table'], front: [], rug: 'rug',
+    stations: ['station_pink', 'station_green', 'station_purple'], teacherProp: 'big_cauldron' },
 };
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
-const DECOR = { board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
+const DECOR = { poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
-const PROP_H = { plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
+const PROP_H = { station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
-for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.board, t.rug, ...t.decor, ...t.back, ...t.side, ...t.front, ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=66`; parts[k + '/' + n] = im;
+for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=67`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -657,7 +660,7 @@ function texWall(c, th, e, a, b, h) {
 // a flat sprite hung on a back wall: side 'y0' runs along x (back-right wall), 'x0' along y (back-left wall)
 // iso_* sprites are drawn in the room's own angle for the back-left wall (with depth: shelves stick out, windows are set in);
 // on the back-right wall they are mirrored. They are placed as they are, not skewed.
-const ISO_W = { board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
+const ISO_W = { poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
 function hangIso(c, th, n, s, side, t0, lo) {
   const im = part(th, 'iso_' + n); if (!im) return false;
   const d = DECOR[n], w = ISO_W[n] || d.w, sw = w * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - w * HH);
@@ -719,8 +722,10 @@ function roomProps(i) {
   const rows = Math.ceil(maxDesksOf(i) / cols), free = s.y0 + 2.5 + (rows - 1) * 1.2 + 1.0;   // first free row behind the last seats
   const out = [{ n: T.back[0], x: s.x0 + 0.45, y: s.y0 + 0.45 }, { n: T.back[1], x: s.x1 - 0.5, y: s.y0 + 0.5 }, { n: T.side[0], x: s.x0 + 0.42, y: s.y0 + 1.7 }];
   if (s.y1 - free >= 1.2) out.push({ n: T.side[1], x: s.x0 + 0.5, y: free + 0.45, flip: true });
-  out.push({ n: T.front[0], x: s.x0 + 0.5, y: s.y1 - 0.45 }, { n: T.front[1], x: s.x1 - 0.55, y: s.y1 - 0.5 });
-  if (s.y1 - free >= 2.4) out.push({ n: T.front[2], x: s.x1 - 0.6, y: free + 0.5 });
+  if (T.front[0]) out.push({ n: T.front[0], x: s.x0 + 0.5, y: s.y1 - 0.45 });
+  if (T.front[1]) out.push({ n: T.front[1], x: s.x1 - 0.55, y: s.y1 - 0.5 });
+  if (T.front[2] && s.y1 - free >= 2.4) out.push({ n: T.front[2], x: s.x1 - 0.6, y: free + 0.5 });
+  if (T.teacherProp) { const tp = teacherPos(i); out.push({ n: T.teacherProp, x: tp.x - 1.15, y: tp.y + 0.15 }); }
   return out.map((o) => ({ ...o, th }));
 }
 function drawProp(o) {
@@ -981,7 +986,8 @@ function render() {
     }
     const tp = teacherPos(i);
     add(tp.x, tp.y, () => drawCreature(staff[(i + 1) % staff.length], tp.x, tp.y, 34, (x, y) => drawHat(x, y - 32, '#6c4fd1')));
-    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); add(p.x, p.y, () => drawDesk(p)); }
+    const thI = themeOf(CLASS_SLOT[i]), stations = thI && THEMES[thI].stations;   // potions: a little cauldron instead of a desk
+    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI }; add(p.x, p.y, () => drawProp(o)); } else add(p.x, p.y, () => drawDesk(p)); }
     for (const o of roomProps(i)) add(o.x, o.y, () => drawProp(o));
     CLASSES[i].items.forEach((it, k) => {
       if (!st.items[k]) return;
@@ -1524,6 +1530,7 @@ document.addEventListener('click', (e) => {
   if (d.fbDel !== undefined) { fbPics.splice(+d.fbDel, 1); drawFbPics(); return; }
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
   if (d.cloudLoad !== undefined) { cloudLoad(); return; }
+  if (d.backupRestore !== undefined) { restoreBackup(); return; }
   if (d.cloudCopy !== undefined) { navigator.clipboard?.writeText(cloudCode()).then(() => toast('Код скопирован'), () => window.prompt('Твой код:', cloudCode())); return; }
   if (d.cloudOff !== undefined) { if (confirm('Отключить облако на этом устройстве? Прогресс здесь останется, просто перестанет сохраняться в облако.')) { localStorage.removeItem(CODE_KEY); cloudState = ''; openPanel(settingsPanel); } return; }
   if (d.tourAgain !== undefined) { closePanel(); showTour(0); return; }
@@ -1588,18 +1595,46 @@ function newCode() {
 }
 const normCode = (t) => { const c = String(t || '').toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/^KOT/, ''); return c.length === 8 ? `KOT-${c.slice(0, 4)}-${c.slice(4)}` : null; };
 let cloudLast = 0, cloudBusy = false, cloudState = '';
+// SAFETY (2026-11-21: a girl lost everything on two devices): progress is never replaced by a smaller one automatically.
+// progressOf() is a number that only grows while someone plays: graduates, newcomers and coins earned, over all worlds.
+function progressOf(bundle) {
+  let o = bundle; if (typeof o === 'string') { try { o = JSON.parse(o); } catch (e) { return 0; } }
+  if (!o) return 0;
+  const saves = o.v === 3 && o.saves ? Object.values(o.saves) : [o];
+  let p = 0;
+  for (const raw of saves) { let x = raw; if (typeof x === 'string') { try { x = JSON.parse(x); } catch (e) { continue; } } const st = (x && x.stats) || {}; p += (st.graduated || 0) * 1000 + (st.enrolled || 0) * 10 + (st.earned || 0); }
+  return p;
+}
+function localBundle() { return { v: 3, meta: readMetaLocal(), saves: Object.fromEntries(WORLDS.map((w) => [saveKeyOf(w.id), w.id === WORLD ? JSON.stringify(S) : localStorage.getItem(saveKeyOf(w.id))]).filter((x) => x[1])) }; }
+function backupLocal(why) {   // the whole local progress is kept before anything replaces it (one copy, the bigger one wins)
+  try {
+    const b = localBundle(), old = JSON.parse(localStorage.getItem('magicschool.backup') || 'null');
+    if (old && progressOf(old.data) > progressOf(b)) return;
+    localStorage.setItem('magicschool.backup', JSON.stringify({ at: Date.now(), why, data: b }));
+  } catch (e) { /* storage full: nothing else to do */ }
+}
 async function cloudPush(force = false) {
-  const code = cloudCode(); if (!code || cloudBusy) return;
+  const code = cloudCode(); if (!code || cloudBusy || noSave) return;   // never while a cloud save is being adopted (reload): that pushed the old empty game
   if (!force && Date.now() - cloudLast < 30_000) return;
   cloudBusy = true; cloudLast = Date.now();
   try {
     save();
-    const all = { v: 3, meta: readMetaLocal(), saves: Object.fromEntries(WORLDS.map((w) => [saveKeyOf(w.id), w.id === WORLD ? JSON.stringify(S) : localStorage.getItem(saveKeyOf(w.id))]).filter((x) => x[1])) };
+    const all = localBundle();
+    // the cloud holds more progress than this device: take it instead of overwriting it
+    const rem = await cloudGet(code).catch(() => undefined);
+    if (rem === undefined) throw new Error('offline');
+    if (rem && rem.data && progressOf(rem.data) > progressOf(all)) { cloudBusy = false; if (!noSave) adopt(rem.data); return; }
     const body = { fields: { data: { stringValue: JSON.stringify(all) }, updated: { integerValue: String(S.last) }, build: { integerValue: String(BUILD) } } };
     const r = await fetch(CLOUD + code, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true });
     cloudState = r.ok ? `сохранено в облако в ${new Date().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}` : `облако не ответило (${r.status})`;
   } catch (e) { cloudState = 'нет сети: сохраню позже'; }
   cloudBusy = false;
+}
+async function cloudForce() {   // after restoring a backup: write it to the cloud even if the cloud has more
+  const code = cloudCode(); if (!code) return;
+  save();
+  const body = { fields: { data: { stringValue: JSON.stringify(localBundle()) }, updated: { integerValue: String(S.last) }, build: { integerValue: String(BUILD) } } };
+  try { await fetch(CLOUD + code, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); } catch (e) { /* later */ }
 }
 async function cloudGet(code) {
   const r = await fetch(CLOUD + code);
@@ -1609,6 +1644,7 @@ async function cloudGet(code) {
   return { data: d.fields?.data?.stringValue, updated: +(d.fields?.updated?.integerValue || 0) };
 }
 function adopt(raw) {   // replace the local save with a cloud one and restart the game on it
+  if (!noSave) backupLocal('cloud');
   noSave = true;
   let o = null; try { o = JSON.parse(raw); } catch (e) { /* bad */ }
   if (o && o.v === 3 && o.saves) { for (const [k, v] of Object.entries(o.saves)) localStorage.setItem(k, v); if (o.meta) localStorage.setItem('magicschool.meta', JSON.stringify(o.meta)); }
@@ -1619,7 +1655,10 @@ async function cloudPull() {   // a newer save made on another device wins
   const code = cloudCode(); if (!code) return false;
   try {
     const rem = await cloudGet(code);
-    if (rem && rem.data && rem.updated > (S.last || 0) + 3000) { adopt(rem.data); return true; }   // updated = time of the last push from any world
+    if (rem && rem.data && rem.updated > (S.last || 0) + 3000) {   // updated = time of the last push from any world
+      if (progressOf(rem.data) >= progressOf(localBundle())) { adopt(rem.data); return true; }
+      cloudPush(true);   // newer but SMALLER progress (an empty game on another device): keep ours and put it back into the cloud
+    }
   } catch (e) { /* offline: keep playing locally */ }
   return false;
 }
@@ -1635,7 +1674,11 @@ async function cloudLoad() {
   let rem = null;
   try { rem = await cloudGet(code); } catch (e) { toast('Нет связи с облаком, попробуй позже'); return; }
   if (!rem || !rem.data) { toast('Такого кода нет. Проверь буквы и цифры'); return; }
-  if (!confirm('Загрузить прогресс по этому коду? Прогресс на этом устройстве заменится.')) return;
+  const gr = (b) => { let o = b; try { o = typeof b === 'string' ? JSON.parse(b) : b; } catch (e) { return 0; } const sv = o && o.v === 3 ? Object.values(o.saves || {}) : [o]; return sv.reduce((n, r) => { try { const x = typeof r === 'string' ? JSON.parse(r) : r; return n + ((x && x.stats && x.stats.graduated) || 0); } catch (e) { return n; } }, 0); };
+  const here = progressOf(localBundle()), there = progressOf(rem.data);
+  const msg = `По коду: ${fmt(gr(rem.data))} выпускников. На этом устройстве: ${fmt(gr(localBundle()))}.
+` + (there < here ? 'ВНИМАНИЕ: по коду прогресса МЕНЬШЕ, чем здесь! Всё равно загрузить? (Твой прогресс отсюда сохранится в запасной копии в ⚙️)' : 'Загрузить прогресс по коду? Прогресс этого устройства сохранится в запасной копии в ⚙️.');
+  if (!confirm(msg)) return;
   localStorage.setItem(CODE_KEY, code);
   adopt(rem.data);
 }
@@ -1645,12 +1688,28 @@ function cloudBlock() {
     <div class="cloud-code">${code}</div>
     <p class="muted">Синхронизация включена${cloudState ? ': ' + cloudState : ''}. На другом устройстве открой ⚙️ и введи этот код — там будет этот же прогресс.</p>
     <button class="btn ghost wide" data-cloud-copy>📋 Скопировать код</button>
-    <button class="btn ghost wide" data-cloud-off>Отключить облако на этом устройстве</button>`;
+    <button class="btn ghost wide" data-cloud-off>Отключить облако на этом устройстве</button>${backupBtn()}`;
   return `<h3>☁️ Облачное сохранение</h3>
     <p class="muted">Сохрани прогресс в облако и получи код. По коду прогресс можно открыть на другом телефоне или компьютере.</p>
     <button class="btn wide" data-cloud-new>☁️ Сохранить в облако и получить код</button>
     <input id="cloud-in" class="fb" placeholder="Есть код? Введи: KOT-XXXX-XXXX" autocapitalize="characters" autocomplete="off">
-    <button class="btn ghost wide" data-cloud-load>Загрузить прогресс по коду</button>`;
+    <button class="btn ghost wide" data-cloud-load>Загрузить прогресс по коду</button>${backupBtn()}`;
+}
+function backupInfo() { try { return JSON.parse(localStorage.getItem('magicschool.backup') || 'null'); } catch (e) { return null; } }
+function backupBtn() {
+  const b = backupInfo(); if (!b) return '';
+  const d = new Date(b.at).toLocaleString('ru', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return `<p class="muted">Запасная копия прогресса этого устройства от ${d}.</p><button class="btn ghost wide" data-backup-restore>↩️ Вернуть запасную копию</button>`;
+}
+function restoreBackup() {
+  const b = backupInfo(); if (!b) return;
+  if (!confirm('Вернуть прогресс из запасной копии? Текущий прогресс тоже сохранится как запасная копия.')) return;
+  const cur = localBundle(); noSave = true;
+  const o = b.data; for (const [k, v] of Object.entries(o.saves || {})) localStorage.setItem(k, v); if (o.meta) localStorage.setItem('magicschool.meta', JSON.stringify(o.meta));
+  localStorage.setItem('magicschool.backup', JSON.stringify({ at: Date.now(), why: 'swap', data: cur }));
+  // the restored game must win in the cloud too: push it right after the reload
+  localStorage.setItem('magicschool.forcePush', '1');
+  location.reload();
 }
 
 // ======================= loop, offline =======================
@@ -1763,5 +1822,5 @@ resize();
 updateHud();
 if (!S.tourDone && WORLD === 1) setTimeout(() => { closePanel(); showTour(0); }, 600);
 requestAnimationFrame(frame);
-cloudPull();
+if (localStorage.getItem('magicschool.forcePush')) { localStorage.removeItem('magicschool.forcePush'); cloudForce(); } else cloudPull();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
