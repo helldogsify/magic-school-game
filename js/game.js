@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=122';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=122';
+} from './data.js?v=123';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=123';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 122;   // keep equal to the ?v= number in index.html
+const BUILD = 123;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -320,8 +320,8 @@ function secretaryPos() {
   const waiting = processing || queue.some((q) => q.state === 'queue');
   secIdle = waiting ? 0 : secIdle + dt;
   if (!secTrip && secU === 0) {
-    if (secForms >= 15 && !processing && now - secLastTrip > 20) { secTrip = 'shelf'; secForms = 0; secLastTrip = now; }   // a big school enrols fast: not more often than every 20 s
-    else if ((!waiting && secIdle > 3 && now - secLastBoard > 12) || (now - secLastBoard > 30 && !processing)) { secTrip = 'board'; secLastBoard = now; }   // pins a note at least every 30 s, even in a busy school
+    if (secForms >= 15 && now - secLastTrip > 20) { secTrip = 'shelf'; secForms = 0; secLastTrip = now; }   // a big school enrols fast: not more often than every 20 s
+    else if ((!waiting && secIdle > 3 && now - secLastBoard > 12) || now - secLastBoard > 30) { secTrip = 'board'; secLastBoard = now; }   // pins a note at least every 30 s, even in a busy school
   }
   let target = 0;
   if (secTrip === 'shelf') { target = 1; if (secU >= 1) { secHold += dt; if (secHold > 0.6) { secTrip = 'back'; secHold = 0; } } }
@@ -338,7 +338,7 @@ function secretaryPos() {
   let pose = 'write';
   if (secTrip === 'shelf' || (secTrip === 'back' && secGoal === 'shelf' && secU > 0)) pose = secTrip === 'shelf' ? 'carry' : 'walk';
   else if (secGoal === 'board' && secU > 0) pose = secU >= 1 ? 'pin' : 'walk';
-  else pose = (now % 2.4) > 1.7 ? 'stamp' : 'write';   // at the counter: writes ~1.7 s, stamps ~0.7 s, so both are seen even when enrolment is very fast
+  else pose = (now % 3.6) > 2.8 ? 'stamp' : 'write';   // writes ~2.8 s, then a short stamp   // at the counter: writes ~1.7 s, stamps ~0.7 s, so both are seen even when enrolment is very fast
   secretaryPos.lastPose = pose;
   return { x: home.x + (goal.x - home.x) * k, y: home.y + (goal.y - home.y) * k, moving, left: false, pose };   // never mirrored (her ruling)
 }
@@ -795,11 +795,11 @@ function drawSecretary(so) {
   const im = so.pose !== 'walk' && sprites['sec_' + so.pose], ok = im && im.complete && im.naturalWidth;
   if (!ok) { drawCreature({ ...officer, sp: 'staff_secretary', flip: false, path: so.moving ? [1] : [], ph: performance.now() / 1000 }, so.x, so.y, 52); return; }
   const q = P(so.x, so.y), H = 52, half = so.pose === 'write' || so.pose === 'stamp';
-  const h = half ? H * 0.62 : H, w = h * im.naturalWidth / im.naturalHeight, lift = half ? H * 0.36 : 0;
+  const h = half ? H * 0.72 : H, w = h * im.naturalWidth / im.naturalHeight, lift = half ? 30 : 0;   // half-body poses sit on the counter top so paper, pencil and stamp are visible above it (her ask 2026-11-21)
   const bob = so.moving && so.pose !== 'carry' ? Math.abs(Math.sin(performance.now() / 260)) * 1.2 : 0;   // no shaking with the stack of papers (her report 2026-11-21); a slow gentle step otherwise
   ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(q.x, q.y, H * 0.3, H * 0.12, 0, 0, Math.PI * 2); ctx.fill();
   ctx.drawImage(im, q.x - w / 2, q.y - lift - h - bob, w, h);
-  if (so.pose === 'write') emoji('✏️', q.x + w * 0.42, q.y - lift - h * 0.45 + Math.sin(performance.now() / 120) * 2, 9);   // the pencil moves: she is writing
+  if (so.pose === 'write') emoji('✏️', q.x + w * 0.3 + Math.sin(performance.now() / 90) * 3, q.y - lift - h * 0.35, 13);   // the pencil moves: she is writing
   if (so.pose === 'pin') emoji('📌', q.x + w * 0.35, q.y - h * 1.02, 10);
 }
 for (const f of STAFF_OTHER) { const im = new Image(); im.src = `assets/staff/${f}.png?v=1`; sprites['staff_' + f] = im; }
@@ -1412,7 +1412,7 @@ function render() {
     const m = P(DS.x0 + 1.35, DS.y0 + 1.2); emoji('🗝️', m.x, m.y - 15, 10); const n = P(DS.x0 + 1.35, DS.y0 + 1.8); emoji('📒', n.x, n.y - 15, 10);
   });
   const so = secretaryPos();
-  add(so.x, so.y, () => { if (staffSprite('secretary')) { drawSecretary(so); const q = P(so.x, so.y); if (processing) ring(q.x + 22, q.y - 50, Math.min(1, procT / procTime()), '#ff8a3d'); return; } drawCreature(officer, so.x, so.y, 34, (x, y) => {
+  add(so.x, so.y, () => { if (staffSprite('secretary')) { drawSecretary(so); const q = P(so.x, so.y); if (processing) ring(q.x - 26, q.y - 62, Math.min(1, procT / procTime()), '#ff8a3d'); return; } drawCreature(officer, so.x, so.y, 34, (x, y) => {
     drawHat(x, y - 32, '#d14f8f');
     if (processing) ring(x + 18, y - 30, Math.min(1, procT / procTime()), '#ff8a3d');
   }); });
