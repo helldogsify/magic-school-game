@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=64';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=64';
+} from './data.js?v=65';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=65';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 64;   // keep equal to the ?v= number in index.html
+const BUILD = 65;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -110,12 +110,12 @@ const THEMES = {
     decor: ['window', 'herbs_rack', 'clock', 'shelf', 'window2'], back: ['plant', 'lavender'], side: ['bookcase', 'table'], front: ['magic_pot', 'basket', 'barrel'], rug: 'rug' },
 };
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
-const DECOR = { board: { w: 2.6, lo: 0.3 }, window: { w: 0.95, lo: 0.3 }, window2: { w: 0.95, lo: 0.3 }, shelf: { w: 1.7, lo: 0.45 }, herbs_rack: { w: 1.5, lo: 0.36 }, clock: { w: 0.9, lo: 0.5 } };
+const DECOR = { board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
 const PROP_H = { plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.board, t.rug, ...t.decor, ...t.back, ...t.side, ...t.front])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=64`; parts[k + '/' + n] = im;
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=65`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -635,6 +635,13 @@ function texWall(c, th, e, a, b, h) {
   p.setTransform(new DOMMatrix([(alongY ? -HW : HW) / T, HH / T, 0, h / im.naturalHeight, o.x, o.y]));
   poly(c, [a, b, up(b, h), up(a, h)]); c.fillStyle = p; c.fill();
   if (e.side === 'x0') poly(c, [a, b, up(b, h), up(a, h)], 'rgba(70,45,95,0.12)');   // the left wall is in shade
+  { const g2 = c.createLinearGradient(0, Math.min(a.y, b.y) - h, 0, Math.max(a.y, b.y)); g2.addColorStop(0, 'rgba(255,250,235,0.16)'); g2.addColorStop(0.55, 'rgba(255,250,235,0)'); g2.addColorStop(1, 'rgba(60,40,80,0.10)');
+    poly(c, [a, b, up(b, h), up(a, h)], g2); }
+  { const sl = SLOTS[e.id]; if (sl) {   // the inner back corner gets a soft shadow on both walls
+    const along = alongY ? e.y - sl.y0 : e.x - sl.x0;
+    if (along < 1.5) { const cn = P(sl.x0, sl.y0), far = alongY ? P(sl.x0, sl.y0 + 1.5) : P(sl.x0 + 1.5, sl.y0);
+      const g3 = c.createLinearGradient(cn.x, cn.y, far.x, far.y); g3.addColorStop(0, 'rgba(60,40,80,0.22)'); g3.addColorStop(1, 'rgba(60,40,80,0)');
+      poly(c, [a, b, up(b, h), up(a, h)], g3); } } }
   // soft shadow where the wall meets the floor
   const g = c.createLinearGradient(0, Math.max(a.y, b.y), 0, Math.max(a.y, b.y) - h * 0.25); g.addColorStop(0, 'rgba(60,40,80,0.18)'); g.addColorStop(1, 'rgba(60,40,80,0)');
   poly(c, [a, b, up(b, h * 0.25), up(a, h * 0.25)], g);
@@ -647,7 +654,9 @@ function hang(c, th, n, s, side, t0, lo) {
   const at = (t) => (side === 'y0' ? P(t, s.y0) : P(s.x0, t));
   const L = side === 'y0' ? at(t0) : at(t0 + d.w), R = side === 'y0' ? at(t0 + d.w) : at(t0);   // the viewer's left end of the picture
   const top = up(L, lo * H + hp);
+  const k = scale * dpr * (c === ctx ? 1 : 0.6), deep = DECOR[n].deep || 1;   // shadow offsets are in device px
   c.save(); c.transform((R.x - L.x) / im.naturalWidth, (R.y - L.y) / im.naturalWidth, 0, hp / im.naturalHeight, top.x, top.y);
+  c.shadowColor = 'rgba(55,35,80,0.42)'; c.shadowBlur = 3 * k * deep; c.shadowOffsetX = (side === 'y0' ? -1.6 : 1.6) * k * deep; c.shadowOffsetY = 2.6 * k * deep;
   c.drawImage(im, 0, 0); c.restore();
 }
 function wallRun(id, side) {   // the longest stretch of tall wall of a room on one side, in tiles along it
@@ -696,6 +705,7 @@ function roomProps(i) {
 function drawProp(o) {
   const im = part(o.th, o.n); if (!im) return;
   const p = P(o.x, o.y), h = PROP_H[o.n] || 30, w = h * im.naturalWidth / im.naturalHeight;
+  ctx.fillStyle = 'rgba(60,40,80,0.22)'; ctx.beginPath(); ctx.ellipse(p.x, p.y + h * 0.04, w * 0.42, w * 0.17, 0, 0, Math.PI * 2); ctx.fill();   // contact shadow
   ctx.save(); ctx.translate(p.x, p.y + h * 0.08); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
 }
 function drawRug(c, th, s, i) {
