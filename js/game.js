@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=50';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=50';
+} from './data.js?v=51';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=51';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 50;   // keep equal to the ?v= number in index.html
+const BUILD = 51;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1429,13 +1429,22 @@ function relayout() {   // rebuild the map (a class was expanded): creatures kee
   }
 }   // bump when the map changes: old creature positions are dropped
 function restoreWorld(teleport = false) {
-  if (S.layout !== LAYOUT) { S.layout = LAYOUT; S.world = null; }
+  // a new map after an update: keep every creature and its task, just move it onto the new map (never restart the school)
+  if (S.layout !== LAYOUT) { S.layout = LAYOUT; teleport = true; }
   const w = S.world; if (!w) return;
   arrivalT = w.arrivalT ?? 1; procT = 0;
   const byId = new Map();
   for (const o of w.agents) {
     const a = { ...o, z: 0, path: [], onArrive: null, flip: false, ph: Math.random() * 6 };
-    if (!regAt(Math.floor(a.x), Math.floor(a.y))) { a.x = GATE_TILE.x; a.y = GATE_TILE.y; }
+    if (teleport || !regAt(Math.floor(a.x), Math.floor(a.y))) {   // put it next to where it was going
+      const g = a.goal || {}, at = (p) => { a.x = p.x; a.y = p.y; };
+      if ((g.t === 'c' || g.t === 's') && g.i >= 0 && slotOf(g.i)) { const [, h] = slotOf(g.i).door; at({ x: h[0] + 0.5, y: h[1] + 0.5 }); }
+      else if (g.t === 'd' && a.bed >= 0 && DORM_SPOTS[a.bed]) at(DORM_SPOTS[a.bed]);
+      else if (g.t === 'l' && a.seat >= 0 && LIB_SPOTS[a.seat]) at(LIB_SPOTS[a.seat]);
+      else if (g.t === 'g') { const [, h] = SLOTS.EXAM.door; at({ x: h[0] + 0.5, y: h[1] - 1 }); }
+      else if (g.t === 'q' || a.state === 'queue' || a.state === 'process') at(queueSlot(0));
+      else at(GATE_TILE);
+    }
     agents.push(a); byId.set(a.id, a);
   }
   for (const id of w.queue) { const a = byId.get(id); if (a) queue.push(a); }
