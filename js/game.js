@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=85';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=85';
+} from './data.js?v=86';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=86';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 85;   // keep equal to the ?v= number in index.html
+const BUILD = 86;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -134,7 +134,7 @@ const DECOR = { el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 
 const PROP_H = { cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=85`; parts[k + '/' + n] = im;
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=86`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -164,18 +164,20 @@ function genLayout() {
   const recY = y;
   // front block: library | reception | dorms
   SLOTS.LIB = slot(0, recY, [[2, recY], [2, recY - 1]], {}, 6, 8, [[[3, recY], [3, recY - 1]], [[5, recY + 3], [6, recY + 3]], [[5, recY + 4], [6, recY + 4]]]);   // own space: the reception's tall wall must not hide it
-  SLOTS.REC = slot(12, recY, [[13, recY], [13, recY - 1]], {}, 9, 9,
-    [[[14, recY], [14, recY - 1]], [[15, recY], [15, recY - 1]], [[16, recY], [16, recY - 1]], [[17, recY], [17, recY - 1]], [[14, recY + 8], [14, recY + 9]], [[15, recY + 8], [15, recY + 9]], [[20, recY + 3], [21, recY + 3]]]);
-  SLOTS.DORM = slot(21, recY, [[21, recY + 3], [20, recY + 3]], {}, ROOM, dormDepth(1));
+  // doors where the reception picture has its openings (her report 2026-11-21: students walked over the desk and through the railings):
+  // back passage between the two newel posts (x15..17), street entrance where the pink carpet starts (x16..17), dorm through the open arch (row 0)
+  SLOTS.REC = slot(12, recY, [[15, recY], [15, recY - 1]], {}, 9, 9,
+    [[[16, recY], [16, recY - 1]], [[17, recY], [17, recY - 1]], [[16, recY + 8], [16, recY + 9]], [[17, recY + 8], [17, recY + 9]], [[20, recY], [21, recY]]]);
+  SLOTS.DORM = slot(21, recY, [[21, recY], [20, recY]], {}, ROOM, dormDepth(1));
   SLOTS.DORM2 = slot(27, recY, [[27, recY + 3], [26, recY + 3]], {}, ROOM, dormDepth(2));
   BUILDING = { x0: 0, y0: hallTop, x1: 33, y1: recY + 8 };
   HALLS = [
     { x0: 7, y0: hallTop, x1: 24, y1: recY },                       // rows + corridors (rooms are cut out of it)
     { x0: 0, y0: lastGap[0], x1: 33, y1: recY },                     // the wide corridor along the front block
     { x0: 6, y0: recY, x1: 12, y1: recY + 8 },                       // reading court: as wide as what the reception's wall hides
-    { x0: 13, y0: recY + 9, x1: 16, y1: recY + 14 },                // path from the gate
+    { x0: 15, y0: recY + 9, x1: 19, y1: recY + 14 },                // path from the gate (to the carpet of the reception)
   ];
-  GATE_TILE = { x: 14.5, y: recY + 12.5 };
+  GATE_TILE = { x: 16.5, y: recY + 12.5 };
   GATE_Y = recY + 9;
   GH = recY + 16; GW = 36;
 }
@@ -216,11 +218,13 @@ function buildEdges() {
   }
 }
 genLayout(); buildGrid(); buildEdges(); decorateEdges();
+const recBlocked = (x, y) => { const s = SLOTS.REC; return x - s.x0 <= 1 && y - s.y0 >= 1 && y - s.y0 <= 6; };   // tiles under the painted desk
 function canStep(ax, ay, bx, by) {
   const ra = regAt(ax, ay), rb = regAt(bx, by);
   if (!ra || !rb) return false;
   if (ra === rb) return true;
   if ((ra === 'DORM2' || rb === 'DORM2') && !dorm2Built()) return false;
+  if (rb === 'REC' && recBlocked(bx, by)) return false;   // the reception desk is not a floor
   return DOORS.has(`${ax},${ay}|${bx},${by}`);
 }
 function bfs(sx, sy, tx, ty) {
@@ -479,10 +483,11 @@ function stepAgents(dt, live = false) {
     if (a.state !== 'fly') stepMood(a, dt, live);
     if (a.state === 'fly') { a.t += dt; a.z += (40 + a.t * 60) * dt; a.x += a.vx * dt; a.y -= a.vx * dt; continue; }
     if (a.path.length) {
-      const p = a.path[0], dx = p.x - a.x, dy = p.y - a.y, dist = Math.hypot(dx, dy), stepLen = a.speed * WALK_K * dt;
+      if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) { a.x = GATE_TILE.x; a.y = GATE_TILE.y; }   // never let a broken position freeze a creature
+      const p = a.path[0], dx = p.x - a.x, dy = p.y - a.y, dist = Math.hypot(dx, dy), stepLen = Math.max(0, a.speed * WALK_K * dt);
       const sdx = dx - dy; if (Math.abs(sdx) > 0.01) a.flip = sdx < 0;
       a.back = dx + dy < -0.01;   // walking away from us: we see its back
-      if (dist <= stepLen) { a.x = p.x; a.y = p.y; a.path.shift(); if (!a.path.length) a.back = false;
+      if (dist <= stepLen || dist < 1e-6) { a.x = p.x; a.y = p.y; a.path.shift(); if (!a.path.length) a.back = false;
         if (!a.path.length && a.onArrive) { const f = a.onArrive; a.onArrive = null; f(); } }
       else { a.x += dx / dist * stepLen; a.y += dy / dist * stepLen; }
       continue;
@@ -931,6 +936,11 @@ function drawProp(o) {
     g.addColorStop(0, 'rgba(60,40,80,0.20)'); g.addColorStop(1, 'rgba(60,40,80,0)'); ctx.save(); ctx.translate(p.x, cy); ctx.scale(1, 0.42); ctx.translate(-p.x, -cy); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, cy, rx, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
   ctx.save(); ctx.translate(p.x, p.y + h * 0.08); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
 }
+function drawRugAt(c, th, s) {   // rooms without desks (library): a rug in the middle
+  const im = part(th, THEMES[th].rug); if (!im) return;
+  const w = s.x1 - s.x0, h = s.y1 - s.y0, d = Math.min(w, h) - 1.6, m = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2 + 0.3);
+  const sw = d * HW * Math.SQRT2, sh = sw * im.naturalHeight / im.naturalWidth; c.drawImage(im, m.x - sw / 2, m.y - sh / 2, sw, sh);
+}
 function drawRug(c, th, s, i) {
   const im = part(th, THEMES[th].rug); if (!im) return;
   const w = s.x1 - s.x0, cols = w >= 9 ? 4 : 3, rows = Math.ceil(S.classes[i].desks / cols);
@@ -1017,7 +1027,7 @@ function drawSlot(c, id) {
     c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
 
   } else if (themeOf(id) && texFloor(c, themeOf(id), s)) {
-    if (ci >= 0) drawRug(c, themeOf(id), s, ci);
+    if (ci >= 0) drawRug(c, themeOf(id), s, ci); else drawRugAt(c, themeOf(id), s);
   } else {
     poly(c, [L, B, R, F], col.floor, '#00000012');
     c.strokeStyle = '#0000000d'; c.lineWidth = 1;
@@ -1043,7 +1053,7 @@ function wallSeg([x0, y0, x1, y1, k]) {
   tallWall(ctx, a, b, '#cbb9e2', x0 === x1 ? -14 : 0, true);
 }
 function drawGate(c) {
-  const g = P(13, GATE_TILE.y - 1), g2 = P(16, GATE_TILE.y - 1);
+  const g = P(15, GATE_TILE.y - 1), g2 = P(18, GATE_TILE.y - 1);
   c.strokeStyle = '#6c4fd1'; c.lineWidth = 5; c.beginPath(); c.moveTo(g.x, g.y); c.lineTo(g.x, g.y - 34); c.lineTo(g2.x, g2.y - 34); c.lineTo(g2.x, g2.y); c.stroke();
   text('ВОРОТА', (g.x + g2.x) / 2, (g.y + g2.y) / 2 - 40, 9, '#5a3fb0', c);
 }
@@ -1126,7 +1136,7 @@ const concierge = { sp: 'petalear', ph: 1.3, flip: false, path: [] };
 // Each step: camera focus in tile coords (null = stay), title and text (Russian UI).
 const TOUR = [
   { at: () => [14.5, SLOTS.REC.y0 + 4], title: 'Привет, директор! 👋', text: 'Это твоя Школа магии. Сюда приходят маленькие волшебные зверьки, чтобы учиться. Школа работает сама, даже когда игра закрыта. Давай покажу, как тут всё устроено.' },
-  { at: () => [14.5, GATE_TILE.y - 1], title: 'Ворота', text: 'Новые ученики приходят через ворота. Чем лучше «Объявления о школе» (улучшаются в приёмной), тем чаще они приходят.' },
+  { at: () => [GATE_TILE.x, GATE_TILE.y - 1], title: 'Ворота', text: 'Новые ученики приходят через ворота. Чем лучше «Объявления о школе» (улучшаются в приёмной), тем чаще они приходят.' },
   { at: () => [OFFICER.x + 0.3, OFFICER.y], title: 'Приёмная и секретарь', text: 'Секретарь в розовой шляпе записывает новичков. Они стоят к ней в очереди, оранжевый кружок над ней — запись идёт. За каждого записанного ты получаешь взнос 🪙. Нажми на приёмную, чтобы сделать секретаря быстрее.' },
   { at: () => [14.5, SLOTS.REC.y0 - 4], title: 'Общий коридор', text: 'Записавшись, ученик идёт по коридору в свой класс. Все классы соединены этим коридором: ученики проходят их по порядку, один за другим.' },
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Класс и урок', text: 'В классе ученик садится за парту. Учитель в фиолетовой шляпе ведёт урок. Зелёный кружок над учеником — сколько осталось до конца урока.' },
@@ -1204,7 +1214,7 @@ function render() {
   VIEW = { x0: scroller.scrollLeft / scale, y0: scroller.scrollTop / scale, x1: (scroller.scrollLeft + scroller.clientWidth) / scale, y1: (scroller.scrollTop + scroller.clientHeight) / scale };
   const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
-  list.push({ k1: 14.5 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
+  list.push({ k1: GATE_TILE.x + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
   for (const e of EDGES) {
     const painted = e.id !== 'hall' && e.tall && WORLD === 1 && !!arts[CLASS_SLOT.indexOf(e.id) >= 0 ? CLASSES[CLASS_SLOT.indexOf(e.id)].id : e.id]?.naturalWidth;   // painted rooms: only the cap on top of their own walls
     if (e.id === 'DORM2' && !dorm2Built()) continue;
@@ -1236,6 +1246,10 @@ function render() {
       add(spots[k][0], spots[k][1], () => emoji(it.emoji, p.x, p.y - 8, 14 + Math.min(8, st.items[k] / 3)));
     });
   }
+  // library (themed): an armchair at every open reading place and a few things around
+  { const th = themeOf('LIB'); if (th) { const T = THEMES[th], s = SLOTS.LIB;
+    LIB_SPOTS.slice(0, libSeats()).forEach((q, k) => { const o = { n: T.seats[k % T.seats.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); });
+    for (const o of T.extras(s)) { const oo = { ...o, th }; add(oo.x, oo.y, () => drawProp(oo)); } } }
   // reception desk + officer
   add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(concierge, CONCIERGE.x, CONCIERGE.y, 34, (x, y) => {
     drawHat(x, y - 32, '#2f9e7a');
@@ -1258,7 +1272,7 @@ function render() {
   for (const a of agents) {
     // an incident in the class: its students leave their places and rush around the room in a panic (her wish 2026-11-21)
     const pn = panicPos(a), ax = pn ? pn.x : a.x, ay = pn ? pn.y : a.y;
-    if (a.state !== 'fly') a.z = !pn && a.state === 'study' && !(a.path && a.path.length) && sitsOn(a.c) ? 9 : 0;   // on a cloud
+    if (a.state !== 'fly') a.z = !pn && a.state === 'study' && !(a.path && a.path.length) && sitsOn(a.c) ? 9 : (a.state === 'read' && !(a.path && a.path.length) && themeOf('LIB') ? 6 : 0);   // on a cloud / in an armchair
     if (pn) { a._panic = true; a.flip = pn.left; a.back = pn.up; } else if (a._panic) { a._panic = false; if (a.state === 'study') faceTeacher(a, a.c); }
     const draw = () => drawCreature(a, ax, ay, 30, (x, y) => {
       if (pn) { if (Math.sin(a.ph * 3 + a.id) > 0.2) emoji(a.id % 3 ? '❗' : '😱', x + 2, y - 36, 12); return; }
@@ -2016,7 +2030,7 @@ function restoreBackup() {
 // ======================= loop, offline =======================
 let earnedThisSec = 0, secT = 0, saveT = 0, last = performance.now(), panelT = 0;
 function frame(now) {
-  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
   stepWorld(dt, true);
   secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
@@ -2047,7 +2061,9 @@ function restoreWorld(teleport = false) {
   const byId = new Map();
   for (const o of w.agents) {
     const a = { ...o, z: 0, path: [], onArrive: null, flip: false, ph: Math.random() * 6 };
-    if (teleport || !regAt(Math.floor(a.x), Math.floor(a.y))) {   // put it next to where it was going
+    const broken = !Number.isFinite(a.x) || !Number.isFinite(a.y);   // saves from builds <= 85 could hold NaN (saved as null) positions
+    if (broken) { a.x = GATE_TILE.x; a.y = GATE_TILE.y; }
+    if (teleport || broken || !regAt(Math.floor(a.x), Math.floor(a.y))) {   // put it next to where it was going
       const g = a.goal || {}, at = (p) => { a.x = p.x; a.y = p.y; };
       if ((g.t === 'c' || g.t === 's') && g.i >= 0 && slotOf(g.i)) { const [, h] = slotOf(g.i).door; at({ x: h[0] + 0.5, y: h[1] + 0.5 }); }
       else if (g.t === 'd' && a.bed >= 0 && DORM_SPOTS[a.bed]) at(DORM_SPOTS[a.bed]);
