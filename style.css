@@ -185,3 +185,10 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 input.fb { margin-bottom: 8px; }
 
 @media (pointer: fine) { #view { cursor: grab; } #app { max-width: 720px; } }
+
+/* guided tour */
+#tour { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; justify-content: center; padding: 0 10px calc(var(--safe-b) + 12px); pointer-events: none; }
+.tour-card { pointer-events: auto; width: 100%; max-width: 520px; background: #fffdf6; border: 3px solid #ffd23f; border-radius: 20px; padding: 12px 14px; box-shadow: 0 6px 24px #3a2f4a40; animation: up .25s ease-out; }
+.tour-top { display: flex; justify-content: space-between; align-items: center; font-size: 16px; }
+.tour-card p { margin: 6px 0 10px; font-size: 14.5px; line-height: 1.4; }
+.tour-btns { display: flex; gap: 8px; justify-content: flex-end; }

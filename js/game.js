@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=17';
+} from './data.js?v=18';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 17;   // keep equal to the ?v= number in index.html
+const BUILD = 18;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -502,6 +502,66 @@ const staff = SPECIES.map((sp, k) => ({ sp, ph: k * 1.7, flip: false, path: [] }
 const officer = { sp: 'fernhorn', ph: 0.5, flip: false, path: [] };
 const concierge = { sp: 'petalear', ph: 1.3, flip: false, path: [] };
 
+// ======================= guided tour =======================
+// Each step: camera focus in tile coords (null = stay), title and text (Russian UI).
+const TOUR = [
+  { at: [14.5, 34], title: 'Привет, директор! 👋', text: 'Это твоя Школа магии. Сюда приходят маленькие волшебные зверьки, чтобы учиться. Школа работает сама, даже когда игра закрыта. Давай покажу, как тут всё устроено.' },
+  { at: [14.5, 41.5], title: 'Ворота', text: 'Новые ученики приходят через ворота. Чем лучше «Объявления о школе» (улучшаются в приёмной), тем чаще они приходят.' },
+  { at: [11.2, 34.4], title: 'Приёмная и секретарь', text: 'Секретарь в розовой шляпе записывает новичков. Они стоят к ней в очереди, оранжевый кружок над ней — запись идёт. За каждого записанного ты получаешь взнос 🪙. Нажми на приёмную, чтобы сделать секретаря быстрее.' },
+  { at: [14.5, 27], title: 'Общий коридор', text: 'Записавшись, ученик идёт по коридору в свой класс. Все классы соединены этим коридором: ученики проходят их по порядку, один за другим.' },
+  { at: [10, 26.5], title: 'Класс и урок', text: 'В классе ученик садится за парту. Учитель в фиолетовой шляпе ведёт урок. Зелёный кружок над учеником — сколько осталось до конца урока.' },
+  { at: [10, 26.5], title: 'Экзамен', text: 'После урока экзамен. Сдал — платит за обучение 🪙 и идёт в следующий класс. Шанс сдать зависит от учителя и обстановки. Нажми на класс: там можно улучшить учителя, добавить парты, сократить урок и купить предметы.' },
+  { at: [25, 27], title: 'Библиотека 📚', text: 'Не сдал экзамен — идёт в библиотеку готовиться (жёлтый кружок). Потом возвращается в класс и пересдаёт. После подготовки урок у него короче, а шанс сдать выше.' },
+  { at: [13.5, 28.5], title: 'Очередь у класса', text: 'У двери каждого класса может ждать до 6 учеников. Если все места за партами заняты и очередь полная, ученик расстраивается 😢 и идёт в спальню.' },
+  { at: [22, 33], title: 'Спальня и консьержка 🛏️', text: 'В спальне консьержка в зелёной шляпе записывает гостя, и он спит 💤, пока в его классе не освободится место. Если и кроватей нет — ученик уходит из школы 💔. Нажми на спальню, чтобы купить кровати.' },
+  { at: [14.5, 2], title: 'Выпускники 🎓', text: 'Кто прошёл все открытые классы — выпускник. Он идёт в сад и улетает на своих крылышках. Число выпускников видно вверху экрана.' },
+  { at: [10, 18], title: 'Новые классы', text: 'На пустых местах можно построить новые классы — нажми на табличку с ценой. Чем больше классов, тем больше ученики платят за обучение.' },
+  { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту, 🎓 выпускники. Под ними задание с наградой. Нажми на любого зверька — увидишь, что он сейчас делает. Повторить обучение можно в ⚙️. Удачи, директор!' },
+];
+let tourStep = -1;
+function focusTile(x, y, smooth = true) {
+  const p = P(x, y);
+  scroller.scrollTo({ left: p.x * scale - scroller.clientWidth / 2, top: p.y * scale - scroller.clientHeight * 0.38, behavior: smooth ? 'smooth' : 'auto' });
+}
+function showTour(i) {
+  tourStep = i;
+  const el = $('#tour');
+  if (i < 0 || i >= TOUR.length) { el.classList.add('hidden'); tourStep = -1; S.tourDone = true; save(); return; }
+  const st = TOUR[i];
+  if (st.at) focusTile(st.at[0], st.at[1]);
+  el.innerHTML = `<div class="tour-card"><div class="tour-top"><b>${st.title}</b><span class="muted">${i + 1}/${TOUR.length}</span></div>
+    <p>${st.text}</p><div class="tour-btns"><button class="btn ghost small" data-tour-skip>Пропустить</button>
+    ${i > 0 ? '<button class="btn ghost small" data-tour-back>← Назад</button>' : ''}<button class="btn small" data-tour-next>${i === TOUR.length - 1 ? 'Понятно!' : 'Дальше →'}</button></div></div>`;
+  el.classList.remove('hidden');
+}
+
+// ======================= tap on a creature: what is it doing? =======================
+function statusOf(a) {
+  const cn = (i) => (i >= 0 && CLASSES[i] ? `«${CLASSES[i].name}»` : 'класс');
+  const g = a.goal || {};
+  if (queue.includes(a)) return a === processing ? 'записывается в школу у секретаря' : 'стоит в очереди в приёмной';
+  if (a.state === 'study') return `учится: ${cn(a.c)}, до экзамена ${Math.max(0, Math.ceil(a.dur - a.t))} с`;
+  if (a.state === 'wait' || a.state === 'walkwait') return `ждёт свободной парты: ${cn(a.c)}`;
+  if (a.state === 'read' || g.t === 'l') return `готовится к пересдаче в библиотеке (${cn(g.i)})`;
+  if (a.state === 'sleep') return `спит в спальне, ждёт места: ${cn(g.i)}`;
+  if (a.state === 'dline' || a.state === 'checkin' || g.t === 'd') return 'записывается в спальню у консьержки';
+  if (g.t === 'g' || a.state === 'fly') return 'выпускник! 🎓 идёт в сад';
+  if (g.t === 'x') return 'расстроился и уходит из школы 💔';
+  if (g.t === 's' || g.t === 'c') return `идёт на урок: ${cn(g.i)}`;
+  return 'гуляет по школе';
+}
+function creatureAt(clientX, clientY) {
+  const r = scroller.getBoundingClientRect();
+  const wx = (clientX - r.left + scroller.scrollLeft) / scale, wy = (clientY - r.top + scroller.scrollTop) / scale;
+  let best = null, bd = 1e9;
+  for (const a of agents) {
+    const p = P(a.x, a.y), cy = p.y - 15 - (a.z || 0);
+    const d = Math.hypot(wx - p.x, (wy - cy) * 0.8);
+    if (d < 16 && d < bd) { best = a; bd = d; }
+  }
+  return best;
+}
+
 function render() {
   drawStatic();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -563,6 +623,7 @@ function render() {
   }
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
+  if (tourStep >= 0 && TOUR[tourStep].at) { const f = P(TOUR[tourStep].at[0], TOUR[tourStep].at[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
   for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
 }
 
@@ -642,6 +703,7 @@ function settingsPanel() {
     <input id="fb-name" class="fb" placeholder="Твоё имя" value="${(localStorage.getItem('magicschool.name') || '').replace(/"/g, '&quot;')}">
     <textarea id="fb-text" class="fb" rows="4" placeholder="Что понравилось? Что сломалось или было непонятно?"></textarea>
     <button class="btn wide" data-feedback>💌 Отправить отзыв</button>
+    <button class="btn ghost wide" data-tour-again>❓ Как играть (обучение)</button>
     <button class="btn ghost wide" data-reset>Начать игру заново</button>`;
 }
 settingsPanel.still = true;   // contains a text field: never re-render it automatically
@@ -745,6 +807,8 @@ scroller.addEventListener('pointerup', (e) => {
   const r = scroller.getBoundingClientRect();
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
+  const who = creatureAt(e.clientX, e.clientY);
+  if (who) { toast(`${who.name}: ${statusOf(who)}`); return; }
   for (const lift of [0, 20, 40]) {
     const a = (wx - OX) / HW, b = (wy + lift - OY) / HH;
     const tx = Math.floor((a + b) / 2), ty = Math.floor((b - a) / 2);
@@ -771,6 +835,10 @@ document.addEventListener('click', (e) => {
   if (d.mission !== undefined) { const m = MISSIONS[S.mission]; if (m && m.check(G)) { S.coins += m.reward; S.mission++; toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); } return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
+  if (d.tourAgain !== undefined) { closePanel(); showTour(0); return; }
+  if (d.tourNext !== undefined) { showTour(tourStep + 1); return; }
+  if (d.tourBack !== undefined) { showTour(tourStep - 1); return; }
+  if (d.tourSkip !== undefined) { showTour(-1); return; }
   if (d.reset !== undefined) { if (confirm('Точно начать заново? Весь прогресс пропадёт.')) { localStorage.removeItem(SAVE_KEY); S = null; location.reload(); } return; }
   const st = S.classes[i];
   if (d.act === 'teacher') { if (spend(teacherCost(i))) st.teacher++; }
@@ -869,5 +937,6 @@ resize();
 { const h = P(14, 31); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
 updateHud();
+if (!S.tourDone) setTimeout(() => { closePanel(); showTour(0); }, 600);
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
