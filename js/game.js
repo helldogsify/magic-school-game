@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=117';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=117';
+} from './data.js?v=118';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=118';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 117;   // keep equal to the ?v= number in index.html
+const BUILD = 118;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -333,7 +333,14 @@ function secretaryPos() {
   const goal = (secTrip === 'board' || (secTrip === 'back' && secGoal === 'board')) ? { x: s.x0 + 3.6, y: s.y0 + 0.9 } : { x: s.x0 + 0.55, y: s.y0 + 1.3 };   // board / scroll shelf
   if (secTrip === 'board' || secTrip === 'shelf') secGoal = secTrip;
   const k = 0.5 - 0.5 * Math.cos(secU * Math.PI);
-  return { x: home.x + (goal.x - home.x) * k, y: home.y + (goal.y - home.y) * k, moving: secU > 0 && secU < 1, left: false };   // never mirrored (her ruling)
+  const moving = secU > 0 && secU < 1;
+  // pose: at the counter she writes the form and stamps it at the end; carries the stack to the shelf; pins the note at the board
+  let pose = 'write';
+  if (secTrip === 'shelf' || (secTrip === 'back' && secGoal === 'shelf' && secU > 0)) pose = secTrip === 'shelf' ? 'carry' : 'walk';
+  else if (secGoal === 'board' && secU > 0) pose = secU >= 1 ? 'pin' : 'walk';
+  else if (processing && procT / procTime() > 0.7) pose = 'stamp';
+  else if (!processing && (now % 4) > 3.2) pose = 'stamp';
+  return { x: home.x + (goal.x - home.x) * k, y: home.y + (goal.y - home.y) * k, moving, left: false, pose };   // never mirrored (her ruling)
 }
 let secGoal = 'board';
 function teacherWalk(i) {
@@ -782,6 +789,17 @@ const STAFF_H = { moss: 58, bubble: 54, lun: 68, spark: 62, breeze: 56, storm: 6
 const STAFF_GLOW = { lun: 'rgba(255,240,190,0.95)' }, STAFF_GLOW_ALL = 'rgba(255,244,205,0.6)';   // every teacher glows softly (her wish 2026-11-21), Lun a bit more   // drawn height: Lun is tall, Bubble small and round
 // school staff outside classes (secretary, concierge, director): own sprites, one by one with her approval
 const STAFF_OTHER = ['secretary', 'concierge'];
+const SEC_POSES = ['write', 'stamp', 'carry', 'pin'];   // pose sprites of the secretary (her ruling 2026-11-21: real animations, not sliding)
+for (const f of SEC_POSES) { const im = new Image(); im.src = `assets/staff/sec_${f}.png?v=1`; sprites['sec_' + f] = im; }
+function drawSecretary(so) {
+  const im = so.pose !== 'walk' && sprites['sec_' + so.pose], ok = im && im.complete && im.naturalWidth;
+  if (!ok) { drawCreature({ ...officer, sp: 'staff_secretary', flip: false, path: so.moving ? [1] : [], ph: performance.now() / 1000 }, so.x, so.y, 52); return; }
+  const q = P(so.x, so.y), H = 52, half = so.pose === 'write' || so.pose === 'stamp';
+  const h = half ? H * 0.62 : H, w = h * im.naturalWidth / im.naturalHeight, lift = half ? H * 0.36 : 0;
+  const bob = so.moving ? Math.abs(Math.sin(performance.now() / 110)) * 2 : so.pose === 'write' ? Math.sin(performance.now() / 300) * 0.6 : 0;
+  ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(q.x, q.y, H * 0.3, H * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.drawImage(im, q.x - w / 2, q.y - lift - h - bob, w, h);
+}
 for (const f of STAFF_OTHER) { const im = new Image(); im.src = `assets/staff/${f}.png?v=1`; sprites['staff_' + f] = im; }
 const staffSprite = (f) => WORLD === 1 && STAFF_OTHER.includes(f) && sprites['staff_' + f]?.naturalWidth;
 for (const [k, f] of Object.entries(STAFF_ART)) { const im = new Image(); im.src = `assets/staff/${f}.png?v=3`; sprites['staff_' + k] = im; }
@@ -1392,10 +1410,10 @@ function render() {
     const m = P(DS.x0 + 1.35, DS.y0 + 1.2); emoji('🗝️', m.x, m.y - 15, 10); const n = P(DS.x0 + 1.35, DS.y0 + 1.8); emoji('📒', n.x, n.y - 15, 10);
   });
   const so = secretaryPos();
-  add(so.x, so.y, () => drawCreature(staffSprite('secretary') ? { ...officer, sp: 'staff_secretary', flip: so.left, path: so.moving ? [1] : [] } : officer, so.x, so.y, staffSprite('secretary') ? 52 : 34, (x, y) => {
-    if (!staffSprite('secretary')) drawHat(x, y - 32, '#d14f8f');
+  add(so.x, so.y, () => { if (staffSprite('secretary')) { drawSecretary(so); const q = P(so.x, so.y); if (processing) ring(q.x + 22, q.y - 50, Math.min(1, procT / procTime()), '#ff8a3d'); return; } drawCreature(officer, so.x, so.y, 34, (x, y) => {
+    drawHat(x, y - 32, '#d14f8f');
     if (processing) ring(x + 18, y - 30, Math.min(1, procT / procTime()), '#ff8a3d');
-  }));
+  }); });
   if (!themeOf('REC') && !(arts.REC && arts.REC.naturalWidth)) add(OFFICER.x + 0.9, OFFICER.y, () => {
     const a = P(REC.x0 + 1.5, REC.y0 + 3.1), b = P(REC.x0 + 2.1, REC.y0 + 3.1), cc = P(REC.x0 + 2.1, REC.y0 + 5.9), d = P(REC.x0 + 1.5, REC.y0 + 5.9), h = 12;
     poly(ctx, [d, cc, up(cc, h), up(d, h)], '#9a6a41'); poly(ctx, [cc, b, up(b, h), up(cc, h)], '#86592f'); poly(ctx, [up(a, h), up(b, h), up(cc, h), up(d, h)], '#c99a68', '#8a5f3a');
