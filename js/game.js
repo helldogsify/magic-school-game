@@ -2,10 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=14';
+} from './data.js?v=15';
 
 const SAVE_KEY = 'magicschool.save.v2';
-const VERSION = '0.3';
+const VERSION = '0.9';
+const BUILD = 15;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -635,9 +636,35 @@ function buildPanel(i) {
 }
 function settingsPanel() {
   return `<div class="sh-head"><h2>Настройки</h2><button class="x" data-close>✕</button></div>
-    <p class="muted">Прототип v${VERSION}. Картинки временные.</p>
+    <p class="muted">Версия ${VERSION} (сборка ${BUILD}). Это тестовая версия, картинки пока не все.</p>
     <p>Экзаменов сдано: ${S.stats.passed} · не сдано: ${S.stats.failed} · выпускников: ${S.stats.graduated}</p>
+    <h3>Отзыв</h3>
+    <textarea id="fb-text" class="fb" rows="4" placeholder="Что понравилось? Что сломалось или было непонятно?"></textarea>
+    <button class="btn wide" data-feedback>💌 Отправить отзыв</button>
     <button class="btn ghost wide" data-reset>Начать игру заново</button>`;
+}
+settingsPanel.still = true;   // contains a text field: never re-render it automatically
+function deviceName() {
+  const ua = navigator.userAgent;
+  const m = ua.match(/iPhone OS [\d_]+|iPad; CPU OS [\d_]+|Android [\d.]+[^;)]*;?[^;)]*/);
+  return (m ? m[0].replace(/_/g, '.') : ua.slice(0, 60)) + ` · экран ${screen.width}x${screen.height}`;
+}
+async function sendFeedback() {
+  const msg = ($('#fb-text').value || '').trim();
+  if (!msg) { toast('Напиши пару слов в поле отзыва'); return; }
+  const built = S.classes.filter((c) => c.built).length;
+  const text = `Отзыв о «Школе магии»
+
+${msg}
+
+— версия ${VERSION} (сборка ${BUILD})
+— ${deviceName()}
+— монет ${fmt(S.coins)}, классов ${built}, выпускников ${S.stats.graduated}, ушли ${S.stats.left || 0}`;
+  try {
+    if (navigator.share) { await navigator.share({ text }); toast('Спасибо за отзыв! 💜'); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(text); toast('Отзыв скопирован: вставь его в сообщение автору игры'); }
+  catch (e) { window.prompt('Скопируй отзыв и отправь автору игры:', text); }
 }
 
 function renderMission() {
@@ -727,6 +754,7 @@ document.addEventListener('click', (e) => {
   if (d.close !== undefined) { closePanel(); return; }
   if (d.mission !== undefined) { const m = MISSIONS[S.mission]; if (m && m.check(G)) { S.coins += m.reward; S.mission++; toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); } return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); return; }
+  if (d.feedback !== undefined) { sendFeedback(); return; }
   if (d.reset !== undefined) { if (confirm('Точно начать заново? Весь прогресс пропадёт.')) { localStorage.removeItem(SAVE_KEY); S = null; location.reload(); } return; }
   const st = S.classes[i];
   if (d.act === 'teacher') { if (spend(teacherCost(i))) st.teacher++; }
@@ -749,7 +777,7 @@ function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   stepWorld(dt);
   secT += dt; if (secT >= 1) { S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); }
-  panelT += dt; if (panel && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
+  panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); }
   render();
   requestAnimationFrame(frame);
