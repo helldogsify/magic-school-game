@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=119';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=119';
+} from './data.js?v=120';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=120';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 119;   // keep equal to the ?v= number in index.html
+const BUILD = 120;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -314,13 +314,13 @@ function teacherGlow(tp, hh, col = 'rgba(255,244,205,0.6)') {   // soft light ar
 //  - every 5 enrolment forms she carries the stack to the scroll shelf on the wall behind her and comes back;
 //  - when nobody waits for 3 s she goes to pin a note on the notice board.
 // secU = 0 at the counter, 1 at the trip's goal; enrolment waits until she is back (live only).
-let secIdle = 0, secLast = 0, secU = 0, secForms = 0, secTrip = null, secHold = 0;
+let secIdle = 0, secLast = 0, secU = 0, secForms = 0, secTrip = null, secHold = 0, secLastTrip = 0;
 function secretaryPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (secLast || now)); secLast = now;
   const waiting = processing || queue.some((q) => q.state === 'queue');
   secIdle = waiting ? 0 : secIdle + dt;
   if (!secTrip && secU === 0) {
-    if (secForms >= 5 && !processing) { secTrip = 'shelf'; secForms = 0; }
+    if (secForms >= 15 && !processing && now - secLastTrip > 20) { secTrip = 'shelf'; secForms = 0; secLastTrip = now; }   // a big school enrols fast: not more often than every 20 s
     else if (!waiting && secIdle > 3) secTrip = 'board';
   }
   let target = 0;
@@ -338,8 +338,7 @@ function secretaryPos() {
   let pose = 'write';
   if (secTrip === 'shelf' || (secTrip === 'back' && secGoal === 'shelf' && secU > 0)) pose = secTrip === 'shelf' ? 'carry' : 'walk';
   else if (secGoal === 'board' && secU > 0) pose = secU >= 1 ? 'pin' : 'walk';
-  else if (processing && procT / procTime() > 0.7) pose = 'stamp';
-  else if (!processing && (now % 4) > 3.2) pose = 'stamp';
+  else pose = (now % 2.4) > 1.7 ? 'stamp' : 'write';   // at the counter: writes ~1.7 s, stamps ~0.7 s, so both are seen even when enrolment is very fast
   return { x: home.x + (goal.x - home.x) * k, y: home.y + (goal.y - home.y) * k, moving, left: false, pose };   // never mirrored (her ruling)
 }
 let secGoal = 'board';
