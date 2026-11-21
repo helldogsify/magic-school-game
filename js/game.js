@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=60';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=60';
+} from './data.js?v=61';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=61';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 60;   // keep equal to the ?v= number in index.html
+const BUILD = 61;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -71,7 +71,7 @@ const G = { // helpers exposed to missions
   maxItem: () => Math.max(...S.classes.flatMap((c) => c.items)),
 };
 
-function earn(n, x, y, color, lift) { S.coins += n; earnedThisSec += n; if (x !== undefined) popup(`+${fmt(n)}`, x, y, color || '#c98a00', lift); }
+function earn(n, x, y, color, lift) { S.coins += n; S.stats.earned = (S.stats.earned || 0) + n; earnedThisSec += n; if (x !== undefined) popup(`+${fmt(n)}`, x, y, color || '#c98a00', lift); }
 function spend(c) { if (S.coins < c) { toast('Не хватает монет 🪙'); return false; } S.coins -= c; return true; }
 
 // ======================= world geometry (isometric tile map) =======================
@@ -374,6 +374,7 @@ function goLibrary(a, i, seatNo = libSeat(), t = 0) {
   walk(a, p.x, p.y, () => { a.state = 'read'; a.t = t; a.dur = libTime(); a.flip = true; });
 }
 function finishReading(a) {
+  S.stats.read = (S.stats.read || 0) + 1;
   lib[a.seat] = null; a.seat = -1; a.prepared = true;
   popup('💡', a.x, a.y, '#e0a100', 44);
   route(a, a.goal.i);
@@ -1070,6 +1071,9 @@ function makeMission() {
   const reward = () => Math.max(80, Math.round((S.ema || 1) * 60 * rint(2, 4) / 10) * 10);   // about 2-4 minutes of income
   const kinds = [];
   kinds.push(() => { const n = rint(3, 8) * 10; return { type: 'grad', target: S.stats.graduated + n, text: `Выпусти ещё ${n} учеников 🎓` }; });
+  kinds.push(() => { const n = rint(5, 15) * 10; return { type: 'enroll', target: S.stats.enrolled + n, text: `Прими в школу ещё ${n} новичков 🛎️` }; });
+  kinds.push(() => { const n = Math.max(500, Math.round((S.ema || 1) * 60 * rint(3, 8) / 100) * 100); return { type: 'earn', target: (S.stats.earned || 0) + n, text: `Заработай ещё ${fmt(n)} монет 🪙` }; });
+  kinds.push(() => { const n = rint(2, 6) * 5; return { type: 'read', target: (S.stats.read || 0) + n, text: `Пусть ${n} учеников подготовятся в библиотеке 📚` }; });
   kinds.push(() => { const n = rint(5, 15) * 10; return { type: 'exams', target: S.stats.passed + n, text: `Пусть ученики сдадут ещё ${n} экзаменов` }; });
   for (const i of open) {
     const st = S.classes[i], C = CLASSES[i];
@@ -1092,6 +1096,9 @@ function dynDone(m) {
   switch (m.type) {
     case 'grad': return S.stats.graduated >= m.target;
     case 'exams': return S.stats.passed >= m.target;
+    case 'enroll': return S.stats.enrolled >= m.target;
+    case 'earn': return (S.stats.earned || 0) >= m.target;
+    case 'read': return (S.stats.read || 0) >= m.target;
     case 'item': return S.classes[m.i].items[m.k] >= m.target;
     case 'teacher': return S.classes[m.i].teacher >= m.target;
     case 'desk': return S.classes[m.i].desks >= m.target;
@@ -1108,6 +1115,9 @@ function dynProgress(m) {   // [now, target] for the progress counter
   switch (m.type) {
     case 'grad': return [S.stats.graduated, m.target];
     case 'exams': return [S.stats.passed, m.target];
+    case 'enroll': return [S.stats.enrolled, m.target];
+    case 'earn': return [S.stats.earned || 0, m.target];
+    case 'read': return [S.stats.read || 0, m.target];
     case 'item': return [S.classes[m.i].items[m.k], m.target];
     case 'teacher': return [S.classes[m.i].teacher, m.target];
     case 'desk': return [S.classes[m.i].desks, m.target];
@@ -1128,7 +1138,7 @@ function missionList() {   // [{key, text, reward, ok, prog}]
   const seen = new Set(); S.dynList = S.dynList.filter((x) => !seen.has(kindKey(x)) && seen.add(kindKey(x)));
   for (let tries = 0; out.length + S.dynList.length < MISSION_SLOTS && tries < 200; tries++) {
     const m = makeMission();
-    if (S.dynList.some((x) => kindKey(x) === kindKey(m)) && tries < 150) continue;
+    if (S.dynList.some((x) => kindKey(x) === kindKey(m))) continue;
     S.dynList.push(m); made = true;
   }
   if (made) save();
