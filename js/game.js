@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=46';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=46';
+} from './data.js?v=47';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=47';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 46;   // keep equal to the ?v= number in index.html
+const BUILD = 47;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -103,44 +103,41 @@ const ART = {                                               // room pictures wit
 };
 function genLayout() {
   for (const k of Object.keys(SLOTS)) delete SLOTS[k];
-  const rows = Math.ceil(NCLS / 2), gaps = [];
+  const rows = Math.ceil(NCLS / 2), CW = 3;                        // CW: depth of a cross corridor
   let y = 0;
-  SLOTS.EXAM = slot(10, y, [[13, y + 5], [13, y + 6]], {}, 9, 6, [[[14, y + 5], [14, y + 6]], [[15, y + 5], [15, y + 6]]]);
-  SLOTS.GARDEN = slot(19, y, [[20, y + 5], [20, y + 6]], {}, 6, 6, [[[21, y + 5], [21, y + 6]]]);
+  // top: exam hall across the whole width, graduates' garden next to it (outside, no walls)
+  SLOTS.EXAM = slot(7, y, [[13, y + 5], [13, y + 6]], {}, 15, 6, [[[14, y + 5], [14, y + 6]], [[15, y + 5], [15, y + 6]], [[21, y + 3], [22, y + 3]]]);
+  SLOTS.GARDEN = slot(22, y, [[22, y + 3], [21, y + 3]], {}, 6, 6);
   y += 6;
-  const hallTop = y; y += 2;                                       // corridor strip below the exam hall
-  let row0Top = y;
+  const hallTop = y; y += CW;
+  let lastGap = null;
   for (let r = rows - 1; r >= 0; r--) {
     const li = 2 * r, ri = 2 * r + 1;
     const d = Math.max(depthOf(li), ri < NCLS ? depthOf(ri) : ROOM);
-    const place = (i, x0, left) => {
-      const h = depthOf(i), y0 = y + d - h, ym = y0 + Math.floor(h / 2);
-      SLOTS['C' + i] = left ? slot(x0, y0, [[12, ym], [13, ym]], { right: true }, ROOM, h)
-        : slot(x0, y0, [[16, ym], [15, ym]], { left: true, right: true }, ROOM, h);
-    };
-    place(li, 7, true);
-    if (ri < NCLS) place(ri, 16, false);
-    if (r === 0) row0Top = y;
+    const h1 = depthOf(li), y1 = y + d - h1, ym = y1 + Math.floor(h1 / 2);
+    SLOTS['C' + li] = slot(7, y1, [[12, ym], [13, ym]], {}, ROOM, h1);                       // door to the main corridor (front side)
+    if (ri < NCLS) { const h2 = depthOf(ri), y2 = y + d - h2; SLOTS['C' + ri] = slot(16, y2, [[18, y2 + h2 - 1], [18, y2 + h2]], {}, ROOM, h2, [[[19, y2 + h2 - 1], [19, y2 + h2]]]); }   // door to the cross corridor below
     y += d;
-    if (r > 0) { gaps.push([y, y + 3]); y += 3; }
+    lastGap = [y, y + CW]; y += CW;
   }
   const recY = y;
-  SLOTS.REC = slot(10, recY, [[14, recY + 8], [14, recY + 9]], { right: true }, 9, 9,
-    [[[15, recY + 8], [15, recY + 9]], [[13, recY], [13, recY - 1]], [[14, recY], [14, recY - 1]], [[15, recY], [15, recY - 1]], [[18, recY + 3], [19, recY + 3]]]);
-  SLOTS.DORM = slot(19, recY, [[19, recY + 3], [18, recY + 3]], { left: true, right: true });
-  SLOTS.DORM2 = slot(25, recY, [[25, recY + 3], [24, recY + 3]], { left: true, right: true });
-  const passage = gaps.length ? gaps[gaps.length - 1] : [row0Top - 3, row0Top];   // the gap right above row 0
-  SLOTS.LIB = slot(22, row0Top, [[24, row0Top], [24, row0Top - 1]], { left: true, right: true }, 6, 6, [[[25, row0Top], [25, row0Top - 1]]]);
-  BUILDING = { x0: 7, y0: hallTop, x1: 22, y1: recY };
+  // front block: library | reception | dorms
+  SLOTS.LIB = slot(4, recY, [[6, recY], [6, recY - 1]], {}, 6, 6, [[[7, recY], [7, recY - 1]]]);
+  SLOTS.REC = slot(10, recY, [[13, recY], [13, recY - 1]], {}, 9, 9,
+    [[[14, recY], [14, recY - 1]], [[15, recY], [15, recY - 1]], [[14, recY + 8], [14, recY + 9]], [[15, recY + 8], [15, recY + 9]], [[18, recY + 3], [19, recY + 3]]]);
+  SLOTS.DORM = slot(19, recY, [[19, recY + 3], [18, recY + 3]], {});
+  SLOTS.DORM2 = slot(25, recY, [[25, recY + 3], [24, recY + 3]], {});
+  BUILDING = { x0: 4, y0: hallTop, x1: 31, y1: recY };
   HALLS = [
-    { x0: 7, y0: hallTop, x1: 22, y1: recY },                       // the whole inner hall (rooms are cut out of it)
-    { x0: 22, y0: passage[0], x1: 28, y1: passage[1] },             // passage to the library
-    { x0: 13, y0: recY + 9, x1: 16, y1: recY + 14 },               // entrance path from the gate
+    { x0: 7, y0: hallTop, x1: 22, y1: recY },                       // rows + corridors (rooms are cut out of it)
+    { x0: 4, y0: lastGap[0], x1: 31, y1: recY },                     // the wide corridor along the front block
+    { x0: 13, y0: recY + 9, x1: 16, y1: recY + 14 },                // path from the gate
   ];
   GATE_TILE = { x: 14.5, y: recY + 12.5 };
-  OUTER_WALLS = [[7, hallTop, 7, hallTop + 2, 1], [7, hallTop, 10, hallTop, 0.35], ...gaps.map(([a, b]) => [7, a, 7, b, 1])];
+  GATE_Y = recY + 9;
   GH = recY + 16; GW = 32;
 }
+let GATE_Y = 0;
 // region grid (rebuilt with the layout)
 let REG = [];
 const YOFF = 0;
@@ -155,7 +152,28 @@ function buildGrid() {
   DOORS.clear();
   Object.values(SLOTS).forEach((s) => { for (const [a, b] of [s.door, ...s.extra]) { DOORS.add(`${a[0]},${a[1]}|${b[0]},${b[1]}`); DOORS.add(`${b[0]},${b[1]}|${a[0]},${a[1]}`); } });
 }
-genLayout(); buildGrid();
+// ---- walls: one rule everywhere ----
+// side: 'x0' / 'y0' = back sides (tall walls), 'x1' / 'y1' = front sides (knee walls); door tiles get no wall.
+let EDGES = [];
+function buildEdges() {
+  EDGES = [];
+  const doorAt = new Set();
+  Object.values(SLOTS).forEach((sl) => [sl.door, ...sl.extra].forEach(([a, b]) => { doorAt.add(`${a[0]},${a[1]},${b[0] - a[0]},${b[1] - a[1]}`); doorAt.add(`${b[0]},${b[1]},${a[0] - b[0]},${a[1] - b[1]}`); }));
+  const sides = [['x0', -1, 0], ['y0', 0, -1], ['x1', 1, 0], ['y1', 0, 1]];
+  for (let x = 0; x < GW; x++) for (let y = 0; y < GH; y++) {
+    const id = regAt(x, y); if (!id || id === 'GARDEN') continue;
+    if (id === 'hall' && y >= GATE_Y) continue;                    // the gate path is open
+    for (const [side, dx, dy] of sides) {
+      const nb = regAt(x + dx, y + dy);
+      if (nb === id) continue;
+      if (doorAt.has(`${x},${y},${dx},${dy}`)) continue;
+      if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
+      if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
+      EDGES.push({ x, y, side, id, tall: side === 'x0' || side === 'y0' });
+    }
+  }
+}
+genLayout(); buildGrid(); buildEdges(); decorateEdges();
 function canStep(ax, ay, bx, by) {
   const ra = regAt(ax, ay), rb = regAt(bx, by);
   if (!ra || !rb) return false;
@@ -490,6 +508,42 @@ function roomColors(id) {
   if (id === 'LIB') return { floor: '#e9dccb', wall: '#c9a27a' };
   return { floor: '#bfe6a6', wall: null };
 }
+// ---- wall pieces (thick, with a cap) ----
+const TALL_H = () => WALLH * 0.5, KNEE_H = () => WALLH * 0.11, TH = 0.22;
+const CAP = '#9a7ec6', STONE = '#f4efe9', STONE_D = '#e2d9cf';
+function wallColor(id) {
+  const ci = CLASS_SLOT.indexOf(id);
+  if (ci >= 0) return CLASSES[ci].wall;
+  return { REC: '#d9c4f0', DORM: '#bcd3f2', DORM2: '#bcd3f2', LIB: '#d8b48a', hall: '#e9e1f3' }[id] || '#e9e1f3';
+}
+function drawEdge(c, e) {
+  const { x, y, side } = e, h = e.tall ? TALL_H() : KNEE_H();
+  let a, b, a2, b2;                                    // base line (a,b) and the cap's far line (a2,b2)
+  if (side === 'x0') { a = P(x, y + 1); b = P(x, y); a2 = P(x - TH, y + 1); b2 = P(x - TH, y); }
+  if (side === 'y0') { a = P(x, y); b = P(x + 1, y); a2 = P(x, y - TH); b2 = P(x + 1, y - TH); }
+  if (side === 'x1') { a = P(x + 1, y); b = P(x + 1, y + 1); a2 = P(x + 1 + TH, y); b2 = P(x + 1 + TH, y + 1); }
+  if (side === 'y1') { a = P(x + 1, y + 1); b = P(x, y + 1); a2 = P(x + 1, y + 1 + TH); b2 = P(x, y + 1 + TH); }
+  if (e.tall) {   // inner face painted in the room colour, darker on the left side
+    const col = wallColor(e.id);
+    poly(c, [a, b, up(b, h), up(a, h)], side === 'x0' ? shade(col, -16) : col);
+    poly(c, [a, b, up(b, 5), up(a, 5)], shade(col, -45));
+    if (e.deco === 'window') { const m = (t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }); poly(c, [up(m(0.28), h * 0.35), up(m(0.72), h * 0.35), up(m(0.72), h * 0.82), up(m(0.28), h * 0.82)], '#fff7dc', '#a77b4f'); }
+    if (e.deco === 'board') poly(c, [up(a, h * 0.32), up(b, h * 0.32), up(b, h * 0.8), up(a, h * 0.8)], '#3f5f4a', '#a77b4f');
+  } else {        // front knee wall: we see its outer stone face
+    poly(c, [a2, b2, up(b2, h), up(a2, h)], side === 'x1' ? STONE_D : STONE, '#cfc3b8');
+  }
+  poly(c, [up(a, h), up(b, h), up(b2, h), up(a2, h)], CAP, '#7f64ab');   // the cap shows the thickness
+}
+function decorateEdges() {   // windows on outer walls and on rooms without a board, boards in classes
+  const n = {};
+  for (const e of EDGES) {
+    if (!e.tall) continue;
+    const key = e.id + e.side; n[key] = (n[key] || 0) + 1;
+    const ci = CLASS_SLOT.indexOf(e.id), sl = SLOTS[e.id];
+    if (ci >= 0 && e.side === 'y0' && sl && e.x >= sl.x0 + 2 && e.x <= sl.x0 + 3) e.deco = 'board';
+    else if (n[key] % 3 === 2) e.deco = 'window';
+  }
+}
 // ---- one wall rule for the whole school ----
 // tall wall: outer walls and walls with nothing behind them (plaster in the room colour, windows, white cap, baseboard)
 function tallWall(c, a, b, color, shadeD = 0, windows = true) {
@@ -546,21 +600,18 @@ function drawSlot(c, id) {
     const m11 = U[0] * ia + V[0] * ib, m12 = U[0] * ic + V[0] * id2, m21 = U[1] * ia + V[1] * ib, m22 = U[1] * ic + V[1] * id2;
     const e = L.x - (m11 * A.L[0] + m12 * A.L[1]), f = L.y - (m21 * A.L[0] + m22 * A.L[1]);
     c.save();
-    if (s.cut.left || s.cut.right) {   // a low side: the art is cut at railing height there
+    if (false) {
       const rail = WALLH * 0.24, hl = s.cut.left ? rail : 2000, hr = s.cut.right ? rail : 2000;
       poly(c, [{ x: L.x - 60, y: F.y + 60 }, { x: L.x - 60, y: L.y - hl }, { x: B.x, y: B.y - Math.min(hl, hr) }, { x: R.x + 60, y: R.y - hr }, { x: R.x + 60, y: F.y + 60 }]); c.clip();
     }
     c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
-    if (s.cut.left) railing(c, L, B);
-    if (s.cut.right) railing(c, B, R);
+
   } else {
     poly(c, [L, B, R, F], col.floor, '#00000012');
     c.strokeStyle = '#0000000d'; c.lineWidth = 1;
     for (let k = 1; k < ROOM; k++) { const a = P(s.x0 + k, s.y0), b = P(s.x0 + k, s.y1); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); }
     const lh = s.cut.left ? 8 : WALLH * 0.72, rh = s.cut.right ? 8 : WALLH * 0.72;
-    if (s.cut.left) railing(c, L, B); else tallWall(c, L, B, col.wall, -14);
-    if (s.cut.right) railing(c, B, R); else tallWall(c, B, R, col.wall, 0, ci < 0);
-    if (ci >= 0 && !s.cut.right) { // chalkboard on the right wall
+    if (false) {
       const a = P(s.x0 + 2.2, s.y0), b = P(s.x0 + 4.6, s.y0);
       poly(c, [up(a, rh * 0.35), up(b, rh * 0.35), up(b, rh * 0.8), up(a, rh * 0.8)], '#3f5f4a', '#a77b4f');
     }
@@ -737,7 +788,14 @@ function render() {
   const add = (x, y, draw, bias = 0) => list.push({ k1: zone(x, y), k2: x + y + bias, draw });
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: () => drawSlot(ctx, id) }); }
   list.push({ k1: 14.5 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
-  for (const w of OUTER_WALLS) list.push({ k1: (w[0] + w[2] + w[1] + w[3]) / 2 - 0.5, k2: -1e9, draw: () => wallSeg(w) });
+  for (const e of EDGES) {
+    if (e.id !== 'hall' && e.tall && WORLD === 1 && arts[CLASS_SLOT.indexOf(e.id) >= 0 ? CLASSES[CLASS_SLOT.indexOf(e.id)].id : e.id]?.naturalWidth) continue;   // painted rooms keep their own back walls for now
+    if (e.id === 'DORM2' && !dorm2Built()) continue;
+    if (e.id !== 'hall' && CLASS_SLOT.indexOf(e.id) >= 0 && !S.classes[CLASS_SLOT.indexOf(e.id)].built) continue;
+    const sl = SLOTS[e.id];
+    const k1 = e.id === 'hall' ? e.x + e.y : (sl.x0 + sl.x1 + sl.y0 + sl.y1) / 2;
+    list.push({ k1, k2: e.tall ? -1e9 + 1 : 1e9, draw: () => drawEdge(ctx, e) });
+  }
   for (let i = 0; i < CLASSES.length; i++) {
     const st = S.classes[i]; if (!st.built) continue;
     const s = slotOf(i);
@@ -1352,10 +1410,10 @@ function frame(now) {
   render();
   requestAnimationFrame(frame);
 }
-const LAYOUT = 5;
+const LAYOUT = 6;
 function relayout() {   // rebuild the map (a class was expanded): creatures keep their task, seats move with the rooms
   const snap = agents.length ? (save(), S.world) : null;
-  genLayout(); buildGrid();
+  genLayout(); buildGrid(); buildEdges(); decorateEdges();
   REC = SLOTS.REC; OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.4 };
   DS = SLOTS.DORM; DS2 = SLOTS.DORM2; CONCIERGE = { x: DS.x0 + 0.6, y: DS.y0 + 1.4 }; dormSpots();
   LS = SLOTS.LIB; libSpots();
