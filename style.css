@@ -204,3 +204,13 @@ input.fb { margin-bottom: 8px; }
 
 img.em { height: 1.15em; width: 1.15em; vertical-align: -0.2em; margin: 0 .03em; }
 .res .ico img.em, #tabs img.em { height: 1em; width: 1em; }
+
+/* mission bar at the bottom: several missions at once */
+#stage { border-radius: 22px; }
+#quest { padding: 6px 8px calc(var(--safe-b) + 6px); background: #fffaff; border-radius: 18px 18px 0 0; box-shadow: 0 -3px 12px #3a2f4a22; margin-top: -10px; position: relative; z-index: 3; }
+.qbar { display: flex; flex-direction: column; gap: 4px; }
+.qbar .q { padding: 5px 8px; font-size: 12.5px; box-shadow: none; background: #f6f0ff; border-radius: 12px; animation: none; }
+.qbar .q.ok { background: #fff4c2; box-shadow: 0 0 0 2px #ffd86b; }
+.qbar .qi { font-size: 16px; }
+.qbar .qp { color: #7b5cd6; font-weight: 800; white-space: nowrap; }
+.qbar .btn.small { padding: 4px 9px; font-size: 12px; }

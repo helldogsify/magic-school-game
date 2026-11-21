@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=37';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=37';
+} from './data.js?v=38';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=38';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 37;   // keep equal to the ?v= number in index.html
+const BUILD = 38;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -896,24 +896,53 @@ function dynDone(m) {
     default: return true;
   }
 }
-function currentMission() {   // {text, reward, ok}
-  if (S.mission < MISSIONS.length) { const m = MISSIONS[S.mission]; return { text: m.text, reward: m.reward, ok: m.check(G) }; }
-  if (!S.dyn) { S.dyn = makeMission(); save(); }
-  return { text: S.dyn.text, reward: S.dyn.reward, ok: dynDone(S.dyn) };
+const MISSION_SLOTS = 4;
+function dynProgress(m) {   // [now, target] for the progress counter
+  switch (m.type) {
+    case 'grad': return [S.stats.graduated, m.target];
+    case 'exams': return [S.stats.passed, m.target];
+    case 'item': return [S.classes[m.i].items[m.k], m.target];
+    case 'teacher': return [S.classes[m.i].teacher, m.target];
+    case 'desk': return [S.classes[m.i].desks, m.target];
+    case 'time': return [S.classes[m.i].time, m.target];
+    case 'rec': return [S.reception.level, m.target];
+    case 'beds': return [bedCount(), m.target];
+    case 'lib': return [libSeats(), m.target];
+    default: return null;
+  }
 }
-function claimMission() {
-  const m = currentMission(); if (!m.ok) return;
-  S.coins += m.reward; S.mission++; S.dyn = null;
+function missionList() {   // [{key, text, reward, ok, prog}]
+  if (S.dyn && !S.dynList) S.dynList = [S.dyn];   // older saves had one generated mission
+  S.dynList ||= [];
+  const out = [];
+  if (S.mission < MISSIONS.length) { const m = MISSIONS[S.mission]; out.push({ key: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: null }); }
+  let made = false;
+  while (out.length + S.dynList.length < MISSION_SLOTS) {
+    const m = makeMission();
+    const kindKey = (x) => [x.type, x.i ?? '', x.k ?? ''].join(':');   // one mission per kind at a time
+    if (S.dynList.some((x) => kindKey(x) === kindKey(m)) && Math.random() < 0.97) continue;
+    S.dynList.push(m); made = true;
+  }
+  if (made) save();
+  S.dynList.forEach((m, k) => out.push({ key: 'd' + k, text: m.text, reward: m.reward, ok: dynDone(m), prog: dynProgress(m) }));
+  return out;
+}
+function claimMission(key) {
+  const list = missionList(), m = list.find((x) => x.key === key);
+  if (!m || !m.ok) return;
+  S.coins += m.reward;
+  if (key === 'f') S.mission++; else S.dynList.splice(+key.slice(1), 1);
   toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); save();
 }
 
 function renderMission() {
-  const m = currentMission(), el = $('#quest'), ok = m.ok;
-  const key = S.mission + m.text + (ok ? 'y' : 'n');
+  const list = missionList(), el = $('#quest');
+  const key = list.map((m) => m.text + (m.ok ? 'y' : 'n') + (m.prog ? m.prog[0] : '')).join('|');
   if (el.dataset.key === key) return;
   el.dataset.key = key;
-  el.innerHTML = emojiHtml(`<div class="q ${ok ? 'ok' : ''}"><span class="qi">${ok ? '🎁' : '📋'}</span><span class="qt">${m.text}</span>
-    ${ok ? `<button class="btn hot small" data-mission>Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qr">🪙${fmt(m.reward)}</span>`}</div>`);
+  el.innerHTML = emojiHtml(`<div class="qbar">${list.map((m) => `<div class="q ${m.ok ? 'ok' : ''}"><span class="qi">${m.ok ? '🎁' : '📋'}</span>
+      <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}</span>
+      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qr">🪙${fmt(m.reward)}</span>`}</div>`).join('')}</div>`);
 }
 function updateHud() {
   $('#coins').textContent = fmt(S.coins);
@@ -1010,7 +1039,7 @@ document.addEventListener('click', (e) => {
   const t = e.target.closest('button'); if (!t) return;
   const d = t.dataset, i = +d.i;
   if (d.close !== undefined) { closePanel(); return; }
-  if (d.mission !== undefined) { claimMission(); return; }
+  if (d.mission !== undefined) { claimMission(d.mission); return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
