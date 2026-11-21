@@ -2,7 +2,7 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=8';
+} from './data.js?v=9';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.3';
@@ -23,7 +23,16 @@ function load() {
   try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { S = JSON.parse(raw); return; } } catch (e) { /* fresh */ }
   freshState();
 }
-function save() { S.last = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }
+function save() {
+  S.last = Date.now();
+  S.world = {   // creatures and their progress, so the school keeps living across reloads
+    arrivalT, procT,
+    queue: queue.map((a) => a.id),
+    wait: waitList.map((l) => l.map((a) => a.id)),
+    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, t: a.t, dur: a.dur, goal: a.goal })),
+  };
+  localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+}
 
 const cls = (id) => S.classes[CLASSES.findIndex((c) => c.id === id)];
 const isOpen = (i) => S.classes[i].built && Date.now() >= S.classes[i].buildEnd;
@@ -142,7 +151,7 @@ function spawn() {
     path: [], speed: 2.3 + Math.random() * 0.4, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6 };
   agents.push(a); queue.push(a); goQueue(a);
 }
-function goQueue(a) { const p = queueSlot(queue.indexOf(a)); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'queue'; }); }
+function goQueue(a) { const p = queueSlot(queue.indexOf(a)); a.goal = { t: 'q' }; a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'queue'; }); }
 function startNextProcess() {
   if (processing || !queue.length) return;
   const a = queue[0]; if (a.state !== 'queue') return;
@@ -156,11 +165,13 @@ function finishProcess() {
   a.state = 'walk';
   goClass(a, nextClass(-1));
 }
+const MAX_WAIT = 4;
+const classFull = (i) => i >= 0 && waitList[i].length >= MAX_WAIT;   // back-pressure: nobody new goes to a class with a full line
 function nextClass(i) { for (let k = i + 1; k < CLASSES.length; k++) if (isOpen(k)) return k; return -1; }
 function goClass(a, i) {
   if (i < 0) { goGraduate(a); return; }
   const [, h] = slotOf(i).door;
-  a.c = i; a.state = 'walk';
+  a.c = i; a.state = 'walk'; a.goal = { t: 'c', i };
   walk(a, h[0] + 0.5, h[1] + 0.5, () => arriveClass(a, i));
 }
 function arriveClass(a, i) {
@@ -171,12 +182,12 @@ function arriveClass(a, i) {
 function freeDesk(i) { for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc[i][d]) return d; return -1; }
 function seat(a, i, d) {
   const p = seatPos(i, d);
-  deskOcc[i][d] = a.id; a.desk = d; a.c = i; a.state = 'walk';
+  deskOcc[i][d] = a.id; a.desk = d; a.c = i; a.state = 'walk'; a.goal = { t: 's', i, d };
   walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i); a.flip = true; });
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
-  if (Math.random() < success(i)) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); leaveDesk(a); }
+  if (Math.random() < success(i)) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); if (classFull(nextClass(i))) a.state = 'done'; else leaveDesk(a); }
   else { S.stats.failed++; popup('💧 ещё раз', p.x, p.y, '#5b7fd6', 46); a.t = 0; a.dur = lessonTime(i); }
 }
 function leaveDesk(a) {
@@ -191,7 +202,7 @@ function pullWaiting(i) {
 }
 function goGraduate(a) {
   const g = SLOTS.GARDEN;
-  a.c = -1; a.state = 'walk';
+  a.c = -1; a.state = 'walk'; a.goal = { t: 'g' };
   walk(a, g.x0 + 1 + Math.random() * 4, g.y0 + 1 + Math.random() * 4, () => {
     S.stats.graduated++;
     popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
@@ -210,6 +221,7 @@ function stepAgents(dt) {
       continue;
     }
     if (a.state === 'study') { a.t += dt; if (a.t >= a.dur) finishLesson(a); }
+    else if (a.state === 'done' && !classFull(nextClass(a.c))) leaveDesk(a);
   }
   agents = agents.filter((a) => !(a.state === 'fly' && a.z > 400));
 }
@@ -217,7 +229,7 @@ function stepWorld(dt) {
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6) spawn(); }
   startNextProcess();
-  if (processing) { procT += dt; if (procT >= procTime()) finishProcess(); }
+  if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime() && !classFull(nextClass(-1))) finishProcess(); }
   S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; staticKey = ''; } });
   stepAgents(dt);
   for (let i = popups.length - 1; i >= 0; i--) { const p = popups[i]; p.t += dt; p.lift += 26 * dt; if (p.t > 1.3) popups.splice(i, 1); }
@@ -613,18 +625,58 @@ function frame(now) {
   render();
   requestAnimationFrame(frame);
 }
-function applyOffline() {
-  const away = Math.min(OFFLINE_CAP_SEC, (Date.now() - (S.last || Date.now())) / 1000);
-  if (away < 60 || S.ema <= 0) return;
-  const gain = Math.floor(S.ema * away);
-  if (gain < 1) return;
-  S.coins += gain;
-  const mins = Math.round(away / 60);
+function restoreWorld() {
+  const w = S.world; if (!w) return;
+  arrivalT = w.arrivalT ?? 1; procT = 0;
+  const byId = new Map();
+  for (const o of w.agents) {
+    const a = { ...o, z: 0, path: [], onArrive: null, flip: false, ph: Math.random() * 6 };
+    if (!regAt(Math.floor(a.x), Math.floor(a.y))) { a.x = GATE_TILE.x; a.y = GATE_TILE.y; }
+    agents.push(a); byId.set(a.id, a);
+  }
+  for (const id of w.queue) { const a = byId.get(id); if (a) queue.push(a); }
+  w.wait.forEach((l, i) => l.forEach((id) => { const a = byId.get(id); if (a && i < waitList.length) waitList[i].push(a); }));
+  // older saves could hold huge crowds: keep the first few in each line
+  const drop = new Set(); waitList.forEach((l) => { l.splice(MAX_WAIT).forEach((a) => drop.add(a)); });
+  agents = agents.filter((a) => !drop.has(a));
+  // desks first, so that nobody else takes a desk that is in use
+  for (const a of agents) if ((a.state === 'study' || a.state === 'done') && a.desk >= 0 && a.c >= 0 && a.desk < S.classes[a.c].desks && !deskOcc[a.c][a.desk]) deskOcc[a.c][a.desk] = a.id; else if (a.state === 'study' || a.state === 'done') a.state = 'walk';
+  for (const a of agents) {
+    if ((a.state === 'study' || a.state === 'done') && deskOcc[a.c][a.desk] === a.id) continue;
+    if (queue.includes(a)) { goQueue(a); continue; }
+    const wi = waitList.findIndex((l) => l.includes(a));
+    if (wi >= 0) continue;
+    const g = a.goal || { t: 'c', i: nextClass(-1) };
+    if (g.t === 's' && isOpen(g.i)) { const d = deskOcc[g.i][g.d] ? freeDesk(g.i) : g.d; if (d >= 0 && d < S.classes[g.i].desks) seat(a, g.i, d); else goClass(a, g.i); }
+    else if (g.t === 'c' && isOpen(g.i)) goClass(a, g.i);
+    else if (g.t === 'g') goGraduate(a);
+    else goClass(a, nextClass(-1));
+  }
+  waitList.forEach((l, i) => { if (isOpen(i)) pullWaiting(i); });
+}
+function fastForward(sec) {   // live through the time the game was closed or in the background
+  sec = Math.min(OFFLINE_CAP_SEC, sec);
+  if (sec < 1) return 0;
+  const before = S.coins;
+  const stepDt = sec > 600 ? 0.5 : 0.25;
+  for (let t = 0; t < sec; t += stepDt) stepWorld(stepDt);
+  popups.length = 0; earnedThisSec = 0;
+  $('#fx').innerHTML = '';
+  return S.coins - before;
+}
+function welcomeBack(sec, gain) {
+  if (sec < 60 || gain < 1) return;
+  const mins = Math.round(Math.min(OFFLINE_CAP_SEC, sec) / 60);
   openPanel(() => `<div class="sh-head"><h2>С возвращением!</h2><button class="x" data-close>✕</button></div>
-    <p class="center">Пока тебя не было ${mins >= 60 ? Math.floor(mins / 60) + ' ч ' : ''}${mins % 60} мин, школа работала.</p>
+    <p class="center">Пока тебя не было ${mins >= 60 ? Math.floor(mins / 60) + ' ч ' : ''}${mins % 60} мин, школа жила своей жизнью.</p>
     <div class="center big-txt">🪙 +${fmt(gain)}</div><button class="btn wide" data-close>Ура!</button>`);
 }
-document.addEventListener('visibilitychange', () => { if (document.hidden) { if (S) save(); } else { applyOffline(); last = performance.now(); } });
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenAt = Date.now(); if (S) save(); return; }
+  const away = hiddenAt ? (Date.now() - hiddenAt) / 1000 : 0; hiddenAt = 0;
+  const gain = fastForward(away); welcomeBack(away, gain); last = performance.now(); save();
+});
 window.addEventListener('pagehide', () => { if (S) save(); });
 window.addEventListener('resize', resize);
 
@@ -632,7 +684,7 @@ load();
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
 resize();
 { const h = P(14, 26); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
-applyOffline();
+{ const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
 updateHud();
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
