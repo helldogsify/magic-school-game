@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=72';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=72';
+} from './data.js?v=73';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=73';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 72;   // keep equal to the ?v= number in index.html
+const BUILD = 73;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -122,7 +122,7 @@ const DECOR = { chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 
 const PROP_H = { tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=72`; parts[k + '/' + n] = im;
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=73`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -583,12 +583,28 @@ function inspPanel() {
     <p class="muted">Раз в 12 минут игры приходит инспектор и 3 минуты проверяет что-то одно: настроение учеников, что никто не ушёл расстроенным, как быстро ты чинишь происшествия, как сдают экзамены или сколько школа заработала. О проверке предупреждают за 40 секунд.</p>
     <p class="muted">Прошла — звезда школы (+3% к плате за все уроки) и награда. Не прошла — штраф. Звёзды нужны, чтобы строить новые классы. Пока игра закрыта, инспектор не приходит.</p>`;
 }
+// how many students are in the school right now (her wish 2026-11-21)
+const inSchool = () => agents.filter((a) => a.state !== 'fly' && !(a.goal && (a.goal.t === 'x' || a.goal.t === 'g')));
+function peoplePanel() {
+  const l = inSchool(), n = (f) => l.filter(f).length;
+  const rows = [
+    ['🛎️', 'в приёмной', n((a) => queue.includes(a))],
+    ['📖', 'на уроках', n((a) => a.state === 'study')],
+    ['🚪', 'в очереди у классов', n((a) => a.state === 'wait' || a.state === 'walkwait')],
+    ['💤', 'в спальне ждут места', n((a) => a.state === 'sleep' || a.state === 'dline' || a.state === 'checkin' || (a.goal && a.goal.t === 'd'))],
+    ['📚', 'в библиотеке', n((a) => a.state === 'read' || (a.goal && a.goal.t === 'l'))],
+    ['🚶', 'идут по школе', n((a) => a.state === 'walk' && !queue.includes(a) && !(a.goal && (a.goal.t === 'd' || a.goal.t === 'l')))],
+  ];
+  return `<div class="sh-head"><span class="remoji big">👥</span><div><h2>Ученики в школе: ${l.length}</h2><div class="muted">Настроение ${moodFace(avgMood())} ${Math.round(avgMood())}% · всего выпустилось 🎓 ${fmt(S.stats.graduated)}</div></div><button class="x" data-close>✕</button></div>
+    ${rows.map(([e, t, v]) => `<div class="card up"><span class="remoji">${e}</span><div class="grow"><b>${v}</b> ${t}</div></div>`).join('')}`;
+}
 function renderInsp() {
   const el = $('#insp'); if (!el || !S) return;
   const I = S.insp || {}, c = I.cur;
   const html = c ? `<button class="ipill live" data-insp>🧐 Проверка ${mmss(c.left)} · ${INSP_KINDS[c.kind].now(c)}</button>`
     : `<button class="ipill" data-insp>⭐ ${schoolStars()}${I.next ? ` · 🧐 через ${mmss(I.t)}` : ''}</button>`;
-  if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = emojiHtml(html); }
+  const all = html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>`;
+  if (el.dataset.h !== all) { el.dataset.h = all; el.innerHTML = emojiHtml(all); }
 }
 function stepWorld(dt, live = false) {
   stepIncidents(dt, live);
@@ -1723,6 +1739,7 @@ document.addEventListener('click', (e) => {
   if (d.close !== undefined) { closePanel(); return; }
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
+  if (d.people !== undefined) { openPanel(peoplePanel); return; }
   if (d.worlds !== undefined) { openPanel(worldsPanel); return; }
   if (d.world !== undefined) { goWorld(+d.world); return; }
   if (d.worldOpen !== undefined) { openWorld(+d.worldOpen); return; }
