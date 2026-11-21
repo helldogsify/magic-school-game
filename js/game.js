@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=69';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=69';
+} from './data.js?v=70';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=70';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 69;   // keep equal to the ?v= number in index.html
+const BUILD = 70;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -38,7 +38,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke })),
+    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -50,7 +50,7 @@ const rawSuccess = (i) => 0.6 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kind
 const MAX_CHANCE = 0.85;   // even the best class fails sometimes: the library always has work
 const success = (i) => Math.min(MAX_CHANCE, rawSuccess(i));
 const overflow = (i) => Math.max(0, rawSuccess(i) - MAX_CHANCE);   // chance above the cap is not wasted: each 1% gives +2% tuition
-const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)));
+const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()));   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * Math.pow(0.92, S.classes[i].time);
 const itemCost = (i, k) => Math.round(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(1.25, S.classes[i].items[k]));
 const teacherCost = (i) => Math.round(CLASSES[i].tuition * 6 * Math.pow(1.35, S.classes[i].teacher - 1));
@@ -122,7 +122,7 @@ const DECOR = { chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 
 const PROP_H = { tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=69`; parts[k + '/' + n] = im;
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=70`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -254,7 +254,7 @@ let arrivalT = 1;
 function walk(a, tx, ty, then) { a.path = pathTo(a, tx, ty); a.onArrive = then; if (!a.path.length && then) { a.onArrive = null; then(); } }
 function spawn() {
   const a = { id: S.nextId++, sp: rnd(SPECIES), name: rnd(NAMES), x: GATE_TILE.x, y: GATE_TILE.y, z: 0,
-    path: [], speed: 2.3 + Math.random() * 0.4, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6 };
+    path: [], speed: 2.3 + Math.random() * 0.4, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6, mood: 80 };
   agents.push(a); queue.push(a); goQueue(a);
 }
 function goQueue(a) { const p = queueSlot(queue.indexOf(a)); a.goal = { t: 'q' }; a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'queue'; }); }
@@ -379,7 +379,7 @@ function seat(a, i, d) {
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
   const bonus = a.prepared ? libBonus() : 0; a.prepared = false;
-  if (Math.random() < Math.min(0.95, success(i) + bonus)) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); leaveDesk(a); }
+  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
@@ -431,9 +431,35 @@ function goGraduate(a) {
   });
 }
 const WALK_K = 0.8;   // walking a bit slower: the rooms got bigger on screen
-function stepAgents(dt) {
+// ======================= mood (her ruling 2026-11-21) =======================
+// Waiting makes students sad, lessons and the library cheer them up. Mood moves the exam chance by up to ±10%;
+// a student whose mood falls very low while waiting gives up and goes home. Mood only falls while the game is open.
+const MOOD_DROP = { queue: 0.5, process: 0, wait: 1.0, walkwait: 1.0, sleep: 0.45, dline: 0.5, checkin: 0 };
+const moodOf = (a) => (a.mood ?? 80);
+const moodBonus = (a) => (moodOf(a) - 60) / 400;   // mood 100: +10%, mood 20: -10%
+const moodFace = (m) => (m >= 70 ? '😊' : m >= 40 ? '🙂' : m >= 20 ? '😟' : '😭');
+function avgMood() { const l = agents.filter((a) => a.state !== 'fly' && !(a.goal && a.goal.t === 'x')); return l.length ? l.reduce((n, a) => n + moodOf(a), 0) / l.length : 80; }
+function giveUp(a) {   // too sad to keep waiting: frees its place and goes home
+  if (a.state === 'wait' || a.state === 'walkwait') { const l = waitList[a.c]; const k = l ? l.indexOf(a) : -1; if (k >= 0) { l.splice(k, 1); pullWaiting(a.c); } }
+  else if (a.state === 'sleep') { if (a.bed >= 0 && dorm[a.bed] === a) dorm[a.bed] = null; a.bed = -1; }
+  else return;
+  S.stats.gaveUp = (S.stats.gaveUp || 0) + 1;
+  popup('😭', a.x, a.y, '#c0436b', 44);
+  leaveSchool(a);
+}
+function stepMood(a, dt, live) {
+  let d = 0;
+  if (a.state === 'study') d = incOf(a.c) ? -1.5 : 0.8;
+  else if (a.state === 'read') d = 1.2;
+  else if (MOOD_DROP[a.state] !== undefined) d = -MOOD_DROP[a.state] * (a.state === 'sleep' ? 1 - 0.05 * (dormUp().conc - 1) : 1);   // a better dorm keeps them calmer
+  if (d < 0 && !live) return;
+  a.mood = Math.max(0, Math.min(100, moodOf(a) + d * dt));
+  if (live && a.mood < 8 && (a.state === 'wait' || a.state === 'sleep')) giveUp(a);
+}
+function stepAgents(dt, live = false) {
   for (const a of agents) {
     a.ph += dt;
+    if (a.state !== 'fly') stepMood(a, dt, live);
     if (a.state === 'fly') { a.t += dt; a.z += (40 + a.t * 60) * dt; a.x += a.vx * dt; a.y -= a.vx * dt; continue; }
     if (a.path.length) {
       const p = a.path[0], dx = p.x - a.x, dy = p.y - a.y, dist = Math.hypot(dx, dy), stepLen = a.speed * WALK_K * dt;
@@ -475,6 +501,16 @@ function fixIncident(i) {
   const s = slotOf(i); popup('✨ Починено!', (s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, '#2f9e7a', 50);
   toast(`✨ ${CLASSES[i].name}: всё в порядке, урок продолжается`); save();
 }
+function panicPos(a) {   // where a panicking student is now: a wobbly loop around the room, different for everyone
+  if (a.state !== 'study' || !incOf(a.c) || (a.path && a.path.length)) return null;
+  const s = slotOf(a.c); if (!s) return null;
+  const T = performance.now() / 1000, k = a.id * 1.7, sp = 0.55 + (a.id % 5) * 0.09;
+  const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2 + 0.6, rx = (s.x1 - s.x0) / 2 - 0.9, ry = (s.y1 - s.y0) / 2 - 1.3;
+  const ang = T * sp + k, w = Math.sin(T * 1.9 + k) * 0.25;
+  const x = cx + Math.cos(ang) * rx * (0.55 + 0.35 * Math.sin(k)) + w, y = cy + Math.sin(ang * 1.3) * ry * (0.6 + 0.3 * Math.cos(k));
+  const dx = -Math.sin(ang) * rx, dy = Math.cos(ang * 1.3) * ry * 1.3;
+  return { x, y, left: dx - dy < 0, up: dx + dy < 0 };
+}
 function drawIncidents() {
   if (!S.inc) return;
   const k = 1 + 0.12 * Math.sin(performance.now() / 180);
@@ -486,8 +522,76 @@ function drawIncidents() {
     ctx.fillStyle = '#ff4d6d'; rr(c.x - 38, c.y - 8, 76, 22, 11); ctx.fill(); text('Нажми!', c.x, c.y + 3, 11, '#ffffff');
   }
 }
+// ======================= inspector + school stars (her ruling 2026-11-21) =======================
+// Every ~12 minutes of play an inspector checks one thing for 3 minutes. Passed: a school star (+3% to every lesson,
+// needed for new classes and worlds) and a reward. Failed: a fine. The goal is announced 40 s ahead. Only while the game is open.
+const INSP_EVERY = 720, INSP_FIRST = 420, INSP_LEN = 180, INSP_WARN = 40;
+const schoolStars = () => (S && S.insp && S.insp.stars) || 0;
+const insp = () => (S.insp ||= { t: INSP_FIRST, stars: 0, cur: null, passed: 0, failed: 0 });
+const leftNow = () => (S.stats.left || 0) + (S.stats.gaveUp || 0);
+const INSP_KINDS = {
+  mood: { text: 'настроение учеников 60% и выше', check: () => avgMood() >= 60, now: () => `настроение ${Math.round(avgMood())}%` },
+  noleave: { text: 'ни один ученик не уйдёт расстроенным', start: () => ({ v: leftNow() }), fail: (c) => leftNow() > c.v, now: (c) => `ушли: ${leftNow() - c.v}` },
+  inc: { text: 'каждое происшествие исправлено быстрее чем за 20 секунд', start: () => { forceIncident(); return {}; }, fail: () => Object.values(S.inc || {}).some((x) => x.t > 20), now: () => (Object.keys(S.inc || {}).length ? '⚠️ происшествие!' : 'всё спокойно') },
+  pass: { text: 'экзамены сдают 70% учеников и больше', start: () => ({ p: S.stats.passed, f: S.stats.failed }), check: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f >= 5 && p / (p + f) >= 0.7; }, now: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f ? `сдали ${Math.round(p / (p + f) * 100)}%` : 'экзаменов ещё не было'; } },
+  earn: { text: 'школа заработает', start: () => ({ e: S.stats.earned || 0, goal: Math.max(300, Math.round((S.ema || 1) * 140 / 10) * 10) }), check: (c) => (S.stats.earned || 0) - c.e >= c.goal, now: (c) => `заработано ${fmt((S.stats.earned || 0) - c.e)} из ${fmt(c.goal)}` },
+};
+function forceIncident() {
+  const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !(S.inc && S.inc[i])); if (!open.length) return;
+  const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'c', t: 0 }; const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`);
+}
+const inspText = (c) => (c.kind === 'earn' ? `${INSP_KINDS.earn.text} ${fmt(c.goal)} 🪙` : INSP_KINDS[c.kind].text);
+const inspNextText = (k) => (k === 'earn' ? 'сколько школа заработает' : INSP_KINDS[k].text);
+function stepInspector(dt, live) {
+  if (!live || S.stats.graduated < 20 || tourStep >= 0) return;
+  const I = insp();
+  if (!I.cur) {
+    I.t -= dt;
+    if (I.t <= INSP_WARN && !I.next) { I.next = rnd(Object.keys(INSP_KINDS)); toast(`🧐 Скоро инспектор! Проверит: ${inspNextText(I.next)}`); }
+    if (I.t <= 0) { const kind = I.next || 'mood', K = INSP_KINDS[kind]; I.cur = { kind, left: INSP_LEN, failed: false, ...(K.start ? K.start() : {}) }; I.next = null; toast('🧐 Инспектор пришёл! Проверка 3 минуты'); }
+    return;
+  }
+  const c = I.cur, K = INSP_KINDS[c.kind];
+  c.left -= dt;
+  if (K.fail && K.fail(c)) c.failed = true;
+  if (c.failed || c.left <= 0) finishInspection();
+}
+let inspResult = null;
+function finishInspection() {
+  const I = insp(), c = I.cur, K = INSP_KINDS[c.kind];
+  const ok = !c.failed && (K.check ? K.check(c) : true);
+  const income = Math.max(200, Math.round((S.ema || 1) * 180 / 10) * 10);
+  I.cur = null; I.t = INSP_EVERY;
+  if (ok) { I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; S.coins += income; S.stats.earned = (S.stats.earned || 0) + income; inspResult = { ok, income }; }
+  else { const fine = Math.min(S.coins, Math.round(income / 2)); S.coins -= fine; I.failed = (I.failed || 0) + 1; inspResult = { ok, fine, text: inspText(c) }; }
+  openPanel(inspResultPanel); updateHud(); save();
+}
+function inspResultPanel() {
+  const r = inspResult || { ok: true, income: 0 };
+  return r.ok ? `<div class="sh-head"><span class="remoji big">🌟</span><div><h2>Проверка пройдена!</h2><div class="muted">Инспектор доволен школой</div></div><button class="x" data-close>✕</button></div>
+    <p class="center">Школа получила звезду: теперь их <b>⭐ ${schoolStars()}</b>. Каждая звезда даёт +3% к плате за все уроки.</p><div class="center big-txt">🪙 +${fmt(r.income)}</div><button class="btn wide" data-close>Ура!</button>`
+    : `<div class="sh-head"><span class="remoji big">😤</span><div><h2>Проверка не пройдена</h2><div class="muted">Надо было: ${r.text}</div></div><button class="x" data-close>✕</button></div>
+    <p class="center">Штраф: <b>🪙 ${fmt(r.fine)}</b>. В следующий раз получится!</p><button class="btn wide" data-close>Понятно</button>`;
+}
+const mmss = (x) => `${Math.floor(Math.max(0, x) / 60)}:${String(Math.floor(Math.max(0, x) % 60)).padStart(2, '0')}`;
+function inspPanel() {
+  const I = insp(), c = I.cur;
+  return `<div class="sh-head"><span class="remoji big">🧐</span><div><h2>Инспектор и звёзды школы</h2><div class="muted">У школы ⭐ ${schoolStars()} · пройдено ${I.passed || 0}, провалено ${I.failed || 0}</div></div><button class="x" data-close>✕</button></div>
+    ${c ? `<div class="card up"><span class="remoji">🧐</span><div class="grow"><b>Идёт проверка: ${inspText(c)}</b><div class="muted">${INSP_KINDS[c.kind].now(c)} · осталось ${mmss(c.left)}</div></div></div>`
+      : S.stats.graduated < 20 ? '<p>Инспектор начнёт приходить, когда у школы будет 20 выпускников.</p>' : `<p>Следующая проверка через <b>${mmss(I.t)}</b>${I.next ? `: ${inspNextText(I.next)}` : ''}.</p>`}
+    <p class="muted">Раз в 12 минут игры приходит инспектор и 3 минуты проверяет что-то одно: настроение учеников, что никто не ушёл расстроенным, как быстро ты чинишь происшествия, как сдают экзамены или сколько школа заработала. О проверке предупреждают за 40 секунд.</p>
+    <p class="muted">Прошла — звезда школы (+3% к плате за все уроки) и награда. Не прошла — штраф. Звёзды нужны, чтобы строить новые классы. Пока игра закрыта, инспектор не приходит.</p>`;
+}
+function renderInsp() {
+  const el = $('#insp'); if (!el || !S) return;
+  const I = S.insp || {}, c = I.cur;
+  const html = c ? `<button class="ipill live" data-insp>🧐 Проверка ${mmss(c.left)} · ${INSP_KINDS[c.kind].now(c)}</button>`
+    : `<button class="ipill" data-insp>⭐ ${schoolStars()}${I.next ? ` · 🧐 через ${mmss(I.t)}` : ''}</button>`;
+  if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = emojiHtml(html); }
+}
 function stepWorld(dt, live = false) {
   stepIncidents(dt, live);
+  stepInspector(dt, live);
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6) spawn(); }
   startNextProcess();
@@ -495,7 +599,7 @@ function stepWorld(dt, live = false) {
   stepConcierge(dt);
   wakeSleepers();
   S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; staticKey = ''; } });
-  stepAgents(dt);
+  stepAgents(dt, live);
   for (let i = popups.length - 1; i >= 0; i--) { const p = popups[i]; p.t += dt; p.lift += 26 * dt; if (p.t > 1.3) popups.splice(i, 1); }
 }
 
@@ -896,7 +1000,7 @@ function shade(hex, d) { const n = parseInt(hex.slice(1), 16); const f = (v) => 
 function drawCreature(a, x, y, h, extra) {
   const bk = a.back && sprites[a.sp + '_back'], im = bk && bk.complete && bk.naturalWidth ? bk : sprites[a.sp];
   const s = P(x, y);
-  const walking = a.path && a.path.length > 0;
+  const walking = (a.path && a.path.length > 0) || a._panic;
   const bob = walking ? Math.abs(Math.sin(a.ph * 9)) * 2 : Math.sin(a.ph * 2) * 0.6;
   const z = a.z || 0;
   ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(s.x, s.y, h * 0.3, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
@@ -968,7 +1072,8 @@ function showTour(i) {
 }
 
 // ======================= tap on a creature: what is it doing? =======================
-function statusOf(a) {
+function statusOf(a) { return statusOf0(a) + ` · настроение ${moodFace(moodOf(a))} ${Math.round(moodOf(a))}%`; }
+function statusOf0(a) {
   const cn = (i) => (i >= 0 && CLASSES[i] ? `«${CLASSES[i].name}»` : 'класс');
   const g = a.goal || {};
   if (queue.includes(a)) return a === processing ? 'записывается в школу у секретаря' : 'стоит в очереди в приёмной';
@@ -1058,18 +1163,23 @@ function render() {
     const m = P(REC.x0 + 1.8, REC.y0 + 3.6); emoji('📜', m.x, m.y - 16, 11); const n = P(REC.x0 + 1.8, REC.y0 + 5.4); emoji('🔔', n.x, n.y - 16, 11);
   });
   for (const a of agents) {
-    const draw = () => drawCreature(a, a.x, a.y, 30, (x, y) => {
+    // an incident in the class: its students leave their places and rush around the room in a panic (her wish 2026-11-21)
+    const pn = panicPos(a), ax = pn ? pn.x : a.x, ay = pn ? pn.y : a.y;
+    if (pn) { a._panic = true; a.flip = pn.left; a.back = pn.up; } else if (a._panic) { a._panic = false; if (a.state === 'study') { const tp = teacherPos(a.c); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = true; } }
+    const draw = () => drawCreature(a, ax, ay, 30, (x, y) => {
+      if (pn) { if (Math.sin(a.ph * 3 + a.id) > 0.2) emoji(a.id % 3 ? '❗' : '😱', x + 2, y - 36, 12); return; }
       if (a.state === 'study' && !a.path.length) ring(x + 13, y - 32, Math.min(1, a.t / a.dur));
       if (a.state === 'fly') emoji('✨', x - 12, y - 6, 10);
       if (a.state === 'read') { emoji('📚', x - 12, y - 30, 11); ring(x + 13, y - 32, Math.min(1, a.t / a.dur), '#e0a100'); }
       if (a.state === 'sleep') emoji('💤', x + 12, y - 30 - Math.abs(Math.sin(a.ph * 1.5)) * 4, 11);
+      if (moodOf(a) < 35 && a.state !== 'study') emoji(moodFace(moodOf(a)), x - 13, y - 31, 11);   // sad ones show it
     });
-    if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else add(a.x, a.y, draw);
+    if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else add(ax, ay, draw);
   }
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
   // x-ray: every creature is drawn once more, faintly, on top: the ones hidden behind a wall show through as ghosts
   ctx.globalAlpha = 0.38;
-  for (const a of agents) if (a.state !== 'fly') drawCreature(a, a.x, a.y, 30);
+  for (const a of agents) if (a.state !== 'fly') { const pn = panicPos(a); drawCreature(a, pn ? pn.x : a.x, pn ? pn.y : a.y, 30); }
   ctx.globalAlpha = 1;
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
@@ -1181,6 +1291,7 @@ function receptionPanel() {
     <div class="stats3"><div><span>🪙</span><b>${fee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${sec(procTime())}</b><i>оформление</i></div><div><span>🚶</span><b>${sec(arrivalInterval())}</b><i>новый ученик</i></div></div>
     <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${recLvl()}/${MAX_REC_LVL}</span><div class="muted">быстрее оформляет, взнос больше</div></div>${S.reception.level >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', recCost(), 'rec')}</div>
     <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${adsLvl()}/${MAX_REC_LVL}</span><div class="muted">ученики приходят чаще</div></div>${S.reception.ads >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', adsCost(), 'ads')}</div>
+    <p class="muted">Настроение учеников: <b>${moodFace(avgMood())} ${Math.round(avgMood())}%</b>. Долгие очереди огорчают, уроки и библиотека радуют. Весёлые сдают экзамен лучше, а совсем грустные уходят домой (ушли от тоски: ${S.stats.gaveUp || 0}).</p>
     <p class="muted">Всего поступило: ${S.stats.enrolled} · выпускников: ${S.stats.graduated} · ушли расстроенными: ${S.stats.left || 0}</p>`;
 }
 function buildPanel(i) {
@@ -1189,9 +1300,11 @@ function buildPanel(i) {
     return `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">Новый класс</div></div><button class="x" data-close>✕</button></div>
       <p>Ученики будут приходить сюда после предыдущего урока. Плата за урок: <b>🪙${fmt(C.tuition)}</b>.</p>
       <p class="muted">Стройка займёт ${C.buildTime >= 60 ? Math.round(C.buildTime / 60) + ' мин' : C.buildTime + ' с'}.</p>
-      <button class="btn wide" data-cost="${C.build}" data-act="build" data-i="${i}">Построить <span class="cost">🪙${fmt(C.build)}</span></button>`;
+      ${starsNeed(i) > schoolStars() ? `<p class="muted">Нужно звёзд школы: <b>⭐ ${schoolStars()}/${starsNeed(i)}</b>. Звёзды дают проверки инспектора 🧐.</p>` : ''}
+      <button class="btn wide" data-cost="${C.build}" data-act="build" data-i="${i}" ${starsNeed(i) > schoolStars() ? 'disabled' : ''}>Построить <span class="cost">🪙${fmt(C.build)}</span></button>`;
   };
 }
+const starsNeed = (i) => (WORLD === 1 ? [0, 0, 0, 1, 3, 5][i] || 0 : 0);   // charms 1, flight 3, elements 5 stars (classes already built stay)
 function settingsPanel() {
   return `<div class="sh-head"><h2>Настройки</h2><button class="x" data-close>✕</button></div>
     <p class="muted">Версия ${VERSION} (сборка ${BUILD}). Это тестовая версия, картинки пока не все. Значки: Twemoji (CC-BY 4.0).</p>
@@ -1472,7 +1585,7 @@ function updateHud() {
   $('#stars').textContent = fmt(S.stats.graduated);
   $('#rate').textContent = fmt(S.ema * 60) + '/м';
   document.querySelectorAll('[data-cost]').forEach((el) => el.classList.toggle('poor', S.coins < +el.dataset.cost));
-  renderMission();
+  renderMission(); renderInsp();
 }
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
 
@@ -1564,6 +1677,7 @@ document.addEventListener('click', (e) => {
   const d = t.dataset, i = +d.i;
   if (d.close !== undefined) { closePanel(); return; }
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
+  if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.worlds !== undefined) { openPanel(worldsPanel); return; }
   if (d.world !== undefined) { goWorld(+d.world); return; }
   if (d.worldOpen !== undefined) { openWorld(+d.worldOpen); return; }
@@ -1597,7 +1711,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'libspeed') { if (libUp().speed < MAX_LIB_LVL && spend(libSpeedCost())) libUp().speed++; }
   else if (d.act === 'libbonus') { if (libUp().bonus < MAX_LIB_LVL && spend(libBonusCost())) libUp().bonus++; }
   else if (d.act === 'conc') { if (dormUp().conc < MAX_CONC && spend(concCost())) dormUp().conc++; }
-  else if (d.act === 'build') { if (spend(CLASSES[i].build)) { st.built = true; st.buildEnd = Date.now() + CLASSES[i].buildTime * 1000; panel = classPanel(i); } }
+  else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (spend(CLASSES[i].build)) { st.built = true; st.buildEnd = Date.now() + CLASSES[i].buildTime * 1000; panel = classPanel(i); } }
   else return;
   refreshPanel(); save();
 });
@@ -1859,7 +1973,7 @@ watchEmoji();
 load();
 relayout();   // the map depends on the saved class sizes
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
-window.__test = { P, SLOTS, focusTile, incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
