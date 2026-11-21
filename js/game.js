@@ -2,7 +2,7 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=11';
+} from './data.js?v=12';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.3';
@@ -16,7 +16,7 @@ function freshState() {
     v: 2, coins: 50, nextId: 1, last: Date.now(), mission: 0, ema: 0,
     reception: { level: 1, ads: 1 },
     classes: CLASSES.map((c, i) => ({ built: i === 0, buildEnd: 0, teacher: 1, desks: 2, time: 0, items: c.items.map(() => 0) })),
-    stats: { graduated: 0, passed: 0, failed: 0, enrolled: 0 },
+    stats: { graduated: 0, passed: 0, failed: 0, enrolled: 0, left: 0 },
   };
 }
 function load() {
@@ -174,18 +174,40 @@ const lineCount = (i) => waitList[i].length + agents.reduce((n, a) => n + (a.goa
 const classFull = (i) => i >= 0 && lineCount(i) >= MAX_WAIT;
 // dorm: upset students sleep here until there is room in the line of their class
 const DS = SLOTS.DORM;
-const DORM_SPOTS = []; for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) DORM_SPOTS.push({ x: DS.x0 + 1.2 + c * 1.8, y: DS.y0 + 1.3 + r * 1.6 });
+const DORM_SPOTS = []; for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) DORM_SPOTS.push({ x: DS.x0 + 2.4 + c * 1.35, y: DS.y0 + 1.3 + r * 1.6 });
+// concierge: everybody checks in at her desk before going to bed
+const CONCIERGE = { x: DS.x0 + 0.6, y: DS.y0 + 1.4 };
+const CHECKIN_TIME = 2;
+const dormLineSpot = (k) => ({ x: DS.x0 + 1.4, y: DS.y0 + 1.6 + k * 0.55 });
+let dormLine = [], checkin = null, checkinT = 0;
 const DORM_CAP = DORM_SPOTS.length;
 const dorm = Array(DORM_CAP).fill(null);           // agent per bed
 const dormFree = () => dorm.indexOf(null) >= 0;
-function goDorm(a, i, bed = dorm.indexOf(null)) {
-  dorm[bed] = a; a.bed = bed; a.goal = { t: 'd', i }; a.state = 'walk'; a.c = -1;
-  const p = DORM_SPOTS[bed];
-  walk(a, p.x, p.y, () => { a.state = 'sleep'; });
+function goDorm(a, i, bed = dorm.indexOf(null)) {   // bed is reserved now, the student queues at the concierge first
+  dorm[bed] = a; a.bed = bed; a.goal = { t: 'd', i }; a.c = -1;
+  dormLine.push(a); goDormLine(a);
+}
+function goDormLine(a) { const p = dormLineSpot(dormLine.indexOf(a)); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'dline'; }); }
+function toBed(a) { const p = DORM_SPOTS[a.bed]; a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'sleep'; }); }
+function stepConcierge(dt) {
+  if (!checkin && dormLine.length && dormLine[0].state === 'dline') { checkin = dormLine[0]; checkinT = 0; checkin.state = 'checkin'; }
+  if (!checkin) return;
+  checkinT += dt;
+  if (checkinT < CHECKIN_TIME) return;
+  const a = checkin; checkin = null;
+  dormLine.shift(); dormLine.forEach(goDormLine);
+  popup('📝', a.x, a.y, '#7b5cd6', 44);
+  toBed(a);
+}
+function leaveSchool(a) {   // no room anywhere: the student is upset and goes home
+  S.stats.left = (S.stats.left || 0) + 1;
+  popup('😢💔', a.x, a.y, '#c0436b', 44);
+  a.c = -1; a.goal = { t: 'x' }; a.state = 'walk';
+  walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; });
 }
 function route(a, i) {   // send a student on to class i, or to the dorm when its line is full
   if (i < 0 || !classFull(i)) { goClass(a, i); return true; }
-  if (!dormFree()) return false;
+  if (!dormFree()) { leaveSchool(a); return false; }
   popup('😢', a.x, a.y, '#5b7fd6', 44);
   goDorm(a, i);
   return true;
@@ -218,7 +240,7 @@ function seat(a, i, d) {
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
-  if (Math.random() < success(i)) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); const n = nextClass(i); if (classFull(n) && !dormFree()) a.state = 'done'; else leaveDesk(a); }
+  if (Math.random() < success(i)) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 ещё раз', p.x, p.y, '#5b7fd6', 46); a.t = 0; a.dur = lessonTime(i); }
 }
 function leaveDesk(a) {
@@ -252,15 +274,16 @@ function stepAgents(dt) {
       continue;
     }
     if (a.state === 'study') { a.t += dt; if (a.t >= a.dur) finishLesson(a); }
-    else if (a.state === 'done') { const n = nextClass(a.c); if (!classFull(n) || dormFree()) leaveDesk(a); }
+    else if (a.state === 'done') leaveDesk(a);
   }
-  agents = agents.filter((a) => !(a.state === 'fly' && a.z > 400));
+  agents = agents.filter((a) => !(a.state === 'fly' && a.z > 400) && !a.gone);
 }
 function stepWorld(dt) {
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6) spawn(); }
   startNextProcess();
-  if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime() && (!classFull(nextClass(-1)) || dormFree())) finishProcess(); }
+  if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime()) finishProcess(); }
+  stepConcierge(dt);
   wakeSleepers();
   S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; staticKey = ''; } });
   stepAgents(dt);
@@ -446,6 +469,7 @@ function drawDesk(p) {
 }
 const staff = SPECIES.map((sp, k) => ({ sp, ph: k * 1.7, flip: false, path: [] }));
 const officer = { sp: 'fernhorn', ph: 0.5, flip: false, path: [] };
+const concierge = { sp: 'petalear', ph: 1.3, flip: false, path: [] };
 
 function render() {
   drawStatic();
@@ -479,6 +503,15 @@ function render() {
     });
   }
   // reception desk + officer
+  add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(concierge, CONCIERGE.x, CONCIERGE.y, 34, (x, y) => {
+    drawHat(x, y - 32, '#2f9e7a');
+    if (checkin) ring(x + 18, y - 30, Math.min(1, checkinT / CHECKIN_TIME), '#2f9e7a');
+  }));
+  add(CONCIERGE.x + 0.75, CONCIERGE.y, () => {
+    const a = P(DS.x0 + 1.1, DS.y0 + 0.8), b = P(DS.x0 + 1.6, DS.y0 + 0.8), cc = P(DS.x0 + 1.6, DS.y0 + 2.1), d = P(DS.x0 + 1.1, DS.y0 + 2.1), h = 11;
+    poly(ctx, [d, cc, up(cc, h), up(d, h)], '#7d8fb8'); poly(ctx, [cc, b, up(b, h), up(cc, h)], '#6a7ca5'); poly(ctx, [up(a, h), up(b, h), up(cc, h), up(d, h)], '#a9b9dd', '#5d6f98');
+    const m = P(DS.x0 + 1.35, DS.y0 + 1.2); emoji('🗝️', m.x, m.y - 15, 10); const n = P(DS.x0 + 1.35, DS.y0 + 1.8); emoji('📒', n.x, n.y - 15, 10);
+  });
   add(OFFICER.x, OFFICER.y, () => drawCreature(officer, OFFICER.x, OFFICER.y, 34, (x, y) => {
     drawHat(x, y - 32, '#d14f8f');
     if (processing) ring(x + 18, y - 30, Math.min(1, procT / procTime()), '#ff8a3d');
@@ -548,7 +581,7 @@ function receptionPanel() {
     <div class="stats3"><div><span>🪙</span><b>${fee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${sec(procTime())}</b><i>оформление</i></div><div><span>🚶</span><b>${sec(arrivalInterval())}</b><i>новый ученик</i></div></div>
     <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${S.reception.level}</span><div class="muted">быстрее оформляет, взнос больше</div></div>${costBtn('↑', recCost(), 'rec')}</div>
     <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${S.reception.ads}</span><div class="muted">ученики приходят чаще</div></div>${costBtn('↑', adsCost(), 'ads')}</div>
-    <p class="muted">Всего поступило: ${S.stats.enrolled} · выпускников: ${S.stats.graduated}</p>`;
+    <p class="muted">Всего поступило: ${S.stats.enrolled} · выпускников: ${S.stats.graduated} · ушли расстроенными: ${S.stats.left || 0}</p>`;
 }
 function buildPanel(i) {
   return () => {
@@ -642,7 +675,7 @@ scroller.addEventListener('pointerup', (e) => {
     }
     if (id === 'REC') { openPanel(receptionPanel); return; }
     if (id === 'GARDEN') { toast(`🎓 Выпускников: ${S.stats.graduated}`); return; }
-    if (id === 'DORM') { toast(`🛏️ Спальня: ${dorm.filter(Boolean).length}/${DORM_CAP} спят и ждут места в классе`); return; }
+    if (id === 'DORM') { toast(`🛏️ Спальня: занято ${dorm.filter(Boolean).length}/${DORM_CAP}, у консьержки в очереди ${dormLine.length}. Ушли из школы: ${S.stats.left || 0}`); return; }
   }
 });
 
@@ -701,7 +734,12 @@ function restoreWorld() {
     const wi = waitList.findIndex((l) => l.includes(a));
     if (wi >= 0) continue;
     const g = a.goal || { t: 'c', i: nextClass(-1) };
-    if (g.t === 'd') { const bed = (a.bed >= 0 && a.bed < DORM_CAP && !dorm[a.bed]) ? a.bed : dorm.indexOf(null); if (bed >= 0) { goDorm(a, g.i, bed); continue; } }
+    if (g.t === 'd') {
+      const bed = (a.bed >= 0 && a.bed < DORM_CAP && !dorm[a.bed]) ? a.bed : dorm.indexOf(null);
+      if (bed >= 0 && a.state === 'sleep') { dorm[bed] = a; a.bed = bed; const p = DORM_SPOTS[bed]; a.x = p.x; a.y = p.y; continue; }
+      if (bed >= 0) { goDorm(a, g.i, bed); continue; }
+    }
+    if (g.t === 'x') { a.state = 'walk'; walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; }); continue; }
     if (g.t === 's' && isOpen(g.i)) { const d = deskOcc[g.i][g.d] ? freeDesk(g.i) : g.d; if (d >= 0 && d < S.classes[g.i].desks) seat(a, g.i, d); else goClass(a, g.i); }
     else if (g.t === 'c' && isOpen(g.i)) goClass(a, g.i);
     else if (g.t === 'g') goGraduate(a);
