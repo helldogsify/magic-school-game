@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=39';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=39';
+} from './data.js?v=41';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=41';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 39;   // keep equal to the ?v= number in index.html
+const BUILD = 41;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -45,11 +45,14 @@ function save() {
 const cls = (id) => S.classes[CLASSES.findIndex((c) => c.id === id)];
 const isOpen = (i) => S.classes[i].built && Date.now() >= S.classes[i].buildEnd;
 const kindSum = (i, kind) => CLASSES[i].items.reduce((a, it, k) => a + (it.kind === kind ? S.classes[i].items[k] : 0), 0);
-const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)));
-const success = (i) => Math.min(0.99, 0.6 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kindSum(i, 'success'));
+const rawSuccess = (i) => 0.6 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kindSum(i, 'success');
+const success = (i) => Math.min(0.99, rawSuccess(i));
+const overflow = (i) => Math.max(0, rawSuccess(i) - 0.99);   // chance above 99% is not wasted: each 1% gives +2% tuition
+const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)));
 const lessonTime = (i) => CLASSES[i].lesson * Math.pow(0.92, S.classes[i].time);
 const itemCost = (i, k) => Math.round(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(1.25, S.classes[i].items[k]));
 const teacherCost = (i) => Math.round(CLASSES[i].tuition * 6 * Math.pow(1.35, S.classes[i].teacher - 1));
+const expandCost = (i) => Math.round(CLASSES[i].tuition * 120 * Math.pow(3, sizeOf(i) - 1));
 const deskCost = (i) => Math.round(CLASSES[i].tuition * 15 * Math.pow(2.3, S.classes[i].desks - 2));
 const timeCost = (i) => Math.round(CLASSES[i].tuition * 10 * Math.pow(1.6, S.classes[i].time));
 const procTime = () => 3.5 * Math.pow(0.92, S.reception.level - 1);
@@ -75,53 +78,83 @@ const ROOMS_K = 1.5;
 const HW = 16 * ROOMS_K, HH = HW * 0.62;
 const ROOM = 6;                                    // rooms are 6x6 tiles
 const WALLH = ROOM * 2 * HW * 0.3676;              // wall height in the art, relative to room width
-const GW = 32, GH = 44;
-
-// One school building: a wide shared wooden hall (corridor + cross passages), classes open onto it on both sides,
-// reception and dorm at the front, garden at the back end of the corridor.
-const HALLS = [
-  { x0: 7, y0: 4, x1: 22, y1: 30 },     // the whole inner hall of the building (rooms are cut out of it)
-  { x0: 22, y0: 21, x1: 28, y1: 24 },   // passage to the library
-  { x0: 13, y0: 39, x1: 16, y1: 44 },   // entrance path from the gate
-];
-const BUILDING = { x0: 7, y0: 4, x1: 22, y1: 30 };
-// Room slots. door = [roomTile, hallTile]; extra = more door pairs; cut = back wall drawn low (something behind it must stay visible).
+// ======================= adaptive layout =======================
+// The map is GENERATED top-down from the class list: exam hall + garden, class rows on both sides of the main
+// corridor (a row is as deep as its bigger room), reception, dorms, gate. Expanding a class re-runs it (relayout()).
+// Wall rule: outer walls of the building are tall, partitions next to halls are low (cut.left / cut.right).
+let GW = 32, GH = 60;
+let HALLS = [], BUILDING = { x0: 7, y0: 0, x1: 22, y1: 0 }, OUTER_WALLS = [], GATE_TILE = { x: 14.5, y: 0 };
+const SLOTS = {};
 function slot(x0, y0, door, cut = {}, w = ROOM, h = ROOM, extra = []) { return { x0, y0, x1: x0 + w, y1: y0 + h, door, cut, extra }; }
-const SLOTS = {
-  L1: slot(7, 24, [[12, 27], [13, 27]]),
-  R1: slot(16, 24, [[16, 27], [15, 27]], { left: true }),
-  L2: slot(7, 15, [[12, 18], [13, 18]]),
-  R2: slot(16, 15, [[16, 18], [15, 18]], { left: true }),
-  L3: slot(7, 6, [[12, 9], [13, 9]]),
-  R3: slot(16, 6, [[16, 9], [15, 9]], { left: true }),
-  REC: slot(10, 30, [[14, 38], [14, 39]], { right: true }, 9, 9,
-    [[[15, 38], [15, 39]], [[13, 30], [13, 29]], [[14, 30], [14, 29]], [[15, 30], [15, 29]], [[18, 33], [19, 33]]]),
-  DORM: slot(19, 30, [[19, 33], [18, 33]], { left: true, right: true }),
-  DORM2: slot(25, 30, [[25, 33], [24, 33]], { left: true, right: true }),   // second dorm, bought in the dorm panel
-  EXAM: slot(10, -2, [[13, 3], [13, 4]], {}, 9, 6, [[[14, 3], [14, 4]], [[15, 3], [15, 4]]]),   // exam hall at the top end of the main corridor
-  LIB: slot(22, 24, [[24, 24], [24, 23]], { left: true, right: true }, 6, 6, [[[25, 24], [25, 23]]]),
-  GARDEN: slot(19, -2, [[20, 3], [20, 4]], {}, 6, 6, [[[21, 3], [21, 4]]]),   // graduates' garden, right of the exam hall
-};
-const CLASS_SLOT = ['L1', 'R1', 'L2', 'R2', 'L3', 'R3', 'EXAM'];   // class i lives in this slot
+const NCLS = CLASSES.length - 1;                                  // classes before the final exam
+const CLASS_SLOT = [...CLASSES.map((c, i) => (c.final ? 'EXAM' : 'C' + i))];
+const MAX_SIZE = 3;
+const sizeOf = (i) => (S && S.classes && S.classes[i] && S.classes[i].size) || 1;
+const depthOf = (i) => ROOM + 2 * (sizeOf(i) - 1);                // 6, 8, 10 tiles
+const maxDesksOf = (i) => (CLASSES[i].final ? 6 : 6 + 4 * (sizeOf(i) - 1));   // 6, 10, 14
+const MAX_DESKS_ABS = 14;
 const ART = {                                               // room pictures with floor corners in image px
   herbs: { src: 'assets/rooms/herbs.webp', L: [105, 653], R: [913, 655], F: [512, 905] },
   potions: { src: 'assets/rooms/potions.webp', L: [102, 651], R: [936, 650], F: [511, 895] },
   DORM: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898] },
   DORM2: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898] },
-  REC: { src: 'assets/rooms/reception.webp', L: [102, 667], R: [920, 650], F: [512, 900], rightH: 26 },   // right back side clipped to railing height
+  REC: { src: 'assets/rooms/reception.webp', L: [102, 667], R: [920, 650], F: [512, 900] },
 };
-const GATE_TILE = { x: 14.5, y: 42.5 };
-
-// region grid
-const REG = Array.from({ length: GW }, () => Array(GH + 8).fill(null));
-const YOFF = 4;   // the map reaches y = -YOFF (exam hall and garden at the top)
+function genLayout() {
+  for (const k of Object.keys(SLOTS)) delete SLOTS[k];
+  const rows = Math.ceil(NCLS / 2), gaps = [];
+  let y = 0;
+  SLOTS.EXAM = slot(10, y, [[13, y + 5], [13, y + 6]], {}, 9, 6, [[[14, y + 5], [14, y + 6]], [[15, y + 5], [15, y + 6]]]);
+  SLOTS.GARDEN = slot(19, y, [[20, y + 5], [20, y + 6]], {}, 6, 6, [[[21, y + 5], [21, y + 6]]]);
+  y += 6;
+  const hallTop = y; y += 2;                                       // corridor strip below the exam hall
+  let row0Top = y;
+  for (let r = rows - 1; r >= 0; r--) {
+    const li = 2 * r, ri = 2 * r + 1;
+    const d = Math.max(depthOf(li), ri < NCLS ? depthOf(ri) : ROOM);
+    const place = (i, x0, left) => {
+      const h = depthOf(i), y0 = y + d - h, ym = y0 + Math.floor(h / 2);
+      SLOTS['C' + i] = left ? slot(x0, y0, [[12, ym], [13, ym]], { right: true }, ROOM, h)
+        : slot(x0, y0, [[16, ym], [15, ym]], { left: true, right: true }, ROOM, h);
+    };
+    place(li, 7, true);
+    if (ri < NCLS) place(ri, 16, false);
+    if (r === 0) row0Top = y;
+    y += d;
+    if (r > 0) { gaps.push([y, y + 3]); y += 3; }
+  }
+  const recY = y;
+  SLOTS.REC = slot(10, recY, [[14, recY + 8], [14, recY + 9]], { right: true }, 9, 9,
+    [[[15, recY + 8], [15, recY + 9]], [[13, recY], [13, recY - 1]], [[14, recY], [14, recY - 1]], [[15, recY], [15, recY - 1]], [[18, recY + 3], [19, recY + 3]]]);
+  SLOTS.DORM = slot(19, recY, [[19, recY + 3], [18, recY + 3]], { left: true, right: true });
+  SLOTS.DORM2 = slot(25, recY, [[25, recY + 3], [24, recY + 3]], { left: true, right: true });
+  const passage = gaps.length ? gaps[gaps.length - 1] : [row0Top - 3, row0Top];   // the gap right above row 0
+  SLOTS.LIB = slot(22, row0Top, [[24, row0Top], [24, row0Top - 1]], { left: true, right: true }, 6, 6, [[[25, row0Top], [25, row0Top - 1]]]);
+  BUILDING = { x0: 7, y0: hallTop, x1: 22, y1: recY };
+  HALLS = [
+    { x0: 7, y0: hallTop, x1: 22, y1: recY },                       // the whole inner hall (rooms are cut out of it)
+    { x0: 22, y0: passage[0], x1: 28, y1: passage[1] },             // passage to the library
+    { x0: 13, y0: recY + 9, x1: 16, y1: recY + 14 },               // entrance path from the gate
+  ];
+  GATE_TILE = { x: 14.5, y: recY + 12.5 };
+  OUTER_WALLS = [[7, hallTop, 7, hallTop + 2, 1], [7, hallTop, 10, hallTop, 0.35], ...gaps.map(([a, b]) => [7, a, 7, b, 1])];
+  GH = recY + 16; GW = 32;
+}
+// region grid (rebuilt with the layout)
+let REG = [];
+const YOFF = 0;
 const inGrid = (x, y) => x >= 0 && y >= -YOFF && x < GW && y < GH;
 const regAt = (x, y) => (inGrid(x, y) ? REG[x][y + YOFF] : null);
 function fillRect(r, id) { for (let x = r.x0; x < r.x1; x++) for (let y = r.y0; y < r.y1; y++) if (inGrid(x, y)) REG[x][y + YOFF] = id; }
-HALLS.forEach((h) => fillRect(h, 'hall'));
-Object.entries(SLOTS).forEach(([id, r]) => fillRect(r, id));
 const DOORS = new Set();
-Object.values(SLOTS).forEach((s) => { for (const [a, b] of [s.door, ...s.extra]) { DOORS.add(`${a[0]},${a[1]}|${b[0]},${b[1]}`); DOORS.add(`${b[0]},${b[1]}|${a[0]},${a[1]}`); } });
+function buildGrid() {
+  REG = Array.from({ length: GW }, () => Array(GH + YOFF + 2).fill(null));
+  HALLS.forEach((h) => fillRect(h, 'hall'));
+  Object.entries(SLOTS).forEach(([id, r]) => fillRect(r, id));
+  DOORS.clear();
+  Object.values(SLOTS).forEach((s) => { for (const [a, b] of [s.door, ...s.extra]) { DOORS.add(`${a[0]},${a[1]}|${b[0]},${b[1]}`); DOORS.add(`${b[0]},${b[1]}|${a[0]},${a[1]}`); } });
+}
+genLayout(); buildGrid();
 function canStep(ax, ay, bx, by) {
   const ra = regAt(ax, ay), rb = regAt(bx, by);
   if (!ra || !rb) return false;
@@ -154,15 +187,14 @@ const slotOf = (i) => SLOTS[CLASS_SLOT[i]];
 function deskPos(i, d) { const s = slotOf(i), cx = s.x0 + (s.x1 - s.x0) / 2; return { x: cx - 1.0 + (d % 2) * 1.9, y: s.y0 + 2.5 + Math.floor(d / 2) * 1.15 }; }   // two columns around the room centre
 const seatPos = (i, d) => { const p = deskPos(i, d); return { x: p.x, y: p.y - 0.45 }; };
 const teacherPos = (i) => { const s = slotOf(i); return { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
-const REC = SLOTS.REC;
-const OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.4 };
+let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.4 };
 const queueSlot = (k) => ({ x: REC.x0 + 3.0 + k * 0.7, y: REC.y0 + 4.6 });
 function waitSpot(i, k) { const [, h] = slotOf(i).door; return { x: h[0] + 0.5 + (k % 2) * 0.6 - 0.3, y: h[1] + 0.5 + Math.floor(k / 2) * 0.6 }; }
 
 // ======================= agents =======================
 let agents = [];
 let queue = [];
-const deskOcc = CLASSES.map(() => Array(MAX_DESKS).fill(null));
+const deskOcc = CLASSES.map(() => Array(MAX_DESKS_ABS).fill(null));
 const waitList = CLASSES.map(() => []);
 let processing = null; let procT = 0;
 let arrivalT = 1;
@@ -194,13 +226,14 @@ const classFull = (i) => i >= 0 && waitList[i].length >= MAX_WAIT;   // the line
 const roomForWaker = (i) => i < 0 || lineCount(i) < MAX_WAIT;          // waking sleepers also count those already walking there
 const sleepersFor = (i) => dorm.reduce((n, a) => n + (a && a.goal && a.goal.t === 'd' && a.goal.i === i ? 1 : 0), 0);
 // dorm: upset students sleep here until there is room in the line of their class
-const DS = SLOTS.DORM;
-const DS2 = SLOTS.DORM2;
+let DS = SLOTS.DORM, DS2 = SLOTS.DORM2;
 // beds 0..15 are in the first dorm, 16..31 in the second one
-const DORM_SPOTS = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) DORM_SPOTS.push({ x: DS.x0 + 2.05 + c * 1.12, y: DS.y0 + 1.0 + r * 1.22 });
-for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) DORM_SPOTS.push({ x: DS2.x0 + 1.0 + c * 1.3, y: DS2.y0 + 1.0 + r * 1.22 });
+const DORM_SPOTS = [];
+function dormSpots() { DORM_SPOTS.length = 0; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) DORM_SPOTS.push({ x: DS.x0 + 2.05 + c * 1.12, y: DS.y0 + 1.0 + r * 1.22 });
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) DORM_SPOTS.push({ x: DS2.x0 + 1.0 + c * 1.3, y: DS2.y0 + 1.0 + r * 1.22 }); }
+dormSpots();
 // concierge: everybody checks in at her desk before going to bed
-const CONCIERGE = { x: DS.x0 + 0.6, y: DS.y0 + 1.4 };
+let CONCIERGE = { x: DS.x0 + 0.6, y: DS.y0 + 1.4 };
 const MAX_CONC = 10, DORM2_COST = 1500;
 const dorm2Built = () => !!(S && S.dormUp && S.dormUp.room2);
 const maxBeds = () => (dorm2Built() ? 32 : 16);
@@ -285,9 +318,11 @@ function finishLesson(a) {
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
-const LS = SLOTS.LIB;
+let LS = SLOTS.LIB;
 // 16 reading places (4x4); upgrades open more of them, speed up reading and raise the exam bonus
-const LIB_SPOTS = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) LIB_SPOTS.push({ x: LS.x0 + 1.1 + c * 1.3, y: LS.y0 + 1.5 + r * 1.2 });
+const LIB_SPOTS = [];
+function libSpots() { LIB_SPOTS.length = 0; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) LIB_SPOTS.push({ x: LS.x0 + 1.1 + c * 1.3, y: LS.y0 + 1.5 + r * 1.2 }); }
+libSpots();
 const MAX_LIB_SEATS = 16, MAX_LIB_LVL = 10;
 const libUp = () => (S.libUp ||= { seats: 1, speed: 1, bonus: 1 });
 const libSeats = () => Math.min(MAX_LIB_SEATS, 7 + libUp().seats);           // 8 seats at level 1
@@ -363,13 +398,18 @@ function stepWorld(dt) {
 const canvas = $('#world'), ctx = canvas.getContext('2d');
 const scroller = $('#view');
 // world pixel bounds
-let MINE = 1e9, MAXE = -1e9, MINS = 1e9, MAXS = -1e9;
-for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) if (regAt(x, y)) { MINE = Math.min(MINE, x - y - 1); MAXE = Math.max(MAXE, x - y + 1); MINS = Math.min(MINS, x + y); MAXS = Math.max(MAXS, x + y + 2); }
+let MINE, MAXE, MINS, MAXS, OX, OY, WW, WH, SW, SH;
+function computeBounds() {
+  MINE = 1e9; MAXE = -1e9; MINS = 1e9; MAXS = -1e9;
+  for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) if (regAt(x, y)) { MINE = Math.min(MINE, x - y - 1); MAXE = Math.max(MAXE, x - y + 1); MINS = Math.min(MINS, x + y); MAXS = Math.max(MAXS, x + y + 2); }
+  OX = -MINE * HW + 10 + MARGIN; OY = -MINS * HH + WALLH + 40 + MARGIN;
+  WW = (MAXE - MINE) * HW + 20 + 2 * MARGIN; WH = (MAXS - MINS) * HH + WALLH + 80 + 2 * MARGIN;
+  SW = WW - 2 * MARGIN; SH = WH - 2 * MARGIN;   // the static layer covers the school only, not the grass margin
+}
 // MARGIN = grass around the school, so the camera can put any place (gate, garden) in the middle of the screen
 const MARGIN = 900;
-const BASEW = (MAXE - MINE) * HW + 20;                       // width of the school itself: zoom is relative to it
-const OX = -MINE * HW + 10 + MARGIN, OY = -MINS * HH + WALLH + 40 + MARGIN;
-const WW = BASEW + 2 * MARGIN, WH = (MAXS - MINS) * HH + WALLH + 80 + 2 * MARGIN;
+const BASEW = 54 * HW + 20;                                  // fixed zoom base (the first map's width): a bigger school does not shrink the view
+computeBounds();
 const P = (x, y) => ({ x: OX + (x - y) * HW, y: OY + (x + y) * HH });
 let scale = 1, dpr = 1, viewW = 0, viewH = 0, zoom = 2.2, pinching = false;
 const ZMIN = 0.9, ZMAX = 3.4;
@@ -418,7 +458,6 @@ const up = (p, h) => ({ x: p.x, y: p.y - h });
 // ---- static layer (floors, rooms, walls) cached in an offscreen canvas ----
 const stat = document.createElement('canvas'); const sctx = stat.getContext('2d');
 let staticKey = '';
-const SW = WW - 2 * MARGIN, SH = WH - 2 * MARGIN;   // the static layer covers the school only, not the grass margin
 const statQ = () => Math.min(scale * dpr, Math.sqrt(12e6 / (SW * SH)));   // px per world unit, capped (iOS canvas limit)
 function statKey() { return S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + statQ().toFixed(2); }
 function drawStatic() {
@@ -479,7 +518,10 @@ function drawSlot(c, id) {
     const m11 = U[0] * ia + V[0] * ib, m12 = U[0] * ic + V[0] * id2, m21 = U[1] * ia + V[1] * ib, m22 = U[1] * ic + V[1] * id2;
     const e = L.x - (m11 * A.L[0] + m12 * A.L[1]), f = L.y - (m21 * A.L[0] + m22 * A.L[1]);
     c.save();
-    if (A.rightH) { poly(c, [{ x: L.x - 60, y: L.y + 40 }, { x: L.x - 60, y: B.y - 400 }, up(B, 400), up(B, A.rightH), up(R, A.rightH), { x: R.x + 60, y: R.y }, { x: R.x + 60, y: F.y + 60 }, { x: L.x - 60, y: F.y + 60 }]); c.clip(); }
+    if (s.cut.left || s.cut.right) {   // a low side: the art is cut at railing height there
+      const rail = WALLH * 0.24, hl = s.cut.left ? rail : 2000, hr = s.cut.right ? rail : 2000;
+      poly(c, [{ x: L.x - 60, y: F.y + 60 }, { x: L.x - 60, y: L.y - hl }, { x: B.x, y: B.y - Math.min(hl, hr) }, { x: R.x + 60, y: R.y - hr }, { x: R.x + 60, y: F.y + 60 }]); c.clip();
+    }
     c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
   } else {
     poly(c, [L, B, R, F], col.floor, '#00000012');
@@ -502,17 +544,14 @@ function drawSlot(c, id) {
   if (id === 'DORM2') DORM_SPOTS.slice(16, 16 + beds2()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); });
 }
 // outer stone walls of the building where no room supplies a wall: [x0, y0, x1, y1, height]
-const OUTER_WALLS = [
-  [7, 21, 7, 24, 1], [7, 12, 7, 15, 1], [7, 4, 7, 6, 1],          // left side, between the classes
-  [7, 4, 10, 4, 0.35],                       // back side next to the garden opening (low)
-];
+// OUTER_WALLS come from genLayout()
 function wallSeg([x0, y0, x1, y1, k]) {
   const a = P(x0, y0), b = P(x1, y1), h = WALLH * 0.72 * k;
   poly(ctx, [a, b, up(b, h), up(a, h)], x0 === x1 ? '#b7a3cf' : '#cbb9e2', '#8f7aa8');
   poly(ctx, [up(a, h), up(b, h), up(b, h + 3), up(a, h + 3)], '#fff');
 }
 function drawGate(c) {
-  const g = P(13, 41.5), g2 = P(16, 41.5);
+  const g = P(13, GATE_TILE.y - 1), g2 = P(16, GATE_TILE.y - 1);
   c.strokeStyle = '#6c4fd1'; c.lineWidth = 5; c.beginPath(); c.moveTo(g.x, g.y); c.lineTo(g.x, g.y - 34); c.lineTo(g2.x, g2.y - 34); c.lineTo(g2.x, g2.y); c.stroke();
   text('ВОРОТА', (g.x + g2.x) / 2, (g.y + g2.y) / 2 - 40, 9, '#5a3fb0', c);
 }
@@ -594,18 +633,18 @@ const concierge = { sp: 'petalear', ph: 1.3, flip: false, path: [] };
 // ======================= guided tour =======================
 // Each step: camera focus in tile coords (null = stay), title and text (Russian UI).
 const TOUR = [
-  { at: [14.5, 34], title: 'Привет, директор! 👋', text: 'Это твоя Школа магии. Сюда приходят маленькие волшебные зверьки, чтобы учиться. Школа работает сама, даже когда игра закрыта. Давай покажу, как тут всё устроено.' },
-  { at: [14.5, 41.5], title: 'Ворота', text: 'Новые ученики приходят через ворота. Чем лучше «Объявления о школе» (улучшаются в приёмной), тем чаще они приходят.' },
-  { at: [11.2, 34.4], title: 'Приёмная и секретарь', text: 'Секретарь в розовой шляпе записывает новичков. Они стоят к ней в очереди, оранжевый кружок над ней — запись идёт. За каждого записанного ты получаешь взнос 🪙. Нажми на приёмную, чтобы сделать секретаря быстрее.' },
-  { at: [14.5, 27], title: 'Общий коридор', text: 'Записавшись, ученик идёт по коридору в свой класс. Все классы соединены этим коридором: ученики проходят их по порядку, один за другим.' },
-  { at: [10, 26.5], title: 'Класс и урок', text: 'В классе ученик садится за парту. Учитель в фиолетовой шляпе ведёт урок. Зелёный кружок над учеником — сколько осталось до конца урока.' },
-  { at: [10, 26.5], title: 'Экзамен', text: 'После урока экзамен. Сдал — платит за обучение 🪙 и идёт в следующий класс. Шанс сдать зависит от учителя и обстановки. Нажми на класс: там можно улучшить учителя, добавить парты, сократить урок и купить предметы.' },
-  { at: [25, 27], title: 'Библиотека 📚', text: 'Не сдал экзамен — идёт в библиотеку готовиться (жёлтый кружок). Потом возвращается в класс и пересдаёт. После подготовки урок у него короче, а шанс сдать выше.' },
-  { at: [13.5, 28.5], title: 'Очередь у класса', text: 'У двери каждого класса может ждать до 6 учеников. Если все места за партами заняты и очередь полная, ученик расстраивается 😢 и идёт в спальню.' },
-  { at: [22, 33], title: 'Спальня и консьержка 🛏️', text: 'В спальне консьержка в зелёной шляпе записывает гостя, и он спит 💤, пока в его классе не освободится место. Если и кроватей нет — ученик уходит из школы 💔. Нажми на спальню, чтобы купить кровати.' },
-  { at: [14.5, 1], title: 'Финальный экзамен 📜', text: 'Кто прошёл все открытые классы, идёт в Экзаменационный зал в самом конце коридора и сдаёт финальный экзамен. Не сдал — готовится в библиотеке и пересдаёт. Нажми на зал, чтобы улучшить экзаменатора и обстановку.' },
-  { at: [22, 1], title: 'Выпускники 🎓', text: 'Сдал финальный экзамен — выпускник! Он идёт в сад и улетает на своих крылышках. Число выпускников видно вверху экрана.' },
-  { at: [10, 18], title: 'Новые классы', text: 'На пустых местах можно построить новые классы — нажми на табличку с ценой. Чем больше классов, тем больше ученики платят за обучение.' },
+  { at: () => [14.5, SLOTS.REC.y0 + 4], title: 'Привет, директор! 👋', text: 'Это твоя Школа магии. Сюда приходят маленькие волшебные зверьки, чтобы учиться. Школа работает сама, даже когда игра закрыта. Давай покажу, как тут всё устроено.' },
+  { at: () => [14.5, GATE_TILE.y - 1], title: 'Ворота', text: 'Новые ученики приходят через ворота. Чем лучше «Объявления о школе» (улучшаются в приёмной), тем чаще они приходят.' },
+  { at: () => [OFFICER.x + 0.3, OFFICER.y], title: 'Приёмная и секретарь', text: 'Секретарь в розовой шляпе записывает новичков. Они стоят к ней в очереди, оранжевый кружок над ней — запись идёт. За каждого записанного ты получаешь взнос 🪙. Нажми на приёмную, чтобы сделать секретаря быстрее.' },
+  { at: () => [14.5, SLOTS.REC.y0 - 4], title: 'Общий коридор', text: 'Записавшись, ученик идёт по коридору в свой класс. Все классы соединены этим коридором: ученики проходят их по порядку, один за другим.' },
+  { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Класс и урок', text: 'В классе ученик садится за парту. Учитель в фиолетовой шляпе ведёт урок. Зелёный кружок над учеником — сколько осталось до конца урока.' },
+  { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Экзамен', text: 'После урока экзамен. Сдал — платит за обучение 🪙 и идёт в следующий класс. Шанс сдать зависит от учителя и обстановки. Нажми на класс: там можно улучшить учителя, добавить парты, сократить урок и купить предметы.' },
+  { at: () => [(SLOTS.LIB.x0 + SLOTS.LIB.x1) / 2, (SLOTS.LIB.y0 + SLOTS.LIB.y1) / 2], title: 'Библиотека 📚', text: 'Не сдал экзамен — идёт в библиотеку готовиться (жёлтый кружок). Потом возвращается в класс и пересдаёт. После подготовки урок у него короче, а шанс сдать выше.' },
+  { at: () => { const [, h] = slotOf(1).door; return [h[0] + 0.5, h[1] + 1]; }, title: 'Очередь у класса', text: 'У двери каждого класса может ждать до 6 учеников. Если все места за партами заняты и очередь полная, ученик расстраивается 😢 и идёт в спальню.' },
+  { at: () => [22, SLOTS.DORM.y0 + 3], title: 'Спальня и консьержка 🛏️', text: 'В спальне консьержка в зелёной шляпе записывает гостя, и он спит 💤, пока в его классе не освободится место. Если и кроватей нет — ученик уходит из школы 💔. Нажми на спальню, чтобы купить кровати.' },
+  { at: () => [14.5, SLOTS.EXAM.y0 + 3], title: 'Финальный экзамен 📜', text: 'Кто прошёл все открытые классы, идёт в Экзаменационный зал в самом конце коридора и сдаёт финальный экзамен. Не сдал — готовится в библиотеке и пересдаёт. Нажми на зал, чтобы улучшить экзаменатора и обстановку.' },
+  { at: () => [22, SLOTS.GARDEN.y0 + 3], title: 'Выпускники 🎓', text: 'Сдал финальный экзамен — выпускник! Он идёт в сад и улетает на своих крылышках. Число выпускников видно вверху экрана.' },
+  { at: () => [(slotOf(2).x0 + slotOf(2).x1) / 2, (slotOf(2).y0 + slotOf(2).y1) / 2], title: 'Новые классы', text: 'На пустых местах можно построить новые классы — нажми на табличку с ценой. Чем больше классов, тем больше ученики платят за обучение.' },
   { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту, 🎓 выпускники. Под ними задание с наградой. Нажми на зверька в коридоре — увидишь, что он сейчас делает. Нажатие внутри комнаты открывает комнату. Повторить обучение можно в ⚙️. Удачи, директор!' },
 ];
 let tourStep = -1;
@@ -616,6 +655,7 @@ function focusTile(x, y, smooth = true) {   // the point goes to the middle of t
   const freeH = box ? Math.max(120, box.getBoundingClientRect().top - 12 - sr.top) : scroller.clientHeight;
   scroller.scrollTo({ left: p.x * scale - scroller.clientWidth / 2, top: p.y * scale - 15 * scale - freeH / 2, behavior: smooth ? 'smooth' : 'auto' });
 }
+const tourAt = (st) => (typeof st.at === 'function' ? st.at() : st.at);
 function showTour(i) {
   tourStep = i;
   const el = $('#tour');
@@ -625,7 +665,7 @@ function showTour(i) {
     <p>${st.text}</p><div class="tour-btns"><button class="btn ghost small" data-tour-skip>Пропустить</button>
     ${i > 0 ? '<button class="btn ghost small" data-tour-back>← Назад</button>' : ''}<button class="btn small" data-tour-next>${i === TOUR.length - 1 ? 'Понятно!' : 'Дальше →'}</button></div></div>`);
   el.classList.remove('hidden');
-  if (st.at) requestAnimationFrame(() => focusTile(st.at[0], st.at[1]));
+  const at = tourAt(st); if (at) requestAnimationFrame(() => focusTile(at[0], at[1]));
 }
 
 // ======================= tap on a creature: what is it doing? =======================
@@ -667,7 +707,7 @@ function render() {
   const zone = (x, y) => { const id = regAt(Math.floor(x), Math.floor(y)); if (id && id !== 'hall') { const s = SLOTS[id]; return (s.x0 + s.x1 + s.y0 + s.y1) / 2; } return x + y; };
   const add = (x, y, draw, bias = 0) => list.push({ k1: zone(x, y), k2: x + y + bias, draw });
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: () => drawSlot(ctx, id) }); }
-  list.push({ k1: 14.5 + 41.5, k2: 0, draw: () => drawGate(ctx) });
+  list.push({ k1: 14.5 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
   for (const w of OUTER_WALLS) list.push({ k1: (w[0] + w[2] + w[1] + w[3]) / 2 - 0.5, k2: -1e9, draw: () => wallSeg(w) });
   for (let i = 0; i < CLASSES.length; i++) {
     const st = S.classes[i]; if (!st.built) continue;
@@ -718,7 +758,7 @@ function render() {
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
-  if (tourStep >= 0 && TOUR[tourStep].at) { const f = P(TOUR[tourStep].at[0], TOUR[tourStep].at[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
+  if (tourStep >= 0 && tourAt(TOUR[tourStep])) { const ta = tourAt(TOUR[tourStep]), f = P(ta[0], ta[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
   for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
 }
 
@@ -752,18 +792,21 @@ function classPanel(i) {
     }
     let h = `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">${C.final ? 'Последний шаг: сдал — стал выпускником 🎓, не сдал — в библиотеку' : `Урок ${i + 1} из ${CLASSES.length - 1}`}</div></div><button class="x" data-close>✕</button></div>
       <div class="stats3"><div><span>🪙</span><b>${fmt(tuition(i))}</b><i>плата</i></div><div><span>🎯</span><b>${pct(success(i))}</b><i>сдают экзамен</i></div><div><span>⏱️</span><b>${sec(lessonTime(i))}</b><i>урок</i></div></div>
+      ${overflow(i) > 0 ? `<p class="muted">🎯 Шанс уже максимальный (99%). Всё, что сверху (+${Math.round(overflow(i) * 100)}%), превращается в плату: <b>+${Math.round(overflow(i) * 200)}%</b>.</p>` : ''}
       <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>`;
     h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · +5% платы и +1,5% к экзамену</div></div>
       ${st.teacher >= MAX_TEACHER_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', teacherCost(i), 'teacher', `data-i="${i}"`)}</div>`;
-    h += `<div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Парты: ${st.desks}/${MAX_DESKS}</b><div class="muted">больше учеников за раз</div></div>
-      ${st.desks >= MAX_DESKS ? '<span class="done">макс.</span>' : costBtn('+1', deskCost(i), 'desk', `data-i="${i}"`)}</div>`;
+    h += `<div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Парты: ${st.desks}/${maxDesksOf(i)}</b><div class="muted">больше учеников за раз</div></div>
+      ${st.desks >= maxDesksOf(i) ? `<span class="done">${sizeOf(i) < MAX_SIZE && !C.final ? 'расширь класс' : 'макс.'}</span>` : costBtn('+1', deskCost(i), 'desk', `data-i="${i}"`)}</div>
+    ${C.final ? '' : `<div class="card up"><span class="remoji">📐</span><div class="grow"><b>Расширить класс</b> <span class="muted">${['маленький', 'средний', 'большой'][sizeOf(i) - 1]}</span><div class="muted">${sizeOf(i) < MAX_SIZE ? `комната станет больше: до ${6 + 4 * sizeOf(i)} парт` : 'класс уже самый большой'}</div></div>
+      ${sizeOf(i) >= MAX_SIZE ? '<span class="done">макс.</span>' : costBtn('↑', expandCost(i), 'expand', `data-i="${i}"`)}</div>`}`;
     h += `<div class="card up"><span class="remoji">⏱️</span><div class="grow"><b>Урок короче</b><div class="muted">ур. ${st.time}/${MAX_TIME_LEVEL} · −8% времени</div></div>
       ${st.time >= MAX_TIME_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', timeCost(i), 'time', `data-i="${i}"`)}</div>`;
     h += '<h3>Обстановка класса</h3>';
     C.items.forEach((it, k) => {
       const lv = st.items[k];
       h += `<div class="card up"><span class="remoji">${it.emoji}</span><div class="grow"><b>${it.name}</b> <span class="muted">ур. ${lv}</span>
-        <div class="muted">${it.kind === 'tuition' ? '+8% платы' : '+1% к экзамену'} за уровень</div><div class="lvbar"><i style="width:${lv / MAX_ITEM_LEVEL * 100}%"></i></div></div>
+        <div class="muted">${it.kind === 'tuition' ? '+8% платы' : rawSuccess(i) >= 0.99 ? '+2% платы (шанс уже 99%)' : '+1% к экзамену'} за уровень</div><div class="lvbar"><i style="width:${lv / MAX_ITEM_LEVEL * 100}%"></i></div></div>
         ${lv >= MAX_ITEM_LEVEL ? '<span class="done">макс.</span>' : costBtn(lv ? '↑' : 'Купить', itemCost(i, k), 'item', `data-i="${i}" data-k="${k}"`)}</div>`;
     });
     return h;
@@ -868,7 +911,7 @@ function makeMission() {
     const st = S.classes[i], C = CLASSES[i];
     C.items.forEach((it, k) => { if (st.items[k] < MAX_ITEM_LEVEL) kinds.push(() => { const t = Math.min(MAX_ITEM_LEVEL, st.items[k] + rint(2, 4)); return { type: 'item', i, k, target: t, text: `Улучши «${it.name}» (${C.name}) до ур. ${t}` }; }); });
     if (st.teacher < MAX_TEACHER_LEVEL) kinds.push(() => { const t = Math.min(MAX_TEACHER_LEVEL, st.teacher + rint(1, 3)); return { type: 'teacher', i, target: t, text: `Улучши учителя (${C.name}) до ур. ${t}` }; });
-    if (st.desks < MAX_DESKS) kinds.push(() => ({ type: 'desk', i, target: st.desks + 1, text: `Поставь ещё одну парту: ${C.name}` }));
+    if (st.desks < maxDesksOf(i)) kinds.push(() => ({ type: 'desk', i, target: st.desks + 1, text: `Поставь ещё одну парту: ${C.name}` }));
     if (st.time < MAX_TIME_LEVEL) kinds.push(() => ({ type: 'time', i, target: st.time + 1, text: `Сократи урок: ${C.name}` }));
   }
   kinds.push(() => ({ type: 'rec', target: S.reception.level + rint(1, 3), text: `Улучши секретаря в приёмной до ур. ${S.reception.level + 1}+` }));
@@ -1061,7 +1104,8 @@ document.addEventListener('click', (e) => {
   if (d.reset !== undefined) { if (confirm('Точно начать заново? Весь прогресс пропадёт.')) { localStorage.removeItem(SAVE_KEY); S = null; location.reload(); } return; }
   const st = S.classes[i];
   if (d.act === 'teacher') { if (spend(teacherCost(i))) st.teacher++; }
-  else if (d.act === 'desk') { if (spend(deskCost(i))) { st.desks++; pullWaiting(i); } }
+  else if (d.act === 'desk') { if (st.desks < maxDesksOf(i) && spend(deskCost(i))) { st.desks++; pullWaiting(i); } }
+  else if (d.act === 'expand') { if (sizeOf(i) < MAX_SIZE && spend(expandCost(i))) { st.size = sizeOf(i) + 1; relayout(); toast(`📐 ${CLASSES[i].name}: класс расширен!`); } }
   else if (d.act === 'time') { if (spend(timeCost(i))) st.time++; }
   else if (d.act === 'item') { if (spend(itemCost(i, +d.k))) st.items[+d.k]++; }
   else if (d.act === 'rec') { if (spend(recCost())) S.reception.level++; }
@@ -1187,8 +1231,21 @@ function frame(now) {
   render();
   requestAnimationFrame(frame);
 }
-const LAYOUT = 4;   // bump when the map changes: old creature positions are dropped
-function restoreWorld() {
+const LAYOUT = 5;
+function relayout() {   // rebuild the map (a class was expanded): creatures keep their task, seats move with the rooms
+  const snap = agents.length ? (save(), S.world) : null;
+  genLayout(); buildGrid();
+  REC = SLOTS.REC; OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.4 };
+  DS = SLOTS.DORM; DS2 = SLOTS.DORM2; CONCIERGE = { x: DS.x0 + 0.6, y: DS.y0 + 1.4 }; dormSpots();
+  LS = SLOTS.LIB; libSpots();
+  computeBounds(); staticKey = ''; resize();
+  if (snap) {
+    agents = []; queue = []; processing = null; dormLine = []; checkin = null;
+    deskOcc.forEach((a) => a.fill(null)); waitList.forEach((l) => (l.length = 0)); dorm.fill(null); lib.fill(null);
+    S.world = snap; restoreWorld(true);
+  }
+}   // bump when the map changes: old creature positions are dropped
+function restoreWorld(teleport = false) {
   if (S.layout !== LAYOUT) { S.layout = LAYOUT; S.world = null; }
   const w = S.world; if (!w) return;
   arrivalT = w.arrivalT ?? 1; procT = 0;
@@ -1206,10 +1263,10 @@ function restoreWorld() {
   // desks first, so that nobody else takes a desk that is in use
   for (const a of agents) if ((a.state === 'study' || a.state === 'done') && a.desk >= 0 && a.c >= 0 && a.desk < S.classes[a.c].desks && !deskOcc[a.c][a.desk]) deskOcc[a.c][a.desk] = a.id; else if (a.state === 'study' || a.state === 'done') a.state = 'walk';
   for (const a of agents) {
-    if ((a.state === 'study' || a.state === 'done') && deskOcc[a.c][a.desk] === a.id) continue;
+    if ((a.state === 'study' || a.state === 'done') && deskOcc[a.c][a.desk] === a.id) { if (teleport) { const p = seatPos(a.c, a.desk); a.x = p.x; a.y = p.y; } continue; }
     if (queue.includes(a)) { goQueue(a); continue; }
     const wi = waitList.findIndex((l) => l.includes(a));
-    if (wi >= 0) continue;
+    if (wi >= 0) { if (teleport) { const p = waitSpot(wi, waitList[wi].indexOf(a)); a.x = p.x; a.y = p.y; } continue; }
     const g = a.goal || { t: 'c', i: nextClass(-1) };
     if (g.t === 'd') {
       const bed = (a.bed >= 0 && a.bed < DORM_CAP && bedExists(a.bed) && !dorm[a.bed]) ? a.bed : freeBed();
@@ -1255,10 +1312,11 @@ window.addEventListener('resize', resize);
 preloadEmoji();
 watchEmoji();
 load();
+relayout();   // the map depends on the saved class sizes
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
 window.__test = { P, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
-{ const h = P(14, 31); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
+{ const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
 updateHud();
 if (!S.tourDone) setTimeout(() => { closePanel(); showTour(0); }, 600);
