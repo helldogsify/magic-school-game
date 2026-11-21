@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=62';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=62';
+} from './data.js?v=63';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=63';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 62;   // keep equal to the ?v= number in index.html
+const BUILD = 63;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1139,6 +1139,20 @@ function missionList() {   // [{key, text, reward, ok, prog}]
   let made = false;
   const kindKey = (x) => [x.type, x.i ?? '', x.k ?? ''].join(':');   // one mission per kind at a time
   const seen = new Set(); S.dynList = S.dynList.filter((x) => !seen.has(kindKey(x)) && seen.add(kindKey(x)));
+  // drop missions that became impossible (limits added later, e.g. reception max 40)
+  const possible = (m) => {
+    switch (m.type) {
+      case 'rec': return m.target <= MAX_REC_LVL && S.reception.level < MAX_REC_LVL;
+      case 'item': return m.target <= MAX_ITEM_LEVEL;
+      case 'teacher': return m.target <= MAX_TEACHER_LEVEL;
+      case 'desk': return m.target <= maxDesksOf(m.i);
+      case 'time': return m.target <= MAX_TIME_LEVEL;
+      case 'beds': return m.target <= maxBeds();
+      case 'lib': return m.target <= MAX_LIB_SEATS;
+      default: return true;
+    }
+  };
+  S.dynList = S.dynList.filter((m) => dynDone(m) || possible(m));
   for (let tries = 0; out.length + S.dynList.length < MISSION_SLOTS && tries < 200; tries++) {
     const m = makeMission();
     if (S.dynList.some((x) => kindKey(x) === kindKey(m))) continue;
