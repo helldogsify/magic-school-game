@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=135';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=135';
+} from './data.js?v=136';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=136';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 135;   // keep equal to the ?v= number in index.html
+const BUILD = 136;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -825,7 +825,7 @@ const conciergeAway = () => conU > 0.02;
 // comes back reading; when the room is full of readers he sometimes goes «shhh».
 // The headmaster lion (her yes 2026-11-21): signs papers behind his desk, walks to the window and thinks, comes back and raises his scepter.
 const DIR_POSES = ['sign', 'think', 'walk', 'proud'];
-for (const f of DIR_POSES) { const im = new Image(); im.src = `assets/staff/dir_${f}.png?v=1`; sprites['dir_' + f] = im; }
+for (const f of DIR_POSES) { const im = new Image(); im.src = `assets/staff/dir_${f}.png?v=2`; sprites['dir_' + f] = im; }
 let dirU = 0, dirTrip = 0, dirClock = 0, dirHold = 0, dirLast = 0;
 function directorPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (dirLast || now)); dirLast = now;
