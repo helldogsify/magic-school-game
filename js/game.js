@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=57';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=57';
+} from './data.js?v=58';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=58';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 57;   // keep equal to the ?v= number in index.html
+const BUILD = 58;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -47,8 +47,9 @@ const cls = (id) => S.classes[CLASSES.findIndex((c) => c.id === id)];
 const isOpen = (i) => S.classes[i].built && Date.now() >= S.classes[i].buildEnd;
 const kindSum = (i, kind) => CLASSES[i].items.reduce((a, it, k) => a + (it.kind === kind ? S.classes[i].items[k] : 0), 0);
 const rawSuccess = (i) => 0.6 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kindSum(i, 'success');
-const success = (i) => Math.min(0.99, rawSuccess(i));
-const overflow = (i) => Math.max(0, rawSuccess(i) - 0.99);   // chance above 99% is not wasted: each 1% gives +2% tuition
+const MAX_CHANCE = 0.85;   // even the best class fails sometimes: the library always has work
+const success = (i) => Math.min(MAX_CHANCE, rawSuccess(i));
+const overflow = (i) => Math.max(0, rawSuccess(i) - MAX_CHANCE);   // chance above the cap is not wasted: each 1% gives +2% tuition
 const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)));
 const lessonTime = (i) => CLASSES[i].lesson * Math.pow(0.92, S.classes[i].time);
 const itemCost = (i, k) => Math.round(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(1.25, S.classes[i].items[k]));
@@ -341,12 +342,12 @@ function freeDesk(i) { for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc
 function seat(a, i, d) {
   const p = seatPos(i, d);
   deskOcc[i][d] = a.id; a.desk = d; a.c = i; a.state = 'walk'; a.goal = { t: 's', i, d };
-  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1); const tp = teacherPos(i); a.flip = (tp.x - tp.y) < (a.x - a.y); });   // face the teacher
+  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1); const tp = teacherPos(i); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = tp.x + tp.y < a.x + a.y; });   // face the teacher
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
   const bonus = a.prepared ? libBonus() : 0; a.prepared = false;
-  if (Math.random() < Math.min(0.99, success(i) + bonus)) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); leaveDesk(a); }
+  if (Math.random() < Math.min(0.95, success(i) + bonus)) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
@@ -404,7 +405,9 @@ function stepAgents(dt) {
     if (a.path.length) {
       const p = a.path[0], dx = p.x - a.x, dy = p.y - a.y, dist = Math.hypot(dx, dy), stepLen = a.speed * WALK_K * dt;
       const sdx = dx - dy; if (Math.abs(sdx) > 0.01) a.flip = sdx < 0;
-      if (dist <= stepLen) { a.x = p.x; a.y = p.y; a.path.shift(); if (!a.path.length && a.onArrive) { const f = a.onArrive; a.onArrive = null; f(); } }
+      a.back = dx + dy < -0.01;   // walking away from us: we see its back
+      if (dist <= stepLen) { a.x = p.x; a.y = p.y; a.path.shift(); if (!a.path.length) a.back = false;
+        if (!a.path.length && a.onArrive) { const f = a.onArrive; a.onArrive = null; f(); } }
       else { a.x += dx / dist * stepLen; a.y += dy / dist * stepLen; }
       continue;
     }
@@ -446,7 +449,7 @@ const P = (x, y) => ({ x: OX + (x - y) * HW, y: OY + (x + y) * HH });
 let scale = 1, dpr = 1, viewW = 0, viewH = 0, zoom = 2.2, pinching = false;
 const ZMIN = 0.9, ZMAX = 3.4;
 const sprites = {};
-for (const sp of SPECIES) { const im = new Image(); im.src = `assets/creatures/${sp}.png`; sprites[sp] = im; }
+for (const sp of SPECIES) for (const v of ['', '_back']) { const im = new Image(); im.src = `assets/creatures/${sp}${v}.png`; sprites[sp + v] = im; }   // front and back views
 const arts = {};
 for (const [k, a] of Object.entries(ART)) { const im = new Image(); im.onload = () => { staticKey = ''; }; im.src = a.src; arts[k] = im; }
 const popups = [];
@@ -688,7 +691,7 @@ function drawPlot(c, s, ci, L, B, R, F, center) {
 function shade(hex, d) { const n = parseInt(hex.slice(1), 16); const f = (v) => Math.max(0, Math.min(255, v + d)); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; }
 
 function drawCreature(a, x, y, h, extra) {
-  const im = sprites[a.sp];
+  const bk = a.back && sprites[a.sp + '_back'], im = bk && bk.complete && bk.naturalWidth ? bk : sprites[a.sp];
   const s = P(x, y);
   const walking = a.path && a.path.length > 0;
   const bob = walking ? Math.abs(Math.sin(a.ph * 9)) * 2 : Math.sin(a.ph * 2) * 0.6;
@@ -917,7 +920,7 @@ function classPanel(i) {
     }
     let h = `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">${C.final ? 'Последний шаг: сдал — стал выпускником 🎓, не сдал — в библиотеку' : `Урок ${i + 1} из ${CLASSES.length - 1}`}</div></div><button class="x" data-close>✕</button></div>
       <div class="stats3"><div><span>🪙</span><b>${fmt(tuition(i))}</b><i>плата</i></div><div><span>🎯</span><b>${pct(success(i))}</b><i>сдают экзамен</i></div><div><span>⏱️</span><b>${sec(lessonTime(i))}</b><i>урок</i></div></div>
-      ${overflow(i) > 0 ? `<p class="muted">🎯 Шанс уже максимальный (99%). Всё, что сверху (+${Math.round(overflow(i) * 100)}%), превращается в плату: <b>+${Math.round(overflow(i) * 200)}%</b>.</p>` : ''}
+      ${overflow(i) > 0 ? `<p class="muted">🎯 Шанс уже максимальный (${Math.round(MAX_CHANCE * 100)}%). Всё, что сверху (+${Math.round(overflow(i) * 100)}%), превращается в плату: <b>+${Math.round(overflow(i) * 200)}%</b>.</p>` : ''}
       <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>`;
     h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · +5% платы и +1,5% к экзамену</div></div>
       ${st.teacher >= MAX_TEACHER_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', teacherCost(i), 'teacher', `data-i="${i}"`)}</div>`;
@@ -931,7 +934,7 @@ function classPanel(i) {
     C.items.forEach((it, k) => {
       const lv = st.items[k];
       h += `<div class="card up"><span class="remoji">${it.emoji}</span><div class="grow"><b>${it.name}</b> <span class="muted">ур. ${lv}</span>
-        <div class="muted">${it.kind === 'tuition' ? '+8% платы' : rawSuccess(i) >= 0.99 ? '+2% платы (шанс уже 99%)' : '+1% к экзамену'} за уровень</div><div class="lvbar"><i style="width:${lv / MAX_ITEM_LEVEL * 100}%"></i></div></div>
+        <div class="muted">${it.kind === 'tuition' ? '+8% платы' : rawSuccess(i) >= MAX_CHANCE ? `+2% платы (шанс уже ${Math.round(MAX_CHANCE * 100)}%)` : '+1% к экзамену'} за уровень</div><div class="lvbar"><i style="width:${lv / MAX_ITEM_LEVEL * 100}%"></i></div></div>
         ${lv >= MAX_ITEM_LEVEL ? '<span class="done">макс.</span>' : costBtn(lv ? '↑' : 'Купить', itemCost(i, k), 'item', `data-i="${i}" data-k="${k}"`)}</div>`;
     });
     return h;
@@ -1471,7 +1474,7 @@ function restoreWorld(teleport = false) {
   // desks first, so that nobody else takes a desk that is in use
   for (const a of agents) if ((a.state === 'study' || a.state === 'done') && a.desk >= 0 && a.c >= 0 && a.desk < S.classes[a.c].desks && !deskOcc[a.c][a.desk]) deskOcc[a.c][a.desk] = a.id; else if (a.state === 'study' || a.state === 'done') a.state = 'walk';
   for (const a of agents) {
-    if ((a.state === 'study' || a.state === 'done') && deskOcc[a.c][a.desk] === a.id) { if (teleport) { const p = seatPos(a.c, a.desk); a.x = p.x; a.y = p.y; } const tp = teacherPos(a.c); a.flip = (tp.x - tp.y) < (a.x - a.y); continue; }
+    if ((a.state === 'study' || a.state === 'done') && deskOcc[a.c][a.desk] === a.id) { if (teleport) { const p = seatPos(a.c, a.desk); a.x = p.x; a.y = p.y; } const tp = teacherPos(a.c); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = tp.x + tp.y < a.x + a.y; continue; }
     if (queue.includes(a)) { goQueue(a); continue; }
     const wi = waitList.findIndex((l) => l.includes(a));
     if (wi >= 0) { if (teleport) { const p = waitSpot(wi, waitList[wi].indexOf(a)); a.x = p.x; a.y = p.y; } continue; }
