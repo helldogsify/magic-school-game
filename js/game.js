@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=45';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=45';
+} from './data.js?v=46';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=46';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 45;   // keep equal to the ?v= number in index.html
+const BUILD = 46;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -807,8 +807,29 @@ let panel = null; let dirtyPanel = false;
 let panelHtml = '';
 function openPanel(fn) { $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; panelHtml = emojiHtml(fn()); sh.innerHTML = panelHtml; sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
 function closePanel() { panel = null; $('#sheet-wrap').classList.add('hidden'); $('#tour').classList.remove('under-panel'); }   // the tour card hides while a panel is open
+// Update the DOM in place: unchanged nodes (icons!) stay, only changed text and attributes are written.
+// A fresh innerHTML re-created every <img> and on phones the icons blinked on each refresh.
+function morph(el, html) {
+  const t = document.createElement('template'); t.innerHTML = html;
+  morphChildren(el, t.content);
+}
+function morphChildren(a, b) {
+  const an = [...a.childNodes], bn = [...b.childNodes];
+  for (let k = 0; k < bn.length; k++) {
+    const x = an[k], y = bn[k];
+    if (!x) { a.appendChild(y.cloneNode(true)); continue; }
+    if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName) { a.replaceChild(y.cloneNode(true), x); continue; }
+    if (x.nodeType === 3) { if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; continue; }
+    if (x.nodeType !== 1) continue;
+    for (const at of [...x.attributes]) if (!y.hasAttribute(at.name)) x.removeAttribute(at.name);
+    for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
+    if (x.nodeName === 'TEXTAREA' || x.nodeName === 'INPUT') continue;   // keep what the player typed
+    morphChildren(x, y);
+  }
+  for (let k = an.length - 1; k >= bn.length; k--) a.removeChild(an[k]);
+}
 function refreshPanel() {   // re-render only when the content really changed (a fresh innerHTML every second made the icons blink)
-  if (panel) { const h = emojiHtml(panel()); if (h !== panelHtml) { panelHtml = h; const sc = $('#sheet').scrollTop; $('#sheet').innerHTML = h; $('#sheet').scrollTop = sc; } }
+  if (panel) { const h = emojiHtml(panel()); if (h !== panelHtml) { panelHtml = h; const sc = $('#sheet').scrollTop; morph($('#sheet'), h); $('#sheet').scrollTop = sc; } }
   updateHud();
 }
 
