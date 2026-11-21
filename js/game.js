@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=38';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=38';
+} from './data.js?v=39';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=39';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 38;   // keep equal to the ?v= number in index.html
+const BUILD = 39;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -896,7 +896,7 @@ function dynDone(m) {
     default: return true;
   }
 }
-const MISSION_SLOTS = 4;
+const MISSION_SLOTS = 6;
 function dynProgress(m) {   // [now, target] for the progress counter
   switch (m.type) {
     case 'grad': return [S.stats.graduated, m.target];
@@ -917,10 +917,11 @@ function missionList() {   // [{key, text, reward, ok, prog}]
   const out = [];
   if (S.mission < MISSIONS.length) { const m = MISSIONS[S.mission]; out.push({ key: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: null }); }
   let made = false;
-  while (out.length + S.dynList.length < MISSION_SLOTS) {
+  const kindKey = (x) => [x.type, x.i ?? '', x.k ?? ''].join(':');   // one mission per kind at a time
+  const seen = new Set(); S.dynList = S.dynList.filter((x) => !seen.has(kindKey(x)) && seen.add(kindKey(x)));
+  for (let tries = 0; out.length + S.dynList.length < MISSION_SLOTS && tries < 200; tries++) {
     const m = makeMission();
-    const kindKey = (x) => [x.type, x.i ?? '', x.k ?? ''].join(':');   // one mission per kind at a time
-    if (S.dynList.some((x) => kindKey(x) === kindKey(m)) && Math.random() < 0.97) continue;
+    if (S.dynList.some((x) => kindKey(x) === kindKey(m)) && tries < 150) continue;
     S.dynList.push(m); made = true;
   }
   if (made) save();
@@ -935,14 +936,20 @@ function claimMission(key) {
   toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); save();
 }
 
+// missions live behind a round button on the map (bottom right); a red badge shows how many can be claimed
 function renderMission() {
-  const list = missionList(), el = $('#quest');
-  const key = list.map((m) => m.text + (m.ok ? 'y' : 'n') + (m.prog ? m.prog[0] : '')).join('|');
+  const list = missionList(), ready = list.filter((m) => m.ok).length, el = $('#quest');
+  const key = 'b' + ready;
   if (el.dataset.key === key) return;
   el.dataset.key = key;
-  el.innerHTML = emojiHtml(`<div class="qbar">${list.map((m) => `<div class="q ${m.ok ? 'ok' : ''}"><span class="qi">${m.ok ? '🎁' : '📋'}</span>
+  el.innerHTML = emojiHtml(`<button class="mbtn ${ready ? 'ready' : ''}" data-missions aria-label="Задания">📋${ready ? `<span class="badge">${ready}</span>` : ''}</button>`);
+}
+function missionsPanel() {
+  const list = missionList();
+  return `<div class="sh-head"><span class="remoji big">📋</span><div><h2>Задания</h2><div class="muted">Выполняй и забирай награды. Новые появляются сразу</div></div><button class="x" data-close>✕</button></div>
+    <div class="qbar">${list.map((m) => `<div class="q ${m.ok ? 'ok' : ''}"><span class="qi">${m.ok ? '🎁' : '📋'}</span>
       <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}</span>
-      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qr">🪙${fmt(m.reward)}</span>`}</div>`).join('')}</div>`);
+      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qr">🪙${fmt(m.reward)}</span>`}</div>`).join('')}</div>`;
 }
 function updateHud() {
   $('#coins').textContent = fmt(S.coins);
@@ -1039,7 +1046,8 @@ document.addEventListener('click', (e) => {
   const t = e.target.closest('button'); if (!t) return;
   const d = t.dataset, i = +d.i;
   if (d.close !== undefined) { closePanel(); return; }
-  if (d.mission !== undefined) { claimMission(d.mission); return; }
+  if (d.missions !== undefined) { openPanel(missionsPanel); return; }
+  if (d.mission !== undefined) { claimMission(d.mission); if (panel === missionsPanel) refreshPanel(); return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
