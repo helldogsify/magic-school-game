@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=124';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=124';
+} from './data.js?v=125';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=125';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 124;   // keep equal to the ?v= number in index.html
+const BUILD = 125;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -794,12 +794,12 @@ const STAFF_GLOW = { lun: 'rgba(255,240,190,0.95)' }, STAFF_GLOW_ALL = 'rgba(255
 // school staff outside classes (secretary, concierge, director): own sprites, one by one with her approval
 const STAFF_OTHER = ['secretary', 'concierge'];
 const SEC_POSES = ['write', 'stamp', 'carry', 'pin'];   // pose sprites of the secretary (her ruling 2026-11-21: real animations, not sliding)
-for (const f of SEC_POSES) { const im = new Image(); im.src = `assets/staff/sec_${f}.png?v=1`; sprites['sec_' + f] = im; }
+for (const f of SEC_POSES) { const im = new Image(); im.src = `assets/staff/sec_${f}.png?v=2`; sprites['sec_' + f] = im; }
 function drawSecretary(so) {
   const im = so.pose !== 'walk' && sprites['sec_' + so.pose], ok = im && im.complete && im.naturalWidth;
   if (!ok) { drawCreature({ ...officer, sp: 'staff_secretary', flip: false, path: so.moving ? [1] : [], ph: performance.now() / 1000 }, so.x, so.y, 52); return; }
-  const q = P(so.x, so.y), H = 52, half = so.pose === 'write' || so.pose === 'stamp';
-  const h = half ? H * 0.72 : H, w = h * im.naturalWidth / im.naturalHeight, lift = half ? 30 : 0;   // half-body poses sit on the counter top so paper, pencil and stamp are visible above it (her ask 2026-11-21)
+  const q = P(so.x, so.y), H = 52, half = false;   // all poses are full-body now (her report: the half-body ones showed a cut waist)
+  const h = half ? H * 0.72 : H, w = h * im.naturalWidth / im.naturalHeight, lift = (so.pose === 'write' || so.pose === 'stamp') && !so.moving ? 12 : 0;   // behind the counter she stands on a little step: the paper shows above it, her feet stay hidden   // half-body poses sit on the counter top so paper, pencil and stamp are visible above it (her ask 2026-11-21)
   const bob = so.moving && so.pose !== 'carry' ? Math.abs(Math.sin(performance.now() / 260)) * 1.2 : 0;   // no shaking with the stack of papers (her report 2026-11-21); a slow gentle step otherwise
   ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(q.x, q.y, H * 0.3, H * 0.12, 0, 0, Math.PI * 2); ctx.fill();
   ctx.drawImage(im, q.x - w / 2, q.y - lift - h - bob + (so.hit || 0), w, h);
