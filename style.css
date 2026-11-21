@@ -175,3 +175,5 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .card.up { box-shadow: none; background: #faf6ff; margin-bottom: 6px; }
 .lvbar { height: 5px; border-radius: 3px; background: #ece4f8; margin-top: 4px; overflow: hidden; }
 .lvbar i { display: block; height: 100%; background: linear-gradient(90deg, #8f6ef0, #ff7fb4); }
+
+.res { white-space: nowrap; min-width: 0; }

@@ -266,7 +266,7 @@ function drawRoom(i) {
   ctx.fillStyle = '#3f5f4a'; rr(R.x + R.w / 2 - 34, R.y + 6, 68, 24, 4); ctx.fill();
   ctx.strokeStyle = '#a77b4f'; ctx.lineWidth = 2; ctx.stroke();
   text(C.emoji + ' ' + C.name, R.x + R.w / 2, R.y + R.h - 12, 10.5, '#5d4a6e');
-  const spots = [[R.x + 16, R.y + 20], [R.x + R.w - 16, R.y + 20], [R.x + 16, R.y + R.h - 32], [R.x + R.w - 16, R.y + R.h - 32]];
+  const spots = [[R.x + 18, R.y + 20], [R.x + R.w - 18, R.y + 20], [R.x + 16, R.y + R.h - 16], [R.x + R.w - 16, R.y + R.h - 16]];
   C.items.forEach((it, k) => { if (st.items[k] > 0) emoji(it.emoji, spots[k][0], spots[k][1], 15 + Math.min(8, st.items[k] / 3)); });
   if (st.buildEnd && Date.now() < st.buildEnd) {
     ctx.fillStyle = '#ffffffcc'; rr(R.x, R.y, R.w, R.h, 10); ctx.fill();
@@ -423,7 +423,7 @@ function renderMission() {
 function updateHud() {
   $('#coins').textContent = fmt(S.coins);
   $('#stars').textContent = fmt(S.stats.graduated);
-  $('#rate').textContent = fmt(S.ema * 60) + '/мин';
+  $('#rate').textContent = fmt(S.ema * 60) + '/м';
   document.querySelectorAll('[data-cost]').forEach((el) => el.classList.toggle('poor', S.coins < +el.dataset.cost));
   renderMission();
 }
@@ -498,6 +498,7 @@ window.addEventListener('pagehide', () => { if (S) save(); });
 window.addEventListener('resize', resize);
 
 load();
+if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
 resize();
 scroller.scrollTop = H * scale;
 applyOffline();
