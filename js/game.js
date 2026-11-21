@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=61';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=61';
+} from './data.js?v=62';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=62';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 61;   // keep equal to the ?v= number in index.html
+const BUILD = 62;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -98,10 +98,10 @@ const depthOf = (i) => ROOM + 2 * (sizeOf(i) - 1);                // 6, 8, 10 ti
 const maxDesksOf = (i) => (CLASSES[i].final ? 6 : 6 + 4 * (sizeOf(i) - 1));   // 6, 10, 14
 const MAX_DESKS_ABS = 14;
 const ART = {                                               // room pictures with floor corners in image px
-  herbs: { src: 'assets/rooms/herbs.webp', L: [105, 653], R: [913, 655], F: [512, 905] },
-  potions: { src: 'assets/rooms/potions.webp', L: [102, 651], R: [936, 650], F: [511, 895] },
-  DORM: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898] },
-  DORM2: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898] },
+  herbs: { src: 'assets/rooms/herbs.webp', L: [105, 653], R: [913, 655], F: [512, 905], floor: '#e3b77e' },
+  potions: { src: 'assets/rooms/potions.webp', L: [102, 651], R: [936, 650], F: [511, 895], floor: '#c9b6b8' },
+  DORM: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898], floor: '#d7e3ea' },
+  DORM2: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898], floor: '#d7e3ea' },
   REC: { src: 'assets/rooms/reception.webp', L: [102, 667], R: [920, 650], F: [512, 900] },
 };
 const dormSize = (k) => (S && S.dormUp && S.dormUp['size' + k]) || 1;      // 1..3, like class sizes
@@ -211,7 +211,10 @@ function bfs(sx, sy, tx, ty) {
 function pathTo(a, tx, ty) { const p = bfs(a.x, a.y, tx, ty); p.pop(); p.push({ x: tx, y: ty }); return p; }
 
 const slotOf = (i) => SLOTS[CLASS_SLOT[i]];
-function deskPos(i, d) { const s = slotOf(i), cx = s.x0 + (s.x1 - s.x0) / 2; return { x: cx - 1.0 + (d % 2) * 1.9, y: s.y0 + 2.5 + Math.floor(d / 2) * 1.15 }; }   // two columns around the room centre
+function deskPos(i, d) {   // 3 columns across the room, rows from the board towards us: the first rows stay on the room picture
+  const s = slotOf(i), w = s.x1 - s.x0, cols = w >= 9 ? 4 : 3, gap = (w - 2.2) / (cols - 1);
+  return { x: s.x0 + 1.1 + (d % cols) * gap, y: s.y0 + 2.5 + Math.floor(d / cols) * 1.2 };
+}
 const seatPos = (i, d) => { const p = deskPos(i, d); return { x: p.x, y: p.y - 0.45 }; };
 const teacherPos = (i) => { const s = slotOf(i); return { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
 let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.4 };
@@ -615,8 +618,8 @@ function drawSlot(c, id) {
     // the picture is square: it keeps its size in the back corner; an expanded room gets plain floor (and built walls) beyond it
     const sq = Math.min(s.x1 - s.x0, s.y1 - s.y0);
     if (sq < Math.max(s.x1 - s.x0, s.y1 - s.y0)) {
-      poly(c, [L, B, R, F], col.floor, '#00000012');
-      c.strokeStyle = '#0000000d'; c.lineWidth = 1;
+      poly(c, [L, B, R, F], A.floor || col.floor, '#00000012');
+      c.strokeStyle = '#00000014'; c.lineWidth = 1;
       for (let k = 1; k < s.y1 - s.y0; k++) { const a = P(s.x0, s.y0 + k), b = P(s.x1, s.y0 + k); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); }
     }
     const L2 = P(s.x0, s.y0 + sq), R2 = P(s.x0 + sq, s.y0), F2 = P(s.x0 + sq, s.y0 + sq);
