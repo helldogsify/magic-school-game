@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=74';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=74';
+} from './data.js?v=75';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=75';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 74;   // keep equal to the ?v= number in index.html
+const BUILD = 75;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -122,7 +122,7 @@ const DECOR = { chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 
 const PROP_H = { tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=74`; parts[k + '/' + n] = im;
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=75`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -542,6 +542,7 @@ function forceIncident() {
   const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'c', t: 0 }; const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`);
 }
 const inspText = (c) => (c.kind === 'earn' ? `${INSP_KINDS.earn.text} ${fmt(c.goal)} 🪙` : INSP_KINDS[c.kind].text);
+const INSP_SHORT = { mood: 'настроение 60%+', noleave: 'никто не уйдёт', inc: 'чинить за 20 с', pass: 'экзамены 70%+', earn: 'заработок' };
 const inspNextText = (k) => (k === 'earn' ? 'сколько школа заработает' : INSP_KINDS[k].text);
 function stepInspector(dt, live) {
   if (!live || S.stats.graduated < 20 || tourStep >= 0) return;
@@ -602,7 +603,7 @@ function renderInsp() {
   const el = $('#insp'); if (!el || !S) return;
   const I = S.insp || {}, c = I.cur;
   const html = c ? `<button class="ipill live" data-insp>🧐 Проверка ${mmss(c.left)} · ${INSP_KINDS[c.kind].now(c)}</button>`
-    : `<button class="ipill" data-insp>⭐ ${schoolStars()}${I.next ? ` · 🧐 через ${mmss(I.t)}` : ''}</button>`;
+    : I.next ? `<button class="ipill warn" data-insp>🧐 через ${mmss(I.t)}: ${INSP_SHORT[I.next]}</button>` : `<button class="ipill" data-insp>⭐ ${schoolStars()}</button>`;   // the warning names what will be checked (her report 2026-11-21)
   const all = html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>`;
   if (el.dataset.h !== all) { el.dataset.h = all; el.innerHTML = emojiHtml(all); }
 }
