@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=68';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=68';
+} from './data.js?v=69';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=69';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 68;   // keep equal to the ?v= number in index.html
+const BUILD = 69;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -122,7 +122,7 @@ const DECOR = { chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 
 const PROP_H = { tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=68`; parts[k + '/' + n] = im;
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=69`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -444,13 +444,50 @@ function stepAgents(dt) {
       else { a.x += dx / dist * stepLen; a.y += dy / dist * stepLen; }
       continue;
     }
-    if (a.state === 'study') { a.t += dt; if (a.t >= a.dur) finishLesson(a); }
+    if (a.state === 'study') { if (!incOf(a.c)) a.t += dt; if (a.t >= a.dur) finishLesson(a); }   // an incident stops the lesson
     else if (a.state === 'done') leaveDesk(a);
     else if (a.state === 'read') { a.t += dt; if (a.t >= a.dur) finishReading(a); }
   }
   agents = agents.filter((a) => !(a.state === 'fly' && a.z > 400) && !a.gone);
 }
-function stepWorld(dt) {
+// ======================= incidents (her ruling 2026-11-21: the game needs a challenge) =======================
+// Now and then something goes wrong in a class: its lesson stops until the player taps the room. Left alone it ends by itself after 10 minutes.
+const INCIDENTS = { herbs: ['🌿', 'растения разрослись и опутали парты'], potions: ['💥', 'взорвался котёл'], stars: ['☁️', 'тучи закрыли небо, телескопы ничего не видят'], charms: ['✨', 'заклинание вышло из-под контроля'], flight: ['🪶', 'ученики улетели под потолок'], elements: ['🔥', 'в классе пожар'], final: ['📜', 'экзаменационные листы разлетелись'] };
+const INC_GENERIC = ['🤧', 'учитель простыл'];
+const INC_MIN = 70, INC_MAX = 150, INC_AUTO = 600, INC_MAXN = 2;
+const incOf = (i) => !!(S.inc && S.inc[i]);
+const incInfo = (i) => (S.inc[i].k === 'g' ? INC_GENERIC : INCIDENTS[CLASSES[i].id] || INC_GENERIC);
+let incT = 45;
+function stepIncidents(dt, live) {
+  S.inc ||= {};
+  for (const [i, x] of Object.entries(S.inc)) { x.t = (x.t || 0) + dt; if (x.t > INC_AUTO) delete S.inc[i]; }
+  if (!live || S.stats.graduated < 5 || tourStep >= 0) return;   // never while the game is closed, nor for a brand-new school
+  incT -= dt; if (incT > 0) return;
+  incT = INC_MIN + Math.random() * (INC_MAX - INC_MIN);
+  const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !S.inc[i]);
+  if (Object.keys(S.inc).length >= INC_MAXN || !open.length) return;
+  const i = rnd(open); S.inc[i] = { k: Math.random() < 0.3 ? 'g' : 'c', t: 0 };
+  const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`); try { navigator.vibrate?.(80); } catch (er) { /* no vibration */ }
+  dirtyPanel = true;
+}
+function fixIncident(i) {
+  delete S.inc[i]; S.stats.fixed = (S.stats.fixed || 0) + 1;
+  const s = slotOf(i); popup('✨ Починено!', (s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, '#2f9e7a', 50);
+  toast(`✨ ${CLASSES[i].name}: всё в порядке, урок продолжается`); save();
+}
+function drawIncidents() {
+  if (!S.inc) return;
+  const k = 1 + 0.12 * Math.sin(performance.now() / 180);
+  for (const i of Object.keys(S.inc)) {
+    const s = slotOf(+i); if (!s) continue;
+    const c = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), [e] = incInfo(+i);
+    ctx.fillStyle = '#ff4d6d33'; ctx.beginPath(); ctx.ellipse(c.x, c.y, 70 * k, 42 * k, 0, 0, Math.PI * 2); ctx.fill();
+    emoji(e, c.x, c.y - 40, 40 * k);
+    ctx.fillStyle = '#ff4d6d'; rr(c.x - 38, c.y - 8, 76, 22, 11); ctx.fill(); text('Нажми!', c.x, c.y + 3, 11, '#ffffff');
+  }
+}
+function stepWorld(dt, live = false) {
+  stepIncidents(dt, live);
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6) spawn(); }
   startNextProcess();
@@ -935,6 +972,7 @@ function statusOf(a) {
   const cn = (i) => (i >= 0 && CLASSES[i] ? `«${CLASSES[i].name}»` : 'класс');
   const g = a.goal || {};
   if (queue.includes(a)) return a === processing ? 'записывается в школу у секретаря' : 'стоит в очереди в приёмной';
+  if (a.state === 'study' && incOf(a.c)) return `урок остановлен: ${incInfo(a.c)[1]} — нажми на класс!`;
   if (a.state === 'study') return `учится: ${cn(a.c)}, до экзамена ${Math.max(0, Math.ceil(a.dur - a.t))} с`;
   if (a.state === 'wait' || a.state === 'walkwait') return `ждёт свободной парты: ${cn(a.c)}`;
   if (a.state === 'read' || g.t === 'l') return `готовится к пересдаче в библиотеке (${cn(g.i)})`;
@@ -1035,6 +1073,7 @@ function render() {
   ctx.globalAlpha = 1;
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
+  drawIncidents();
   if (tourStep >= 0 && tourAt(TOUR[tourStep])) { const ta = tourAt(TOUR[tourStep]), f = P(ta[0], ta[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
   for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
 }
@@ -1229,7 +1268,7 @@ ${msg}
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 function makeMission() {
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i));
-  const reward = () => Math.max(80, Math.round((S.ema || 1) * 60 * rint(2, 4) / 10) * 10);   // about 2-4 minutes of income
+  const reward = () => Math.max(50, Math.round((S.ema || 1) * 60 * rint(4, 8) / 100) * 10);   // about half a minute to a minute of income: missions are hints, the school is the income (her ruling 2026-11-21)
   const kinds = [];
   kinds.push(() => { const n = rint(3, 8) * 10; return { type: 'grad', target: S.stats.graduated + n, text: `Выпусти ещё ${n} учеников 🎓` }; });
   kinds.push(() => { const n = rint(5, 15) * 10; return { type: 'enroll', target: S.stats.enrolled + n, text: `Прими в школу ещё ${n} новичков 🛎️` }; });
@@ -1504,6 +1543,7 @@ scroller.addEventListener('click', (e) => {
   if (who) toast(`${who.name}: ${statusOf(who)}`);
 });
 function openRoom(id) {
+  { const ci = CLASS_SLOT.indexOf(id); if (ci >= 0 && incOf(ci)) { fixIncident(ci); return; } }   // a tap on a class in trouble fixes it
   {
     const ci = CLASS_SLOT.indexOf(id);
     if (ci >= 0) {
@@ -1720,7 +1760,7 @@ function restoreBackup() {
 let earnedThisSec = 0, secT = 0, saveT = 0, last = performance.now(), panelT = 0;
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
-  stepWorld(dt);
+  stepWorld(dt, true);
   secT += dt; if (secT >= 1) { S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
@@ -1819,7 +1859,7 @@ watchEmoji();
 load();
 relayout();   // the map depends on the saved class sizes
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
-window.__test = { P, SLOTS, focusTile, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
