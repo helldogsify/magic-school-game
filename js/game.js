@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=137';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=137';
+} from './data.js?v=138';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=138';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 137;   // keep equal to the ?v= number in index.html
+const BUILD = 138;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -81,7 +81,7 @@ const shopChance = () => 0.12 + 0.03 * (shopUp().shelves - 1);                 /
 const shopTime = () => 2.2 * Math.pow(0.88, shopUp().seller - 1);              // seconds to serve one
 const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1))));
 const shopCost = (k) => Math.round(SHOP_COST * 0.4 * Math.pow(1.9, shopUp()[k] - 1));
-const SHOP_SPOTS = (s) => [0, 1, 2, 3, 4].map((k) => ({ x: s.x0 + 1.4 + k * 0.75, y: s.y0 + 3.2 + (k % 2) * 0.5 }));
+const SHOP_SPOTS = (s) => [0, 1, 2, 3, 4].map((k) => ({ x: s.x0 + 2.7 + (k % 2) * 0.7, y: s.y0 + 1.5 + k * 0.7 }));   // in front of the counter
 const DIR_COST = 50000, DIR_STARS = 2;
 const dirBuilt = () => !!(S && S.dirBuilt);
 const dirLvl = (k) => (S && S.dir && S.dir[k]) || 0;
@@ -167,6 +167,11 @@ const THEMES = {
   DORM2: { dir: 'assets/parts/dorm/', wallTiles: 4, floorTiles: 3, board: 'garland', isoOnly: true, iso: true,
     decor: ['round_window', 'painting', 'shelf', 'window', 'moon_clock'], back: [], side: [], front: [], rug: 'rug', beds: ['bed_lilac', 'bed_pink', 'bed_mint'],
     extras: (s) => [{ n: 'plant', x: s.x1 - 0.45, y: s.y1 - 0.5 }, { n: 'toy_chest', x: s.x0 + 0.5, y: s.y1 - 0.6 }] },
+  // The curiosity shop (her choice 2026-11-21: «ближе ко второму варианту» — magic curiosities, not a canteen)
+  SHOP: { dir: 'assets/parts/shop/', wallTiles: 4, floorTiles: 3, board: 'jar_shelf', isoOnly: true, iso: true,
+    decor: ['window', 'toy_rack', 'owl_clock', 'cabinet', 'map'], back: [], side: [], front: [], rug: 'rug', h: { berry_plant: 42, counter: 70 },
+    extras: (s) => [{ n: 'counter', x: s.x0 + 1.5, y: s.y0 + 2.6 }, { n: 'toy_table', x: s.x0 + 4.2, y: s.y0 + 3.6 }, { n: 'quill_barrel', x: s.x1 - 0.5, y: s.y0 + 0.6 },
+      { n: 'candy_stand', x: s.x1 - 0.6, y: s.y0 + 2.2 }, { n: 'book_crate', x: s.x0 + 0.6, y: s.y1 - 0.6 }, { n: 'berry_plant', x: s.x1 - 0.5, y: s.y1 - 0.5 }, { n: 'floss_cauldron', x: s.x0 + 3.2, y: s.y1 - 0.7 }] },
   // Director's office (Ruslan's idea 2026-11-21): the director sits behind a big desk
   DIR: { dir: 'assets/parts/director/', wallTiles: 4, floorTiles: 3, board: 'portrait', isoOnly: true, iso: true,
     decor: ['window', 'certificates', 'clock', 'shelf', 'banner'], back: [], side: [], front: [], rug: 'rug', h: { bookcase: 48 },
@@ -179,9 +184,9 @@ const THEMES = {
     extras: (s) => [{ n: 'globe', x: s.x0 + 0.5, y: s.y0 + 0.5 }, { n: 'book_pile', x: s.x1 - 0.6, y: s.y0 + 0.6 }, { n: 'lib_desk', x: s.x0 + 3, y: s.y1 - 0.45 }, { n: 'plant', x: s.x0 + 0.5, y: s.y1 - 0.5 }] },
 };
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
-const DECOR = { flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9, lo: 0.55, deep: 1.6 }, portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
+const DECOR = { jar_shelf: { w: 1.1, lo: 0.25, deep: 1.3 }, toy_rack: { w: 1.2, lo: 0.4, deep: 1.4 }, owl_clock: { w: 0.7, lo: 0.45, deep: 1.2 }, flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9, lo: 0.55, deep: 1.6 }, portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
-const PROP_H = { desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
+const PROP_H = { toy_table: 34, quill_barrel: 34, candy_stand: 32, book_crate: 26, floss_cauldron: 30, desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
   if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=2111`; parts[k + '/' + n] = im;
@@ -1073,7 +1078,7 @@ function texWall(c, th, e, a, b, h) {
 // a flat sprite hung on a back wall: side 'y0' runs along x (back-right wall), 'x0' along y (back-left wall)
 // iso_* sprites are drawn in the room's own angle for the back-left wall (with depth: shelves stick out, windows are set in);
 // on the back-right wall they are mirrored. They are placed as they are, not skewed.
-const ISO_W = { flying_books: 1.5, candles: 0.9, portrait: 1.3, certificates: 1.4, notice: 1.0, lantern: 0.6, garland: 2.6, moon_clock: 0.85, bookshelf: 1.5, bookshelf2: 1.4, lamp: 0.6, map: 1.2, banner: 1.1, sconce: 0.7, diploma: 0.9, el_poster: 1.6, torch: 0.75, planter: 1.35, wing_poster: 1.8, birds: 1.5, circle: 1.8, mirror: 0.95, wand_rack: 1.4, chart: 1.9, painting: 0.95, poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
+const ISO_W = { jar_shelf: 1.2, toy_rack: 1.3, owl_clock: 0.8, flying_books: 1.5, candles: 0.9, portrait: 1.3, certificates: 1.4, notice: 1.0, lantern: 0.6, garland: 2.6, moon_clock: 0.85, bookshelf: 1.5, bookshelf2: 1.4, lamp: 0.6, map: 1.2, banner: 1.1, sconce: 0.7, diploma: 0.9, el_poster: 1.6, torch: 0.75, planter: 1.35, wing_poster: 1.8, birds: 1.5, circle: 1.8, mirror: 0.95, wand_rack: 1.4, chart: 1.9, painting: 0.95, poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
 function hangIso(c, th, n, s, side, t0, lo) {
   const im = part(th, 'iso_' + n); if (!im) return false;
   const d = DECOR[n], w = ISO_W[n] || d.w, sw = w * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - w * HH);
@@ -1195,7 +1200,7 @@ function buildRoom(id) {
   }
   return rc;
 }
-const cachedRoom = (id) => { if (!themeOf(id) || (id === 'DIR' && !dirBuilt())) return false; const ci = CLASS_SLOT.indexOf(id); return ci < 0 || S.classes[ci].built; };
+const cachedRoom = (id) => { if (!themeOf(id) || (id === 'DIR' && !dirBuilt()) || (id === 'SHOP' && !shopOpen())) return false; const ci = CLASS_SLOT.indexOf(id); return ci < 0 || S.classes[ci].built; };
 let VIEW = { x0: -1e9, y0: -1e9, x1: 1e9, y1: 1e9 };
 const onScreen = (x, y, mx = 140, my = 200) => x > VIEW.x0 - mx && x < VIEW.x1 + mx && y > VIEW.y0 - my && y < VIEW.y1 + my;
 function drawSlot(c, id) {
@@ -1487,8 +1492,8 @@ function render() {
   // library (themed): an armchair at every open reading place and a few things around
   if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = sprites['dir_' + dp.pose]; if (WORLD === 1 && im && im.naturalWidth) add(dp.x, dp.y, () => { teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, 64, dp.flip, dp.moving); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
   if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
-  for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR']) {
-    const th = themeOf(rid); if (!th || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt())) continue;
+  for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR', 'SHOP']) {
+    const th = themeOf(rid); if (!th || !SLOTS[rid] || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt()) || (rid === 'SHOP' && !shopOpen())) continue;
     const T = THEMES[th], s = SLOTS[rid];
     if (rid === 'LIB') LIB_SPOTS.slice(0, libSeats()).forEach((q, k) => { const o = { n: T.seats[k % T.seats.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); });
     if (T.beds) { const from = rid === 'DORM' ? 0 : DORM_STRIDE, n = rid === 'DORM' ? beds1() : beds2();
