@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=63';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=63';
+} from './data.js?v=64';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=64';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 63;   // keep equal to the ?v= number in index.html
+const BUILD = 64;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -55,7 +55,7 @@ const lessonTime = (i) => CLASSES[i].lesson * Math.pow(0.92, S.classes[i].time);
 const itemCost = (i, k) => Math.round(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(1.25, S.classes[i].items[k]));
 const teacherCost = (i) => Math.round(CLASSES[i].tuition * 6 * Math.pow(1.35, S.classes[i].teacher - 1));
 const expandCost = (i) => Math.round(CLASSES[i].tuition * 120 * Math.pow(3, sizeOf(i) - 1));
-const deskCost = (i) => Math.round(CLASSES[i].tuition * 15 * Math.pow(2.3, S.classes[i].desks - 2));
+const deskCost = (i) => Math.round(CLASSES[i].tuition * 15 * Math.pow(CLASSES[i].final ? 1.6 : 2.3, S.classes[i].desks - 2));   // exam desks grow slower: there are 21 of them
 const timeCost = (i) => Math.round(CLASSES[i].tuition * 10 * Math.pow(1.6, S.classes[i].time));
 const MAX_REC_LVL = 40;   // both reception upgrades stop at level 40
 const recLvl = () => Math.min(MAX_REC_LVL, S.reception.level), adsLvl = () => Math.min(MAX_REC_LVL, S.reception.ads);
@@ -95,15 +95,30 @@ const CLASS_SLOT = [...CLASSES.map((c, i) => (c.final ? 'EXAM' : 'C' + i))];
 const MAX_SIZE = 3;
 const sizeOf = (i) => (S && S.classes && S.classes[i] && S.classes[i].size) || 1;
 const depthOf = (i) => ROOM + 2 * (sizeOf(i) - 1);                // 6, 8, 10 tiles
-const maxDesksOf = (i) => (CLASSES[i].final ? 6 : 6 + 4 * (sizeOf(i) - 1));   // 6, 10, 14
-const MAX_DESKS_ABS = 14;
+const maxDesksOf = (i) => (CLASSES[i].final ? 21 : 6 + 4 * (sizeOf(i) - 1));   // 6, 10, 14; the wide exam hall: 21 (3 rows of 7)
+const MAX_DESKS_ABS = 21;
 const ART = {                                               // room pictures with floor corners in image px
-  herbs: { src: 'assets/rooms/herbs.webp', L: [105, 653], R: [913, 655], F: [512, 905], floor: '#e3b77e' },
   potions: { src: 'assets/rooms/potions.webp', L: [102, 651], R: [936, 650], F: [511, 895], floor: '#c9b6b8' },
   DORM: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898], floor: '#d7e3ea' },
   DORM2: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898], floor: '#d7e3ea' },
   REC: { src: 'assets/rooms/reception.webp', L: [102, 667], R: [920, 650], F: [512, 900] },
 };
+// ---- rooms assembled from parts (any size looks whole): seamless wall + floor textures, wall decor hung
+// on the back walls and furniture placed on the floor by the engine. A themed room replaces its painted picture.
+const THEMES = {
+  herbs: { dir: 'assets/parts/herbs/', wallTiles: 4, floorTiles: 3, board: 'board',
+    decor: ['window', 'herbs_rack', 'clock', 'shelf', 'window2'], back: ['plant', 'lavender'], side: ['bookcase', 'table'], front: ['magic_pot', 'basket', 'barrel'], rug: 'rug' },
+};
+// wall decor: width in tiles along the wall, bottom edge as a share of the wall height
+const DECOR = { board: { w: 2.6, lo: 0.3 }, window: { w: 0.95, lo: 0.3 }, window2: { w: 0.95, lo: 0.3 }, shelf: { w: 1.7, lo: 0.45 }, herbs_rack: { w: 1.5, lo: 0.36 }, clock: { w: 0.9, lo: 0.5 } };
+// floor props: height in world px (a creature is 30)
+const PROP_H = { plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
+const parts = {};
+for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.board, t.rug, ...t.decor, ...t.back, ...t.side, ...t.front])) {
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=64`; parts[k + '/' + n] = im;
+}
+const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
+const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
 const dormSize = (k) => (S && S.dormUp && S.dormUp['size' + k]) || 1;      // 1..3, like class sizes
 const dormDepth = (k) => ROOM + 2 * (dormSize(k) - 1);
 const dormRows = (k) => 4 + 2 * (dormSize(k) - 1);                          // 4 beds per row: 16, 24, 32 per room
@@ -212,10 +227,10 @@ function pathTo(a, tx, ty) { const p = bfs(a.x, a.y, tx, ty); p.pop(); p.push({ 
 
 const slotOf = (i) => SLOTS[CLASS_SLOT[i]];
 function deskPos(i, d) {   // 3 columns across the room, rows from the board towards us: the first rows stay on the room picture
-  const s = slotOf(i), w = s.x1 - s.x0, cols = w >= 9 ? 4 : 3, gap = (w - 2.2) / (cols - 1);
+  const s = slotOf(i), w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3, gap = (w - 2.2) / (cols - 1);
   return { x: s.x0 + 1.1 + (d % cols) * gap, y: s.y0 + 2.5 + Math.floor(d / cols) * 1.2 };
 }
-const seatPos = (i, d) => { const p = deskPos(i, d); return { x: p.x, y: p.y - 0.45 }; };
+const seatPos = (i, d) => { const p = deskPos(i, d); return { x: p.x, y: p.y + 0.45 }; };   // in front of the desk (nearer to us): the desk is between the student and the board
 const teacherPos = (i) => { const s = slotOf(i); return { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
 let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.4 };
 const queueSlot = (k) => ({ x: REC.x0 + 3.0 + k * 0.7, y: REC.y0 + 4.6 });
@@ -545,6 +560,9 @@ function drawEdge(c, e, capOnly = false) {
   if (side === 'x1') { a = P(x + 1, y); b = P(x + 1, y + 1); a2 = P(x + 1 + TH, y); b2 = P(x + 1 + TH, y + 1); }
   if (side === 'y1') { a = P(x + 1, y + 1); b = P(x, y + 1); a2 = P(x + 1, y + 1 + TH); b2 = P(x, y + 1 + TH); }
   if (capOnly) { /* the room's picture is the face */ }
+  else if (e.tall && themeOf(e.id) && texWall(c, themeOf(e.id), e, a, b, h)) {   // themed room: its wall texture, baseboard
+    poly(c, [a, b, up(b, 5), up(a, 5)], shade(wallColor(e.id), -55));
+  }
   else if (e.tall) {   // inner face painted in the room colour, darker on the left side
     const col = wallColor(e.id);
     poly(c, [a, b, up(b, h), up(a, h)], side === 'x0' ? shade(col, -16) : col);
@@ -593,6 +611,100 @@ function railing(c, a, b) {
   poly(c, [up(a, h), up(b, h), up(b, h + 4), up(a, h + 4)], '#b98457', '#8a5f3a');
   poly(c, [a, b, up(b, 3), up(a, 3)], '#a57b4f');
 }
+// ---- themed rooms: textures through pattern transforms, so walls and floors of any length stay continuous ----
+const patCache = new Map();
+function pat(c, th, n) {
+  const im = part(th, n); if (!im) return null;
+  let m = patCache.get(c); if (!m) patCache.set(c, (m = {}));
+  return (m[th + '/' + n] ||= c.createPattern(im, 'repeat'));
+}
+function texFloor(c, th, s) {
+  const p = pat(c, th, 'floor'); if (!p) return false;
+  const T = part(th, 'floor').naturalWidth / THEMES[th].floorTiles, o = P(0, 0);   // texture px per tile; world origin keeps pieces aligned
+  p.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, o.x, o.y]));
+  poly(c, [P(s.x0, s.y1), P(s.x0, s.y0), P(s.x1, s.y0), P(s.x1, s.y1)]); c.fillStyle = p; c.fill();
+  c.strokeStyle = '#00000018'; c.lineWidth = 1; c.stroke();
+  return true;
+}
+const wallPx = (th) => { const im = part(th, 'wall'); return im ? (im.naturalWidth / THEMES[th].wallTiles) * (TALL_H() / im.naturalHeight) : 25; };   // wall-plane px per tile
+function texWall(c, th, e, a, b, h) {
+  const p = pat(c, th, 'wall'); if (!p) return false;
+  const im = part(th, 'wall'), T = im.naturalWidth / THEMES[th].wallTiles;
+  const alongY = e.side === 'x0' || e.side === 'x1';
+  const o = alongY ? up(P(e.x + (e.side === 'x1' ? 1 : 0), 0), h) : up(P(0, e.y + (e.side === 'y1' ? 1 : 0)), h);
+  p.setTransform(new DOMMatrix([(alongY ? -HW : HW) / T, HH / T, 0, h / im.naturalHeight, o.x, o.y]));
+  poly(c, [a, b, up(b, h), up(a, h)]); c.fillStyle = p; c.fill();
+  if (e.side === 'x0') poly(c, [a, b, up(b, h), up(a, h)], 'rgba(70,45,95,0.12)');   // the left wall is in shade
+  // soft shadow where the wall meets the floor
+  const g = c.createLinearGradient(0, Math.max(a.y, b.y), 0, Math.max(a.y, b.y) - h * 0.25); g.addColorStop(0, 'rgba(60,40,80,0.18)'); g.addColorStop(1, 'rgba(60,40,80,0)');
+  poly(c, [a, b, up(b, h * 0.25), up(a, h * 0.25)], g);
+  return true;
+}
+// a flat sprite hung on a back wall: side 'y0' runs along x (back-right wall), 'x0' along y (back-left wall)
+function hang(c, th, n, s, side, t0, lo) {
+  const im = part(th, n); if (!im) return;
+  const d = DECOR[n], H = TALL_H(), wpx = wallPx(th), hp = d.w * wpx * im.naturalHeight / im.naturalWidth;
+  const at = (t) => (side === 'y0' ? P(t, s.y0) : P(s.x0, t));
+  const L = side === 'y0' ? at(t0) : at(t0 + d.w), R = side === 'y0' ? at(t0 + d.w) : at(t0);   // the viewer's left end of the picture
+  const top = up(L, lo * H + hp);
+  c.save(); c.transform((R.x - L.x) / im.naturalWidth, (R.y - L.y) / im.naturalWidth, 0, hp / im.naturalHeight, top.x, top.y);
+  c.drawImage(im, 0, 0); c.restore();
+}
+function wallRun(id, side) {   // the longest stretch of tall wall of a room on one side, in tiles along it
+  const ts = EDGES.filter((e) => e.id === id && e.tall && e.side === side).map((e) => (side === 'y0' ? e.x : e.y)).sort((p, q) => p - q);
+  let best = null, st = null;
+  for (let k = 0; k < ts.length; k++) {
+    if (st === null || ts[k] !== ts[k - 1] + 1) st = ts[k];
+    if (!best || ts[k] + 1 - st > best[1] - best[0]) best = [st, ts[k] + 1];
+  }
+  return best;
+}
+function fillWall(c, th, s, side, a, b, list, k0) {   // hang decor evenly along [a, b), cycling through the list
+  const pick = []; let used = 0, k = k0;
+  for (let n = 0; n < 12; n++) { const nm = list[k % list.length], w = DECOR[nm].w; if (used + w + (pick.length ? 0.55 : 0) > b - a - 0.3) break; used += w + (pick.length ? 0.55 : 0); pick.push(nm); k++; }
+  if (!pick.length) return k;
+  const gap = (b - a - pick.reduce((p, nm) => p + DECOR[nm].w, 0)) / (pick.length + 1);
+  let t = a + gap;
+  for (const nm of pick) { hang(c, th, nm, s, side, t, DECOR[nm].lo); t += DECOR[nm].w + gap; }
+  return k;
+}
+function drawWallDecor(c, id) {
+  const th = themeOf(id), s = SLOTS[id]; if (!th) return;
+  const T = THEMES[th];
+  let k = 0;
+  const r = wallRun(id, 'y0');
+  if (r) {   // the board in the middle of the back-right wall (the teacher stands under it), decor on both sides
+    const mid = (r[0] + r[1]) / 2, bw = DECOR[T.board].w;
+    hang(c, th, T.board, s, 'y0', mid - bw / 2, DECOR[T.board].lo);
+    k = fillWall(c, th, s, 'y0', r[0], mid - bw / 2 - 0.1, T.decor, k);
+    k = fillWall(c, th, s, 'y0', mid + bw / 2 + 0.1, r[1], T.decor, k);
+  }
+  const l = wallRun(id, 'x0');
+  if (l) fillWall(c, th, s, 'x0', l[0], l[1], T.decor, k);
+}
+// furniture of a themed class: corners at the back, a bookcase by the left wall, small things in the free strip in front
+function roomProps(i) {
+  const id = CLASS_SLOT[i], th = themeOf(id); if (!th) return [];
+  const s = SLOTS[id], T = THEMES[th], w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3;
+  const rows = Math.ceil(maxDesksOf(i) / cols), free = s.y0 + 2.5 + (rows - 1) * 1.2 + 1.0;   // first free row behind the last seats
+  const out = [{ n: T.back[0], x: s.x0 + 0.45, y: s.y0 + 0.45 }, { n: T.back[1], x: s.x1 - 0.5, y: s.y0 + 0.5 }, { n: T.side[0], x: s.x0 + 0.42, y: s.y0 + 1.7 }];
+  if (s.y1 - free >= 1.2) out.push({ n: T.side[1], x: s.x0 + 0.5, y: free + 0.45, flip: true });
+  out.push({ n: T.front[0], x: s.x0 + 0.5, y: s.y1 - 0.45 }, { n: T.front[1], x: s.x1 - 0.55, y: s.y1 - 0.5 });
+  if (s.y1 - free >= 2.4) out.push({ n: T.front[2], x: s.x1 - 0.6, y: free + 0.5 });
+  return out.map((o) => ({ ...o, th }));
+}
+function drawProp(o) {
+  const im = part(o.th, o.n); if (!im) return;
+  const p = P(o.x, o.y), h = PROP_H[o.n] || 30, w = h * im.naturalWidth / im.naturalHeight;
+  ctx.save(); ctx.translate(p.x, p.y + h * 0.08); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
+}
+function drawRug(c, th, s, i) {
+  const im = part(th, THEMES[th].rug); if (!im) return;
+  const w = s.x1 - s.x0, cols = w >= 9 ? 4 : 3, rows = Math.ceil(S.classes[i].desks / cols);
+  const cx = (s.x0 + s.x1) / 2, cy = s.y0 + 2.6 + (rows - 1) * 0.6, d = Math.min(w - 1.2, 3.2 + rows * 0.6);
+  const m = P(cx, cy), sw = d * HW * Math.SQRT2, sh = sw * im.naturalHeight / im.naturalWidth;
+  c.drawImage(im, m.x - sw / 2, m.y - sh / 2, sw, sh);
+}
 function drawSlot(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id);
   const L = P(s.x0, s.y1), B = P(s.x0, s.y0), R = P(s.x1, s.y0), F = P(s.x1, s.y1);
@@ -633,6 +745,8 @@ function drawSlot(c, id) {
     // painted rooms are drawn whole (no cut): their walls are the reference height for the built ones
     c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
 
+  } else if (themeOf(id) && texFloor(c, themeOf(id), s)) {
+    if (ci >= 0) drawRug(c, themeOf(id), s, ci);
   } else {
     poly(c, [L, B, R, F], col.floor, '#00000012');
     c.strokeStyle = '#0000000d'; c.lineWidth = 1;
@@ -757,9 +871,10 @@ const TOUR = [
 let tourStep = -1;
 function focusTile(x, y, smooth = true) {   // the point goes to the middle of the free part of the screen (above the tour card)
   const p = P(x, y);
-  const box = $('#tour:not(.hidden)');   // the container is not animated, unlike the card sliding in
+  const box = $('#tour:not(.hidden)') || (panel ? $('#sheet') : null);   // a tour card or an open panel covers the bottom   // the container is not animated, unlike the card sliding in
   const sr = scroller.getBoundingClientRect();
-  const freeH = box ? Math.max(120, box.getBoundingClientRect().top - 12 - sr.top) : scroller.clientHeight;
+  const boxTop = box && box.id === 'sheet' ? window.innerHeight - box.offsetHeight : box ? box.getBoundingClientRect().top : 0;   // the sheet slides in: use its layout size
+  const freeH = box ? Math.max(120, boxTop - 12 - sr.top) : scroller.clientHeight;
   scroller.scrollTo({ left: p.x * scale - scroller.clientWidth / 2, top: p.y * scale - 15 * scale - freeH / 2, behavior: smooth ? 'smooth' : 'auto' });
 }
 const tourAt = (st) => (typeof st.at === 'function' ? st.at() : st.at);
@@ -824,6 +939,7 @@ function render() {
     if (painted) { const sl0 = SLOTS[e.id], sq = Math.min(sl0.x1 - sl0.x0, sl0.y1 - sl0.y0); if (e.x < sl0.x0 + sq && e.y < sl0.y0 + sq) continue; }
     list.push({ k1, k2: e.tall ? -1e9 + 1 : 1e9, draw: () => drawEdge(ctx, e) });
   }
+  for (const id of Object.keys(SLOTS)) if (themeOf(id)) { const ci = CLASS_SLOT.indexOf(id); if (ci >= 0 && !S.classes[ci].built) continue; const s = SLOTS[id]; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9 + 2, draw: () => drawWallDecor(ctx, id) }); }
   for (let i = 0; i < CLASSES.length; i++) {
     const st = S.classes[i]; if (!st.built) continue;
     const s = slotOf(i);
@@ -835,6 +951,7 @@ function render() {
     const tp = teacherPos(i);
     add(tp.x, tp.y, () => drawCreature(staff[(i + 1) % staff.length], tp.x, tp.y, 34, (x, y) => drawHat(x, y - 32, '#6c4fd1')));
     for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); add(p.x, p.y, () => drawDesk(p)); }
+    for (const o of roomProps(i)) add(o.x, o.y, () => drawProp(o));
     CLASSES[i].items.forEach((it, k) => {
       if (!st.items[k]) return;
       const spots = [[s.x0 + 0.7, s.y0 + 0.7], [s.x0 + 5.3, s.y0 + 0.7], [s.x0 + 0.7, s.y0 + 5.2], [s.x0 + 5.3, s.y0 + 5.2]];
@@ -1135,7 +1252,7 @@ function missionList() {   // [{key, text, reward, ok, prog}]
   if (S.dyn && !S.dynList) S.dynList = [S.dyn];   // older saves had one generated mission
   S.dynList ||= [];
   const out = [];
-  if (WORLD === 1 && S.mission < MISSIONS.length) { const m = MISSIONS[S.mission]; out.push({ key: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: null }); }
+  if (WORLD === 1 && S.mission < MISSIONS.length) { const m = MISSIONS[S.mission]; out.push({ key: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: null, go: missionGo(null, m.text) }); }
   let made = false;
   const kindKey = (x) => [x.type, x.i ?? '', x.k ?? ''].join(':');   // one mission per kind at a time
   const seen = new Set(); S.dynList = S.dynList.filter((x) => !seen.has(kindKey(x)) && seen.add(kindKey(x)));
@@ -1159,8 +1276,55 @@ function missionList() {   // [{key, text, reward, ok, prog}]
     S.dynList.push(m); made = true;
   }
   if (made) save();
-  S.dynList.forEach((m, k) => out.push({ key: 'd' + k, text: m.text, reward: m.reward, ok: dynDone(m), prog: dynProgress(m) }));
+  S.dynList.forEach((m, k) => out.push({ key: 'd' + k, text: m.text, reward: m.reward, ok: dynDone(m), prog: dynProgress(m), go: missionGo(m) }));
   return out;
+}
+// «Выполнить»: where a mission is done -> [room id, selector of the button to light up in its panel]
+function missionGo(m, text) {
+  const C = (i) => CLASS_SLOT[i], exam = CLASS_SLOT[CLASSES.length - 1];
+  const weakest = () => { let b = -1; for (let i = 0; i < CLASSES.length; i++) if (isOpen(i) && (b < 0 || sleepersFor(i) > sleepersFor(b))) b = i; return b < 0 ? 'REC' : C(b); };
+  if (m) switch (m.type) {
+    case 'item': return [C(m.i), `[data-act="item"][data-k="${m.k}"]`];
+    case 'teacher': case 'desk': case 'time': case 'build': return [C(m.i), `[data-act="${m.type}"]`];
+    case 'rec': return ['REC', '[data-act="rec"]'];
+    case 'enroll': return ['REC', '[data-act="ads"]'];
+    case 'beds': return ['DORM', '[data-act="beds"]'];
+    case 'lib': case 'read': return ['LIB', '[data-act="libseats"]'];
+    case 'grad': case 'exams': return [exam, '[data-act="desk"]'];
+    case 'earn': return [weakest(), '[data-act="desk"]'];
+  }
+  // fixed missions: read the text
+  const t = text || '';
+  const i = CLASSES.findIndex((c) => t.includes(c.name) || t.includes(c.name.slice(0, -2)));
+  if (/приёмн|секретар/i.test(t)) return ['REC', '[data-act="rec"]'];
+  if (/Выпусти/.test(t)) return [exam, '[data-act="desk"]'];
+  if (i >= 0) {
+    if (/Построй/.test(t)) return [C(i), '[data-act="build"]'];
+    if (/учител/i.test(t)) return [C(i), '[data-act="teacher"]'];
+    if (/парт/i.test(t)) return [C(i), '[data-act="desk"]'];
+    const k = CLASSES[i].items.findIndex((it) => t.includes(it.name));
+    if (k >= 0) return [C(i), `[data-act="item"][data-k="${k}"]`];
+    return [C(i), null];
+  }
+  for (let j = 0; j < CLASSES.length; j++) { const k = CLASSES[j].items.findIndex((it) => t.includes(it.name)); if (k >= 0) return [C(j), `[data-act="item"][data-k="${k}"]`]; }
+  const nb = S.classes.findIndex((c) => !c.built);
+  if (/Построй/.test(t) && nb >= 0) return [C(nb), '[data-act="build"]'];
+  if (/предмет/.test(t)) return [C(0), '[data-act="item"]'];
+  return null;
+}
+function goMission(key) {
+  const list = missionList(), m = list.find((x) => x.key === key); if (!m || !m.go) return;
+  const [id, sel] = m.go, s = SLOTS[id];
+  closePanel();
+  openRoom(id);
+  if (s) setTimeout(() => focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), 60);   // after the panel is up: the room goes above it
+  if (!sel) return;
+  setTimeout(() => {   // light up the button that does it
+    const b = document.querySelector('#sheet ' + sel); if (!b) return;
+    const card = b.closest('.card') || b;
+    card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    card.classList.remove('pulse'); void card.offsetWidth; card.classList.add('pulse');
+  }, 120);
 }
 function claimMission(key) {
   const list = missionList(), m = list.find((x) => x.key === key);
@@ -1221,7 +1385,7 @@ function missionsPanel() {
   return `<div class="sh-head"><span class="remoji big">📋</span><div><h2>Задания</h2><div class="muted">Выполняй и забирай награды. Новые появляются сразу</div></div><button class="x" data-close>✕</button></div>
     <div class="qbar">${list.map((m) => `<div class="q ${m.ok ? 'ok' : ''}"><span class="qi">${m.ok ? '🎁' : '📋'}</span>
       <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}</span>
-      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qr">🪙${fmt(m.reward)}</span>`}</div>`).join('')}</div>`;
+      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo"><span class="qr">🪙${fmt(m.reward)}</span>${m.go ? `<button class="btn small go" data-mgo="${m.key}">Выполнить ➜</button>` : ''}</span>`}</div>`).join('')}</div>`;
 }
 function updateHud() {
   $('#coins').textContent = fmt(S.coins);
@@ -1322,6 +1486,7 @@ document.addEventListener('click', (e) => {
   if (d.worlds !== undefined) { openPanel(worldsPanel); return; }
   if (d.world !== undefined) { goWorld(+d.world); return; }
   if (d.worldOpen !== undefined) { openWorld(+d.worldOpen); return; }
+  if (d.mgo !== undefined) { goMission(d.mgo); return; }
   if (d.mission !== undefined) { claimMission(d.mission); if (panel === missionsPanel) refreshPanel(); return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); drawFbPics(); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
@@ -1560,7 +1725,7 @@ watchEmoji();
 load();
 relayout();   // the map depends on the saved class sizes
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
-window.__test = { P, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
