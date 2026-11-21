@@ -1,13 +1,14 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
-  CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=43';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=43';
+  CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
+} from './data.js?v=44';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=44';
 
-const SAVE_KEY = 'magicschool.save.v2';
+const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
+const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 43;   // keep equal to the ?v= number in index.html
+const BUILD = 44;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -535,7 +536,7 @@ function drawSlot(c, id) {
   }
   const col = roomColors(id);
   const artKey = ci >= 0 ? CLASSES[ci].id : id;
-  const art = arts[artKey];
+  const art = WORLD === 1 ? arts[artKey] : null;
   if (art && art.complete && art.naturalWidth) {
     const A = ART[artKey];
     const u = [A.R[0] - A.L[0], A.R[1] - A.L[1]], v = [A.F[0] - A.L[0], A.F[1] - A.L[1]];
@@ -1012,7 +1013,7 @@ function missionList() {   // [{key, text, reward, ok, prog}]
   if (S.dyn && !S.dynList) S.dynList = [S.dyn];   // older saves had one generated mission
   S.dynList ||= [];
   const out = [];
-  if (S.mission < MISSIONS.length) { const m = MISSIONS[S.mission]; out.push({ key: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: null }); }
+  if (WORLD === 1 && S.mission < MISSIONS.length) { const m = MISSIONS[S.mission]; out.push({ key: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: null }); }
   let made = false;
   const kindKey = (x) => [x.type, x.i ?? '', x.k ?? ''].join(':');   // one mission per kind at a time
   const seen = new Set(); S.dynList = S.dynList.filter((x) => !seen.has(kindKey(x)) && seen.add(kindKey(x)));
@@ -1041,6 +1042,44 @@ function renderMission() {
   el.dataset.key = key;
   el.innerHTML = emojiHtml(`<button class="mbtn ${ready ? 'ready' : ''}" data-missions aria-label="Задания">📋${ready ? `<span class="badge">${ready}</span>` : ''}</button>`);
 }
+// ======================= world map =======================
+function readMetaLocal() { try { return JSON.parse(localStorage.getItem('magicschool.meta')) || {}; } catch (e) { return {}; } }
+function worldStats(w) {   // {grads, coins} of a world's save
+  if (w === WORLD) return { grads: S.stats.graduated, coins: S.coins };
+  try { const o = JSON.parse(localStorage.getItem(saveKeyOf(w))); return o ? { grads: o.stats.graduated, coins: o.coins } : null; } catch (e) { return null; }
+}
+const worldOpen = (w) => w === 1 || (readMetaLocal().unlocked || []).includes(w);
+function worldsPanel() {
+  const rows = WORLDS.map((w) => {
+    const cur = w.id === WORLD, open = worldOpen(w.id);
+    let right = '';
+    if (cur) right = '<span class="done">ты здесь</span>';
+    else if (w.soon) right = '<span class="muted">скоро</span>';
+    else if (open) right = `<button class="btn" data-world="${w.id}">Перейти</button>`;
+    else {
+      const src = worldStats(WORLD === 1 ? 1 : 1) || { grads: 0, coins: 0 }, n = w.need;
+      const ok = src.grads >= n.grads && src.coins >= n.coins;
+      right = ok ? `<button class="btn hot" data-world-open="${w.id}">Открыть 🪙${fmt(n.coins)}</button>` : '<span class="lock">🔒</span>';
+      w._need = `🎓 ${fmt(Math.min(src.grads, n.grads))}/${fmt(n.grads)} выпускников · 🪙 ${fmt(Math.min(src.coins, n.coins))}/${fmt(n.coins)} в Школе магии`;
+    }
+    return `<div class="card up world ${cur ? 'cur' : ''}"><span class="remoji big">${w.emoji}</span><div class="grow"><b>${w.name}</b><div class="muted">${w.desc}</div>${w._need && !open ? `<div class="muted">${w._need}</div>` : ''}</div>${right}</div>`;
+  }).join('');
+  return `<div class="sh-head"><span class="remoji big">🗺️</span><div><h2>Карта миров</h2><div class="muted">В каждом мире своя школа, свои ученики и свои монеты</div></div><button class="x" data-close>✕</button></div>${rows}`;
+}
+function goWorld(w) {
+  save(); cloudPush(true);
+  const m = readMetaLocal(); m.current = w; localStorage.setItem('magicschool.meta', JSON.stringify(m));
+  noSave = true; setTimeout(() => location.reload(), 150);
+}
+function openWorld(w) {
+  const n = WORLDS.find((x) => x.id === w).need, src = worldStats(1);
+  if (WORLD !== 1 || !src || src.grads < n.grads || src.coins < n.coins) return;
+  if (!confirm(`Открыть новый мир за 🪙${fmt(n.coins)}? Монеты спишутся в Школе магии.`)) return;
+  S.coins -= n.coins; save();
+  const m = readMetaLocal(); m.unlocked = [...new Set([...(m.unlocked || []), w])]; localStorage.setItem('magicschool.meta', JSON.stringify(m));
+  toast('✨ Новый мир открыт!'); openPanel(worldsPanel);
+}
+
 function missionsPanel() {
   const list = missionList();
   return `<div class="sh-head"><span class="remoji big">📋</span><div><h2>Задания</h2><div class="muted">Выполняй и забирай награды. Новые появляются сразу</div></div><button class="x" data-close>✕</button></div>
@@ -1144,6 +1183,9 @@ document.addEventListener('click', (e) => {
   const d = t.dataset, i = +d.i;
   if (d.close !== undefined) { closePanel(); return; }
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
+  if (d.worlds !== undefined) { openPanel(worldsPanel); return; }
+  if (d.world !== undefined) { goWorld(+d.world); return; }
+  if (d.worldOpen !== undefined) { openWorld(+d.worldOpen); return; }
   if (d.mission !== undefined) { claimMission(d.mission); if (panel === missionsPanel) refreshPanel(); return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); drawFbPics(); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
@@ -1219,7 +1261,8 @@ async function cloudPush(force = false) {
   cloudBusy = true; cloudLast = Date.now();
   try {
     save();
-    const body = { fields: { data: { stringValue: JSON.stringify(S) }, updated: { integerValue: String(S.last) }, build: { integerValue: String(BUILD) } } };
+    const all = { v: 3, meta: readMetaLocal(), saves: Object.fromEntries(WORLDS.map((w) => [saveKeyOf(w.id), w.id === WORLD ? JSON.stringify(S) : localStorage.getItem(saveKeyOf(w.id))]).filter((x) => x[1])) };
+    const body = { fields: { data: { stringValue: JSON.stringify(all) }, updated: { integerValue: String(S.last) }, build: { integerValue: String(BUILD) } } };
     const r = await fetch(CLOUD + code, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true });
     cloudState = r.ok ? `сохранено в облако в ${new Date().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}` : `облако не ответило (${r.status})`;
   } catch (e) { cloudState = 'нет сети: сохраню позже'; }
@@ -1234,14 +1277,16 @@ async function cloudGet(code) {
 }
 function adopt(raw) {   // replace the local save with a cloud one and restart the game on it
   noSave = true;
-  localStorage.setItem(SAVE_KEY, raw);
+  let o = null; try { o = JSON.parse(raw); } catch (e) { /* bad */ }
+  if (o && o.v === 3 && o.saves) { for (const [k, v] of Object.entries(o.saves)) localStorage.setItem(k, v); if (o.meta) localStorage.setItem('magicschool.meta', JSON.stringify(o.meta)); }
+  else localStorage.setItem(SAVE_KEY, raw);
   location.reload();
 }
 async function cloudPull() {   // a newer save made on another device wins
   const code = cloudCode(); if (!code) return false;
   try {
     const rem = await cloudGet(code);
-    if (rem && rem.data && rem.updated > (S.last || 0) + 3000) { adopt(rem.data); return true; }
+    if (rem && rem.data && rem.updated > (S.last || 0) + 3000) { adopt(rem.data); return true; }   // updated = time of the last push from any world
   } catch (e) { /* offline: keep playing locally */ }
   return false;
 }
@@ -1374,7 +1419,7 @@ resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
 updateHud();
-if (!S.tourDone) setTimeout(() => { closePanel(); showTour(0); }, 600);
+if (!S.tourDone && WORLD === 1) setTimeout(() => { closePanel(); showTour(0); }, 600);
 requestAnimationFrame(frame);
 cloudPull();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -8,7 +8,7 @@ export const MAX_TIME_LEVEL = 10;
 
 // Classes in the order students take them. Each has 4 furniture items.
 // item kind: 'tuition' (+8% tuition per level) or 'success' (+1% exam success per level).
-export const CLASSES = [
+const MAGIC_CLASSES = [
   { id: 'herbs', name: 'Травология', emoji: '🌿', floor: '#e9d9b8', wall: '#9fd4a3', tuition: 10, build: 0, buildTime: 0, lesson: 6,
     teacher: 'Профессор Мох',
     items: [
@@ -67,6 +67,42 @@ export const CLASSES = [
       { id: 'candles', name: 'Свечи сосредоточенности', emoji: '🕯️', kind: 'success' },
     ] },
 ];
+
+// ---- worlds ----
+// The current world is chosen before the game starts (switching worlds reloads the page).
+export const WORLDS = [
+  { id: 1, name: 'Школа магии', emoji: '🪄', desc: 'Травы, зелья, звёзды и чары', need: null },
+  { id: 2, name: 'Подземное королевство гномов', emoji: '⛏️', desc: 'Руны, кузни, тоннели и самоцветы', need: { grads: 10000, coins: 2000000 } },
+  { id: 3, name: 'Небесный город', emoji: '☁️', desc: 'Скоро: облака, ветра и драконы', soon: true },
+  { id: 4, name: 'Город будущего', emoji: '🤖', desc: 'Скоро: роботы, звездолёты и нейромагия', soon: true },
+];
+const GNOME_CLASSES = [
+  { id: 'runes', name: 'Руны предков', emoji: '🪨', floor: '#d9cdbd', wall: '#a8957d', tuition: 10, build: 0, buildTime: 0, lesson: 6, teacher: 'Мастер Гранит',
+    items: [{ id: 'tablets', name: 'Каменные таблички', emoji: '🪨', kind: 'tuition' }, { id: 'chisel', name: 'Резец мастера', emoji: '🔨', kind: 'success' },
+      { id: 'torches', name: 'Факелы', emoji: '🔥', kind: 'tuition' }, { id: 'scrolls', name: 'Свитки рун', emoji: '📜', kind: 'success' }] },
+  { id: 'forge', name: 'Кузня', emoji: '⚒️', floor: '#d8c4b0', wall: '#c08a5e', tuition: 25, build: 300, buildTime: 20, lesson: 8, teacher: 'Кузнец Молотобой',
+    items: [{ id: 'anvil', name: 'Наковальня', emoji: '⚒️', kind: 'tuition' }, { id: 'bellows', name: 'Мехи', emoji: '💨', kind: 'success' },
+      { id: 'ore', name: 'Ящик руды', emoji: '🪨', kind: 'tuition' }, { id: 'tongs', name: 'Клещи', emoji: '🔧', kind: 'success' }] },
+  { id: 'tunnels', name: 'Навигация в тоннелях', emoji: '🧭', floor: '#cfc6b8', wall: '#8e8a7c', tuition: 60, build: 1500, buildTime: 60, lesson: 12, teacher: 'Следопыт Фонарик',
+    items: [{ id: 'map', name: 'Карта подземелий', emoji: '🗺️', kind: 'tuition' }, { id: 'lamp', name: 'Шахтёрская лампа', emoji: '🏮', kind: 'success' },
+      { id: 'compass', name: 'Компас', emoji: '🧭', kind: 'tuition' }, { id: 'rope', name: 'Верёвки', emoji: '🪢', kind: 'success' }] },
+  { id: 'gems', name: 'Самоцветы', emoji: '💎', floor: '#dcd2e6', wall: '#9d84c7', tuition: 150, build: 6000, buildTime: 120, lesson: 14, teacher: 'Ювелир Искорка',
+    items: [{ id: 'crystals', name: 'Друзы кристаллов', emoji: '💎', kind: 'tuition' }, { id: 'loupe', name: 'Лупа', emoji: '🔍', kind: 'success' },
+      { id: 'chest', name: 'Сундук', emoji: '🧰', kind: 'tuition' }, { id: 'scales', name: 'Весы', emoji: '⚖️', kind: 'success' }] },
+  { id: 'mushrooms', name: 'Грибные сады', emoji: '🍄', floor: '#d6e0c8', wall: '#8fae7c', tuition: 400, build: 25000, buildTime: 300, lesson: 16, teacher: 'Садовница Трюфель',
+    items: [{ id: 'beds', name: 'Грибные грядки', emoji: '🍄', kind: 'tuition' }, { id: 'moss', name: 'Светящийся мох', emoji: '🌿', kind: 'success' },
+      { id: 'barrels', name: 'Бочки с водой', emoji: '🛢️', kind: 'tuition' }, { id: 'spores', name: 'Споры-светлячки', emoji: '✨', kind: 'success' }] },
+  { id: 'history', name: 'История гномов', emoji: '📜', floor: '#e6dccb', wall: '#b3946a', tuition: 1000, build: 100000, buildTime: 600, lesson: 18, teacher: 'Летописец Борода',
+    items: [{ id: 'chronicle', name: 'Летопись', emoji: '📖', kind: 'tuition' }, { id: 'statue', name: 'Статуя предка', emoji: '🗿', kind: 'success' },
+      { id: 'banners', name: 'Знамёна кланов', emoji: '🚩', kind: 'tuition' }, { id: 'horn', name: 'Рог совета', emoji: '📯', kind: 'success' }] },
+  { id: 'final', final: true, name: 'Посвящение в мастера', emoji: '🏅', floor: '#efe6d2', wall: '#c9a45c', tuition: 200, build: 0, buildTime: 0, lesson: 10, teacher: 'Старейшина Корень',
+    items: [{ id: 'seal', name: 'Печать клана', emoji: '🏅', kind: 'tuition' }, { id: 'bell', name: 'Гонг', emoji: '🔔', kind: 'success' },
+      { id: 'hourglass', name: 'Песочные часы', emoji: '⏳', kind: 'tuition' }, { id: 'candles', name: 'Свечи', emoji: '🕯️', kind: 'success' }] },
+];
+function readMeta() { try { return JSON.parse(localStorage.getItem('magicschool.meta')) || {}; } catch (e) { return {}; } }
+export const META = readMeta();
+export const WORLD = WORLDS.some((w) => w.id === META.current && !w.soon) ? META.current : 1;
+export const CLASSES = WORLD === 2 ? GNOME_CLASSES : MAGIC_CLASSES;
 
 export const SPECIES = ['mothfox', 'petalear', 'fernhorn', 'starwhisker'];
 
