@@ -2,7 +2,7 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=12';
+} from './data.js?v=13';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.3';
@@ -29,7 +29,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, t: a.t, dur: a.dur, goal: a.goal })),
+    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -65,12 +65,13 @@ function spend(c) { if (S.coins < c) { toast('Не хватает монет �
 const HW = 16, HH = HW * 0.62;
 const ROOM = 6;                                    // rooms are 6x6 tiles
 const WALLH = ROOM * 2 * HW * 0.3676;              // wall height in the art, relative to room width
-const GW = 27, GH = 44;
+const GW = 29, GH = 44;
 
 // One school building: a wide shared wooden hall (corridor + cross passages), classes open onto it on both sides,
 // reception and dorm at the front, garden at the back end of the corridor.
 const HALLS = [
   { x0: 7, y0: 4, x1: 22, y1: 30 },     // the whole inner hall of the building (rooms are cut out of it)
+  { x0: 22, y0: 21, x1: 28, y1: 24 },   // passage to the library
   { x0: 13, y0: 39, x1: 16, y1: 44 },   // entrance path from the gate
 ];
 const BUILDING = { x0: 7, y0: 4, x1: 22, y1: 30 };
@@ -86,6 +87,7 @@ const SLOTS = {
   REC: slot(10, 30, [[14, 38], [14, 39]], { right: true }, 9, 9,
     [[[15, 38], [15, 39]], [[13, 30], [13, 29]], [[14, 30], [14, 29]], [[15, 30], [15, 29]], [[18, 33], [19, 33]]]),
   DORM: slot(19, 30, [[19, 33], [18, 33]], { left: true, right: true }),
+  LIB: slot(22, 24, [[24, 24], [24, 23]], { left: true, right: true }, 6, 6, [[[25, 24], [25, 23]]]),
   GARDEN: slot(10, 0, [[13, 3], [13, 4]], {}, 9, 4, [[[14, 3], [14, 4]], [[15, 3], [15, 4]]]),
 };
 const CLASS_SLOT = ['L1', 'R1', 'L2', 'R2', 'L3', 'R3'];   // class i lives in this slot
@@ -236,12 +238,30 @@ function freeDesk(i) { for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc
 function seat(a, i, d) {
   const p = seatPos(i, d);
   deskOcc[i][d] = a.id; a.desk = d; a.c = i; a.state = 'walk'; a.goal = { t: 's', i, d };
-  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i); a.flip = true; });
+  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1); a.flip = true; });
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
-  if (Math.random() < success(i)) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); leaveDesk(a); }
-  else { S.stats.failed++; popup('💧 ещё раз', p.x, p.y, '#5b7fd6', 46); a.t = 0; a.dur = lessonTime(i); }
+  const bonus = a.prepared ? 0.15 : 0; a.prepared = false;
+  if (Math.random() < Math.min(0.99, success(i) + bonus)) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); leaveDesk(a); }
+  else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
+}
+// library: students who failed study here, then go back to their class for the exam again
+const LS = SLOTS.LIB;
+const LIB_SPOTS = []; for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) LIB_SPOTS.push({ x: LS.x0 + 1.2 + c * 1.25, y: LS.y0 + 2.4 + r * 1.9 });
+const LIB_TIME = 6;
+const lib = Array(LIB_SPOTS.length).fill(null);
+const libFree = () => lib.indexOf(null) >= 0;
+function freeDeskOf(a) { const i = a.c; deskOcc[i][a.desk] = null; a.desk = -1; pullWaiting(i); }
+function goLibrary(a, i, seatNo = lib.indexOf(null), t = 0) {
+  lib[seatNo] = a; a.seat = seatNo; a.goal = { t: 'l', i }; a.c = -1; a.state = 'walk';
+  const p = LIB_SPOTS[seatNo];
+  walk(a, p.x, p.y, () => { a.state = 'read'; a.t = t; a.dur = LIB_TIME; a.flip = true; });
+}
+function finishReading(a) {
+  lib[a.seat] = null; a.seat = -1; a.prepared = true;
+  popup('💡', a.x, a.y, '#e0a100', 44);
+  route(a, a.goal.i);
 }
 function leaveDesk(a) {
   const i = a.c;
@@ -275,6 +295,7 @@ function stepAgents(dt) {
     }
     if (a.state === 'study') { a.t += dt; if (a.t >= a.dur) finishLesson(a); }
     else if (a.state === 'done') leaveDesk(a);
+    else if (a.state === 'read') { a.t += dt; if (a.t >= a.dur) finishReading(a); }
   }
   agents = agents.filter((a) => !(a.state === 'fly' && a.z > 400) && !a.gone);
 }
@@ -356,6 +377,7 @@ function roomColors(id) {
   if (ci >= 0) return { floor: CLASSES[ci].floor, wall: CLASSES[ci].wall };
   if (id === 'REC') return { floor: '#f3e4cf', wall: '#cdb6f0' };
   if (id === 'DORM') return { floor: '#efe0d2', wall: '#bcd3f2' };
+  if (id === 'LIB') return { floor: '#e9dccb', wall: '#c9a27a' };
   return { floor: '#bfe6a6', wall: null };
 }
 function drawSlot(c, id) {
@@ -396,6 +418,7 @@ function drawSlot(c, id) {
       poly(c, [up(a, rh * 0.35), up(b, rh * 0.35), up(b, rh * 0.8), up(a, rh * 0.8)], '#3f5f4a', '#a77b4f');
     }
     if (id === 'REC') { const q = (x, y) => P(s.x0 + x, s.y0 + y); emoji('🪴', q(0.6, 0.6).x, q(0.6, 0.6).y - 8, 18, c); emoji('🪴', q(9.4, 7.4).x, q(9.4, 7.4).y - 8, 18, c); emoji('🗺️', q(0.2, 2).x, q(0.2, 2).y - 34, 16, c); poly(c, [q(4, 0.3), q(6, 0.3), q(6, 7.7), q(4, 7.7)], '#e9b8c9'); poly(c, [q(2.6, 3.9), q(9.5, 3.9), q(9.5, 5.1), q(2.6, 5.1)], '#c7b5ee88'); }
+    if (id === 'LIB') { const q = (x, y) => P(s.x0 + x, s.y0 + y); [[0.5, 0.5], [2, 0.4], [3.5, 0.4], [5, 0.4]].forEach(([x, y]) => emoji('📚', q(x, y).x, q(x, y).y - 14, 20, c)); emoji('🕯️', q(5.5, 5.5).x, q(5.5, 5.5).y - 8, 14, c); LIB_SPOTS.forEach((p) => { const t = P(p.x, p.y + 0.55); emoji('📖', t.x, t.y - 4, 12, c); }); }
     if (id === 'DORM') { DORM_SPOTS.forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 22, c); }); emoji('🪴', B.x, B.y + 8, 16, c); }
   }
 }
@@ -417,7 +440,7 @@ function drawGate(c) {
 function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
   if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built)) return;
-  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : '🛏️ Спальня';
+  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : '🛏️ Спальня';
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   c.font = '800 9px ui-rounded,"Nunito","Segoe UI",sans-serif'; const tw = c.measureText(name).width + 12;
   c.fillStyle = '#fffaf2ee'; c.beginPath(); c.roundRect(sp.x - tw / 2, sp.y - 8, tw, 16, 8); c.fill();
@@ -525,6 +548,7 @@ function render() {
     const draw = () => drawCreature(a, a.x, a.y, 30, (x, y) => {
       if (a.state === 'study' && !a.path.length) ring(x + 13, y - 32, Math.min(1, a.t / a.dur));
       if (a.state === 'fly') emoji('✨', x - 12, y - 6, 10);
+      if (a.state === 'read') { emoji('📚', x - 12, y - 30, 11); ring(x + 13, y - 32, Math.min(1, a.t / a.dur), '#e0a100'); }
       if (a.state === 'sleep') emoji('💤', x + 12, y - 30 - Math.abs(Math.sin(a.ph * 1.5)) * 4, 11);
     });
     if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else add(a.x, a.y, draw);
@@ -675,6 +699,7 @@ scroller.addEventListener('pointerup', (e) => {
     }
     if (id === 'REC') { openPanel(receptionPanel); return; }
     if (id === 'GARDEN') { toast(`🎓 Выпускников: ${S.stats.graduated}`); return; }
+    if (id === 'LIB') { toast(`📚 Библиотека: готовятся к пересдаче ${lib.filter(Boolean).length}/${lib.length}`); return; }
     if (id === 'DORM') { toast(`🛏️ Спальня: занято ${dorm.filter(Boolean).length}/${DORM_CAP}, у консьержки в очереди ${dormLine.length}. Ушли из школы: ${S.stats.left || 0}`); return; }
   }
 });
@@ -739,6 +764,7 @@ function restoreWorld() {
       if (bed >= 0 && a.state === 'sleep') { dorm[bed] = a; a.bed = bed; const p = DORM_SPOTS[bed]; a.x = p.x; a.y = p.y; continue; }
       if (bed >= 0) { goDorm(a, g.i, bed); continue; }
     }
+    if (g.t === 'l') { const n = (a.seat >= 0 && a.seat < lib.length && !lib[a.seat]) ? a.seat : lib.indexOf(null); if (n >= 0) { goLibrary(a, g.i, n, a.state === 'read' ? a.t : 0); continue; } a.prepared = true; route(a, g.i); continue; }
     if (g.t === 'x') { a.state = 'walk'; walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; }); continue; }
     if (g.t === 's' && isOpen(g.i)) { const d = deskOcc[g.i][g.d] ? freeDesk(g.i) : g.d; if (d >= 0 && d < S.classes[g.i].desks) seat(a, g.i, d); else goClass(a, g.i); }
     else if (g.t === 'c' && isOpen(g.i)) goClass(a, g.i);
