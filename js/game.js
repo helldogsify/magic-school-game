@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=36';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=36';
+} from './data.js?v=37';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=37';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 36;   // keep equal to the ?v= number in index.html
+const BUILD = 37;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -854,13 +854,64 @@ ${msg}
   catch (e) { window.prompt('Скопируй отзыв и отправь автору игры:', text); }
 }
 
+
+// ======================= endless missions =======================
+// The fixed chain (data.js) comes first; then a new mission is generated each time from the state of the school.
+const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+function makeMission() {
+  const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i));
+  const reward = () => Math.max(80, Math.round((S.ema || 1) * 60 * rint(2, 4) / 10) * 10);   // about 2-4 minutes of income
+  const kinds = [];
+  kinds.push(() => { const n = rint(3, 8) * 10; return { type: 'grad', target: S.stats.graduated + n, text: `Выпусти ещё ${n} учеников 🎓` }; });
+  kinds.push(() => { const n = rint(5, 15) * 10; return { type: 'exams', target: S.stats.passed + n, text: `Пусть ученики сдадут ещё ${n} экзаменов` }; });
+  for (const i of open) {
+    const st = S.classes[i], C = CLASSES[i];
+    C.items.forEach((it, k) => { if (st.items[k] < MAX_ITEM_LEVEL) kinds.push(() => { const t = Math.min(MAX_ITEM_LEVEL, st.items[k] + rint(2, 4)); return { type: 'item', i, k, target: t, text: `Улучши «${it.name}» (${C.name}) до ур. ${t}` }; }); });
+    if (st.teacher < MAX_TEACHER_LEVEL) kinds.push(() => { const t = Math.min(MAX_TEACHER_LEVEL, st.teacher + rint(1, 3)); return { type: 'teacher', i, target: t, text: `Улучши учителя (${C.name}) до ур. ${t}` }; });
+    if (st.desks < MAX_DESKS) kinds.push(() => ({ type: 'desk', i, target: st.desks + 1, text: `Поставь ещё одну парту: ${C.name}` }));
+    if (st.time < MAX_TIME_LEVEL) kinds.push(() => ({ type: 'time', i, target: st.time + 1, text: `Сократи урок: ${C.name}` }));
+  }
+  kinds.push(() => ({ type: 'rec', target: S.reception.level + rint(1, 3), text: `Улучши секретаря в приёмной до ур. ${S.reception.level + 1}+` }));
+  if (bedCount() < maxBeds()) kinds.push(() => ({ type: 'beds', target: bedCount() + 1, text: 'Купи ещё одну кровать в спальне 🛏️' }));
+  if (libSeats() < MAX_LIB_SEATS) kinds.push(() => ({ type: 'lib', target: libSeats() + 1, text: 'Поставь ещё один стол в библиотеке 📚' }));
+  const nextPlot = S.classes.findIndex((c) => !c.built);
+  if (nextPlot >= 0) kinds.push(() => ({ type: 'build', i: nextPlot, target: 1, text: `Построй класс «${CLASSES[nextPlot].name}»` }));
+  const m = kinds[Math.floor(Math.random() * kinds.length)]();
+  if (m.type === 'rec') m.text = `Улучши секретаря в приёмной до ур. ${m.target}`;
+  m.reward = reward();
+  return m;
+}
+function dynDone(m) {
+  switch (m.type) {
+    case 'grad': return S.stats.graduated >= m.target;
+    case 'exams': return S.stats.passed >= m.target;
+    case 'item': return S.classes[m.i].items[m.k] >= m.target;
+    case 'teacher': return S.classes[m.i].teacher >= m.target;
+    case 'desk': return S.classes[m.i].desks >= m.target;
+    case 'time': return S.classes[m.i].time >= m.target;
+    case 'rec': return S.reception.level >= m.target;
+    case 'beds': return bedCount() >= m.target;
+    case 'lib': return libSeats() >= m.target;
+    case 'build': return S.classes[m.i].built;
+    default: return true;
+  }
+}
+function currentMission() {   // {text, reward, ok}
+  if (S.mission < MISSIONS.length) { const m = MISSIONS[S.mission]; return { text: m.text, reward: m.reward, ok: m.check(G) }; }
+  if (!S.dyn) { S.dyn = makeMission(); save(); }
+  return { text: S.dyn.text, reward: S.dyn.reward, ok: dynDone(S.dyn) };
+}
+function claimMission() {
+  const m = currentMission(); if (!m.ok) return;
+  S.coins += m.reward; S.mission++; S.dyn = null;
+  toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); save();
+}
+
 function renderMission() {
-  const m = MISSIONS[S.mission], el = $('#quest');
-  const ok = m ? m.check(G) : false;
-  const key = S.mission + (ok ? 'y' : 'n');
+  const m = currentMission(), el = $('#quest'), ok = m.ok;
+  const key = S.mission + m.text + (ok ? 'y' : 'n');
   if (el.dataset.key === key) return;
   el.dataset.key = key;
-  if (!m) { el.innerHTML = emojiHtml('<div class="q">🌟 Все задания выполнены!</div>'); return; }
   el.innerHTML = emojiHtml(`<div class="q ${ok ? 'ok' : ''}"><span class="qi">${ok ? '🎁' : '📋'}</span><span class="qt">${m.text}</span>
     ${ok ? `<button class="btn hot small" data-mission>Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qr">🪙${fmt(m.reward)}</span>`}</div>`);
 }
@@ -959,7 +1010,7 @@ document.addEventListener('click', (e) => {
   const t = e.target.closest('button'); if (!t) return;
   const d = t.dataset, i = +d.i;
   if (d.close !== undefined) { closePanel(); return; }
-  if (d.mission !== undefined) { const m = MISSIONS[S.mission]; if (m && m.check(G)) { S.coins += m.reward; S.mission++; toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); } return; }
+  if (d.mission !== undefined) { claimMission(); return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
