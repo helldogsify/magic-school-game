@@ -2,7 +2,7 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=5';
+} from './data.js?v=6';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.3';
@@ -232,7 +232,8 @@ const MINE = -8, MAXE = 21, MINS = -2, MAXS = 67;
 const OX = -MINE * HW + 10, OY = -MINS * HH + WALLH + 40;
 const WW = (MAXE - MINE) * HW + 20, WH = (MAXS - MINS) * HH + WALLH + 80;
 const P = (x, y) => ({ x: OX + (x - y) * HW, y: OY + (x + y) * HH });
-let scale = 1, dpr = 1, viewW = 0, viewH = 0;
+let scale = 1, dpr = 1, viewW = 0, viewH = 0, zoom = 1.65, pinching = false;
+const ZMIN = 0.9, ZMAX = 3.4;
 const sprites = {};
 for (const sp of SPECIES) { const im = new Image(); im.src = `assets/creatures/${sp}.png`; sprites[sp] = im; }
 const arts = {};
@@ -244,7 +245,7 @@ function resize() {
   const r = scroller.getBoundingClientRect();
   dpr = Math.min(3, window.devicePixelRatio || 1);
   viewW = r.width; viewH = r.height;
-  scale = (r.width / WW) * 1.65;
+  scale = (r.width / WW) * zoom;
   canvas.style.width = r.width + 'px'; canvas.style.height = r.height + 'px';
   canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
   $('#spacer').style.height = WH * scale + 'px'; $('#spacer').style.width = WW * scale + 'px';
@@ -259,11 +260,13 @@ const up = (p, h) => ({ x: p.x, y: p.y - h });
 // ---- static layer (floors, rooms, walls) cached in an offscreen canvas ----
 const stat = document.createElement('canvas'); const sctx = stat.getContext('2d');
 let staticKey = '';
-function statKey() { return S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + scale; }
+const statQ = () => Math.min(scale * dpr, Math.sqrt(12e6 / (WW * WH)));   // px per world unit, capped (iOS canvas limit)
+function statKey() { return S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + statQ().toFixed(2); }
 function drawStatic() {
-  const k = statKey(); if (k === staticKey) return; staticKey = k;
-  stat.width = Math.round(WW * scale * dpr); stat.height = Math.round(WH * scale * dpr);
-  const c = sctx; c.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  const k = statKey(); if (k === staticKey || (pinching && stat.width)) return; staticKey = k;
+  const q = statQ();
+  stat.width = Math.round(WW * q); stat.height = Math.round(WH * q);
+  const c = sctx; c.setTransform(q, 0, 0, q, 0, 0);
   c.fillStyle = '#a9d98f'; c.fillRect(0, 0, WW, WH);
   c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2);
   // halls
@@ -381,7 +384,7 @@ function render() {
   drawStatic();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(stat, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
+  ctx.drawImage(stat, 0, 0, stat.width, stat.height, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr, WW * scale * dpr, WH * scale * dpr);
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
   const list = [];
@@ -507,13 +510,45 @@ function updateHud() {
 }
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
 
+// ======================= pinch zoom =======================
+function setZoom(z, cx, cy, wx, wy) {   // keep world point (wx, wy) under client point (cx, cy) of the scroller
+  zoom = Math.max(ZMIN, Math.min(ZMAX, z));
+  scale = (viewW / WW) * zoom;
+  $('#spacer').style.height = WH * scale + 'px'; $('#spacer').style.width = WW * scale + 'px';
+  scroller.scrollLeft = wx * scale - cx; scroller.scrollTop = wy * scale - cy;
+}
+let pinch = null, pinchedAt = 0;
+const tdist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+function tmid(t) { const r = scroller.getBoundingClientRect(); return { x: (t[0].clientX + t[1].clientX) / 2 - r.left, y: (t[0].clientY + t[1].clientY) / 2 - r.top }; }
+scroller.addEventListener('touchstart', (e) => {
+  if (e.touches.length !== 2) return;
+  e.preventDefault();
+  const m = tmid(e.touches);
+  pinch = { d0: tdist(e.touches), z0: zoom, wx: (scroller.scrollLeft + m.x) / scale, wy: (scroller.scrollTop + m.y) / scale };
+  pinching = true;
+}, { passive: false });
+scroller.addEventListener('touchmove', (e) => {
+  if (!pinch || e.touches.length !== 2) return;
+  e.preventDefault();
+  const m = tmid(e.touches);
+  setZoom(pinch.z0 * tdist(e.touches) / pinch.d0, m.x, m.y, pinch.wx, pinch.wy);
+}, { passive: false });
+function endPinch(e) { if (pinch && e.touches.length < 2) { pinch = null; pinching = false; pinchedAt = Date.now(); staticKey = ''; } }
+scroller.addEventListener('touchend', endPinch); scroller.addEventListener('touchcancel', endPinch);
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+scroller.addEventListener('wheel', (e) => {   // desktop: Ctrl + wheel
+  if (!e.ctrlKey) return; e.preventDefault();
+  const r = scroller.getBoundingClientRect(), cx = e.clientX - r.left, cy = e.clientY - r.top;
+  setZoom(zoom * Math.exp(-e.deltaY * 0.002), cx, cy, (scroller.scrollLeft + cx) / scale, (scroller.scrollTop + cy) / scale);
+}, { passive: false });
+
 // ======================= input =======================
 let down = null;
 scroller.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, sl: scroller.scrollLeft, st: scroller.scrollTop }; });
 scroller.addEventListener('pointerup', (e) => {
   if (!down) return;
   const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y) + Math.abs(scroller.scrollTop - down.st) + Math.abs(scroller.scrollLeft - down.sl);
-  down = null; if (moved > 10) return;
+  down = null; if (moved > 10 || pinching || Date.now() - pinchedAt < 300) return;
   const r = scroller.getBoundingClientRect();
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
