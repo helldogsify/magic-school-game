@@ -57,6 +57,15 @@ export const CLASSES = [
       { id: 'rocks', name: 'Парящие камни', emoji: '🪨', kind: 'tuition' },
       { id: 'tornado', name: 'Ручной вихрь', emoji: '🌪️', kind: 'success' },
     ] },
+  // Final exam: always the last step before graduation; open from the start, not built. Fail -> library -> retake.
+  { id: 'final', final: true, name: 'Финальный экзамен', emoji: '📜', floor: '#efe6d2', wall: '#d9c08a', tuition: 200, build: 0, buildTime: 0, lesson: 10,
+    teacher: 'Экзаменатор Сова',
+    items: [
+      { id: 'seal', name: 'Магическая печать', emoji: '📜', kind: 'tuition' },
+      { id: 'bell', name: 'Колокольчик тишины', emoji: '🔔', kind: 'success' },
+      { id: 'hourglass', name: 'Большие песочные часы', emoji: '⏳', kind: 'tuition' },
+      { id: 'candles', name: 'Свечи сосредоточенности', emoji: '🕯️', kind: 'success' },
+    ] },
 ];
 
 export const SPECIES = ['mothfox', 'petalear', 'fernhorn', 'starwhisker'];
