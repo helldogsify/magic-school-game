@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=80';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=80';
+} from './data.js?v=81';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=81';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 80;   // keep equal to the ?v= number in index.html
+const BUILD = 81;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -118,15 +118,19 @@ const THEMES = {
   // Charms (her choice 2026-11-21: lecterns with wands and floating spellbooks)
   charms: { dir: 'assets/parts/charms/', wallTiles: 4, floorTiles: 3, board: 'circle', isoOnly: true, iso: true,
     decor: ['window', 'mirror', 'shelf', 'wand_rack', 'painting'], back: ['crystal_ball', 'table'], side: ['bookcase', 'table'], front: [], rug: 'rug',
-    stations: ['lect_lilac', 'lect_pink', 'lect_mint'], teacherProp: 'big_book', h: { table: 26, bookcase: 36 } },
+    stations: ['lectb_lilac', 'lectb_pink', 'lectb_mint'], teacherProp: 'big_book', h: { table: 26, bookcase: 36 }, facing: 'front' },   // her idea: students face us, the teacher stands at the front
+  // Flight (her choice 2026-11-21: students sit on little clouds)
+  flight: { dir: 'assets/parts/flight/', wallTiles: 4, floorTiles: 3, board: 'wing_poster', isoOnly: true, iso: true,
+    decor: ['window', 'shelf', 'birds', 'painting', 'round_window'], back: ['tree', 'table'], side: ['bookcase', 'table'], front: [], rug: 'rug',
+    stations: ['cloud_white', 'cloud_pink', 'cloud_lilac'], teacherProp: 'perch', h: { table: 24, bookcase: 36 }, sitOn: true },
 };
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
-const DECOR = { circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
+const DECOR = { wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
-const PROP_H = { lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
+const PROP_H = { lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=80`; parts[k + '/' + n] = im;
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=81`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -237,12 +241,16 @@ function bfs(sx, sy, tx, ty) {
 function pathTo(a, tx, ty) { const p = bfs(a.x, a.y, tx, ty); p.pop(); p.push({ x: tx, y: ty }); return p; }
 
 const slotOf = (i) => SLOTS[CLASS_SLOT[i]];
+const clsTheme = (i) => { const th = themeOf(CLASS_SLOT[i]); return th ? THEMES[th] : null; };
+const frontFacing = (i) => clsTheme(i)?.facing === 'front';   // students face the viewer, the teacher stands at the front
+const sitsOn = (i) => !!clsTheme(i)?.sitOn;                     // students sit on their station (clouds)
+function faceTeacher(a, i) { const tp = teacherPos(i); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = !frontFacing(i); }
 function deskPos(i, d) {   // 3 columns across the room, rows from the board towards us: the first rows stay on the room picture
   const s = slotOf(i), w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3, gap = (w - 2.2) / (cols - 1);
-  return { x: s.x0 + 1.1 + (d % cols) * gap, y: s.y0 + 2.5 + Math.floor(d / cols) * 1.2 };
+  return { x: s.x0 + 1.1 + (d % cols) * gap, y: s.y0 + (frontFacing(i) ? 1.9 : 2.5) + Math.floor(d / cols) * 1.2 };
 }
-const seatPos = (i, d) => { const p = deskPos(i, d); return { x: p.x, y: p.y + 0.45 }; };   // in front of the desk (nearer to us): the desk is between the student and the board
-const teacherPos = (i) => { const s = slotOf(i); return { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
+const seatPos = (i, d) => { const p = deskPos(i, d); return { x: p.x, y: p.y + (sitsOn(i) ? 0.05 : frontFacing(i) ? -0.45 : 0.45) }; };   // in front of the desk (nearer to us): the desk is between the student and the board
+const teacherPos = (i) => { const s = slotOf(i); return frontFacing(i) ? { x: s.x0 + (s.x1 - s.x0) / 2 + 0.6, y: s.y1 - 0.9 } : { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
 let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.4 };
 const queueSlot = (k) => ({ x: REC.x0 + 3.0 + k * 0.7, y: REC.y0 + 4.6 });
 function waitSpot(i, k) { const [, h] = slotOf(i).door; return { x: h[0] + 0.5 + (k % 2) * 0.6 - 0.3, y: h[1] + 0.5 + Math.floor(k / 2) * 0.6 }; }
@@ -378,7 +386,7 @@ function freeDesk(i) { for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc
 function seat(a, i, d) {
   const p = seatPos(i, d);
   deskOcc[i][d] = a.id; a.desk = d; a.c = i; a.state = 'walk'; a.goal = { t: 's', i, d };
-  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1); const tp = teacherPos(i); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = true; });   // the teacher is at the back wall: the whole class sits with its back to us   // face the teacher
+  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1); faceTeacher(a, i); });   // the teacher is at the back wall: the whole class sits with its back to us   // face the teacher
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
@@ -533,10 +541,11 @@ function drawIncidents() {
 const INSP_EVERY = 720, INSP_FIRST = 420, INSP_LEN = 180, INSP_WARN = 40;
 const schoolStars = () => (S && S.insp && S.insp.stars) || 0;
 const insp = () => (S.insp ||= { t: INSP_FIRST, stars: 0, cur: null, passed: 0, failed: 0 });
+const NOLEAVE_MAX = 5;
 const leftNow = () => (S.stats.left || 0) + (S.stats.gaveUp || 0);
 const INSP_KINDS = {
   mood: { text: 'настроение учеников 60% и выше', check: () => avgMood() >= 60, now: () => `настроение ${Math.round(avgMood())}%` },
-  noleave: { text: 'ни один ученик не уйдёт расстроенным', start: () => ({ v: leftNow() }), fail: (c) => leftNow() > c.v, now: (c) => `ушли: ${leftNow() - c.v}` },
+  noleave: { text: `расстроенными уйдут не больше ${NOLEAVE_MAX} учеников`, start: () => ({ v: leftNow() }), fail: (c) => leftNow() - c.v > NOLEAVE_MAX, now: (c) => `ушли: ${leftNow() - c.v} из ${NOLEAVE_MAX}` },   // was «nobody»: too hard (her report 2026-11-21)
   inc: { text: 'каждое происшествие исправлено быстрее чем за 20 секунд', start: () => { forceIncident(); return {}; }, fail: () => Object.values(S.inc || {}).some((x) => x.t > 20), now: () => (Object.keys(S.inc || {}).length ? '⚠️ происшествие!' : 'всё спокойно') },
   pass: { text: 'экзамены сдают 70% учеников и больше', start: () => ({ p: S.stats.passed, f: S.stats.failed }), check: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f >= 5 && p / (p + f) >= 0.7; }, now: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f ? `сдали ${Math.round(p / (p + f) * 100)}%` : 'экзаменов ещё не было'; } },
   earn: { text: 'школа заработает', start: () => ({ e: S.stats.earned || 0, goal: Math.max(300, Math.round((S.ema || 1) * 140 / 10) * 10) }), check: (c) => (S.stats.earned || 0) - c.e >= c.goal, now: (c) => `заработано ${fmt((S.stats.earned || 0) - c.e)} из ${fmt(c.goal)}` },
@@ -546,7 +555,7 @@ function forceIncident() {
   const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'c', t: 0 }; const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`);
 }
 const inspText = (c) => (c.kind === 'earn' ? `${INSP_KINDS.earn.text} ${fmt(c.goal)} 🪙` : INSP_KINDS[c.kind].text);
-const INSP_SHORT = { mood: 'настроение 60%+', noleave: 'никто не уйдёт', inc: 'чинить за 20 с', pass: 'экзамены 70%+', earn: 'заработок' };
+const INSP_SHORT = { mood: 'настроение 60%+', noleave: 'уйдут не больше 5', inc: 'чинить за 20 с', pass: 'экзамены 70%+', earn: 'заработок' };
 const inspNextText = (k) => (k === 'earn' ? 'сколько школа заработает' : INSP_KINDS[k].text);
 const calm = () => !!(S && S.calm);
 function setCalm(on) {
@@ -598,7 +607,7 @@ function inspPanel() {
     ${c ? `<div class="card up"><span class="remoji">🧐</span><div class="grow"><b>Идёт проверка: ${inspText(c)}</b><div class="muted">${INSP_KINDS[c.kind].now(c)} · осталось ${mmss(c.left)}</div></div></div>`
       : S.stats.graduated < 20 ? '<p>Инспектор начнёт приходить, когда у школы будет 20 выпускников.</p>' : `<p>Следующая проверка через <b>${mmss(I.t)}</b>${I.next ? `: ${inspNextText(I.next)}` : ''}.</p>`}
     ${calmBlock()}
-    <p class="muted">Раз в 12 минут игры приходит инспектор и 3 минуты проверяет что-то одно: настроение учеников, что никто не ушёл расстроенным, как быстро ты чинишь происшествия, как сдают экзамены или сколько школа заработала. О проверке предупреждают за 40 секунд.</p>
+    <p class="muted">Раз в 12 минут игры приходит инспектор и 3 минуты проверяет что-то одно: настроение учеников, что почти никто не ушёл расстроенным (не больше 5), как быстро ты чинишь происшествия, как сдают экзамены или сколько школа заработала. О проверке предупреждают за 40 секунд.</p>
     <p class="muted">Прошла — звезда школы (+3% к плате за все уроки) и награда. Не прошла — штраф. Звёзды нужны, чтобы строить новые классы. Пока игра закрыта, инспектор не приходит.</p>`;
 }
 // how many students are in the school right now (her wish 2026-11-21)
@@ -842,7 +851,7 @@ function texWall(c, th, e, a, b, h) {
 // a flat sprite hung on a back wall: side 'y0' runs along x (back-right wall), 'x0' along y (back-left wall)
 // iso_* sprites are drawn in the room's own angle for the back-left wall (with depth: shelves stick out, windows are set in);
 // on the back-right wall they are mirrored. They are placed as they are, not skewed.
-const ISO_W = { circle: 1.8, mirror: 0.95, wand_rack: 1.4, chart: 1.9, painting: 0.95, poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
+const ISO_W = { wing_poster: 1.8, birds: 1.5, circle: 1.8, mirror: 0.95, wand_rack: 1.4, chart: 1.9, painting: 0.95, poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
 function hangIso(c, th, n, s, side, t0, lo) {
   const im = part(th, 'iso_' + n); if (!im) return false;
   const d = DECOR[n], w = ISO_W[n] || d.w, sw = w * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - w * HH);
@@ -901,7 +910,7 @@ function drawWallDecor(c, id) {
 function roomProps(i) {
   const id = CLASS_SLOT[i], th = themeOf(id); if (!th) return [];
   const s = SLOTS[id], T = THEMES[th], w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3;
-  const rows = Math.ceil(maxDesksOf(i) / cols), free = s.y0 + 2.5 + (rows - 1) * 1.2 + 1.0;   // first free row behind the last seats
+  const rows = Math.ceil(maxDesksOf(i) / cols), free = s.y0 + (frontFacing(i) ? 1.9 : 2.5) + (rows - 1) * 1.2 + 1.0;   // first free row behind the last seats
   const out = [{ n: T.back[0], x: s.x0 + 0.45, y: s.y0 + 0.45 }, { n: T.back[1], x: s.x1 - 0.5, y: s.y0 + 0.5 }, { n: T.side[0], x: s.x0 + 0.42, y: s.y0 + 1.7 }];
   if (s.y1 - free >= 1.2) out.push({ n: T.side[1], x: s.x0 + 0.5, y: free + 0.45, flip: true });
   if (T.front[0]) out.push({ n: T.front[0], x: s.x0 + 0.5, y: s.y1 - 0.45 });
@@ -1210,7 +1219,7 @@ function render() {
       continue;
     }
     const tp = teacherPos(i);
-    add(tp.x, tp.y, () => drawCreature(staff[(i + 1) % staff.length], tp.x, tp.y, 34, (x, y) => drawHat(x, y - 32, '#6c4fd1')));
+    { const t0 = staff[(i + 1) % staff.length], tch = frontFacing(i) ? { ...t0, back: true } : t0; add(tp.x, tp.y, () => drawCreature(tch, tp.x, tp.y, 34, (x, y) => drawHat(x, y - 32, '#6c4fd1'))); }
     const thI = themeOf(CLASS_SLOT[i]), stations = thI && THEMES[thI].stations;   // potions: a little cauldron instead of a desk
     for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI }; add(p.x, p.y, () => drawProp(o)); } else add(p.x, p.y, () => drawDesk(p)); }
     for (const o of roomProps(i)) add(o.x, o.y, () => drawProp(o));
@@ -1243,7 +1252,8 @@ function render() {
   for (const a of agents) {
     // an incident in the class: its students leave their places and rush around the room in a panic (her wish 2026-11-21)
     const pn = panicPos(a), ax = pn ? pn.x : a.x, ay = pn ? pn.y : a.y;
-    if (pn) { a._panic = true; a.flip = pn.left; a.back = pn.up; } else if (a._panic) { a._panic = false; if (a.state === 'study') { const tp = teacherPos(a.c); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = true; } }
+    if (a.state !== 'fly') a.z = !pn && a.state === 'study' && !(a.path && a.path.length) && sitsOn(a.c) ? 9 : 0;   // on a cloud
+    if (pn) { a._panic = true; a.flip = pn.left; a.back = pn.up; } else if (a._panic) { a._panic = false; if (a.state === 'study') faceTeacher(a, a.c); }
     const draw = () => drawCreature(a, ax, ay, 30, (x, y) => {
       if (pn) { if (Math.sin(a.ph * 3 + a.id) > 0.2) emoji(a.id % 3 ? '❗' : '😱', x + 2, y - 36, 12); return; }
       if (a.state === 'study' && !a.path.length) ring(x + 13, y - 32, Math.min(1, a.t / a.dur));
@@ -2048,7 +2058,7 @@ function restoreWorld(teleport = false) {
   // desks first, so that nobody else takes a desk that is in use
   for (const a of agents) if ((a.state === 'study' || a.state === 'done') && a.desk >= 0 && a.c >= 0 && a.desk < S.classes[a.c].desks && !deskOcc[a.c][a.desk]) deskOcc[a.c][a.desk] = a.id; else if (a.state === 'study' || a.state === 'done') a.state = 'walk';
   for (const a of agents) {
-    if ((a.state === 'study' || a.state === 'done') && deskOcc[a.c][a.desk] === a.id) { if (teleport) { const p = seatPos(a.c, a.desk); a.x = p.x; a.y = p.y; } const tp = teacherPos(a.c); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = true; continue; }
+    if ((a.state === 'study' || a.state === 'done') && deskOcc[a.c][a.desk] === a.id) { if (teleport) { const p = seatPos(a.c, a.desk); a.x = p.x; a.y = p.y; } faceTeacher(a, a.c); continue; }
     if (queue.includes(a)) { goQueue(a); continue; }
     const wi = waitList.findIndex((l) => l.includes(a));
     if (wi >= 0) { if (teleport) { const p = waitSpot(wi, waitList[wi].indexOf(a)); a.x = p.x; a.y = p.y; } continue; }
