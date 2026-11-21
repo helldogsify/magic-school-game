@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=139';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=139';
+} from './data.js?v=140';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=140';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 139;   // keep equal to the ?v= number in index.html
+const BUILD = 140;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1162,7 +1162,12 @@ function drawRug(c, th, s, i) {
   const im = part(th, THEMES[th].rug); if (!im) return;
   const w = s.x1 - s.x0, cols = w >= 9 ? 4 : 3, rows = Math.ceil(S.classes[i].desks / cols);
   const cx = (s.x0 + s.x1) / 2, cy = s.y0 + 2.6 + (rows - 1) * 0.6, d = Math.min(w - 1.2, 3.2 + rows * 0.6);
-  const T = THEMES[th], m = P(cx, cy), sw = d * HW * Math.SQRT2 * (T.rugScale || 1), sh = sw * im.naturalHeight / im.naturalWidth;   // rugs of different shapes per room (her question 2026-11-21: why are all rugs round)
+  const T = THEMES[th];
+  if (T.rugFlip) {   // the exam runner: centred in the hall and never longer than the room (her report: it went under the wall with many desks)
+    const h = s.y1 - s.y0, m = P((s.x0 + s.x1) / 2, s.y0 + h / 2 + 0.2), sw = (w - 3) * HW * 1.15, sh = sw * im.naturalHeight / im.naturalWidth;
+    c.save(); c.translate(m.x, m.y); c.scale(-1, 1); c.drawImage(im, -sw / 2, -sh / 2, sw, sh); c.restore(); return;
+  }
+  const m = P(cx, cy), sw = d * HW * Math.SQRT2 * (T.rugScale || 1), sh = sw * im.naturalHeight / im.naturalWidth;   // rugs of different shapes per room (her question 2026-11-21: why are all rugs round)
   c.save(); c.translate(m.x, m.y); if (T.rugFlip) c.scale(-1, 1); c.drawImage(im, -sw / 2, -sh / 2, sw, sh); c.restore();
 }
 // ---- PERFORMANCE (her report 2026-11-21: the game lags while swiping) ----
