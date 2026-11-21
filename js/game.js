@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=58';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=58';
+} from './data.js?v=59';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=59';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 58;   // keep equal to the ?v= number in index.html
+const BUILD = 59;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -342,7 +342,7 @@ function freeDesk(i) { for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc
 function seat(a, i, d) {
   const p = seatPos(i, d);
   deskOcc[i][d] = a.id; a.desk = d; a.c = i; a.state = 'walk'; a.goal = { t: 's', i, d };
-  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1); const tp = teacherPos(i); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = tp.x + tp.y < a.x + a.y; });   // face the teacher
+  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1); const tp = teacherPos(i); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = true; });   // the teacher is at the back wall: the whole class sits with its back to us   // face the teacher
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
@@ -1474,7 +1474,7 @@ function restoreWorld(teleport = false) {
   // desks first, so that nobody else takes a desk that is in use
   for (const a of agents) if ((a.state === 'study' || a.state === 'done') && a.desk >= 0 && a.c >= 0 && a.desk < S.classes[a.c].desks && !deskOcc[a.c][a.desk]) deskOcc[a.c][a.desk] = a.id; else if (a.state === 'study' || a.state === 'done') a.state = 'walk';
   for (const a of agents) {
-    if ((a.state === 'study' || a.state === 'done') && deskOcc[a.c][a.desk] === a.id) { if (teleport) { const p = seatPos(a.c, a.desk); a.x = p.x; a.y = p.y; } const tp = teacherPos(a.c); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = tp.x + tp.y < a.x + a.y; continue; }
+    if ((a.state === 'study' || a.state === 'done') && deskOcc[a.c][a.desk] === a.id) { if (teleport) { const p = seatPos(a.c, a.desk); a.x = p.x; a.y = p.y; } const tp = teacherPos(a.c); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = true; continue; }
     if (queue.includes(a)) { goQueue(a); continue; }
     const wi = waitList.findIndex((l) => l.includes(a));
     if (wi >= 0) { if (teleport) { const p = waitSpot(wi, waitList[wi].indexOf(a)); a.x = p.x; a.y = p.y; } continue; }
