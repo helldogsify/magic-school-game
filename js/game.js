@@ -2,7 +2,7 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=7';
+} from './data.js?v=8';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.3';
@@ -56,12 +56,12 @@ function spend(c) { if (S.coins < c) { toast('Не хватает монет �
 const HW = 16, HH = HW * 0.62;
 const ROOM = 6;                                    // rooms are 6x6 tiles
 const WALLH = ROOM * 2 * HW * 0.3676;              // wall height in the art, relative to room width
-const GW = 26, GH = 38;
+const GW = 26, GH = 39;
 
 // Layout like a real school: gate -> big reception hall -> main corridor going back, classes on both sides.
 const HALLS = [
   { x0: 13, y0: 7, x1: 15, y1: 25 },    // main corridor (screen: up-right)
-  { x0: 13, y0: 33, x1: 16, y1: 37 },   // entrance path from the gate
+  { x0: 13, y0: 34, x1: 16, y1: 38 },   // entrance path from the gate
 ];
 // Room slots. door = [roomTile, hallTile]; extra = more door pairs; cut = back wall drawn low (a hall runs behind it).
 function slot(x0, y0, door, cut = {}, w = ROOM, h = ROOM, extra = []) { return { x0, y0, x1: x0 + w, y1: y0 + h, door, cut, extra }; }
@@ -72,15 +72,16 @@ const SLOTS = {
   R2: slot(15, 13, [[15, 16], [14, 16]], { left: true }),
   L3: slot(7, 7, [[12, 10], [13, 10]]),
   R3: slot(15, 7, [[15, 10], [14, 10]], { left: true }),
-  REC: slot(9, 25, [[14, 32], [14, 33]], { right: true }, 10, 8, [[[15, 32], [15, 33]], [[13, 25], [13, 24]], [[14, 25], [14, 24]]]),
+  REC: slot(9, 25, [[14, 33], [14, 34]], { right: true }, 9, 9, [[[15, 33], [15, 34]], [[13, 25], [13, 24]], [[14, 25], [14, 24]]]),
   LOUNGE: slot(3, 25, [[8, 28], [9, 28]]),
   GARDEN: slot(10, 0, [[13, 6], [13, 7]], {}, 8, 7, [[[14, 6], [14, 7]]]),
 };
 const CLASS_SLOT = ['L1', 'R1', 'L2', 'R2', 'L3', 'R3'];   // class i lives in this slot
 const ART = {                                               // room pictures with floor corners in image px
   herbs: { src: 'assets/rooms/herbs.webp', L: [105, 653], R: [913, 655], F: [512, 905] },
+  REC: { src: 'assets/rooms/reception.webp', L: [102, 667], R: [920, 650], F: [512, 900], rightH: 26 },   // right back side clipped to railing height
 };
-const GATE_TILE = { x: 14.5, y: 36.3 };
+const GATE_TILE = { x: 14.5, y: 37.3 };
 
 // region grid
 const REG = Array.from({ length: GW }, () => Array(GH + 2).fill(null));
@@ -123,8 +124,8 @@ function deskPos(i, d) { const s = slotOf(i); return { x: s.x0 + 2.0 + (d % 2) *
 const seatPos = (i, d) => { const p = deskPos(i, d); return { x: p.x, y: p.y - 0.45 }; };
 const teacherPos = (i) => { const s = slotOf(i); return { x: s.x0 + 4.3, y: s.y0 + 1.0 }; };
 const REC = SLOTS.REC;
-const OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.5 };
-const queueSlot = (k) => ({ x: REC.x0 + 2.9 + k * 0.75, y: REC.y0 + 4.5 });
+const OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.4 };
+const queueSlot = (k) => ({ x: REC.x0 + 3.0 + k * 0.7, y: REC.y0 + 4.6 });
 function waitSpot(i, k) { const [, h] = slotOf(i).door; return { x: h[0] + 0.5 + (k % 2) * 0.6 - 0.3, y: h[1] + 0.5 + Math.floor(k / 2) * 0.6 }; }
 
 // ======================= agents =======================
@@ -275,12 +276,11 @@ function drawStatic() {
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], (x + y) % 2 ? '#efe2cb' : '#f5ead6', '#e3d3b6');
   }
   // gate
-  const g = P(13, 35), g2 = P(16, 35);
+  const g = P(13, 36), g2 = P(16, 36);
   c.strokeStyle = '#6c4fd1'; c.lineWidth = 5; c.beginPath(); c.moveTo(g.x, g.y); c.lineTo(g.x, g.y - 34); c.lineTo(g2.x, g2.y - 34); c.lineTo(g2.x, g2.y); c.stroke();
   text('ВОРОТА', (g.x + g2.x) / 2, (g.y + g2.y) / 2 - 40, 9, '#5a3fb0', c);
   // rooms from back to front
-  const order = Object.keys(SLOTS).sort((a, b) => (SLOTS[a].x0 + SLOTS[a].y0) - (SLOTS[b].x0 + SLOTS[b].y0));
-  for (const id of order) drawSlot(c, id);
+  // rooms are drawn per frame, depth-sorted together with the creatures (see render)
 }
 function roomColors(id) {
   const ci = CLASS_SLOT.indexOf(id);
@@ -301,16 +301,19 @@ function drawSlot(c, id) {
   }
   if (ci >= 0 && !S.classes[ci].built) { drawPlot(c, s, ci, L, B, R, F, center); return; }
   const col = roomColors(id);
-  const art = ci >= 0 && arts[CLASSES[ci].id];
-  if (art && art.complete && art.naturalWidth && !s.cut.left && !s.cut.right) {
-    const A = ART[CLASSES[ci].id];
+  const artKey = ci >= 0 ? CLASSES[ci].id : id;
+  const art = arts[artKey];
+  if (art && art.complete && art.naturalWidth) {
+    const A = ART[artKey];
     const u = [A.R[0] - A.L[0], A.R[1] - A.L[1]], v = [A.F[0] - A.L[0], A.F[1] - A.L[1]];
     const U = [R.x - L.x, R.y - L.y], V = [F.x - L.x, F.y - L.y];
     const det = u[0] * v[1] - u[1] * v[0];
     const ia = v[1] / det, ib = -u[1] / det, ic = -v[0] / det, id2 = u[0] / det;      // inverse of [u v]
     const m11 = U[0] * ia + V[0] * ib, m12 = U[0] * ic + V[0] * id2, m21 = U[1] * ia + V[1] * ib, m22 = U[1] * ic + V[1] * id2;
     const e = L.x - (m11 * A.L[0] + m12 * A.L[1]), f = L.y - (m21 * A.L[0] + m22 * A.L[1]);
-    c.save(); c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
+    c.save();
+    if (A.rightH) { poly(c, [{ x: L.x - 60, y: L.y + 40 }, { x: L.x - 60, y: B.y - 400 }, up(B, 400), up(B, A.rightH), up(R, A.rightH), { x: R.x + 60, y: R.y }, { x: R.x + 60, y: F.y + 60 }, { x: L.x - 60, y: F.y + 60 }]); c.clip(); }
+    c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
   } else {
     poly(c, [L, B, R, F], col.floor, '#00000012');
     c.strokeStyle = '#0000000d'; c.lineWidth = 1;
@@ -326,7 +329,10 @@ function drawSlot(c, id) {
     if (id === 'REC') { const q = (x, y) => P(s.x0 + x, s.y0 + y); emoji('🪴', q(0.6, 0.6).x, q(0.6, 0.6).y - 8, 18, c); emoji('🪴', q(9.4, 7.4).x, q(9.4, 7.4).y - 8, 18, c); emoji('🗺️', q(0.2, 2).x, q(0.2, 2).y - 34, 16, c); poly(c, [q(4, 0.3), q(6, 0.3), q(6, 7.7), q(4, 7.7)], '#e9b8c9'); poly(c, [q(2.6, 3.9), q(9.5, 3.9), q(9.5, 5.1), q(2.6, 5.1)], '#c7b5ee88'); }
     if (id === 'LOUNGE') { emoji('🛋️', center.x, center.y - 6, 26, c); emoji('🪴', B.x, B.y + 6, 18, c); }
   }
-  // sign
+}
+function drawSign(c, id) {
+  const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
+  if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built)) return;
   const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : '🛋️ Скоро: Столовая';
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   c.font = '800 9px ui-rounded,"Nunito","Segoe UI",sans-serif'; const tw = c.measureText(name).width + 12;
@@ -388,41 +394,46 @@ function render() {
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
   const list = [];
+  const zone = (x, y) => { const id = regAt(Math.floor(x), Math.floor(y)); if (id && id !== 'hall') { const s = SLOTS[id]; return (s.x0 + s.x1 + s.y0 + s.y1) / 2; } return x + y; };
+  const add = (x, y, draw, bias = 0) => list.push({ k1: zone(x, y), k2: x + y + bias, draw });
+  for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: () => drawSlot(ctx, id) }); }
   for (let i = 0; i < CLASSES.length; i++) {
     const st = S.classes[i]; if (!st.built) continue;
     const s = slotOf(i);
     if (!isOpen(i)) {
       const c = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), left = Math.max(0, Math.ceil((st.buildEnd - Date.now()) / 1000));
-      list.push({ d: s.x0 + s.y0 + 6, draw: () => { emoji('🏗️', c.x, c.y - 14, 30); ctx.fillStyle = '#fffaf2ee'; rr(c.x - 40, c.y + 8, 80, 18, 9); ctx.fill(); text(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, c.x, c.y + 17, 11, '#5a3fb0'); } });
+      add((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, () => { emoji('🏗️', c.x, c.y - 14, 30); ctx.fillStyle = '#fffaf2ee'; rr(c.x - 40, c.y + 8, 80, 18, 9); ctx.fill(); text(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, c.x, c.y + 17, 11, '#5a3fb0'); });
       continue;
     }
     const tp = teacherPos(i);
-    list.push({ d: tp.x + tp.y, draw: () => drawCreature(staff[(i + 1) % staff.length], tp.x, tp.y, 34, (x, y) => drawHat(x, y - 32, '#6c4fd1')) });
-    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); list.push({ d: p.x + p.y, draw: () => drawDesk(p) }); }
+    add(tp.x, tp.y, () => drawCreature(staff[(i + 1) % staff.length], tp.x, tp.y, 34, (x, y) => drawHat(x, y - 32, '#6c4fd1')));
+    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); add(p.x, p.y, () => drawDesk(p)); }
     CLASSES[i].items.forEach((it, k) => {
       if (!st.items[k]) return;
       const spots = [[s.x0 + 0.7, s.y0 + 0.7], [s.x0 + 5.3, s.y0 + 0.7], [s.x0 + 0.7, s.y0 + 5.2], [s.x0 + 5.3, s.y0 + 5.2]];
       const p = P(spots[k][0], spots[k][1]);
-      list.push({ d: spots[k][0] + spots[k][1], draw: () => emoji(it.emoji, p.x, p.y - 8, 14 + Math.min(8, st.items[k] / 3)) });
+      add(spots[k][0], spots[k][1], () => emoji(it.emoji, p.x, p.y - 8, 14 + Math.min(8, st.items[k] / 3)));
     });
   }
   // reception desk + officer
-  list.push({ d: OFFICER.x + OFFICER.y, draw: () => drawCreature(officer, OFFICER.x, OFFICER.y, 34, (x, y) => {
+  add(OFFICER.x, OFFICER.y, () => drawCreature(officer, OFFICER.x, OFFICER.y, 34, (x, y) => {
     drawHat(x, y - 32, '#d14f8f');
     if (processing) ring(x + 18, y - 30, Math.min(1, procT / procTime()), '#ff8a3d');
-  }) });
-  list.push({ d: OFFICER.x + OFFICER.y + 0.9, draw: () => {
+  }));
+  if (!(arts.REC && arts.REC.naturalWidth)) add(OFFICER.x + 0.9, OFFICER.y, () => {
     const a = P(REC.x0 + 1.5, REC.y0 + 3.1), b = P(REC.x0 + 2.1, REC.y0 + 3.1), cc = P(REC.x0 + 2.1, REC.y0 + 5.9), d = P(REC.x0 + 1.5, REC.y0 + 5.9), h = 12;
     poly(ctx, [d, cc, up(cc, h), up(d, h)], '#9a6a41'); poly(ctx, [cc, b, up(b, h), up(cc, h)], '#86592f'); poly(ctx, [up(a, h), up(b, h), up(cc, h), up(d, h)], '#c99a68', '#8a5f3a');
     const m = P(REC.x0 + 1.8, REC.y0 + 3.6); emoji('📜', m.x, m.y - 16, 11); const n = P(REC.x0 + 1.8, REC.y0 + 5.4); emoji('🔔', n.x, n.y - 16, 11);
-  } });
+  });
   for (const a of agents) {
-    list.push({ d: a.x + a.y + (a.state === 'fly' ? 100 : 0), draw: () => drawCreature(a, a.x, a.y, 30, (x, y) => {
+    const draw = () => drawCreature(a, a.x, a.y, 30, (x, y) => {
       if (a.state === 'study' && !a.path.length) ring(x + 13, y - 32, Math.min(1, a.t / a.dur));
       if (a.state === 'fly') emoji('✨', x - 12, y - 6, 10);
-    }) });
+    });
+    if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else add(a.x, a.y, draw);
   }
-  list.sort((p, q) => p.d - q.d).forEach((o) => o.draw());
+  list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
+  for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
   for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
 }
 
