@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=89';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=89';
+} from './data.js?v=90';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=90';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 89;   // keep equal to the ?v= number in index.html
+const BUILD = 90;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -98,9 +98,6 @@ const depthOf = (i) => ROOM + 2 * (sizeOf(i) - 1);                // 6, 8, 10 ti
 const maxDesksOf = (i) => (CLASSES[i].final ? 21 : 6 + 4 * (sizeOf(i) - 1));   // 6, 10, 14; the wide exam hall: 21 (3 rows of 7)
 const MAX_DESKS_ABS = 21;
 const ART = {                                               // room pictures with floor corners in image px
-  DORM: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898], floor: '#d7e3ea' },
-  DORM2: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898], floor: '#d7e3ea' },
-  REC: { src: 'assets/rooms/reception.webp', L: [102, 667], R: [920, 650], F: [512, 900] },
 };
 // ---- rooms assembled from parts (any size looks whole): seamless wall + floor textures, wall decor hung
 // on the back walls and furniture placed on the floor by the engine. A themed room replaces its painted picture.
@@ -136,7 +133,7 @@ const THEMES = {
   REC: { dir: 'assets/parts/reception/', wallTiles: 4, floorTiles: 3, board: 'map', isoOnly: true, iso: true,
     decor: ['window', 'notice', 'clock', 'lantern', 'shelf', 'window'], back: [], side: [], front: [], rug: '', runner: { u0: 4.3, u1: 6.3, color: '#eaa6b4' },
     h: { plant_big: 40, bush: 24 },
-    extras: (s) => [{ n: 'counter', x: s.x0 + 1.55, y: s.y0 + 3.9 }, { n: 'coat_rack', x: s.x0 + 0.45, y: s.y0 + 0.5 }, { n: 'plant_big', x: s.x0 + 0.5, y: s.y1 - 0.5 },
+    extras: (s) => [{ n: 'counter', x: s.x0 + 1.75, y: s.y0 + 3.9 }, { n: 'coat_rack', x: s.x0 + 0.45, y: s.y0 + 0.5 }, { n: 'plant_big', x: s.x0 + 0.5, y: s.y1 - 0.5 },
       { n: 'bench_l', x: s.x1 - 0.7, y: s.y0 + 5.6 }, { n: 'bench_l', x: s.x1 - 0.7, y: s.y0 + 7.3 }, { n: 'bush', x: s.x1 - 0.5, y: s.y1 - 0.4 }, { n: 'signpost', x: s.x0 + 3.4, y: s.y1 - 0.6 }] },
   // Dorms (her choice 2026-11-21: small beds with blankets; the sleeper lies on its bed)
   DORM: { dir: 'assets/parts/dorm/', wallTiles: 4, floorTiles: 3, board: 'garland', isoOnly: true, iso: true,
@@ -154,13 +151,13 @@ const THEMES = {
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
 const DECOR = { notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
-const PROP_H = { counter: 46, bench_l: 22, bench_r: 22, signpost: 34, coat_rack: 40, bed_pink: 17, bed_mint: 17, bed_lilac: 17, conc_desk: 26, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
+const PROP_H = { counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=89`; parts[k + '/' + n] = im;
+  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=90`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
-const THEMES_OFF = new Set(['REC', 'DORM', 'DORM2']);   // parts still being drawn: keep the painted pictures until they are in
+const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
 const themeOf = (id) => { if (WORLD !== 1 || !id || THEMES_OFF.has(id)) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
 const dormSize = (k) => (S && S.dormUp && S.dormUp['size' + k]) || 1;      // 1..3, like class sizes
 const dormDepth = (k) => ROOM + 2 * (dormSize(k) - 1);
@@ -237,7 +234,8 @@ function buildEdges() {
       if (doorAt.has(`${x},${y},${dx},${dy}`)) continue;
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
-      EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') });   // corridors get only low walls: they must never hide a room
+      const lowSide = (id === 'DORM' || id === 'DORM2') && side === 'x0';   // dorms share low walls with the reception and each other (they hid the rooms)
+      EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
     }
   }
 }
@@ -284,7 +282,7 @@ function deskPos(i, d) {   // 3 columns across the room, rows from the board tow
 const seatPos = (i, d) => { const p = deskPos(i, d); if (frontFacing(i)) return { x: p.x - 0.45, y: p.y + 0.4 };   // charms: beside the lectern, on its left on screen (her ruling 2026-11-21)
   return { x: p.x, y: p.y + (sitsOn(i) ? 0.05 : 0.45) }; };   // in front of the desk (nearer to us): the desk is between the student and the board
 const teacherPos = (i) => { const s = slotOf(i); return frontFacing(i) ? { x: s.x0 + (s.x1 - s.x0) / 2 + 0.6, y: s.y1 - 0.9 } : { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
-let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.4 };
+let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.75, y: REC.y0 + 3.3 };
 const queueSlot = (k) => ({ x: REC.x0 + 3.0 + k * 0.7, y: REC.y0 + 4.6 });
 function waitSpot(i, k) { const [, h] = slotOf(i).door; return { x: h[0] + 0.5 + (k % 2) * 0.6 - 0.3, y: h[1] + 0.5 + Math.floor(k / 2) * 0.6 }; }
 
@@ -2074,7 +2072,7 @@ const LAYOUT = 9;
 function relayout() {   // rebuild the map (a class was expanded): creatures keep their task, seats move with the rooms
   const snap = agents.length ? (save(), S.world) : null;
   genLayout(); buildGrid(); buildEdges(); decorateEdges();
-  REC = SLOTS.REC; OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.4 };
+  REC = SLOTS.REC; OFFICER = { x: REC.x0 + 0.75, y: REC.y0 + 3.3 };
   DS = SLOTS.DORM; DS2 = SLOTS.DORM2; CONCIERGE = { x: DS.x0 + 0.6, y: DS.y0 + 1.4 }; dormSpots();
   LS = SLOTS.LIB; libSpots();
   computeBounds(); staticKey = ''; resize();
