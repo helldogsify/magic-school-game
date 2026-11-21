@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=56';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=56';
+} from './data.js?v=57';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=57';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 56;   // keep equal to the ?v= number in index.html
+const BUILD = 57;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -56,9 +56,11 @@ const teacherCost = (i) => Math.round(CLASSES[i].tuition * 6 * Math.pow(1.35, S.
 const expandCost = (i) => Math.round(CLASSES[i].tuition * 120 * Math.pow(3, sizeOf(i) - 1));
 const deskCost = (i) => Math.round(CLASSES[i].tuition * 15 * Math.pow(2.3, S.classes[i].desks - 2));
 const timeCost = (i) => Math.round(CLASSES[i].tuition * 10 * Math.pow(1.6, S.classes[i].time));
-const procTime = () => 3.5 * Math.pow(0.92, S.reception.level - 1);
-const fee = () => 3 + S.reception.level;
-const arrivalInterval = () => 5 * Math.pow(0.9, S.reception.ads - 1);
+const MAX_REC_LVL = 40;   // both reception upgrades stop at level 40
+const recLvl = () => Math.min(MAX_REC_LVL, S.reception.level), adsLvl = () => Math.min(MAX_REC_LVL, S.reception.ads);
+const procTime = () => 3.5 * Math.pow(0.92, recLvl() - 1);
+const fee = () => 3 + recLvl();
+const arrivalInterval = () => 5 * Math.pow(0.9, adsLvl() - 1);
 const recCost = () => Math.round(20 * Math.pow(1.4, S.reception.level - 1));
 const adsCost = () => Math.round(30 * Math.pow(1.45, S.reception.ads - 1));
 
@@ -965,8 +967,8 @@ function libPanel() {
 function receptionPanel() {
   return `<div class="sh-head"><span class="remoji big">🛎️</span><div><h2>Приёмная</h2><div class="muted">Здесь новые ученики поступают в школу</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🪙</span><b>${fee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${sec(procTime())}</b><i>оформление</i></div><div><span>🚶</span><b>${sec(arrivalInterval())}</b><i>новый ученик</i></div></div>
-    <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${S.reception.level}</span><div class="muted">быстрее оформляет, взнос больше</div></div>${costBtn('↑', recCost(), 'rec')}</div>
-    <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${S.reception.ads}</span><div class="muted">ученики приходят чаще</div></div>${costBtn('↑', adsCost(), 'ads')}</div>
+    <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${recLvl()}/${MAX_REC_LVL}</span><div class="muted">быстрее оформляет, взнос больше</div></div>${S.reception.level >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', recCost(), 'rec')}</div>
+    <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${adsLvl()}/${MAX_REC_LVL}</span><div class="muted">ученики приходят чаще</div></div>${S.reception.ads >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', adsCost(), 'ads')}</div>
     <p class="muted">Всего поступило: ${S.stats.enrolled} · выпускников: ${S.stats.graduated} · ушли расстроенными: ${S.stats.left || 0}</p>`;
 }
 function buildPanel(i) {
@@ -1065,7 +1067,7 @@ function makeMission() {
     if (st.desks < maxDesksOf(i)) kinds.push(() => ({ type: 'desk', i, target: st.desks + 1, text: `Поставь ещё одну парту: ${C.name}` }));
     if (st.time < MAX_TIME_LEVEL) kinds.push(() => ({ type: 'time', i, target: st.time + 1, text: `Сократи урок: ${C.name}` }));
   }
-  kinds.push(() => ({ type: 'rec', target: S.reception.level + rint(1, 3), text: `Улучши секретаря в приёмной до ур. ${S.reception.level + 1}+` }));
+  if (S.reception.level < MAX_REC_LVL) kinds.push(() => ({ type: 'rec', target: Math.min(MAX_REC_LVL, S.reception.level + rint(1, 3)), text: `Улучши секретаря в приёмной до ур. ${S.reception.level + 1}+` }));
   if (bedCount() < maxBeds()) kinds.push(() => ({ type: 'beds', target: bedCount() + 1, text: 'Купи ещё одну кровать в спальне 🛏️' }));
   if (libSeats() < MAX_LIB_SEATS) kinds.push(() => ({ type: 'lib', target: libSeats() + 1, text: 'Поставь ещё один стол в библиотеке 📚' }));
   const nextPlot = S.classes.findIndex((c) => !c.built);
@@ -1301,8 +1303,8 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'expand') { if (sizeOf(i) < MAX_SIZE && spend(expandCost(i))) { st.size = sizeOf(i) + 1; relayout(); toast(`📐 ${CLASSES[i].name}: класс расширен!`); } }
   else if (d.act === 'time') { if (spend(timeCost(i))) st.time++; }
   else if (d.act === 'item') { if (spend(itemCost(i, +d.k))) st.items[+d.k]++; }
-  else if (d.act === 'rec') { if (spend(recCost())) S.reception.level++; }
-  else if (d.act === 'ads') { if (spend(adsCost())) S.reception.ads++; }
+  else if (d.act === 'rec') { if (S.reception.level < MAX_REC_LVL && spend(recCost())) S.reception.level++; }
+  else if (d.act === 'ads') { if (S.reception.ads < MAX_REC_LVL && spend(adsCost())) S.reception.ads++; }
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
