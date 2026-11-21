@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=142';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=142';
+} from './data.js?v=143';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=143';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 142;   // keep equal to the ?v= number in index.html
+const BUILD = 143;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -515,7 +515,7 @@ function seat(a, i, d) {
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
   const bonus = a.prepared ? libBonus() : 0; a.prepared = false;
-  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
+  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; if (WORLD === 1) spState(a.sp).xp++; earn(Math.round(tuition(i) * spBonus(a.sp)), p.x, p.y, null, 46); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
@@ -759,6 +759,27 @@ function inspPanel() {
 }
 // how many students are in the school right now (her wish 2026-11-21)
 const inSchool = () => agents.filter((a) => a.state !== 'fly' && !(a.goal && (a.goal.t === 'x' || a.goal.t === 'g')));
+// Each of the 4 species has a level: every lesson passed by a creature of that kind gives 1 XP; with enough XP the level
+// is bought for coins. Every level: +5% tuition from that kind. Levels 5, 10, 15, 20 bring a new outfit (5 stages).
+const SP_NAMES = { mothfox: 'Лисичка-мотылёк', petalear: 'Ушастик', fernhorn: 'Рогатик', starwhisker: 'Звёздный котик' };
+const SP_MAX = 25, SP_TIERS = [1, 5, 10, 15, 20];
+const spState = (sp) => { S.spl ||= {}; return (S.spl[sp] ||= { lvl: 1, xp: 0 }); };
+const spLvl = (sp) => (WORLD === 1 && S && S.spl && S.spl[sp] ? S.spl[sp].lvl : 1);
+const spNeed = (l) => Math.round(30 * Math.pow(1.45, l - 1));
+const spCost = (l) => Math.round(20000 * Math.pow(2.1, l - 1));
+const spBonus = (sp) => 1 + 0.05 * (spLvl(sp) - 1);
+const spTier = (sp) => { const l = spLvl(sp); let t = 0; SP_TIERS.forEach((v, k) => { if (l >= v) t = k; }); return t; };
+const SP_OUTFITS = ['новичок', 'шарфик и сумка', 'мантия ученика', 'мантия и шляпа со звёздами', 'мантия мага с посохом'];
+function speciesCards() {
+  return SPECIES.map((sp) => {
+    const st = spState(sp), need = spNeed(st.lvl), ok = st.xp >= need, max = st.lvl >= SP_MAX;
+    const nextTier = SP_TIERS.find((v) => v > st.lvl);
+    return `<div class="card up"><img class="spimg" src="assets/creatures/${sp}${spTier(sp) && sprites[sp + '_t' + spTier(sp)]?.naturalWidth ? '_t' + spTier(sp) : ''}.png"><div class="grow"><b>${SP_NAMES[sp]}</b> <span class="muted">ур. ${st.lvl}/${SP_MAX}</span>
+      <div class="muted">+${Math.round((spBonus(sp) - 1) * 100)}% к плате · ${SP_OUTFITS[spTier(sp)]}${nextTier ? ` · новый наряд на ур. ${nextTier}` : ''}</div>
+      <div class="lvbar"><i style="width:${Math.min(100, st.xp / need * 100)}%"></i></div><div class="muted">опыт ${fmt(Math.min(st.xp, need))}/${fmt(need)}</div></div>
+      ${max ? '<span class="done">макс.</span>' : ok ? costBtn('↑', spCost(st.lvl), 'splvl', `data-k="${sp}"`) : '<span class="muted">копит опыт</span>'}</div>`;
+  }).join('');
+}
 function peoplePanel() {
   const l = inSchool(), n = (f) => l.filter(f).length;
   const rows = [
@@ -770,7 +791,8 @@ function peoplePanel() {
     ['🚶', 'идут по школе', n((a) => a.state === 'walk' && !queue.includes(a) && !(a.goal && (a.goal.t === 'd' || a.goal.t === 'l')))],
   ];
   return `<div class="sh-head"><span class="remoji big">👥</span><div><h2>Ученики в школе: ${l.length}</h2><div class="muted">Настроение ${moodFace(avgMood())} ${Math.round(avgMood())}% · всего выпустилось 🎓 ${fmt(S.stats.graduated)}</div></div><button class="x" data-close>✕</button></div>
-    ${rows.map(([e, t, v]) => `<div class="card up"><span class="remoji">${e}</span><div class="grow"><b>${v}</b> ${t}</div></div>`).join('')}`;
+    ${rows.map(([e, t, v]) => `<div class="card up"><span class="remoji">${e}</span><div class="grow"><b>${v}</b> ${t}</div></div>`).join('')}
+    ${WORLD === 1 ? `<h3>Уровни учеников</h3><p class="muted">Каждый сданный урок даёт опыт виду зверька. Набрал опыт — повышай уровень: этот вид платит больше, а на 5, 10, 15 и 20 уровне получает новый наряд.</p>${speciesCards()}` : ''}`;
 }
 function renderInsp() {
   const el = $('#insp'); if (!el || !S) return;
@@ -918,6 +940,7 @@ function drawSecretary(so) {
 for (const f of STAFF_OTHER) { const im = new Image(); im.src = `assets/staff/${f}.png?v=1`; sprites['staff_' + f] = im; }
 const staffSprite = (f) => WORLD === 1 && STAFF_OTHER.includes(f) && sprites['staff_' + f]?.naturalWidth;
 for (const [k, f] of Object.entries(STAFF_ART)) { const im = new Image(); im.src = `assets/staff/${f}.png?v=3`; sprites['staff_' + k] = im; }
+for (const sp of SPECIES) for (let t = 1; t < 5; t++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_t${t}${v}.png?v=1`; sprites[sp + '_t' + t + v] = im; }   // outfit stages (drawn later; missing ones fall back)
 for (const sp of SPECIES) for (const v of ['', '_back']) { const im = new Image(); im.src = `assets/creatures/${sp}${v}.png`; sprites[sp + v] = im; }   // front and back views
 const arts = {};
 for (const [k, a] of Object.entries(ART)) { const im = new Image(); im.onload = () => { staticKey = ''; }; im.src = a.src; arts[k] = im; }
@@ -1356,7 +1379,9 @@ function drawPlot(c, s, ci, L, B, R, F, center) {
 function shade(hex, d) { const n = parseInt(hex.slice(1), 16); const f = (v) => Math.max(0, Math.min(255, v + d)); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; }
 
 function drawCreature(a, x, y, h, extra) {
-  const bk = a.back && sprites[a.sp + '_back'], im = bk && bk.complete && bk.naturalWidth ? bk : sprites[a.sp];
+  const tr = SPECIES.includes(a.sp) ? spTier(a.sp) : 0, tf = tr && sprites[a.sp + '_t' + tr + (a.back ? '_back' : '')];
+  if (tf && tf.complete && tf.naturalWidth) a = { ...a, sp: a.sp + '_t' + tr, back: false, _tierImg: tf };
+  const bk = a.back && sprites[a.sp + '_back'], im = a._tierImg ? a._tierImg : bk && bk.complete && bk.naturalWidth ? bk : sprites[a.sp];
   const s = P(x, y);
   const walking = (a.path && a.path.length > 0) || a._panic;
   const bob = walking ? Math.abs(Math.sin(a.ph * 9)) * 2 : Math.sin(a.ph * 2) * 0.6;
@@ -2178,6 +2203,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
+  else if (d.act === 'splvl') { const st = spState(d.k); if (st.lvl < SP_MAX && st.xp >= spNeed(st.lvl) && spend(spCost(st.lvl))) { st.xp -= spNeed(st.lvl); st.lvl++; toast(`✨ ${SP_NAMES[d.k]}: уровень ${st.lvl}!`); } }
   else if (d.act === 'shopbuild') { if (!shopOpen() && spend(SHOP_COST)) { shopUp().built = true; staticKey = ''; toast('🛍️ Лавка открыта!'); panel = shopPanel; } }
   else if (d.act === 'shopup') { const k = d.k; if (shopUp()[k] < SHOP_MAX && spend(shopCost(k))) shopUp()[k]++; }
   else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!dirBuilt() && S.coins >= DIR_COST && spendStars(DIR_STARS) && spend(DIR_COST)) { S.dirBuilt = true; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }

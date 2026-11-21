@@ -244,3 +244,4 @@ img.em { height: 1.15em; width: 1.15em; vertical-align: -0.2em; margin: 0 .03em;
 .ipill.warn { border-color: #ffd23f; background: #fff8d6; animation: mpulse 1.2s ease-in-out infinite; }
 #insp { flex-wrap: wrap; max-width: calc(100vw - 20px); }
 .iwarn { flex-basis: 100%; text-align: left; background: #fff8d6; border: 2px solid #ffd23f; border-radius: 14px; padding: 7px 12px; font: 700 13.5px/1.35 ui-rounded, "Nunito", sans-serif; color: #4a3a6b; box-shadow: 0 3px 0 #e6b80055; animation: mpulse 1.2s ease-in-out infinite; }
+.spimg { width: 44px; height: 44px; object-fit: contain; }
