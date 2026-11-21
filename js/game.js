@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=35';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=35';
+} from './data.js?v=36';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=36';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 35;   // keep equal to the ?v= number in index.html
+const BUILD = 36;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -98,9 +98,9 @@ const SLOTS = {
     [[[15, 38], [15, 39]], [[13, 30], [13, 29]], [[14, 30], [14, 29]], [[15, 30], [15, 29]], [[18, 33], [19, 33]]]),
   DORM: slot(19, 30, [[19, 33], [18, 33]], { left: true, right: true }),
   DORM2: slot(25, 30, [[25, 33], [24, 33]], { left: true, right: true }),   // second dorm, bought in the dorm panel
-  EXAM: slot(22, 15, [[25, 20], [25, 21]], { left: true }, 6, 6, [[[24, 20], [24, 21]]]),   // exam hall: right of Charms, door to the library passage
+  EXAM: slot(10, -2, [[13, 3], [13, 4]], {}, 9, 6, [[[14, 3], [14, 4]], [[15, 3], [15, 4]]]),   // exam hall at the top end of the main corridor
   LIB: slot(22, 24, [[24, 24], [24, 23]], { left: true, right: true }, 6, 6, [[[25, 24], [25, 23]]]),
-  GARDEN: slot(10, 0, [[13, 3], [13, 4]], {}, 9, 4, [[[14, 3], [14, 4]], [[15, 3], [15, 4]]]),
+  GARDEN: slot(19, -2, [[20, 3], [20, 4]], {}, 6, 6, [[[21, 3], [21, 4]]]),   // graduates' garden, right of the exam hall
 };
 const CLASS_SLOT = ['L1', 'R1', 'L2', 'R2', 'L3', 'R3', 'EXAM'];   // class i lives in this slot
 const ART = {                                               // room pictures with floor corners in image px
@@ -113,10 +113,11 @@ const ART = {                                               // room pictures wit
 const GATE_TILE = { x: 14.5, y: 42.5 };
 
 // region grid
-const REG = Array.from({ length: GW }, () => Array(GH + 2).fill(null));
-const inGrid = (x, y) => x >= 0 && y >= -1 && x < GW && y < GH;
-const regAt = (x, y) => (inGrid(x, y) ? REG[x][y + 1] : null);
-function fillRect(r, id) { for (let x = r.x0; x < r.x1; x++) for (let y = r.y0; y < r.y1; y++) if (inGrid(x, y)) REG[x][y + 1] = id; }
+const REG = Array.from({ length: GW }, () => Array(GH + 8).fill(null));
+const YOFF = 4;   // the map reaches y = -YOFF (exam hall and garden at the top)
+const inGrid = (x, y) => x >= 0 && y >= -YOFF && x < GW && y < GH;
+const regAt = (x, y) => (inGrid(x, y) ? REG[x][y + YOFF] : null);
+function fillRect(r, id) { for (let x = r.x0; x < r.x1; x++) for (let y = r.y0; y < r.y1; y++) if (inGrid(x, y)) REG[x][y + YOFF] = id; }
 HALLS.forEach((h) => fillRect(h, 'hall'));
 Object.entries(SLOTS).forEach(([id, r]) => fillRect(r, id));
 const DOORS = new Set();
@@ -150,9 +151,9 @@ function bfs(sx, sy, tx, ty) {
 function pathTo(a, tx, ty) { const p = bfs(a.x, a.y, tx, ty); p.pop(); p.push({ x: tx, y: ty }); return p; }
 
 const slotOf = (i) => SLOTS[CLASS_SLOT[i]];
-function deskPos(i, d) { const s = slotOf(i); return { x: s.x0 + 2.0 + (d % 2) * 1.9, y: s.y0 + 2.5 + Math.floor(d / 2) * 1.15 }; }
+function deskPos(i, d) { const s = slotOf(i), cx = s.x0 + (s.x1 - s.x0) / 2; return { x: cx - 1.0 + (d % 2) * 1.9, y: s.y0 + 2.5 + Math.floor(d / 2) * 1.15 }; }   // two columns around the room centre
 const seatPos = (i, d) => { const p = deskPos(i, d); return { x: p.x, y: p.y - 0.45 }; };
-const teacherPos = (i) => { const s = slotOf(i); return { x: s.x0 + 4.3, y: s.y0 + 1.0 }; };
+const teacherPos = (i) => { const s = slotOf(i); return { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
 const REC = SLOTS.REC;
 const OFFICER = { x: REC.x0 + 0.9, y: REC.y0 + 4.4 };
 const queueSlot = (k) => ({ x: REC.x0 + 3.0 + k * 0.7, y: REC.y0 + 4.6 });
@@ -363,7 +364,7 @@ const canvas = $('#world'), ctx = canvas.getContext('2d');
 const scroller = $('#view');
 // world pixel bounds
 let MINE = 1e9, MAXE = -1e9, MINS = 1e9, MAXS = -1e9;
-for (let x = 0; x < GW; x++) for (let y = -1; y < GH; y++) if (regAt(x, y)) { MINE = Math.min(MINE, x - y - 1); MAXE = Math.max(MAXE, x - y + 1); MINS = Math.min(MINS, x + y); MAXS = Math.max(MAXS, x + y + 2); }
+for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) if (regAt(x, y)) { MINE = Math.min(MINE, x - y - 1); MAXE = Math.max(MAXE, x - y + 1); MINS = Math.min(MINS, x + y); MAXS = Math.max(MAXS, x + y + 2); }
 // MARGIN = grass around the school, so the camera can put any place (gate, garden) in the middle of the screen
 const MARGIN = 900;
 const BASEW = (MAXE - MINE) * HW + 20;                       // width of the school itself: zoom is relative to it
@@ -428,7 +429,7 @@ function drawStatic() {
   c.fillStyle = '#a9d98f'; c.fillRect(0, 0, WW, WH);
   c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2);
   // halls
-  for (let x = 0; x < GW; x++) for (let y = -1; y < GH; y++) {
+  for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) {
     if (regAt(x, y) !== 'hall') continue;
     const inside = x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
     const carpet = inside && x === 14 && y > BUILDING.y0;
@@ -503,7 +504,7 @@ function drawSlot(c, id) {
 // outer stone walls of the building where no room supplies a wall: [x0, y0, x1, y1, height]
 const OUTER_WALLS = [
   [7, 21, 7, 24, 1], [7, 12, 7, 15, 1], [7, 4, 7, 6, 1],          // left side, between the classes
-  [7, 4, 10, 4, 0.35], [19, 4, 22, 4, 0.35],                       // back side next to the garden opening (low)
+  [7, 4, 10, 4, 0.35],                       // back side next to the garden opening (low)
 ];
 function wallSeg([x0, y0, x1, y1, k]) {
   const a = P(x0, y0), b = P(x1, y1), h = WALLH * 0.72 * k;
@@ -602,8 +603,8 @@ const TOUR = [
   { at: [25, 27], title: 'Библиотека 📚', text: 'Не сдал экзамен — идёт в библиотеку готовиться (жёлтый кружок). Потом возвращается в класс и пересдаёт. После подготовки урок у него короче, а шанс сдать выше.' },
   { at: [13.5, 28.5], title: 'Очередь у класса', text: 'У двери каждого класса может ждать до 6 учеников. Если все места за партами заняты и очередь полная, ученик расстраивается 😢 и идёт в спальню.' },
   { at: [22, 33], title: 'Спальня и консьержка 🛏️', text: 'В спальне консьержка в зелёной шляпе записывает гостя, и он спит 💤, пока в его классе не освободится место. Если и кроватей нет — ученик уходит из школы 💔. Нажми на спальню, чтобы купить кровати.' },
-  { at: [25, 18], title: 'Финальный экзамен 📜', text: 'Кто прошёл все открытые классы, идёт в Экзаменационный зал и сдаёт финальный экзамен. Не сдал — готовится в библиотеке и пересдаёт. Нажми на зал, чтобы улучшить экзаменатора и обстановку.' },
-  { at: [14.5, 2], title: 'Выпускники 🎓', text: 'Сдал финальный экзамен — выпускник! Он идёт в сад и улетает на своих крылышках. Число выпускников видно вверху экрана.' },
+  { at: [14.5, 1], title: 'Финальный экзамен 📜', text: 'Кто прошёл все открытые классы, идёт в Экзаменационный зал в самом конце коридора и сдаёт финальный экзамен. Не сдал — готовится в библиотеке и пересдаёт. Нажми на зал, чтобы улучшить экзаменатора и обстановку.' },
+  { at: [22, 1], title: 'Выпускники 🎓', text: 'Сдал финальный экзамен — выпускник! Он идёт в сад и улетает на своих крылышках. Число выпускников видно вверху экрана.' },
   { at: [10, 18], title: 'Новые классы', text: 'На пустых местах можно построить новые классы — нажми на табличку с ценой. Чем больше классов, тем больше ученики платят за обучение.' },
   { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту, 🎓 выпускники. Под ними задание с наградой. Нажми на зверька в коридоре — увидишь, что он сейчас делает. Нажатие внутри комнаты открывает комнату. Повторить обучение можно в ⚙️. Удачи, директор!' },
 ];
@@ -1098,7 +1099,7 @@ function frame(now) {
   render();
   requestAnimationFrame(frame);
 }
-const LAYOUT = 3;   // bump when the map changes: old creature positions are dropped
+const LAYOUT = 4;   // bump when the map changes: old creature positions are dropped
 function restoreWorld() {
   if (S.layout !== LAYOUT) { S.layout = LAYOUT; S.world = null; }
   const w = S.world; if (!w) return;
