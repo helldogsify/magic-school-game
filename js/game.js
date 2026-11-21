@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=25';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji } from './emoji.js?v=25';
+} from './data.js?v=26';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=26';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 25;   // keep equal to the ?v= number in index.html
+const BUILD = 26;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -563,9 +563,9 @@ function showTour(i) {
   const el = $('#tour');
   if (i < 0 || i >= TOUR.length) { el.classList.add('hidden'); tourStep = -1; S.tourDone = true; save(); return; }
   const st = TOUR[i];
-  el.innerHTML = `<div class="tour-card"><div class="tour-top"><b>${st.title}</b><span class="muted">${i + 1}/${TOUR.length}</span></div>
+  el.innerHTML = emojiHtml(`<div class="tour-card"><div class="tour-top"><b>${st.title}</b><span class="muted">${i + 1}/${TOUR.length}</span></div>
     <p>${st.text}</p><div class="tour-btns"><button class="btn ghost small" data-tour-skip>Пропустить</button>
-    ${i > 0 ? '<button class="btn ghost small" data-tour-back>← Назад</button>' : ''}<button class="btn small" data-tour-next>${i === TOUR.length - 1 ? 'Понятно!' : 'Дальше →'}</button></div></div>`;
+    ${i > 0 ? '<button class="btn ghost small" data-tour-back>← Назад</button>' : ''}<button class="btn small" data-tour-next>${i === TOUR.length - 1 ? 'Понятно!' : 'Дальше →'}</button></div></div>`);
   el.classList.remove('hidden');
   if (st.at) requestAnimationFrame(() => focusTile(st.at[0], st.at[1]));
 }
@@ -677,9 +677,13 @@ const sec = (x) => x.toFixed(1).replace('.', ',') + ' с';
 function costBtn(label, cost, act, extra = '') { return `<button class="btn" data-cost="${cost}" data-act="${act}" ${extra}>${label} <span class="cost">🪙${fmt(cost)}</span></button>`; }
 
 let panel = null; let dirtyPanel = false;
-function openPanel(fn) { $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; sh.innerHTML = fn(); sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
+let panelHtml = '';
+function openPanel(fn) { $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; panelHtml = emojiHtml(fn()); sh.innerHTML = panelHtml; sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
 function closePanel() { panel = null; $('#sheet-wrap').classList.add('hidden'); $('#tour').classList.remove('under-panel'); }   // the tour card hides while a panel is open
-function refreshPanel() { if (panel) { const sc = $('#sheet').scrollTop; $('#sheet').innerHTML = panel(); $('#sheet').scrollTop = sc; } updateHud(); }
+function refreshPanel() {   // re-render only when the content really changed (a fresh innerHTML every second made the icons blink)
+  if (panel) { const h = emojiHtml(panel()); if (h !== panelHtml) { panelHtml = h; const sc = $('#sheet').scrollTop; $('#sheet').innerHTML = h; $('#sheet').scrollTop = sc; } }
+  updateHud();
+}
 
 function classPanel(i) {
   return () => {
@@ -782,9 +786,9 @@ function renderMission() {
   const key = S.mission + (ok ? 'y' : 'n');
   if (el.dataset.key === key) return;
   el.dataset.key = key;
-  if (!m) { el.innerHTML = '<div class="q">🌟 Все задания выполнены!</div>'; return; }
-  el.innerHTML = `<div class="q ${ok ? 'ok' : ''}"><span class="qi">${ok ? '🎁' : '📋'}</span><span class="qt">${m.text}</span>
-    ${ok ? `<button class="btn hot small" data-mission>Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qr">🪙${fmt(m.reward)}</span>`}</div>`;
+  if (!m) { el.innerHTML = emojiHtml('<div class="q">🌟 Все задания выполнены!</div>'); return; }
+  el.innerHTML = emojiHtml(`<div class="q ${ok ? 'ok' : ''}"><span class="qi">${ok ? '🎁' : '📋'}</span><span class="qt">${m.text}</span>
+    ${ok ? `<button class="btn hot small" data-mission>Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qr">🪙${fmt(m.reward)}</span>`}</div>`);
 }
 function updateHud() {
   $('#coins').textContent = fmt(S.coins);

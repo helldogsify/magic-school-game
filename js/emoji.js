@@ -1,6 +1,6 @@
 // One emoji look on every device: emoji characters are replaced by bundled Twemoji pictures
 // (CC-BY 4.0, https://github.com/jdecked/twemoji), both in the page (DOM) and on the canvas.
-import { EMOJI_FILES } from './emoji-set.js?v=25';
+import { EMOJI_FILES } from './emoji-set.js?v=26';
 
 export const EMOJI_RE = /\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}️?|[\u{1F3FB}-\u{1F3FF}])*/gu;
 
@@ -53,4 +53,9 @@ export function watchEmoji() {
       else m.addedNodes.forEach((n) => emojifyDom(n));
     }
   }).observe(document.body, { childList: true, subtree: true, characterData: true });
+}
+
+// HTML strings get the pictures before they reach the page: no frame with text emoji, no blinking on re-render
+export function emojiHtml(html) {
+  return html.replace(EMOJI_RE, (e) => { const src = emojiSrc(e); return src ? `<img class="em" alt="${e}" src="${src}" draggable="false">` : e; });
 }
