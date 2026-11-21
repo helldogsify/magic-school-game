@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=21';
+} from './data.js?v=22';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 21;   // keep equal to the ?v= number in index.html
+const BUILD = 22;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -25,7 +25,9 @@ function load() {
   try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { S = JSON.parse(raw); return; } } catch (e) { /* fresh */ }
   freshState();
 }
+let noSave = false;
 function save() {
+  if (noSave || !S) return;
   S.last = Date.now();
   S.world = {   // creatures and their progress, so the school keeps living across reloads
     arrivalT, procT,
@@ -715,6 +717,7 @@ function settingsPanel() {
   return `<div class="sh-head"><h2>Настройки</h2><button class="x" data-close>✕</button></div>
     <p class="muted">Версия ${VERSION} (сборка ${BUILD}). Это тестовая версия, картинки пока не все.</p>
     <p>Экзаменов сдано: ${S.stats.passed} · не сдано: ${S.stats.failed} · выпускников: ${S.stats.graduated}</p>
+    ${cloudBlock()}
     <h3>Отзыв</h3>
     <input id="fb-name" class="fb" placeholder="Твоё имя" value="${(localStorage.getItem('magicschool.name') || '').replace(/"/g, '&quot;')}">
     <textarea id="fb-text" class="fb" rows="4" placeholder="Что понравилось? Что сломалось или было непонятно?"></textarea>
@@ -858,6 +861,10 @@ document.addEventListener('click', (e) => {
   if (d.mission !== undefined) { const m = MISSIONS[S.mission]; if (m && m.check(G)) { S.coins += m.reward; S.mission++; toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); } return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
+  if (d.cloudNew !== undefined) { cloudCreate(); return; }
+  if (d.cloudLoad !== undefined) { cloudLoad(); return; }
+  if (d.cloudCopy !== undefined) { navigator.clipboard?.writeText(cloudCode()).then(() => toast('Код скопирован'), () => window.prompt('Твой код:', cloudCode())); return; }
+  if (d.cloudOff !== undefined) { if (confirm('Отключить облако на этом устройстве? Прогресс здесь останется, просто перестанет сохраняться в облако.')) { localStorage.removeItem(CODE_KEY); cloudState = ''; openPanel(settingsPanel); } return; }
   if (d.tourAgain !== undefined) { closePanel(); showTour(0); return; }
   if (d.tourNext !== undefined) { showTour(tourStep + 1); return; }
   if (d.tourBack !== undefined) { showTour(tourStep - 1); return; }
@@ -901,6 +908,81 @@ $('#sheet-bg').addEventListener('click', closePanel);
   sh.addEventListener('touchend', end); sh.addEventListener('touchcancel', end);
 }
 
+
+// ======================= cloud save (transfer code) =======================
+// Firestore REST, collection "saves", document id = transfer code. Rules allow get/create/update of one known code only.
+const CLOUD = 'https://firestore.googleapis.com/v1/projects/magic-school-game-2ae0f/databases/(default)/documents/saves/';
+const CODE_KEY = 'magicschool.cloud';
+const cloudCode = () => localStorage.getItem(CODE_KEY) || '';
+function newCode() {
+  const abc = '23456789ABCDEFGHJKMNPQRSTUVWXYZ', r = crypto.getRandomValues(new Uint8Array(8));
+  const c = [...r].map((b) => abc[b % abc.length]).join('');
+  return `KOT-${c.slice(0, 4)}-${c.slice(4)}`;
+}
+const normCode = (t) => { const c = String(t || '').toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/^KOT/, ''); return c.length === 8 ? `KOT-${c.slice(0, 4)}-${c.slice(4)}` : null; };
+let cloudLast = 0, cloudBusy = false, cloudState = '';
+async function cloudPush(force = false) {
+  const code = cloudCode(); if (!code || cloudBusy) return;
+  if (!force && Date.now() - cloudLast < 30_000) return;
+  cloudBusy = true; cloudLast = Date.now();
+  try {
+    save();
+    const body = { fields: { data: { stringValue: JSON.stringify(S) }, updated: { integerValue: String(S.last) }, build: { integerValue: String(BUILD) } } };
+    const r = await fetch(CLOUD + code, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true });
+    cloudState = r.ok ? `сохранено в облако в ${new Date().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}` : `облако не ответило (${r.status})`;
+  } catch (e) { cloudState = 'нет сети: сохраню позже'; }
+  cloudBusy = false;
+}
+async function cloudGet(code) {
+  const r = await fetch(CLOUD + code);
+  if (r.status === 404 || r.status === 403) return null;
+  if (!r.ok) throw new Error('http ' + r.status);
+  const d = await r.json();
+  return { data: d.fields?.data?.stringValue, updated: +(d.fields?.updated?.integerValue || 0) };
+}
+function adopt(raw) {   // replace the local save with a cloud one and restart the game on it
+  noSave = true;
+  localStorage.setItem(SAVE_KEY, raw);
+  location.reload();
+}
+async function cloudPull() {   // a newer save made on another device wins
+  const code = cloudCode(); if (!code) return false;
+  try {
+    const rem = await cloudGet(code);
+    if (rem && rem.data && rem.updated > (S.last || 0) + 3000) { adopt(rem.data); return true; }
+  } catch (e) { /* offline: keep playing locally */ }
+  return false;
+}
+async function cloudCreate() {
+  const code = newCode(); localStorage.setItem(CODE_KEY, code);
+  await cloudPush(true);
+  openPanel(settingsPanel);
+  toast(cloudState.startsWith('сохранено') ? '☁️ Прогресс в облаке! Запиши код' : '⚠️ ' + cloudState);
+}
+async function cloudLoad() {
+  const code = normCode($('#cloud-in').value);
+  if (!code) { toast('Код выглядит так: KOT-XXXX-XXXX'); return; }
+  let rem = null;
+  try { rem = await cloudGet(code); } catch (e) { toast('Нет связи с облаком, попробуй позже'); return; }
+  if (!rem || !rem.data) { toast('Такого кода нет. Проверь буквы и цифры'); return; }
+  if (!confirm('Загрузить прогресс по этому коду? Прогресс на этом устройстве заменится.')) return;
+  localStorage.setItem(CODE_KEY, code);
+  adopt(rem.data);
+}
+function cloudBlock() {
+  const code = cloudCode();
+  if (code) return `<h3>☁️ Облачное сохранение</h3>
+    <div class="cloud-code">${code}</div>
+    <p class="muted">Синхронизация включена${cloudState ? ': ' + cloudState : ''}. На другом устройстве открой ⚙️ и введи этот код — там будет этот же прогресс.</p>
+    <button class="btn ghost wide" data-cloud-copy>📋 Скопировать код</button>
+    <button class="btn ghost wide" data-cloud-off>Отключить облако на этом устройстве</button>`;
+  return `<h3>☁️ Облачное сохранение</h3>
+    <p class="muted">Сохрани прогресс в облако и получи код. По коду прогресс можно открыть на другом телефоне или компьютере.</p>
+    <button class="btn wide" data-cloud-new>☁️ Сохранить в облако и получить код</button>
+    <input id="cloud-in" class="fb" placeholder="Есть код? Введи: KOT-XXXX-XXXX" autocapitalize="characters" autocomplete="off">
+    <button class="btn ghost wide" data-cloud-load>Загрузить прогресс по коду</button>`;
+}
+
 // ======================= loop, offline =======================
 let earnedThisSec = 0, secT = 0, saveT = 0, last = performance.now(), panelT = 0;
 function frame(now) {
@@ -908,7 +990,7 @@ function frame(now) {
   stepWorld(dt);
   secT += dt; if (secT >= 1) { S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
-  saveT += dt; if (saveT > 5) { saveT = 0; save(); }
+  saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
   render();
   requestAnimationFrame(frame);
 }
@@ -969,9 +1051,10 @@ function welcomeBack(sec, gain) {
 }
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { hiddenAt = Date.now(); if (S) save(); return; }
+  if (document.hidden) { hiddenAt = Date.now(); if (S) save(); cloudPush(true); return; }
   const away = hiddenAt ? (Date.now() - hiddenAt) / 1000 : 0; hiddenAt = 0;
   const gain = fastForward(away); welcomeBack(away, gain); last = performance.now(); save();
+  cloudPull();   // maybe it was played on another device meanwhile
 });
 window.addEventListener('pagehide', () => { if (S) save(); });
 window.addEventListener('resize', resize);
@@ -985,4 +1068,5 @@ resize();
 updateHud();
 if (!S.tourDone) setTimeout(() => { closePanel(); showTour(0); }, 600);
 requestAnimationFrame(frame);
+cloudPull();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

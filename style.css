@@ -197,3 +197,5 @@ input.fb { margin-bottom: 8px; }
 #sheet { overscroll-behavior: contain; }
 .sh-head { position: sticky; top: -14px; z-index: 3; background: #fff; margin: -14px -16px 4px; padding: 22px 16px 8px; border-radius: 26px 26px 0 0; }
 .sh-head::before { content: ""; position: absolute; top: 8px; left: 50%; width: 42px; height: 5px; margin-left: -21px; border-radius: 3px; background: #ddd2ee; }
+
+.cloud-code { font: 800 26px ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 2px; text-align: center; background: #f3edff; color: #5a3fb0; border-radius: 14px; padding: 12px; margin: 6px 0; user-select: text; -webkit-user-select: text; }
