@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=30';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=30';
+} from './data.js?v=31';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=31';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 30;   // keep equal to the ?v= number in index.html
+const BUILD = 31;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -184,7 +184,8 @@ function finishProcess() {
 const MAX_WAIT = 6;                                   // students allowed to wait in the line of a class
 // line of a class = waiting + already walking there
 const lineCount = (i) => waitList[i].length + agents.reduce((n, a) => n + (a.goal && a.goal.t === 'c' && a.goal.i === i && (a.state === 'walk') ? 1 : 0), 0);
-const classFull = (i) => i >= 0 && lineCount(i) >= MAX_WAIT;
+const classFull = (i) => i >= 0 && waitList[i].length >= MAX_WAIT;   // the line = only those standing at the door
+const roomForWaker = (i) => i < 0 || lineCount(i) < MAX_WAIT;          // waking sleepers also count those already walking there
 const sleepersFor = (i) => dorm.reduce((n, a) => n + (a && a.goal && a.goal.t === 'd' && a.goal.i === i ? 1 : 0), 0);
 // dorm: upset students sleep here until there is room in the line of their class
 const DS = SLOTS.DORM;
@@ -244,7 +245,7 @@ function wakeSleepers() {
   for (let b = 0; b < DORM_CAP; b++) {
     const a = dorm[b]; if (!a || a.state !== 'sleep') continue;
     let i = a.goal.i; if (!isOpen(i)) i = nextClass(i - 1);
-    if (i >= 0 && classFull(i)) continue;
+    if (i >= 0 && !roomForWaker(i)) continue;
     dorm[b] = null; a.bed = -1; popup('😊', a.x, a.y, '#2f9e7a', 44); goClass(a, i);
   }
 }
@@ -257,6 +258,11 @@ function goClass(a, i) {
 }
 function arriveClass(a, i) {
   const d = freeDesk(i);
+  if (d < 0 && waitList[i].length >= MAX_WAIT) {   // the line filled up while walking here
+    a.state = 'walk';
+    if (dormFree()) { popup('😢', a.x, a.y, '#5b7fd6', 44); goDorm(a, i); } else leaveSchool(a);
+    return;
+  }
   if (d < 0) { waitList[i].push(a); const p = waitSpot(i, waitList[i].length - 1); a.state = 'walkwait'; walk(a, p.x, p.y, () => { a.state = 'wait'; }); return; }
   seat(a, i, d);
 }
@@ -724,7 +730,7 @@ function classPanel(i) {
     }
     let h = `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">Урок ${i + 1} из ${CLASSES.length}</div></div><button class="x" data-close>✕</button></div>
       <div class="stats3"><div><span>🪙</span><b>${fmt(tuition(i))}</b><i>плата</i></div><div><span>🎯</span><b>${pct(success(i))}</b><i>сдают экзамен</i></div><div><span>⏱️</span><b>${sec(lessonTime(i))}</b><i>урок</i></div></div>
-      <p class="muted">Очередь у двери: <b>${Math.min(MAX_WAIT, lineCount(i))}/${MAX_WAIT}</b>${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>`;
+      <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>`;
     h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · +5% платы и +1,5% к экзамену</div></div>
       ${st.teacher >= MAX_TEACHER_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', teacherCost(i), 'teacher', `data-i="${i}"`)}</div>`;
     h += `<div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Парты: ${st.desks}/${MAX_DESKS}</b><div class="muted">больше учеников за раз</div></div>
