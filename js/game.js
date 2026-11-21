@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=114';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=114';
+} from './data.js?v=115';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=115';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 114;   // keep equal to the ?v= number in index.html
+const BUILD = 115;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -321,7 +321,7 @@ function secretaryPos() {
   // behind the counter she is never still: she paces along it (papers, the scroll shelf) and turns (her report «всегда стоит на одном месте боком»)
   const T = now % 7, pace = T < 2.5 ? T / 2.5 : T < 3.5 ? 1 : T < 6 ? 1 - (T - 3.5) / 2.5 : 0, pk = (0.5 - 0.5 * Math.cos(pace * Math.PI)) * (1 - k);
   const walkingBehind = (T < 2.5 || (T >= 3.5 && T < 6)) && k < 0.05;
-  return { x: home.x + (board.x - home.x) * k, y: home.y + (board.y - home.y) * k + pk * 1.6, moving: (secU > 0 && secU < 1 && secU !== target) || walkingBehind, left: true };   // always turned toward the queue and the viewer, never to the wall (her report 2026-11-21)
+  return { x: home.x + (board.x - home.x) * k, y: home.y + (board.y - home.y) * k + pk * 1.6, moving: (secU > 0 && secU < 1 && secU !== target) || walkingBehind, left: false };   // always as originally drawn: facing her counter (her ruling 2026-11-21, never mirrored)
 }
 function teacherWalk(i) {
   const b = teacherPos(i), s = slotOf(i), T = performance.now() / 1000 + i * 3.7;
