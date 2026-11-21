@@ -2,7 +2,7 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=13';
+} from './data.js?v=14';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.3';
@@ -15,6 +15,7 @@ function freshState() {
   S = {
     v: 2, coins: 50, nextId: 1, last: Date.now(), mission: 0, ema: 0,
     reception: { level: 1, ads: 1 },
+    dormUp: { beds: 1, conc: 1 },
     classes: CLASSES.map((c, i) => ({ built: i === 0, buildEnd: 0, teacher: 1, desks: 2, time: 0, items: c.items.map(() => 0) })),
     stats: { graduated: 0, passed: 0, failed: 0, enrolled: 0, left: 0 },
   };
@@ -176,16 +177,22 @@ const lineCount = (i) => waitList[i].length + agents.reduce((n, a) => n + (a.goa
 const classFull = (i) => i >= 0 && lineCount(i) >= MAX_WAIT;
 // dorm: upset students sleep here until there is room in the line of their class
 const DS = SLOTS.DORM;
-const DORM_SPOTS = []; for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) DORM_SPOTS.push({ x: DS.x0 + 2.4 + c * 1.35, y: DS.y0 + 1.3 + r * 1.6 });
+const DORM_SPOTS = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) DORM_SPOTS.push({ x: DS.x0 + 2.05 + c * 1.12, y: DS.y0 + 1.0 + r * 1.22 });
 // concierge: everybody checks in at her desk before going to bed
 const CONCIERGE = { x: DS.x0 + 0.6, y: DS.y0 + 1.4 };
-const CHECKIN_TIME = 2;
+const MAX_BEDS = 16, MAX_CONC = 10;
+const dormUp = () => (S.dormUp ||= { beds: 1, conc: 1 });
+const bedCount = () => Math.min(MAX_BEDS, 8 + dormUp().beds);                 // 9 beds at level 1
+const checkinTime = () => 2 * Math.pow(0.85, dormUp().conc - 1);
+const bedsCost = () => Math.round(150 * Math.pow(1.6, dormUp().beds - 1));
+const concCost = () => Math.round(100 * Math.pow(1.5, dormUp().conc - 1));
 const dormLineSpot = (k) => ({ x: DS.x0 + 1.4, y: DS.y0 + 1.6 + k * 0.55 });
 let dormLine = [], checkin = null, checkinT = 0;
 const DORM_CAP = DORM_SPOTS.length;
-const dorm = Array(DORM_CAP).fill(null);           // agent per bed
-const dormFree = () => dorm.indexOf(null) >= 0;
-function goDorm(a, i, bed = dorm.indexOf(null)) {   // bed is reserved now, the student queues at the concierge first
+const dorm = Array(DORM_CAP).fill(null);           // agent per bed (only the first bedCount() beds exist)
+const freeBed = () => { for (let b = 0; b < bedCount(); b++) if (!dorm[b]) return b; return -1; };
+const dormFree = () => freeBed() >= 0;
+function goDorm(a, i, bed = freeBed()) {   // bed is reserved now, the student queues at the concierge first
   dorm[bed] = a; a.bed = bed; a.goal = { t: 'd', i }; a.c = -1;
   dormLine.push(a); goDormLine(a);
 }
@@ -195,7 +202,7 @@ function stepConcierge(dt) {
   if (!checkin && dormLine.length && dormLine[0].state === 'dline') { checkin = dormLine[0]; checkinT = 0; checkin.state = 'checkin'; }
   if (!checkin) return;
   checkinT += dt;
-  if (checkinT < CHECKIN_TIME) return;
+  if (checkinT < checkinTime()) return;
   const a = checkin; checkin = null;
   dormLine.shift(); dormLine.forEach(goDormLine);
   popup('📝', a.x, a.y, '#7b5cd6', 44);
@@ -419,7 +426,7 @@ function drawSlot(c, id) {
     }
     if (id === 'REC') { const q = (x, y) => P(s.x0 + x, s.y0 + y); emoji('🪴', q(0.6, 0.6).x, q(0.6, 0.6).y - 8, 18, c); emoji('🪴', q(9.4, 7.4).x, q(9.4, 7.4).y - 8, 18, c); emoji('🗺️', q(0.2, 2).x, q(0.2, 2).y - 34, 16, c); poly(c, [q(4, 0.3), q(6, 0.3), q(6, 7.7), q(4, 7.7)], '#e9b8c9'); poly(c, [q(2.6, 3.9), q(9.5, 3.9), q(9.5, 5.1), q(2.6, 5.1)], '#c7b5ee88'); }
     if (id === 'LIB') { const q = (x, y) => P(s.x0 + x, s.y0 + y); [[0.5, 0.5], [2, 0.4], [3.5, 0.4], [5, 0.4]].forEach(([x, y]) => emoji('📚', q(x, y).x, q(x, y).y - 14, 20, c)); emoji('🕯️', q(5.5, 5.5).x, q(5.5, 5.5).y - 8, 14, c); LIB_SPOTS.forEach((p) => { const t = P(p.x, p.y + 0.55); emoji('📖', t.x, t.y - 4, 12, c); }); }
-    if (id === 'DORM') { DORM_SPOTS.forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 22, c); }); emoji('🪴', B.x, B.y + 8, 16, c); }
+    if (id === 'DORM') { DORM_SPOTS.slice(0, bedCount()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); }); emoji('🪴', B.x, B.y + 8, 16, c); }
   }
 }
 // outer stone walls of the building where no room supplies a wall: [x0, y0, x1, y1, height]
@@ -528,7 +535,7 @@ function render() {
   // reception desk + officer
   add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(concierge, CONCIERGE.x, CONCIERGE.y, 34, (x, y) => {
     drawHat(x, y - 32, '#2f9e7a');
-    if (checkin) ring(x + 18, y - 30, Math.min(1, checkinT / CHECKIN_TIME), '#2f9e7a');
+    if (checkin) ring(x + 18, y - 30, Math.min(1, checkinT / checkinTime()), '#2f9e7a');
   }));
   add(CONCIERGE.x + 0.75, CONCIERGE.y, () => {
     const a = P(DS.x0 + 1.1, DS.y0 + 0.8), b = P(DS.x0 + 1.6, DS.y0 + 0.8), cc = P(DS.x0 + 1.6, DS.y0 + 2.1), d = P(DS.x0 + 1.1, DS.y0 + 2.1), h = 11;
@@ -599,6 +606,16 @@ function classPanel(i) {
     });
     return h;
   };
+}
+function dormPanel() {
+  const u = dormUp(), used = dorm.slice(0, bedCount()).filter(Boolean).length;
+  return `<div class="sh-head"><span class="remoji big">🛏️</span><div><h2>Спальня</h2><div class="muted">Здесь ждут те, кому не хватило места у класса</div></div><button class="x" data-close>✕</button></div>
+    <div class="stats3"><div><span>🛏️</span><b>${used}/${bedCount()}</b><i>кровати</i></div><div><span>📝</span><b>${sec(checkinTime())}</b><i>запись</i></div><div><span>💔</span><b>${S.stats.left || 0}</b><i>ушли из школы</i></div></div>
+    <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Больше кроватей</b> <span class="muted">${bedCount()}/${MAX_BEDS}</span><div class="muted">+1 кровать: меньше зверьков уходит</div></div>
+      ${bedCount() >= MAX_BEDS ? '<span class="done">макс.</span>' : costBtn('+1', bedsCost(), 'beds')}</div>
+    <div class="card up"><span class="remoji">🗝️</span><div class="grow"><b>Консьержка быстрее</b> <span class="muted">ур. ${u.conc}/${MAX_CONC}</span><div class="muted">−15% времени на запись</div></div>
+      ${u.conc >= MAX_CONC ? '<span class="done">макс.</span>' : costBtn('↑', concCost(), 'conc')}</div>
+    <p class="muted">У консьержки в очереди: ${dormLine.length}</p>`;
 }
 function receptionPanel() {
   return `<div class="sh-head"><span class="remoji big">🛎️</span><div><h2>Приёмная</h2><div class="muted">Здесь новые ученики поступают в школу</div></div><button class="x" data-close>✕</button></div>
@@ -700,7 +717,7 @@ scroller.addEventListener('pointerup', (e) => {
     if (id === 'REC') { openPanel(receptionPanel); return; }
     if (id === 'GARDEN') { toast(`🎓 Выпускников: ${S.stats.graduated}`); return; }
     if (id === 'LIB') { toast(`📚 Библиотека: готовятся к пересдаче ${lib.filter(Boolean).length}/${lib.length}`); return; }
-    if (id === 'DORM') { toast(`🛏️ Спальня: занято ${dorm.filter(Boolean).length}/${DORM_CAP}, у консьержки в очереди ${dormLine.length}. Ушли из школы: ${S.stats.left || 0}`); return; }
+    if (id === 'DORM') { openPanel(dormPanel); return; }
   }
 });
 
@@ -718,6 +735,8 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'item') { if (spend(itemCost(i, +d.k))) st.items[+d.k]++; }
   else if (d.act === 'rec') { if (spend(recCost())) S.reception.level++; }
   else if (d.act === 'ads') { if (spend(adsCost())) S.reception.ads++; }
+  else if (d.act === 'beds') { if (bedCount() < MAX_BEDS && spend(bedsCost())) dormUp().beds++; }
+  else if (d.act === 'conc') { if (dormUp().conc < MAX_CONC && spend(concCost())) dormUp().conc++; }
   else if (d.act === 'build') { if (spend(CLASSES[i].build)) { st.built = true; st.buildEnd = Date.now() + CLASSES[i].buildTime * 1000; panel = classPanel(i); } }
   else return;
   refreshPanel(); save();
@@ -760,7 +779,7 @@ function restoreWorld() {
     if (wi >= 0) continue;
     const g = a.goal || { t: 'c', i: nextClass(-1) };
     if (g.t === 'd') {
-      const bed = (a.bed >= 0 && a.bed < DORM_CAP && !dorm[a.bed]) ? a.bed : dorm.indexOf(null);
+      const bed = (a.bed >= 0 && a.bed < bedCount() && !dorm[a.bed]) ? a.bed : freeBed();
       if (bed >= 0 && a.state === 'sleep') { dorm[bed] = a; a.bed = bed; const p = DORM_SPOTS[bed]; a.x = p.x; a.y = p.y; continue; }
       if (bed >= 0) { goDorm(a, g.i, bed); continue; }
     }
@@ -801,6 +820,7 @@ window.addEventListener('resize', resize);
 
 load();
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
+window.__test = { P, get scale() { return scale; } };   // test hook: world -> screen
 resize();
 { const h = P(14, 31); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }

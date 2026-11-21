@@ -9,7 +9,7 @@ export const MAX_TIME_LEVEL = 10;
 // Classes in the order students take them. Each has 4 furniture items.
 // item kind: 'tuition' (+8% tuition per level) or 'success' (+1% exam success per level).
 export const CLASSES = [
-  { id: 'herbs', name: 'Травология', emoji: '🌿', floor: '#e9d9b8', wall: '#9fd4a3', tuition: 10, build: 0, buildTime: 0, lesson: 8,
+  { id: 'herbs', name: 'Травология', emoji: '🌿', floor: '#e9d9b8', wall: '#9fd4a3', tuition: 10, build: 0, buildTime: 0, lesson: 6,
     teacher: 'Профессор Мох',
     items: [
       { id: 'pots', name: 'Горшки с травами', emoji: '🪴', kind: 'tuition' },
@@ -17,7 +17,7 @@ export const CLASSES = [
       { id: 'seeds', name: 'Полка с семенами', emoji: '🌰', kind: 'tuition' },
       { id: 'sunlamp', name: 'Солнечная лампа', emoji: '🌞', kind: 'success' },
     ] },
-  { id: 'potions', name: 'Зельеварение', emoji: '🧪', floor: '#e3d6c4', wall: '#c4b0ef', tuition: 25, build: 300, buildTime: 20, lesson: 10,
+  { id: 'potions', name: 'Зельеварение', emoji: '🧪', floor: '#e3d6c4', wall: '#c4b0ef', tuition: 25, build: 300, buildTime: 20, lesson: 8,
     teacher: 'Мадам Пузырь',
     items: [
       { id: 'cauldron', name: 'Котелки', emoji: '🫕', kind: 'tuition' },
