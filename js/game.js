@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=131';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=131';
+} from './data.js?v=132';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=132';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 131;   // keep equal to the ?v= number in index.html
+const BUILD = 132;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -821,6 +821,24 @@ function conciergePos() {
   return { x: CONCIERGE.x + (far.x - CONCIERGE.x) * k, y: CONCIERGE.y + (far.y - CONCIERGE.y) * k, pose, moving: !!conTrip, flip: conTrip === 1 ? false : conTrip === -1 };
 }
 const conciergeAway = () => conU > 0.02;
+// The librarian hedgehog (her choice 2026-11-21): reads at his desk, carries a stack of books to the shelf and puts one up,
+// comes back reading; when the room is full of readers he sometimes goes «shhh».
+const LIB_POSES = ['read', 'carry', 'shelve', 'shh'];
+for (const f of LIB_POSES) { const im = new Image(); im.src = `assets/staff/lib_${f}.png?v=1`; sprites['lib_' + f] = im; }
+let libU = 0, libTrip = 0, libClock = 0, libHold = 0, libLast = 0;
+function librarianPos() {
+  const now = performance.now() / 1000, dt = Math.min(0.2, now - (libLast || now)); libLast = now;
+  const s = SLOTS.LIB, home = { x: s.x0 + 3.0, y: s.y1 - 1.25 }, shelf = { x: s.x0 + 1.6, y: s.y0 + 0.55 };
+  if (!libTrip) { libClock += dt; if (libClock > 9) { libClock = 0; libTrip = 1; } }
+  if (libTrip === 1) { libU = Math.min(1, libU + dt / 2.6); if (libU >= 1) { libHold += dt; if (libHold > 1.6) { libHold = 0; libTrip = -1; } } }
+  else if (libTrip === -1) { libU = Math.max(0, libU - dt / 2.6); if (libU <= 0) libTrip = 0; }
+  const k = 0.5 - 0.5 * Math.cos(libU * Math.PI), readers = lib.filter(Boolean).length;
+  let pose = 'read';
+  if (libTrip === 1) pose = libU >= 1 ? 'shelve' : 'carry';
+  else if (libTrip === -1) pose = 'read';
+  else if (readers >= 5 && libClock > 5.5 && libClock < 7.3) pose = 'shh';
+  return { x: home.x + (shelf.x - home.x) * k, y: home.y + (shelf.y - home.y) * k, pose, moving: libU > 0 && libU < 1, flip: pose === 'carry' };
+}
 function drawSecretary(so) {
   const im = so.pose !== 'walk' && sprites['sec_' + so.pose], ok = im && im.complete && im.naturalWidth;
   if (!ok) { drawCreature({ ...officer, sp: 'staff_secretary', flip: false, path: so.moving ? [1] : [], ph: performance.now() / 1000 }, so.x, so.y, 52); return; }
@@ -1431,6 +1449,7 @@ function render() {
     for (const o of (T.extras ? T.extras(s) : [])) { const oo = { ...o, th }; add(oo.x, oo.y, () => drawProp(oo)); }
   }
   // reception desk + officer
+  if (WORLD === 1 && SLOTS.LIB) { const lo = librarianPos(), im = sprites['lib_' + lo.pose]; if (im && im.naturalWidth) add(lo.x, lo.y, () => drawPose(im, lo.x, lo.y, 56, lo.flip, lo.moving)); }
   const co = conciergePos();
   if (staffSprite('concierge') && sprites['con_' + co.pose]?.naturalWidth) add(co.x, co.y, () => { drawPose(sprites['con_' + co.pose], co.x, co.y, 62, co.flip, co.moving); if (checkin) { const q = P(co.x, co.y); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } });
   else add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(staffSprite('concierge') ? { ...concierge, sp: 'staff_concierge', flip: false } : concierge, CONCIERGE.x, CONCIERGE.y, staffSprite('concierge') ? 62 : 34, (x, y) => {
