@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=138';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=138';
+} from './data.js?v=139';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=139';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 138;   // keep equal to the ?v= number in index.html
+const BUILD = 139;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -131,7 +131,7 @@ const THEMES = {
     decor: ['window', 'herbs_rack', 'clock', 'shelf', 'window2'], iso: true, back: ['plant', 'lavender'], side: ['bookcase', 'table'], front: ['magic_pot', 'basket', 'barrel'], rug: 'rug' },
   // Potions (her wish 2026-11-21: no school board, students brew at their own cauldrons instead of sitting at desks)
   potions: { dir: 'assets/parts/potions/', wallTiles: 4, floorTiles: 3, board: 'poster', isoOnly: true, iso: true,
-    decor: ['window', 'shelf', 'herbs_rack', 'cabinet', 'round_window'], back: ['barrel', 'barrel'], side: ['bookcase', 'table'], front: [], rug: 'rug',
+    decor: ['window', 'shelf', 'herbs_rack', 'cabinet', 'round_window'], back: ['barrel', 'barrel'], side: ['bookcase', 'table'], front: [], rug: '',
     stations: ['station_pink', 'station_green', 'station_purple'], teacherProp: 'big_cauldron' },
   // Astronomy (her choice 2026-11-21: night observatory, a small telescope per student, big brass telescope + orrery, star chart instead of a board)
   stars: { dir: 'assets/parts/stars/', wallTiles: 4, floorTiles: 3, board: 'chart', isoOnly: true, iso: true,
@@ -151,7 +151,7 @@ const THEMES = {
     stations: ['cr_fire', 'cr_water', 'cr_earth', 'cr_air'], teacherProp: 'altar', h: { bookcase: 36 } },
   // Final exam (her choice 2026-11-21: a festive hall, single exam desks with scrolls, the examiners' table with an hourglass)
   final: { dir: 'assets/parts/final/', wallTiles: 4, floorTiles: 6, board: 'banner', isoOnly: true, iso: true,
-    decor: ['window', 'sconce', 'diploma', 'clock', 'round_window', 'sconce'], back: ['candelabra', 'laurel'], side: ['trophy', ''], front: [], rug: 'rug',
+    decor: ['window', 'sconce', 'diploma', 'clock', 'round_window', 'sconce'], back: ['candelabra', 'laurel'], side: ['trophy', ''], front: [], rug: 'rug', rugFlip: true, rugScale: 1.6,
     stations: ['exdesk_a', 'exdesk_b', 'exdesk_c'], teacherProp: 'commission' },
   // Reception (her choice 2026-11-21: the same look as the old picture, built from parts). The counter stands where the painted one was
   // (tiles blocked by recBlocked), a pink runner leads from the street entrance to the back passage.
@@ -189,7 +189,7 @@ const DECOR = { jar_shelf: { w: 1.1, lo: 0.25, deep: 1.3 }, toy_rack: { w: 1.2, 
 const PROP_H = { toy_table: 34, quill_barrel: 34, candy_stand: 32, book_crate: 26, floss_cauldron: 30, desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=2111`; parts[k + '/' + n] = im;
+  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=2112`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
@@ -1162,8 +1162,8 @@ function drawRug(c, th, s, i) {
   const im = part(th, THEMES[th].rug); if (!im) return;
   const w = s.x1 - s.x0, cols = w >= 9 ? 4 : 3, rows = Math.ceil(S.classes[i].desks / cols);
   const cx = (s.x0 + s.x1) / 2, cy = s.y0 + 2.6 + (rows - 1) * 0.6, d = Math.min(w - 1.2, 3.2 + rows * 0.6);
-  const m = P(cx, cy), sw = d * HW * Math.SQRT2, sh = sw * im.naturalHeight / im.naturalWidth;
-  c.drawImage(im, m.x - sw / 2, m.y - sh / 2, sw, sh);
+  const T = THEMES[th], m = P(cx, cy), sw = d * HW * Math.SQRT2 * (T.rugScale || 1), sh = sw * im.naturalHeight / im.naturalWidth;   // rugs of different shapes per room (her question 2026-11-21: why are all rugs round)
+  c.save(); c.translate(m.x, m.y); if (T.rugFlip) c.scale(-1, 1); c.drawImage(im, -sw / 2, -sh / 2, sw, sh); c.restore();
 }
 // ---- PERFORMANCE (her report 2026-11-21: the game lags while swiping) ----
 // A themed room (floor, rug, its tall walls, wall decor with soft shadows) is rendered ONCE into its own canvas and then
