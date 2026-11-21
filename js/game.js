@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=49';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=49';
+} from './data.js?v=50';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=50';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 49;   // keep equal to the ?v= number in index.html
+const BUILD = 50;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -122,15 +122,16 @@ function genLayout() {
   }
   const recY = y;
   // front block: library | reception | dorms
-  SLOTS.LIB = slot(4, recY, [[6, recY], [6, recY - 1]], {}, 6, 6, [[[7, recY], [7, recY - 1]]]);
+  SLOTS.LIB = slot(0, recY, [[2, recY], [2, recY - 1]], {}, 6, 8, [[[3, recY], [3, recY - 1]], [[5, recY + 3], [6, recY + 3]], [[5, recY + 4], [6, recY + 4]]]);   // own space: the reception's tall wall must not hide it
   SLOTS.REC = slot(10, recY, [[13, recY], [13, recY - 1]], {}, 9, 9,
     [[[14, recY], [14, recY - 1]], [[15, recY], [15, recY - 1]], [[16, recY], [16, recY - 1]], [[17, recY], [17, recY - 1]], [[14, recY + 8], [14, recY + 9]], [[15, recY + 8], [15, recY + 9]], [[18, recY + 3], [19, recY + 3]]]);
   SLOTS.DORM = slot(19, recY, [[19, recY + 3], [18, recY + 3]], {});
   SLOTS.DORM2 = slot(25, recY, [[25, recY + 3], [24, recY + 3]], {});
-  BUILDING = { x0: 4, y0: hallTop, x1: 31, y1: recY };
+  BUILDING = { x0: 0, y0: hallTop, x1: 31, y1: recY + 8 };
   HALLS = [
     { x0: 7, y0: hallTop, x1: 24, y1: recY },                       // rows + corridors (rooms are cut out of it)
-    { x0: 4, y0: lastGap[0], x1: 31, y1: recY },                     // the wide corridor along the front block
+    { x0: 0, y0: lastGap[0], x1: 31, y1: recY },                     // the wide corridor along the front block
+    { x0: 6, y0: recY, x1: 10, y1: recY + 8 },                       // reading court between the library and the reception
     { x0: 13, y0: recY + 9, x1: 16, y1: recY + 14 },                // path from the gate
   ];
   GATE_TILE = { x: 14.5, y: recY + 12.5 };
@@ -340,7 +341,7 @@ function finishLesson(a) {
 let LS = SLOTS.LIB;
 // 16 reading places (4x4); upgrades open more of them, speed up reading and raise the exam bonus
 const LIB_SPOTS = [];
-function libSpots() { LIB_SPOTS.length = 0; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) LIB_SPOTS.push({ x: LS.x0 + 1.1 + c * 1.3, y: LS.y0 + 1.5 + r * 1.2 }); }
+function libSpots() { LIB_SPOTS.length = 0; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) LIB_SPOTS.push({ x: LS.x0 + 1.1 + c * 1.3, y: LS.y0 + 1.8 + r * 1.6 }); }
 libSpots();
 const MAX_LIB_SEATS = 16, MAX_LIB_LVL = 10;
 const libUp = () => (S.libUp ||= { seats: 1, speed: 1, bonus: 1 });
@@ -796,7 +797,8 @@ function render() {
     if (e.id !== 'hall' && CLASS_SLOT.indexOf(e.id) >= 0 && !S.classes[CLASS_SLOT.indexOf(e.id)].built) continue;
     const sl = SLOTS[e.id];
     const k1 = e.id === 'hall' ? e.x + e.y : (sl.x0 + sl.x1 + sl.y0 + sl.y1) / 2;
-    list.push({ k1, k2: e.tall ? -1e9 + 1 : 1e9, draw: () => drawEdge(ctx, e, painted) });
+    if (painted) continue;
+    list.push({ k1, k2: e.tall ? -1e9 + 1 : 1e9, draw: () => drawEdge(ctx, e) });
   }
   for (let i = 0; i < CLASSES.length; i++) {
     const st = S.classes[i]; if (!st.built) continue;
@@ -1412,7 +1414,7 @@ function frame(now) {
   render();
   requestAnimationFrame(frame);
 }
-const LAYOUT = 8;
+const LAYOUT = 9;
 function relayout() {   // rebuild the map (a class was expanded): creatures keep their task, seats move with the rooms
   const snap = agents.length ? (save(), S.world) : null;
   genLayout(); buildGrid(); buildEdges(); decorateEdges();
