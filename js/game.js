@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=73';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=73';
+} from './data.js?v=74';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=74';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 73;   // keep equal to the ?v= number in index.html
+const BUILD = 74;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -122,7 +122,7 @@ const DECOR = { chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 
 const PROP_H = { tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=73`; parts[k + '/' + n] = im;
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=74`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -784,7 +784,7 @@ function railing(c, a, b) {
   poly(c, [a, b, up(b, 3), up(a, 3)], '#a57b4f');
 }
 // ---- themed rooms: textures through pattern transforms, so walls and floors of any length stay continuous ----
-const patCache = new Map();
+const patCache = new WeakMap();
 function pat(c, th, n) {
   const im = part(th, n); if (!im) return null;
   let m = patCache.get(c); if (!m) patCache.set(c, (m = {}));
@@ -827,7 +827,7 @@ function hangIso(c, th, n, s, side, t0, lo) {
   const im = part(th, 'iso_' + n); if (!im) return false;
   const d = DECOR[n], w = ISO_W[n] || d.w, sw = w * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - w * HH);
   const tm = t0 + d.w / 2, base = side === 'y0' ? P(tm, s.y0) : P(s.x0, tm), m = up(base, lo * TALL_H() + vert / 2);
-  const k = scale * dpr * (c === ctx ? 1 : 0.6);
+  const k = c === ctx ? scale * dpr : (c._q || 1);
   c.save(); c.translate(m.x, m.y); if (side === 'y0') c.scale(-1, 1);
   c.shadowColor = 'rgba(55,35,80,0.35)'; c.shadowBlur = 3 * k; c.shadowOffsetX = (side === 'y0' ? -1.2 : 1.2) * k; c.shadowOffsetY = 1.8 * k;
   c.drawImage(im, -sw / 2, -sh / 2, sw, sh); c.restore();
@@ -840,7 +840,7 @@ function hang(c, th, n, s, side, t0, lo) {
   const at = (t) => (side === 'y0' ? P(t, s.y0) : P(s.x0, t));
   const L = side === 'y0' ? at(t0) : at(t0 + d.w), R = side === 'y0' ? at(t0 + d.w) : at(t0);   // the viewer's left end of the picture
   const top = up(L, lo * H + hp);
-  const k = scale * dpr * (c === ctx ? 1 : 0.6), deep = DECOR[n].deep || 1;   // shadow offsets are in device px
+  const k = c === ctx ? scale * dpr : (c._q || 1), deep = DECOR[n].deep || 1;   // shadow offsets are in device px
   c.save(); c.transform((R.x - L.x) / im.naturalWidth, (R.y - L.y) / im.naturalWidth, 0, hp / im.naturalHeight, top.x, top.y);
   c.shadowColor = 'rgba(55,35,80,0.42)'; c.shadowBlur = 3 * k * deep; c.shadowOffsetX = (side === 'y0' ? -1.6 : 1.6) * k * deep; c.shadowOffsetY = 2.6 * k * deep;
   c.drawImage(im, 0, 0); c.restore();
@@ -903,6 +903,44 @@ function drawRug(c, th, s, i) {
   const m = P(cx, cy), sw = d * HW * Math.SQRT2, sh = sw * im.naturalHeight / im.naturalWidth;
   c.drawImage(im, m.x - sw / 2, m.y - sh / 2, sw, sh);
 }
+// ---- PERFORMANCE (her report 2026-11-21: the game lags while swiping) ----
+// A themed room (floor, rug, its tall walls, wall decor with soft shadows) is rendered ONCE into its own canvas and then
+// drawn with a single drawImage per frame. It is rebuilt only when the room, its desks, the map or the zoom level change.
+const roomCache = {};
+const roomQ = () => Math.min(3, scale * dpr);
+function themeReady(th) { let n = 0; for (const k in parts) if (k.startsWith(th + '/') && parts[k].complete && parts[k].naturalWidth) n++; return n; }
+function roomKey(id) {
+  const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), th = themeOf(id);
+  return [s.x0, s.y0, s.x1, s.y1, ci >= 0 ? S.classes[ci].desks : 0, OX, OY, roomQ().toFixed(1), themeReady(th)].join(',');
+}
+function drawThemedRoom(id) {
+  const rc = buildRoom(id); ctx.drawImage(rc.cv, rc.x, rc.y, rc.w, rc.h);
+}
+function warmRooms() {   // prepares one stale room picture per frame in advance, so swiping never has to wait for it
+  if (pinching) return;
+  for (const id of Object.keys(SLOTS)) if (cachedRoom(id)) { const rc = roomCache[id]; if (!rc || rc.key !== roomKey(id)) { buildRoom(id); return; } }
+}
+function buildRoom(id) {
+  const key = roomKey(id); let rc = roomCache[id];
+  if (!rc || (rc.key !== key && !pinching)) {
+    const s = SLOTS[id], th = themeOf(id), q = roomQ();
+    const L = P(s.x0, s.y1), B = P(s.x0, s.y0), R = P(s.x1, s.y0), F = P(s.x1, s.y1);
+    const x0 = L.x - 14, x1 = R.x + 14, y0 = B.y - TALL_H() - 24, y1 = F.y + 12;
+    const cv = (rc && rc.cv) || document.createElement('canvas');
+    cv.width = Math.ceil((x1 - x0) * q); cv.height = Math.ceil((y1 - y0) * q);
+    const c = cv.getContext('2d'); c._q = q;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height);
+    c.setTransform(q, 0, 0, q, -x0 * q, -y0 * q);
+    drawSlot(c, id);
+    for (const e of EDGES) if (e.id === id && e.tall) drawEdge(c, e);
+    drawWallDecor(c, id);
+    rc = roomCache[id] = { key, cv, x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  return rc;
+}
+const cachedRoom = (id) => { if (!themeOf(id)) return false; const ci = CLASS_SLOT.indexOf(id); return ci < 0 || S.classes[ci].built; };
+let VIEW = { x0: -1e9, y0: -1e9, x1: 1e9, y1: 1e9 };
+const onScreen = (x, y, mx = 140, my = 200) => x > VIEW.x0 - mx && x < VIEW.x1 + mx && y > VIEW.y0 - my && y < VIEW.y1 + my;
 function drawSlot(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id);
   const L = P(s.x0, s.y1), B = P(s.x0, s.y0), R = P(s.x1, s.y0), F = P(s.x1, s.y1);
@@ -1127,8 +1165,10 @@ function render() {
 
   const list = [];
   const zone = (x, y) => { const id = regAt(Math.floor(x), Math.floor(y)); if (id && id !== 'hall') { const s = SLOTS[id]; return (s.x0 + s.x1 + s.y0 + s.y1) / 2; } return x + y; };
-  const add = (x, y, draw, bias = 0) => list.push({ k1: zone(x, y), k2: x + y + bias, draw });
-  for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: () => drawSlot(ctx, id) }); }
+  const add = (x, y, draw, bias = 0) => { const m = P(x, y); if (onScreen(m.x, m.y)) list.push({ k1: zone(x, y), k2: x + y + bias, draw }); };   // off-screen things are skipped
+  VIEW = { x0: scroller.scrollLeft / scale, y0: scroller.scrollTop / scale, x1: (scroller.scrollLeft + scroller.clientWidth) / scale, y1: (scroller.scrollTop + scroller.clientHeight) / scale };
+  const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
+  for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: 14.5 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
   for (const e of EDGES) {
     const painted = e.id !== 'hall' && e.tall && WORLD === 1 && !!arts[CLASS_SLOT.indexOf(e.id) >= 0 ? CLASSES[CLASS_SLOT.indexOf(e.id)].id : e.id]?.naturalWidth;   // painted rooms: only the cap on top of their own walls
@@ -1137,9 +1177,10 @@ function render() {
     const sl = SLOTS[e.id];
     const k1 = e.id === 'hall' ? e.x + e.y : (sl.x0 + sl.x1 + sl.y0 + sl.y1) / 2;
     if (painted) { const sl0 = SLOTS[e.id], sq = Math.min(sl0.x1 - sl0.x0, sl0.y1 - sl0.y0); if (e.x < sl0.x0 + sq && e.y < sl0.y0 + sq) continue; }
+    if (e.tall && cachedRoom(e.id)) continue;   // already inside the room's cached picture
+    { const m = P(e.x + 0.5, e.y + 0.5); if (!onScreen(m.x, m.y)) continue; }
     list.push({ k1, k2: e.tall ? -1e9 + 1 : 1e9, draw: () => drawEdge(ctx, e) });
   }
-  for (const id of Object.keys(SLOTS)) if (themeOf(id)) { const ci = CLASS_SLOT.indexOf(id); if (ci >= 0 && !S.classes[ci].built) continue; const s = SLOTS[id]; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9 + 2, draw: () => drawWallDecor(ctx, id) }); }
   for (let i = 0; i < CLASSES.length; i++) {
     const st = S.classes[i]; if (!st.built) continue;
     const s = slotOf(i);
@@ -1200,7 +1241,7 @@ function render() {
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
   // x-ray: every creature is drawn once more, faintly, on top: the ones hidden behind a wall show through as ghosts
   ctx.globalAlpha = 0.38;
-  for (const a of agents) if (a.state !== 'fly') { const pn = panicPos(a); drawCreature(a, pn ? pn.x : a.x, pn ? pn.y : a.y, 30); }
+  for (const a of agents) if (a.state !== 'fly') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) drawCreature(a, gx, gy, 30); }
   ctx.globalAlpha = 1;
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
@@ -1941,6 +1982,7 @@ function frame(now) {
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
   render();
+  warmRooms();
   requestAnimationFrame(frame);
 }
 const LAYOUT = 9;
