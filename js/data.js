@@ -1,57 +1,83 @@
-// Static game data: rooms, decor, names, quests. UI text is Russian (product language).
+// Static game data for v0.2 (top-down campus). UI text is Russian (product language).
 
-export const MAX_ROOM_LEVEL = 10;
-export const MAX_COURSE = 8;          // passing the exam of the last course = graduation
 export const OFFLINE_CAP_SEC = 2 * 3600;
+export const MAX_DESKS = 6;
+export const MAX_ITEM_LEVEL = 25;
+export const MAX_TEACHER_LEVEL = 20;
+export const MAX_TIME_LEVEL = 10;
 
-// kind: 'class' rooms seat students and earn coins; 'support' rooms give global effects.
-export const ROOM_TYPES = {
-  dorm:     { kind: 'support', name: 'Спальня',       emoji: '🛏️', color: '#ffe0ec', unlock: 0,   build: 0,     upBase: 40,
-              desc: 'Кровати для учеников. Больше уровень — больше учеников.' },
-  herbs:    { kind: 'class',   name: 'Травология',    emoji: '🌿', color: '#d3f3d6', unlock: 0,   build: 0,     upBase: 25,   rate: 1,
-              desc: 'Первый класс школы: учимся выращивать волшебные растения.' },
-  canteen:  { kind: 'support', name: 'Столовая',      emoji: '🍰', color: '#fff0c4', unlock: 3,   build: 100,   upBase: 80,
-              desc: 'Сытые ученики учатся быстрее.' },
-  potions:  { kind: 'class',   name: 'Зельеварение',  emoji: '🧪', color: '#e6d9ff', unlock: 6,   build: 200,   upBase: 120,  rate: 1.7,
-              desc: 'Варим зелья. Приносит больше монет, чем Травология.' },
-  library:  { kind: 'support', name: 'Библиотека',    emoji: '📚', color: '#ffe4cc', unlock: 12,  build: 500,   upBase: 300,
-              desc: 'Ученики готовятся к экзаменам: шанс сдать выше.' },
-  stars:    { kind: 'class',   name: 'Звездочётство', emoji: '🔭', color: '#d6e4ff', unlock: 25,  build: 1200,  upBase: 600,  rate: 2.8,
-              desc: 'Читаем судьбу по звёздам.' },
-  charms:   { kind: 'class',   name: 'Чары',          emoji: '🪄', color: '#ffd6e8', unlock: 60,  build: 5000,  upBase: 2500, rate: 4.6,
-              desc: 'Настоящие заклинания с волшебной палочкой.' },
-  elements: { kind: 'class',   name: 'Магия стихий',  emoji: '🔥', color: '#ffdcc0', unlock: 140, build: 20000, upBase: 10000, rate: 7.5,
-              desc: 'Огонь, вода, ветер и земля. Самый доходный класс.' },
-};
-
-export const BUILD_ORDER = ['dorm', 'herbs', 'canteen', 'potions', 'library', 'stars', 'charms', 'elements'];
-
-export const DECOR = [
-  { id: 'plant',   emoji: '🪴', name: 'Цветок в горшке',  cost: 30,   comfort: 1 },
-  { id: 'candle',  emoji: '🕯️', name: 'Волшебная свеча',  cost: 90,   comfort: 1 },
-  { id: 'frame',   emoji: '🖼️', name: 'Картина',          cost: 250,  comfort: 2 },
-  { id: 'clock',   emoji: '🕰️', name: 'Старинные часы',   cost: 700,  comfort: 2 },
-  { id: 'crystal', emoji: '🔮', name: 'Хрустальный шар',  cost: 2000, comfort: 3 },
-  { id: 'rainbow', emoji: '🌈', name: 'Радуга',           cost: 6000, comfort: 4 },
+// Classes in the order students take them. Each has 4 furniture items.
+// item kind: 'tuition' (+8% tuition per level) or 'success' (+1% exam success per level).
+export const CLASSES = [
+  { id: 'herbs', name: 'Травология', emoji: '🌿', floor: '#e9d9b8', wall: '#9fd4a3', tuition: 10, build: 0, buildTime: 0, lesson: 8,
+    teacher: 'Профессор Мох',
+    items: [
+      { id: 'pots', name: 'Горшки с травами', emoji: '🪴', kind: 'tuition' },
+      { id: 'can', name: 'Лейка-облачко', emoji: '🚿', kind: 'success' },
+      { id: 'seeds', name: 'Полка с семенами', emoji: '🌰', kind: 'tuition' },
+      { id: 'sunlamp', name: 'Солнечная лампа', emoji: '🌞', kind: 'success' },
+    ] },
+  { id: 'potions', name: 'Зельеварение', emoji: '🧪', floor: '#e3d6c4', wall: '#c4b0ef', tuition: 25, build: 300, buildTime: 20, lesson: 10,
+    teacher: 'Мадам Пузырь',
+    items: [
+      { id: 'cauldron', name: 'Котелки', emoji: '🫕', kind: 'tuition' },
+      { id: 'jars', name: 'Банки с травами', emoji: '🫙', kind: 'success' },
+      { id: 'candles', name: 'Свечи на стенах', emoji: '🕯️', kind: 'tuition' },
+      { id: 'recipes', name: 'Книга рецептов', emoji: '📕', kind: 'success' },
+    ] },
+  { id: 'stars', name: 'Звездочётство', emoji: '🔭', floor: '#d9dcef', wall: '#8fa6e6', tuition: 60, build: 1500, buildTime: 60, lesson: 12,
+    teacher: 'Звездочёт Лун',
+    items: [
+      { id: 'telescope', name: 'Телескоп', emoji: '🔭', kind: 'tuition' },
+      { id: 'globe', name: 'Звёздный глобус', emoji: '🪐', kind: 'success' },
+      { id: 'maps', name: 'Карты созвездий', emoji: '🗺️', kind: 'tuition' },
+      { id: 'hourglass', name: 'Песочные часы', emoji: '⏳', kind: 'success' },
+    ] },
+  { id: 'charms', name: 'Чары', emoji: '🪄', floor: '#f0dbe3', wall: '#f2a7c7', tuition: 150, build: 6000, buildTime: 120, lesson: 14,
+    teacher: 'Мастер Искра',
+    items: [
+      { id: 'wands', name: 'Стойка с палочками', emoji: '🪄', kind: 'tuition' },
+      { id: 'mirror', name: 'Волшебное зеркало', emoji: '🪞', kind: 'success' },
+      { id: 'ribbons', name: 'Ленты-обереги', emoji: '🎀', kind: 'tuition' },
+      { id: 'crystal', name: 'Хрустальный шар', emoji: '🔮', kind: 'success' },
+    ] },
+  { id: 'flight', name: 'Полёты на крыльях', emoji: '🪽', floor: '#dcebf0', wall: '#9dd8e8', tuition: 400, build: 25000, buildTime: 300, lesson: 16,
+    teacher: 'Капитан Ветерок',
+    items: [
+      { id: 'hoops', name: 'Кольца для полётов', emoji: '⭕', kind: 'tuition' },
+      { id: 'feathers', name: 'Подушки из перьев', emoji: '🪶', kind: 'success' },
+      { id: 'kites', name: 'Воздушные змеи', emoji: '🪁', kind: 'tuition' },
+      { id: 'windbell', name: 'Колокольчик ветра', emoji: '🎐', kind: 'success' },
+    ] },
+  { id: 'elements', name: 'Магия стихий', emoji: '🔥', floor: '#efdcc8', wall: '#f0b483', tuition: 1000, build: 100000, buildTime: 600, lesson: 18,
+    teacher: 'Госпожа Буря',
+    items: [
+      { id: 'brazier', name: 'Огненная чаша', emoji: '🔥', kind: 'tuition' },
+      { id: 'fountain', name: 'Фонтанчик', emoji: '⛲', kind: 'success' },
+      { id: 'rocks', name: 'Парящие камни', emoji: '🪨', kind: 'tuition' },
+      { id: 'tornado', name: 'Ручной вихрь', emoji: '🌪️', kind: 'success' },
+    ] },
 ];
+
+export const SPECIES = ['mothfox', 'petalear', 'fernhorn', 'starwhisker'];
 
 export const NAMES = ['Мира', 'Тоша', 'Луна', 'Плюш', 'Кекс', 'Искра', 'Ромашка', 'Бублик', 'Звёздочка', 'Сеня',
   'Ириска', 'Пикси', 'Мята', 'Тучка', 'Феня', 'Зефир', 'Капля', 'Лимпа', 'Боня', 'Вишенка', 'Шуша', 'Пончик',
   'Рио', 'Лучик', 'Фасолька', 'Ника', 'Тимка', 'Ежевика', 'Пуговка', 'Снежок'];
 
-export const BODY_COLORS = ['#ffb3c7', '#b8e1ff', '#c9f2c0', '#ffe39a', '#d9c2ff', '#ffc9a3', '#a8efe4', '#f7b8f0'];
-export const HAT_COLORS = ['#6c4fd1', '#3d7be0', '#d14f8f', '#2f9e7a', '#e07a3d', '#8a3dd1'];
-
-// Onboarding chain. check(state, ctx) -> boolean.
-export const QUESTS = [
-  { text: 'Нажми на монетки над классом Травологии', reward: 15, check: (s) => s.stats.collected >= 1 },
-  { text: 'Прими нового ученика (вкладка «Ученики»)', reward: 25, check: (s) => s.stats.recruited >= 1 },
-  { text: 'Улучши Травологию до 2 уровня (нажми на класс)', reward: 30, check: (s, c) => c.level('herbs') >= 2 },
-  { text: 'Сдай первый экзамен (жди свиток 📜 над учеником)', reward: 40, check: (s) => s.stats.passed >= 1 },
-  { text: 'Построй Столовую (нужно ⭐3)', reward: 60, check: (s, c) => c.level('canteen') >= 1 },
-  { text: 'Поставь украшение в любую комнату', reward: 50, check: (s) => s.stats.decor >= 1 },
-  { text: 'Улучши Спальню до 2 уровня', reward: 80, check: (s, c) => c.level('dorm') >= 2 },
-  { text: 'Построй класс Зельеварения', reward: 150, check: (s, c) => c.level('potions') >= 1 },
-  { text: 'Построй Библиотеку', reward: 300, check: (s, c) => c.level('library') >= 1 },
-  { text: 'Выпусти первого ученика (сдай все 8 курсов)', reward: 1000, check: (s) => s.stats.graduated >= 1 },
+// Mission chain. check(game) -> boolean; game exposes helpers.
+export const MISSIONS = [
+  { text: 'Улучши «Горшки с травами» до ур. 3', reward: 40, check: (g) => g.item('herbs', 'pots') >= 3 },
+  { text: 'Улучши учителя Травологии до ур. 3', reward: 60, check: (g) => g.cls('herbs').teacher >= 3 },
+  { text: 'Поставь 3-ю парту в Травологии', reward: 80, check: (g) => g.cls('herbs').desks >= 3 },
+  { text: 'Улучши приёмную до ур. 3', reward: 80, check: (g) => g.S.reception.level >= 3 },
+  { text: 'Построй класс Зельеварения', reward: 150, check: (g) => g.built('potions') },
+  { text: 'Выпусти 10 учеников', reward: 200, check: (g) => g.S.stats.graduated >= 10 },
+  { text: 'Улучши любой предмет до ур. 10', reward: 300, check: (g) => g.maxItem() >= 10 },
+  { text: 'Поставь 4 парты в Зельеварении', reward: 500, check: (g) => g.built('potions') && g.cls('potions').desks >= 4 },
+  { text: 'Построй Звездочётство', reward: 800, check: (g) => g.built('stars') },
+  { text: 'Выпусти 100 учеников', reward: 2000, check: (g) => g.S.stats.graduated >= 100 },
+  { text: 'Построй класс Чар', reward: 4000, check: (g) => g.built('charms') },
+  { text: 'Построй класс Полётов на крыльях', reward: 15000, check: (g) => g.built('flight') },
+  { text: 'Построй Магию стихий', reward: 60000, check: (g) => g.built('elements') },
 ];

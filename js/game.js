@@ -1,505 +1,506 @@
-// Magic school idle tycoon — prototype v0.1. Plain ES module, no build step.
+// Magic school idle tycoon — v0.2: top-down (3/4) campus with walking creatures.
 import {
-  MAX_ROOM_LEVEL, MAX_COURSE, OFFLINE_CAP_SEC, ROOM_TYPES, BUILD_ORDER, DECOR,
-  NAMES, BODY_COLORS, HAT_COLORS, QUESTS,
+  OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
+  CLASSES, SPECIES, NAMES, MISSIONS,
 } from './data.js';
 
-const SAVE_KEY = 'magicschool.save.v1';
-const VERSION = '0.1';
-const $ = (sel, root = document) => root.querySelector(sel);
+const SAVE_KEY = 'magicschool.save.v2';
+const VERSION = '0.2';
+const $ = (s, r = document) => r.querySelector(s);
+const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
-// ---------- state ----------
-let S = null;
-
-function newStudent() {
-  const id = S.nextId++;
-  return {
-    id,
-    name: NAMES[Math.floor(Math.random() * NAMES.length)],
-    body: BODY_COLORS[Math.floor(Math.random() * BODY_COLORS.length)],
-    hat: HAT_COLORS[Math.floor(Math.random() * HAT_COLORS.length)],
-    course: 1, xp: 0, room: null,
-  };
-}
-
+// ======================= state & economy =======================
+let S;
 function freshState() {
   S = {
-    v: 1, coins: 20, stars: 0, nextId: 1, last: Date.now(), quest: 0,
-    rooms: [
-      { type: 'dorm', level: 1, store: 0, decor: [null, null, null] },
-      { type: 'herbs', level: 1, store: 0, decor: [null, null, null] },
-    ],
-    students: [],
-    stats: { collected: 0, recruited: 0, passed: 0, failed: 0, graduated: 0, decor: 0 },
+    v: 2, coins: 50, nextId: 1, last: Date.now(), mission: 0, ema: 0,
+    reception: { level: 1, ads: 1 },
+    classes: CLASSES.map((c, i) => ({ built: i === 0, buildEnd: 0, teacher: 1, desks: 2, time: 0, items: c.items.map(() => 0) })),
+    stats: { graduated: 0, passed: 0, failed: 0, enrolled: 0 },
   };
-  S.students.push(newStudent(), newStudent());
-  autoAssign();
-  return S;
 }
-
 function load() {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) { S = JSON.parse(raw); return; }
-  } catch (e) { /* corrupted save -> fresh */ }
+  try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { S = JSON.parse(raw); return; } } catch (e) { /* fresh */ }
   freshState();
 }
 function save() { S.last = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }
 
-// ---------- formulas ----------
-const room = (type) => S.rooms.find((r) => r.type === type);
-const level = (type) => (room(type) ? room(type).level : 0);
-const comfort = (r) => r.decor.reduce((a, d) => a + (d ? DECOR.find((x) => x.id === d).comfort : 0), 0);
-const beds = () => 1 + 2 * level('dorm');
-const seats = (r) => 2 + r.level;
-const seated = (r) => S.students.filter((s) => s.room === r.type);
-const xpNeed = (course) => Math.round(25 * Math.pow(1.55, course - 1));
-const studySpeed = () => 1 + 0.15 * level('canteen') + (room('canteen') ? 0.03 * comfort(room('canteen')) : 0);
-const upCost = (r) => Math.round(ROOM_TYPES[r.type].upBase * Math.pow(1.75, r.level - 1));
-const recruitCost = () => Math.round(15 * Math.pow(1.55, Math.max(0, S.students.length - 1)));
+const cls = (id) => S.classes[CLASSES.findIndex((c) => c.id === id)];
+const isOpen = (i) => S.classes[i].built && Date.now() >= S.classes[i].buildEnd;
+const kindSum = (i, kind) => CLASSES[i].items.reduce((a, it, k) => a + (it.kind === kind ? S.classes[i].items[k] : 0), 0);
+const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)));
+const success = (i) => Math.min(0.99, 0.6 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kindSum(i, 'success'));
+const lessonTime = (i) => CLASSES[i].lesson * Math.pow(0.92, S.classes[i].time);
+const itemCost = (i, k) => Math.round(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(1.25, S.classes[i].items[k]));
+const teacherCost = (i) => Math.round(CLASSES[i].tuition * 6 * Math.pow(1.35, S.classes[i].teacher - 1));
+const deskCost = (i) => Math.round(CLASSES[i].tuition * 15 * Math.pow(2.3, S.classes[i].desks - 2));
+const timeCost = (i) => Math.round(CLASSES[i].tuition * 10 * Math.pow(1.6, S.classes[i].time));
+const procTime = () => 3.5 * Math.pow(0.92, S.reception.level - 1);
+const fee = () => 3 + S.reception.level;
+const arrivalInterval = () => 5 * Math.pow(0.9, S.reception.ads - 1);
+const recCost = () => Math.round(20 * Math.pow(1.4, S.reception.level - 1));
+const adsCost = () => Math.round(30 * Math.pow(1.45, S.reception.ads - 1));
 
-function studentRate(s) {
-  if (!s.room) return 0;
-  const r = room(s.room);
-  return ROOM_TYPES[r.type].rate * (1 + 0.3 * (r.level - 1)) * (1 + 0.6 * (s.course - 1));
-}
-const roomRate = (r) => seated(r).reduce((a, s) => a + studentRate(s), 0);
-const storeCap = (r) => Math.max(30, roomRate(r) * OFFLINE_CAP_SEC);
+const G = { // helpers exposed to missions
+  get S() { return S; }, cls, built: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return isOpen(i); },
+  item: (cid, iid) => { const i = CLASSES.findIndex((c) => c.id === cid); return S.classes[i].items[CLASSES[i].items.findIndex((x) => x.id === iid)]; },
+  maxItem: () => Math.max(...S.classes.flatMap((c) => c.items)),
+};
 
-function supportComfort() {
-  return S.rooms.filter((r) => ROOM_TYPES[r.type].kind === 'support').reduce((a, r) => a + comfort(r), 0);
-}
-function examParts(s) {
-  const r = room(s.room);
-  const parts = [
-    ['Базовый шанс', 0.6],
-    ['Уровень класса', 0.04 * (r.level - 1)],
-    ['Библиотека', 0.05 * level('library')],
-    ['Уют класса', 0.025 * comfort(r)],
-    ['Уют школы', 0.01 * supportComfort()],
-    ['Сложность курса', -0.05 * (s.course - 1)],
-  ];
-  const total = Math.min(0.97, Math.max(0.1, parts.reduce((a, p) => a + p[1], 0)));
-  return { parts, total };
-}
-const examReady = (s) => s.room && s.xp >= xpNeed(s.course);
+function earn(n, x, y, color) { S.coins += n; earnedThisSec += n; if (x !== undefined) popup(`+${fmt(n)}`, x, y, color || '#c98a00'); }
+function spend(c) { if (S.coins < c) { toast('Не хватает монет 🪙'); return false; } S.coins -= c; return true; }
 
-// ---------- simulation ----------
-function step(dt) {
-  const speed = studySpeed();
-  for (const r of S.rooms) {
-    if (ROOM_TYPES[r.type].kind !== 'class') continue;
-    r.store = Math.min(storeCap(r), r.store + roomRate(r) * dt);
+// ======================= world geometry =======================
+const W = 400, GT = 150, RH = 210, RECH = 250, GATE = 70;
+const ROWS = Math.ceil(CLASSES.length / 2);
+const H = GT + ROWS * RH + RECH + GATE;
+const CX = 200, CORR = 30;                 // corridor centre and half width
+const recTop = GT + ROWS * RH;
+const rowTop = (r) => GT + (ROWS - 1 - r) * RH;
+function roomRect(i) {
+  const r = Math.floor(i / 2), left = i % 2 === 0;
+  const x = left ? 8 : CX + CORR + 4, w = CX - CORR - 12;
+  const y = rowTop(r) + 12, h = RH - 20;
+  return { x, y, w, h, left, doorY: y + h - 46, doorX: left ? x + w : x };
+}
+function deskPos(i, d) {
+  const R = roomRect(i);
+  const col = d % 2, row = Math.floor(d / 2);
+  return { x: R.x + (col === 0 ? 44 : R.w - 44), y: R.y + 92 + row * 34 };
+}
+const teacherPos = (i) => { const R = roomRect(i); return { x: R.x + R.w / 2, y: R.y + 58 }; };
+const queueSlot = (k) => ({ x: CX, y: recTop + 120 + k * 20 });
+const DESK_FRONT = { x: CX, y: recTop + 96 };
+const GATE_POS = { x: CX, y: H - 16 };
+
+// ======================= agents =======================
+let agents = [];
+let queue = [];                                     // agents waiting at reception, front first
+const deskOcc = CLASSES.map(() => Array(MAX_DESKS).fill(null));
+const waitList = CLASSES.map(() => []);
+let processing = null; let procT = 0;
+let arrivalT = 1;
+
+function spawn() {
+  const a = { id: S.nextId++, sp: rnd(SPECIES), name: rnd(NAMES), x: GATE_POS.x + (Math.random() * 20 - 10), y: GATE_POS.y,
+    path: [], speed: 46 + Math.random() * 10, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6 };
+  agents.push(a);
+  queue.push(a);
+  goQueue(a);
+}
+function goQueue(a) {
+  const k = queue.indexOf(a);
+  a.state = 'walk'; a.path = [queueSlot(k)]; a.onArrive = () => { a.state = 'queue'; };
+}
+function startNextProcess() {
+  if (processing || !queue.length) return;
+  const a = queue[0];
+  if (a.state !== 'queue') return;
+  processing = a; procT = 0; a.state = 'process';
+}
+function finishProcess() {
+  const a = processing; processing = null;
+  queue.shift();
+  queue.forEach(goQueue);
+  S.stats.enrolled++;
+  earn(fee(), CX + 20, recTop + 60, '#c98a00');
+  a.state = 'walk';
+  a.path = [{ x: CX + 40, y: DESK_FRONT.y + 12 }, { x: CX + 40, y: recTop + 20 }, { x: CX, y: recTop - 4 }];
+  a.onArrive = () => goClass(a, nextClass(-1));
+}
+function nextClass(i) { for (let k = i + 1; k < CLASSES.length; k++) if (isOpen(k)) return k; return -1; }
+
+function goClass(a, i) {
+  if (i < 0) { goGraduate(a); return; }
+  const R = roomRect(i);
+  a.c = i; a.state = 'walk';
+  a.path = [{ x: CX, y: R.doorY }];
+  a.onArrive = () => arriveClass(a, i);
+}
+function waitSpot(i, k) { const R = roomRect(i); return { x: CX + (R.left ? -14 : 14), y: R.doorY + 16 + k * 14 }; }
+function arriveClass(a, i) {
+  const d = freeDesk(i);
+  if (d < 0) {
+    waitList[i].push(a);
+    a.state = 'walkwait'; a.path = [waitSpot(i, waitList[i].length - 1)];
+    a.onArrive = () => { a.state = 'wait'; };
+    return;
   }
-  for (const s of S.students) {
-    if (!s.room) continue;
-    s.xp = Math.min(xpNeed(s.course), s.xp + speed * dt);
+  seat(a, i, d);
+}
+function freeDesk(i) { for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc[i][d]) return d; return -1; }
+function seat(a, i, d) {
+  const R = roomRect(i), p = deskPos(i, d);
+  deskOcc[i][d] = a.id; a.desk = d; a.c = i; a.state = 'walk';
+  a.path = [{ x: R.doorX + (R.left ? -10 : 10), y: R.doorY }, { x: p.x, y: R.doorY }, { x: p.x, y: p.y }];
+  a.onArrive = () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i); };
+}
+function finishLesson(a) {
+  const i = a.c, p = deskPos(i, a.desk);
+  if (Math.random() < success(i)) {
+    S.stats.passed++;
+    earn(tuition(i), p.x, p.y - 40);
+    leaveDesk(a);
+  } else {
+    S.stats.failed++;
+    popup('💧 ещё раз', p.x, p.y - 36, '#5b7fd6');
+    a.t = 0; a.dur = lessonTime(i);
   }
 }
+function leaveDesk(a) {
+  const i = a.c, R = roomRect(i), p = deskPos(i, a.desk);
+  deskOcc[i][a.desk] = null; a.desk = -1;
+  a.state = 'walk';
+  a.path = [{ x: p.x, y: R.doorY }, { x: R.doorX + (R.left ? -10 : 10), y: R.doorY }, { x: CX, y: R.doorY }];
+  a.onArrive = () => goClass(a, nextClass(i));
+  pullWaiting(i);
+}
+function pullWaiting(i) {
+  while (waitList[i].length) {
+    const d = freeDesk(i); if (d < 0) break;
+    seat(waitList[i].shift(), i, d);
+  }
+  waitList[i].forEach((w, k) => { w.state = 'walkwait'; w.path = [waitSpot(i, k)]; w.onArrive = () => { w.state = 'wait'; }; });
+}
+function goGraduate(a) {
+  a.c = -1; a.state = 'walk';
+  a.path = [{ x: CX, y: GT - 6 }, { x: CX + (Math.random() * 140 - 70), y: 74 + Math.random() * 40 }];
+  a.onArrive = () => {
+    S.stats.graduated++;
+    popup('🎓 ⭐+1', a.x, a.y - 34, '#7b5cd6');
+    a.state = 'fly'; a.t = 0; a.vx = (Math.random() < 0.5 ? -1 : 1) * (20 + Math.random() * 20);
+  };
+}
 
-function autoAssign() {
-  const classes = S.rooms.filter((r) => ROOM_TYPES[r.type].kind === 'class')
-    .sort((a, b) => ROOM_TYPES[b.type].rate - ROOM_TYPES[a.type].rate);
-  for (const s of S.students) {
-    if (s.room) continue;
-    const free = classes.find((r) => seated(r).length < seats(r));
-    if (free) s.room = free.type;
+function stepAgents(dt) {
+  for (const a of agents) {
+    a.ph += dt;
+    if (a.state === 'fly') { a.t += dt; a.y -= (30 + a.t * 40) * dt; a.x += a.vx * dt; continue; }
+    if (a.path.length) {
+      const p = a.path[0], dx = p.x - a.x, dy = p.y - a.y, dist = Math.hypot(dx, dy);
+      const stepLen = a.speed * dt;
+      if (Math.abs(dx) > 0.5) a.flip = dx < 0;
+      if (dist <= stepLen) {
+        a.x = p.x; a.y = p.y; a.path.shift();
+        if (!a.path.length && a.onArrive) { const f = a.onArrive; a.onArrive = null; f(); }
+      } else { a.x += dx / dist * stepLen; a.y += dy / dist * stepLen; }
+      continue;
+    }
+    if (a.state === 'study') { a.t += dt; if (a.t >= a.dur) finishLesson(a); }
+  }
+  agents = agents.filter((a) => !(a.state === 'fly' && a.y < -80));
+}
+
+function stepWorld(dt) {
+  arrivalT -= dt;
+  if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6) spawn(); }
+  startNextProcess();
+  if (processing) { procT += dt; if (procT >= procTime()) finishProcess(); }
+  S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; } });
+  stepAgents(dt);
+  for (let i = popups.length - 1; i >= 0; i--) { const p = popups[i]; p.t += dt; p.y -= 22 * dt; if (p.t > 1.3) popups.splice(i, 1); }
+}
+
+// ======================= rendering =======================
+const canvas = $('#world'), ctx = canvas.getContext('2d');
+const scroller = $('#view');
+let scale = 1, dpr = 1, viewH = 0;
+const sprites = {};
+for (const sp of SPECIES) { const im = new Image(); im.src = `assets/creatures/${sp}.png`; sprites[sp] = im; }
+const popups = [];
+function popup(t, x, y, color) { popups.push({ text: t, x, y, color, t: 0 }); }
+
+function resize() {
+  const r = scroller.getBoundingClientRect();
+  dpr = Math.min(3, window.devicePixelRatio || 1);
+  scale = r.width / W; viewH = r.height;
+  canvas.style.width = r.width + 'px'; canvas.style.height = r.height + 'px';
+  canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
+  $('#spacer').style.height = H * scale + 'px';
+}
+
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function emoji(e, x, y, size) { ctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(e, x, y); }
+function text(t, x, y, size, color, weight = 700) { ctx.font = `${weight} ${size}px ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = color; ctx.fillText(t, x, y); }
+
+function drawGround() {
+  ctx.fillStyle = '#a9d98f'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#9ccf82';
+  for (let i = 0; i < 160; i++) { const x = (i * 97) % W, y = (i * 211) % H; ctx.fillRect(x, y, 3, 2); }
+  // garden at the top
+  ctx.fillStyle = '#c7e9b0'; rr(40, 20, W - 80, GT - 30, 30); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.setLineDash([6, 6]); ctx.stroke(); ctx.setLineDash([]);
+  text('Сад выпускников', CX, 36, 13, '#4f7a3d');
+  emoji('🌳', 70, 62, 30); emoji('🌸', 330, 70, 24); emoji('🌷', 92, 112, 18); emoji('⛲', CX, 96, 30); emoji('🌳', 335, 115, 26);
+  // corridor
+  ctx.fillStyle = '#f3e6cf'; ctx.fillRect(CX - CORR, GT - 14, CORR * 2, recTop - GT + 20);
+  ctx.fillStyle = '#e7d5b5'; for (let y = GT; y < recTop; y += 24) ctx.fillRect(CX - CORR, y, CORR * 2, 2);
+  ctx.fillStyle = '#c9b8ee'; ctx.fillRect(CX - 9, GT - 14, 18, recTop - GT + 20);
+  // reception hall
+  ctx.fillStyle = '#f6ead6'; rr(16, recTop + 4, W - 32, RECH - 8, 18); ctx.fill();
+  ctx.fillStyle = '#d8c3f2'; rr(16, recTop + 4, W - 32, 30, [18, 18, 0, 0]); ctx.fill();
+  ctx.fillStyle = '#c8b0ec'; ctx.fillRect(16, recTop + 34, W - 32, 4);
+  text('Приёмная', CX, recTop + 19, 13, '#5a3fb0');
+  ctx.fillStyle = '#ffd1e3'; ctx.fillRect(CX - 16, recTop + 100, 32, RECH - 96);
+  // reception desk
+  ctx.fillStyle = '#b98457'; rr(CX - 56, DESK_FRONT.y - 26, 112, 22, 6); ctx.fill();
+  ctx.fillStyle = '#9a6a41'; ctx.fillRect(CX - 56, DESK_FRONT.y - 8, 112, 8);
+  emoji('📜', CX - 38, DESK_FRONT.y - 17, 14); emoji('🔔', CX + 40, DESK_FRONT.y - 17, 14);
+  emoji('🪴', 40, recTop + 60, 24); emoji('🪴', W - 40, recTop + 60, 24); emoji('🛋️', 56, recTop + 182, 26); emoji('🗺️', W - 56, recTop + 172, 24);
+  // gate
+  ctx.fillStyle = '#8d6a9f'; ctx.fillRect(CX - 40, H - GATE + 10, 10, 50); ctx.fillRect(CX + 30, H - GATE + 10, 10, 50);
+  ctx.fillStyle = '#6c4fd1'; rr(CX - 46, H - GATE + 2, 92, 14, 6); ctx.fill();
+  text('ВОРОТА', CX, H - GATE + 9, 9, '#fff');
+}
+
+function drawRoom(i) {
+  const R = roomRect(i), C = CLASSES[i], st = S.classes[i];
+  if (!st.built) { drawPlot(i); return; }
+  ctx.fillStyle = C.floor; rr(R.x, R.y, R.w, R.h, 10); ctx.fill();
+  ctx.strokeStyle = '#0000000f'; ctx.lineWidth = 1;
+  for (let y = R.y + 40; y < R.y + R.h; y += 16) { ctx.beginPath(); ctx.moveTo(R.x + 4, y); ctx.lineTo(R.x + R.w - 4, y); ctx.stroke(); }
+  ctx.fillStyle = C.wall; rr(R.x, R.y, R.w, 38, [10, 10, 0, 0]); ctx.fill();
+  ctx.fillStyle = '#00000018'; ctx.fillRect(R.x, R.y + 34, R.w, 4);
+  ctx.fillStyle = '#fff'; ctx.fillRect(R.x, R.y, 4, R.h); ctx.fillRect(R.x + R.w - 4, R.y, 4, R.h); ctx.fillRect(R.x, R.y + R.h - 4, R.w, 4);
+  ctx.fillStyle = C.floor; ctx.fillRect(R.left ? R.x + R.w - 4 : R.x, R.doorY - 14, 4, 28);
+  ctx.fillStyle = '#3f5f4a'; rr(R.x + R.w / 2 - 34, R.y + 6, 68, 24, 4); ctx.fill();
+  ctx.strokeStyle = '#a77b4f'; ctx.lineWidth = 2; ctx.stroke();
+  text(C.emoji + ' ' + C.name, R.x + R.w / 2, R.y + R.h - 12, 10.5, '#5d4a6e');
+  const spots = [[R.x + 16, R.y + 20], [R.x + R.w - 16, R.y + 20], [R.x + 16, R.y + R.h - 32], [R.x + R.w - 16, R.y + R.h - 32]];
+  C.items.forEach((it, k) => { if (st.items[k] > 0) emoji(it.emoji, spots[k][0], spots[k][1], 15 + Math.min(8, st.items[k] / 3)); });
+  if (st.buildEnd && Date.now() < st.buildEnd) {
+    ctx.fillStyle = '#ffffffcc'; rr(R.x, R.y, R.w, R.h, 10); ctx.fill();
+    emoji('🏗️', R.x + R.w / 2, R.y + R.h / 2 - 16, 36);
+    const left = Math.ceil((st.buildEnd - Date.now()) / 1000);
+    text(`Стройка ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, R.x + R.w / 2, R.y + R.h / 2 + 22, 13, '#5a3fb0');
   }
 }
+function drawPlot(i) {
+  const R = roomRect(i), C = CLASSES[i];
+  const next = S.classes.findIndex((c) => !c.built) === i;
+  ctx.fillStyle = '#b9e2a0'; rr(R.x, R.y, R.w, R.h, 10); ctx.fill();
+  ctx.strokeStyle = '#ffffffaa'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.stroke(); ctx.setLineDash([]);
+  if (next) {
+    ctx.fillStyle = '#fffaf0'; rr(R.x + R.w / 2 - 60, R.y + R.h / 2 - 34, 120, 64, 10); ctx.fill();
+    ctx.strokeStyle = '#b98457'; ctx.lineWidth = 3; ctx.stroke();
+    text(C.emoji + ' ' + C.name, R.x + R.w / 2, R.y + R.h / 2 - 16, 11, '#5d4a6e');
+    text('🪙 ' + fmt(C.build), R.x + R.w / 2, R.y + R.h / 2 + 8, 14, S.coins >= C.build ? '#2f9e7a' : '#b05a7a');
+    if (S.coins >= C.build) text('Нажми, чтобы построить', R.x + R.w / 2, R.y + R.h / 2 + 46, 10, '#2f6e3a');
+  } else { emoji('🔒', R.x + R.w / 2, R.y + R.h / 2, 22); }
+}
 
-// ---------- actions ----------
-function spend(cost) { if (S.coins < cost) { toast('Не хватает монет 🪙'); return false; } S.coins -= cost; return true; }
+function drawCreature(a, x, y, h, extra) {
+  const im = sprites[a.sp];
+  const walking = a.path && a.path.length > 0;
+  const bob = walking ? Math.abs(Math.sin(a.ph * 9)) * 2.5 : Math.sin(a.ph * 2) * 0.8;
+  ctx.fillStyle = '#00000022'; ctx.beginPath(); ctx.ellipse(x, y, h * 0.32, h * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.translate(x, y - bob);
+  if (a.flip) ctx.scale(-1, 1);
+  if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; ctx.drawImage(im, -w / 2, -h, w, h); }
+  else { ctx.fillStyle = '#ffd6e8'; ctx.beginPath(); ctx.ellipse(0, -h / 2, h / 2.6, h / 2.2, 0, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+  if (extra) extra();
+}
+function ring(x, y, frac, color = '#3fbf6f') {
+  ctx.fillStyle = '#ffffffdd'; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); ctx.stroke();
+}
+const staff = SPECIES.map((sp, k) => ({ sp, ph: k * 1.7, flip: false, path: [] }));
+const officer = { sp: 'fernhorn', ph: 0.5, flip: false, path: [] };
+function drawHat(x, y, color) {
+  ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x, y - 16); ctx.lineTo(x - 8, y); ctx.lineTo(x + 8, y); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x, y, 11, 3, 0, 0, Math.PI * 2); ctx.fill();
+  emoji('⭐', x, y - 8, 7);
+}
 
-function collect(type, el) {
-  const r = room(type);
-  const amount = Math.floor(r.store);
-  if (amount < 1) return;
-  r.store -= amount; S.coins += amount; S.stats.collected++;
-  flyCoins(el, amount);
-  refresh();
-}
-function upgrade(type) {
-  const r = room(type);
-  if (r.level >= MAX_ROOM_LEVEL) return;
-  if (!spend(upCost(r))) return;
-  r.level++;
-  autoAssign(); sparkle(`${ROOM_TYPES[type].name}: уровень ${r.level}!`); refresh(true);
-}
-function build(type) {
-  const def = ROOM_TYPES[type];
-  if (room(type) || S.stars < def.unlock) return;
-  if (!spend(def.build)) return;
-  S.rooms.push({ type, level: 1, store: 0, decor: [null, null, null] });
-  autoAssign(); sparkle(`Построено: ${def.name}!`); refresh(true);
-}
-function recruit() {
-  if (S.students.length >= beds()) { toast('Нет свободных кроватей — улучши Спальню 🛏️'); return; }
-  if (!spend(recruitCost())) return;
-  const s = newStudent();
-  S.students.push(s); S.stats.recruited++;
-  autoAssign();
-  sparkle(`${s.name} поступает в школу!`); refresh(true);
-}
-function buyDecor(type, slot, id) {
-  const r = room(type), d = DECOR.find((x) => x.id === id);
-  if (r.decor[slot] === id) return;
-  if (!spend(d.cost)) return;
-  r.decor[slot] = id; S.stats.decor++;
-  sparkle(`${d.emoji} Уютнее!`); refresh(true);
-}
-function moveStudent(id, type) {
-  const s = S.students.find((x) => x.id === id), r = room(type);
-  if (seated(r).length >= seats(r)) { toast('В классе нет мест'); return; }
-  s.room = type; refresh(true);
-}
-function takeExam(id) {
-  const s = S.students.find((x) => x.id === id);
-  if (!examReady(s)) return null;
-  const chance = examParts(s).total;
-  const pass = Math.random() < chance;
-  if (!pass) { s.xp = xpNeed(s.course) * 0.5; S.stats.failed++; return { pass, grad: false }; }
-  S.stats.passed++;
-  S.stars += s.course;
-  if (s.course >= MAX_COURSE) {
-    S.stars += 20; S.stats.graduated++;
-    S.students = S.students.filter((x) => x !== s);
-    autoAssign();
-    return { pass, grad: true, stars: s.course + 20 };
+function render() {
+  const camY = scroller.scrollTop / scale;
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, -camY * dpr * scale);
+  ctx.clearRect(0, camY, W, viewH / scale);
+  drawGround();
+  for (let i = 0; i < CLASSES.length; i++) drawRoom(i);
+
+  const list = [];
+  for (let i = 0; i < CLASSES.length; i++) {
+    if (!isOpen(i)) continue;
+    const tp = teacherPos(i);
+    list.push({ y: tp.y, draw: () => drawCreature(staff[(i + 1) % staff.length], tp.x, tp.y, 42, () => drawHat(tp.x, tp.y - 39, '#6c4fd1')) });
+    for (let d = 0; d < S.classes[i].desks; d++) {
+      const p = deskPos(i, d);
+      list.push({ y: p.y + 7, draw: () => { ctx.fillStyle = '#c49a6c'; rr(p.x - 17, p.y - 4, 34, 12, 3); ctx.fill(); ctx.fillStyle = '#a57b4f'; ctx.fillRect(p.x - 17, p.y + 6, 34, 4); emoji('📖', p.x, p.y + 1, 9); } });
+    }
   }
-  s.course++; s.xp = 0;
-  return { pass, grad: false, stars: s.course - 1 };
+  const off = { x: CX, y: DESK_FRONT.y - 28 };
+  list.push({ y: off.y, draw: () => drawCreature(officer, off.x, off.y, 42, () => {
+    drawHat(off.x, off.y - 39, '#d14f8f');
+    if (processing) ring(off.x + 22, off.y - 30, Math.min(1, procT / procTime()), '#ff8a3d');
+  }) });
+  for (const a of agents) {
+    list.push({ y: a.y, draw: () => drawCreature(a, a.x, a.y, 36, () => {
+      if (a.state === 'study' && !a.path.length) ring(a.x + 16, a.y - 38, Math.min(1, a.t / a.dur));
+      if (a.state === 'fly') emoji('✨', a.x - 14, a.y - 6, 10);
+    }) });
+  }
+  list.sort((p, q) => p.y - q.y).forEach((o) => o.draw());
+  for (const p of popups) { ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, p.x, p.y, 13, p.color); ctx.globalAlpha = 1; }
 }
 
-// ---------- rendering helpers ----------
+// ======================= UI =======================
 function fmt(n) {
   n = Math.floor(n);
   if (n < 1000) return String(n);
-  const units = [['T', 1e12], ['B', 1e9], ['M', 1e6], ['K', 1e3]];
-  for (const [u, v] of units) if (n >= v) return (n / v).toFixed(n / v < 10 ? 1 : 0).replace('.', ',') + u;
+  const u = [['T', 1e12], ['B', 1e9], ['M', 1e6], ['K', 1e3]];
+  for (const [s, v] of u) if (n >= v) return (n / v).toFixed(n / v < 10 ? 1 : 0).replace('.', ',') + s;
   return String(n);
 }
-function studentSVG(s, size = 44) {
-  return `<svg class="blob" width="${size}" height="${size * 1.07}" viewBox="0 0 60 64" aria-hidden="true">
-    <ellipse cx="30" cy="62" rx="15" ry="2.5" fill="#000" opacity=".12"/>
-    <ellipse cx="30" cy="44" rx="20" ry="18" fill="${s.body}"/>
-    <ellipse cx="24" cy="38" rx="6" ry="4" fill="#fff" opacity=".35"/>
-    <circle cx="23" cy="43" r="3.2" fill="#3a2f4a"/><circle cx="37" cy="43" r="3.2" fill="#3a2f4a"/>
-    <circle cx="24" cy="42" r="1.1" fill="#fff"/><circle cx="38" cy="42" r="1.1" fill="#fff"/>
-    <ellipse cx="17.5" cy="49" rx="3.5" ry="2" fill="#ff7fa3" opacity=".55"/><ellipse cx="42.5" cy="49" rx="3.5" ry="2" fill="#ff7fa3" opacity=".55"/>
-    <path d="M27 49 q3 3.2 6 0" stroke="#3a2f4a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-    <path d="M30 3 L17 28 L43 28 Z" fill="${s.hat}"/>
-    <ellipse cx="30" cy="28" rx="17" ry="4" fill="${s.hat}"/>
-    <path d="M30 11 l1.6 3.3 3.6.5-2.6 2.5.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.5 3.6-.5z" fill="#ffe066"/>
-  </svg>`;
-}
-function costBtn(label, cost, action, extra = '') {
-  return `<button class="btn" data-cost="${cost}" data-act="${action}" ${extra}>${label} <span class="cost">🪙${fmt(cost)}</span></button>`;
-}
+const pct = (x) => Math.round(x * 100) + '%';
+const sec = (x) => x.toFixed(1).replace('.', ',') + ' с';
+function costBtn(label, cost, act, extra = '') { return `<button class="btn" data-cost="${cost}" data-act="${act}" ${extra}>${label} <span class="cost">🪙${fmt(cost)}</span></button>`; }
 
-// ---------- screens ----------
-let tab = 'school';
-let structKey = '';
+let panel = null; let dirtyPanel = false;
+function openPanel(fn) { panel = fn; $('#sheet').innerHTML = fn(); $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
+function closePanel() { panel = null; $('#sheet-wrap').classList.add('hidden'); }
+function refreshPanel() { if (panel) { const sc = $('#sheet').scrollTop; $('#sheet').innerHTML = panel(); $('#sheet').scrollTop = sc; } updateHud(); }
 
-function structureKey() {
-  return tab + '|' + S.stars + '|' + S.rooms.map((r) => `${r.type}${r.level}${r.decor.join(',')}`).join(';') + '|' +
-    S.students.map((s) => `${s.id}${s.room}${s.course}${examReady(s) ? 'R' : ''}`).join(';');
-}
-
-function renderSchool() {
-  const rooms = [...S.rooms].reverse();
-  let h = `<div class="tower"><div class="roof"><div class="flag">✦</div></div>`;
-  for (const r of rooms) {
-    const def = ROOM_TYPES[r.type];
-    const decor = r.decor.map((d) => `<span class="dec">${d ? DECOR.find((x) => x.id === d).emoji : ''}</span>`).join('');
-    let body = '';
-    if (def.kind === 'class') {
-      const st = seated(r);
-      body = st.map((s) => `<div class="seat" data-stud="${s.id}">
-          ${examReady(s) ? '<div class="scroll">📜</div>' : ''}
-          ${studentSVG(s, 40)}<div class="xp"><i data-xp="${s.id}"></i></div><div class="crs">${s.course}</div></div>`).join('');
-      for (let i = st.length; i < seats(r); i++) body += `<div class="seat empty"><div class="chair"></div></div>`;
-      body = `<div class="seats">${body}</div>`;
-    } else if (r.type === 'dorm') {
-      const idle = S.students.filter((s) => !s.room);
-      body = `<div class="dorm-info">🛏️ Кроватей: <b>${S.students.length}/${beds()}</b>${idle.length ? ` · без места в классе: ${idle.length}` : ''}</div>
-        <div class="seats">${idle.map((s) => `<div class="seat sleepy">${studentSVG(s, 36)}<div class="zz">z</div></div>`).join('')}</div>`;
-    } else if (r.type === 'canteen') {
-      body = `<div class="dorm-info">Учёба быстрее: <b>×${studySpeed().toFixed(2).replace('.', ',')}</b></div>`;
-    } else if (r.type === 'library') {
-      body = `<div class="dorm-info">Шанс сдать экзамен: <b>+${Math.round(level('library') * 5)}%</b></div>`;
-    }
-    h += `<section class="room" style="--c:${def.color}" data-room="${r.type}">
-        <div class="room-head"><span class="remoji">${def.emoji}</span><span class="rname">${def.name}</span>
-          <span class="lvl">ур. ${r.level}</span><span class="decs">${decor}</span></div>
-        ${body}
-        ${def.kind === 'class' ? `<button class="coin-bubble hidden" data-collect="${r.type}">🪙 <b data-store="${r.type}">0</b></button>` : ''}
-      </section>`;
-  }
-  h += `<div class="ground"><div class="door"></div></div></div>`;
-  const next = BUILD_ORDER.find((t) => !room(t));
-  h += next ? `<button class="room add" data-goto="build">＋ Построить новую комнату</button>` : '';
-  return h;
-}
-
-function renderStudents() {
-  const full = S.students.length >= beds();
-  let h = `<div class="card recruit">
-      <div class="blob-big">${studentSVG({ body: '#fff', hat: '#c9b8ff' }, 54)}</div>
-      <div><b>Новый ученик</b><div class="muted">Кроватей: ${S.students.length}/${beds()}</div></div>
-      ${full ? `<button class="btn" data-goto-room="dorm">Улучшить Спальню</button>` : costBtn('Принять', recruitCost(), 'recruit')}
-    </div>`;
-  const list = [...S.students].sort((a, b) => b.course - a.course);
-  for (const s of list) {
-    const r = s.room ? room(s.room) : null;
-    const chance = r ? Math.round(examParts(s).total * 100) : null;
-    h += `<div class="card stud">
-        <div class="seat">${examReady(s) ? '<div class="scroll">📜</div>' : ''}${studentSVG(s, 46)}</div>
-        <div class="grow"><b>${s.name}</b> · курс ${s.course}/${MAX_COURSE}
-          <div class="muted">${r ? `${ROOM_TYPES[r.type].emoji} ${ROOM_TYPES[r.type].name} · шанс экзамена ${chance}%` : 'Нет места в классе — построй или улучши класс'}</div>
-          <div class="xp wide"><i data-xp="${s.id}"></i></div></div>
-        <div class="col">
-          ${examReady(s) ? `<button class="btn hot" data-exam="${s.id}">Экзамен</button>` : ''}
-          ${r || S.rooms.some((x) => ROOM_TYPES[x.type].kind === 'class' && seated(x).length < seats(x)) ? `<button class="btn ghost" data-move="${s.id}">Перевести</button>` : ''}
-        </div></div>`;
-  }
-  return h;
-}
-
-function renderBuild() {
-  let h = '<div class="muted pad">Звёзды ⭐ дают ученики, которые сдают экзамены. Они открывают новые комнаты.</div>';
-  for (const t of BUILD_ORDER) {
-    const def = ROOM_TYPES[t];
-    const built = room(t);
-    const locked = S.stars < def.unlock;
-    h += `<div class="card build ${locked ? 'locked' : ''}" style="--c:${def.color}">
-        <div class="remoji big">${def.emoji}</div>
-        <div class="grow"><b>${def.name}</b>${def.kind === 'class' ? ` <span class="tag">класс ×${String(def.rate).replace('.', ',')}</span>` : ''}
-          <div class="muted">${def.desc}</div></div>
-        <div class="col">${built ? `<span class="done">✓ есть</span>` : locked ? `<span class="lock">🔒 ⭐${def.unlock}</span>` : costBtn('Построить', def.build, 'build', `data-type="${t}"`)}</div>
-      </div>`;
-  }
-  return h;
-}
-
-function renderScreen() {
-  const sc = $('#screen');
-  const top = sc.scrollTop;
-  sc.innerHTML = tab === 'school' ? renderSchool() : tab === 'students' ? renderStudents() : renderBuild();
-  sc.scrollTop = top;
-}
-
-// ---------- quest banner ----------
-const ctx = { level };
-function renderQuest() {
-  const q = QUESTS[S.quest];
-  const el = $('#quest');
-  if (!q) { el.innerHTML = '<div class="q done-all">🌟 Все задания пройдены! Расти свою школу дальше.</div>'; return; }
-  const ok = q.check(S, ctx);
-  el.innerHTML = `<div class="q ${ok ? 'ok' : ''}"><span class="qi">${ok ? '🎁' : '📋'}</span><span class="qt">${q.text}</span>
-    ${ok ? `<button class="btn hot small" data-quest>Забрать 🪙${q.reward}</button>` : `<span class="qr">🪙${q.reward}</span>`}</div>`;
-}
-
-// ---------- sheets (bottom panels) ----------
-let sheet = null; // function that returns html, re-run on refresh
-function openSheet(fn) { sheet = fn; $('#sheet').innerHTML = fn(); $('#sheet-wrap').classList.remove('hidden'); updateDynamic(); }
-function closeSheet() { sheet = null; $('#sheet-wrap').classList.add('hidden'); }
-
-function roomSheet(type) {
+function classPanel(i) {
   return () => {
-    const r = room(type); const def = ROOM_TYPES[type];
-    let eff = '';
-    if (def.kind === 'class') eff = `Мест: <b>${seats(r)}</b> · доход <b>${fmt(roomRate(r) * 60)}</b> 🪙/мин · уют <b>${comfort(r)}</b> (шанс экзамена +${(comfort(r) * 2.5).toFixed(1).replace('.', ',')}%)`;
-    if (type === 'dorm') eff = `Кроватей: <b>${beds()}</b> (на след. уровне ${beds() + 2})`;
-    if (type === 'canteen') eff = `Учёба быстрее ×${studySpeed().toFixed(2).replace('.', ',')}`;
-    if (type === 'library') eff = `Шанс экзамена +${level('library') * 5}% (на след. уровне +${(level('library') + 1) * 5}%)`;
-    const max = r.level >= MAX_ROOM_LEVEL;
-    let h = `<div class="sh-head" style="--c:${def.color}"><span class="remoji big">${def.emoji}</span><div><h2>${def.name}</h2><div class="muted">Уровень ${r.level}/${MAX_ROOM_LEVEL}</div></div><button class="x" data-close>✕</button></div>
-      <p class="muted">${def.desc}</p><p>${eff}</p>
-      ${max ? '<div class="done">Максимальный уровень ✨</div>' : costBtn(`Улучшить до ${r.level + 1} ур.`, upCost(r), 'upgrade', `data-type="${type}"`)}
-      <h3>Украшения <span class="muted">(уют помогает сдавать экзамены)</span></h3><div class="slots">`;
-    r.decor.forEach((d, i) => { h += `<button class="slot" data-slot="${i}" data-type="${type}">${d ? DECOR.find((x) => x.id === d).emoji : '＋'}</button>`; });
-    return h + '</div>';
+    const C = CLASSES[i], st = S.classes[i];
+    if (!isOpen(i)) {
+      const left = Math.max(0, Math.ceil((st.buildEnd - Date.now()) / 1000));
+      return `<div class="sh-head"><span class="remoji big">🏗️</span><div><h2>${C.name}</h2><div class="muted">Идёт стройка: ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</div></div><button class="x" data-close>✕</button></div>`;
+    }
+    let h = `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">Урок ${i + 1} из ${CLASSES.length}</div></div><button class="x" data-close>✕</button></div>
+      <div class="stats3"><div><span>🪙</span><b>${fmt(tuition(i))}</b><i>плата</i></div><div><span>🎯</span><b>${pct(success(i))}</b><i>сдают экзамен</i></div><div><span>⏱️</span><b>${sec(lessonTime(i))}</b><i>урок</i></div></div>`;
+    h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · +5% платы и +1,5% к экзамену</div></div>
+      ${st.teacher >= MAX_TEACHER_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', teacherCost(i), 'teacher', `data-i="${i}"`)}</div>`;
+    h += `<div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Парты: ${st.desks}/${MAX_DESKS}</b><div class="muted">больше учеников за раз</div></div>
+      ${st.desks >= MAX_DESKS ? '<span class="done">макс.</span>' : costBtn('+1', deskCost(i), 'desk', `data-i="${i}"`)}</div>`;
+    h += `<div class="card up"><span class="remoji">⏱️</span><div class="grow"><b>Урок короче</b><div class="muted">ур. ${st.time}/${MAX_TIME_LEVEL} · −8% времени</div></div>
+      ${st.time >= MAX_TIME_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', timeCost(i), 'time', `data-i="${i}"`)}</div>`;
+    h += '<h3>Обстановка класса</h3>';
+    C.items.forEach((it, k) => {
+      const lv = st.items[k];
+      h += `<div class="card up"><span class="remoji">${it.emoji}</span><div class="grow"><b>${it.name}</b> <span class="muted">ур. ${lv}</span>
+        <div class="muted">${it.kind === 'tuition' ? '+8% платы' : '+1% к экзамену'} за уровень</div><div class="lvbar"><i style="width:${lv / MAX_ITEM_LEVEL * 100}%"></i></div></div>
+        ${lv >= MAX_ITEM_LEVEL ? '<span class="done">макс.</span>' : costBtn(lv ? '↑' : 'Купить', itemCost(i, k), 'item', `data-i="${i}" data-k="${k}"`)}</div>`;
+    });
+    return h;
   };
 }
-function decorSheet(type, slot) {
+function receptionPanel() {
+  return `<div class="sh-head"><span class="remoji big">🛎️</span><div><h2>Приёмная</h2><div class="muted">Здесь новые ученики поступают в школу</div></div><button class="x" data-close>✕</button></div>
+    <div class="stats3"><div><span>🪙</span><b>${fee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${sec(procTime())}</b><i>оформление</i></div><div><span>🚶</span><b>${sec(arrivalInterval())}</b><i>новый ученик</i></div></div>
+    <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${S.reception.level}</span><div class="muted">быстрее оформляет, взнос больше</div></div>${costBtn('↑', recCost(), 'rec')}</div>
+    <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${S.reception.ads}</span><div class="muted">ученики приходят чаще</div></div>${costBtn('↑', adsCost(), 'ads')}</div>
+    <p class="muted">Всего поступило: ${S.stats.enrolled} · выпускников: ${S.stats.graduated}</p>`;
+}
+function buildPanel(i) {
   return () => {
-    const r = room(type);
-    let h = `<div class="sh-head"><h2>Украшение</h2><button class="x" data-back="${type}">←</button></div><div class="list">`;
-    for (const d of DECOR) {
-      h += `<div class="card"><span class="remoji big">${d.emoji}</span><div class="grow"><b>${d.name}</b><div class="muted">Уют +${d.comfort}</div></div>
-        ${r.decor[slot] === d.id ? '<span class="done">✓</span>' : costBtn('Купить', d.cost, 'decor', `data-type="${type}" data-slot="${slot}" data-id="${d.id}"`)}</div>`;
-    }
-    return h + '</div>';
+    const C = CLASSES[i];
+    return `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">Новый класс</div></div><button class="x" data-close>✕</button></div>
+      <p>Ученики будут приходить сюда после предыдущего урока. Плата за урок: <b>🪙${fmt(C.tuition)}</b>.</p>
+      <p class="muted">Стройка займёт ${C.buildTime >= 60 ? Math.round(C.buildTime / 60) + ' мин' : C.buildTime + ' с'}.</p>
+      <button class="btn wide" data-cost="${C.build}" data-act="build" data-i="${i}">Построить <span class="cost">🪙${fmt(C.build)}</span></button>`;
   };
 }
-function moveSheet(id) {
-  return () => {
-    const s = S.students.find((x) => x.id === id);
-    let h = `<div class="sh-head"><h2>Перевести: ${s.name}</h2><button class="x" data-close>✕</button></div><div class="list">`;
-    for (const r of S.rooms.filter((x) => ROOM_TYPES[x.type].kind === 'class')) {
-      const def = ROOM_TYPES[r.type]; const cur = s.room === r.type; const free = seated(r).length < seats(r);
-      h += `<div class="card"><span class="remoji big">${def.emoji}</span><div class="grow"><b>${def.name}</b><div class="muted">Мест ${seated(r).length}/${seats(r)} · ×${String(def.rate).replace('.', ',')} монет</div></div>
-        ${cur ? '<span class="done">сейчас тут</span>' : free ? `<button class="btn" data-moveto="${r.type}" data-id="${id}">Сюда</button>` : '<span class="muted">мест нет</span>'}</div>`;
-    }
-    return h + '</div>';
-  };
-}
-function examSheet(id, phase = 'ask', result = null) {
-  return () => {
-    const s = S.students.find((x) => x.id === id) || result?.student;
-    if (phase === 'ask') {
-      const { parts, total } = examParts(s);
-      const rows = parts.filter((p) => p[1] !== 0).map((p) => `<div class="row"><span>${p[0]}</span><b class="${p[1] < 0 ? 'neg' : ''}">${p[1] > 0 ? '+' : ''}${Math.round(p[1] * 100)}%</b></div>`).join('');
-      return `<div class="sh-head"><h2>Экзамен · курс ${s.course}</h2><button class="x" data-close>✕</button></div>
-        <div class="exam-stage">${studentSVG(s, 96)}</div>
-        <div class="center"><b>${s.name}</b> сдаёт «${ROOM_TYPES[s.room].name}»</div>
-        <div class="chance"><div class="cbar"><i style="width:${Math.round(total * 100)}%"></i></div><b>${Math.round(total * 100)}%</b></div>
-        <div class="rows">${rows}</div>
-        <button class="btn hot wide" data-doexam="${id}">✨ Сдавать!</button>`;
-    }
-    if (phase === 'spin') return `<div class="exam-stage spin">${studentSVG(s, 96)}<div class="magic-ring"></div></div><div class="center big-txt">Колдуем…</div>`;
-    const r = result;
-    if (r.grad) return `<div class="exam-stage win">${studentSVG(s, 96)}</div><div class="center big-txt">🎓 Выпускник!</div>
-      <p class="center">${s.name} окончил(а) школу магии! ⭐+${r.stars}<br>Освободилось место для нового ученика.</p><button class="btn wide" data-close>Ура!</button>`;
-    if (r.pass) return `<div class="exam-stage win">${studentSVG(s, 96)}</div><div class="center big-txt">Сдано! 🎉</div>
-      <p class="center">Теперь ${s.name} на ${s.course} курсе: монет больше. ⭐+${r.stars}</p><button class="btn wide" data-close>Отлично</button>`;
-    return `<div class="exam-stage lose">${studentSVG(s, 96)}</div><div class="center big-txt">Не получилось 😿</div>
-      <p class="center muted">Половина знаний осталась. Чтобы шанс был выше: улучши класс, построй Библиотеку, добавь украшения.</p><button class="btn wide" data-close>Попробуем ещё</button>`;
-  };
-}
-function settingsSheet() {
+function settingsPanel() {
   return `<div class="sh-head"><h2>Настройки</h2><button class="x" data-close>✕</button></div>
     <p class="muted">Прототип v${VERSION}. Картинки временные.</p>
-    <p>Сдано экзаменов: ${S.stats.passed} · не сдано: ${S.stats.failed} · выпускников: ${S.stats.graduated}</p>
+    <p>Экзаменов сдано: ${S.stats.passed} · не сдано: ${S.stats.failed} · выпускников: ${S.stats.graduated}</p>
     <button class="btn ghost wide" data-reset>Начать игру заново</button>`;
 }
 
-// ---------- effects ----------
-function toast(text) {
-  const t = document.createElement('div'); t.className = 'toast'; t.textContent = text;
-  $('#fx').appendChild(t); setTimeout(() => t.remove(), 1800);
+function renderMission() {
+  const m = MISSIONS[S.mission], el = $('#quest');
+  const ok = m ? m.check(G) : false;
+  const key = S.mission + (ok ? 'y' : 'n');
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  if (!m) { el.innerHTML = '<div class="q">🌟 Все задания выполнены!</div>'; return; }
+  el.innerHTML = `<div class="q ${ok ? 'ok' : ''}"><span class="qi">${ok ? '🎁' : '📋'}</span><span class="qt">${m.text}</span>
+    ${ok ? `<button class="btn hot small" data-mission>Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qr">🪙${fmt(m.reward)}</span>`}</div>`;
 }
-function sparkle(text) { toast('✨ ' + text); }
-function flyCoins(el, amount) {
-  const a = el.getBoundingClientRect(), b = $('#res-coins').getBoundingClientRect();
-  const f = document.createElement('div'); f.className = 'fly'; f.textContent = `+${fmt(amount)} 🪙`;
-  f.style.left = a.left + a.width / 2 + 'px'; f.style.top = a.top + 'px';
-  $('#fx').appendChild(f);
-  requestAnimationFrame(() => { f.style.transform = `translate(${b.left - a.left - a.width / 2}px, ${b.top - a.top}px) scale(.7)`; f.style.opacity = '0.2'; });
-  setTimeout(() => f.remove(), 800);
-  $('#res-coins').classList.add('pulse'); setTimeout(() => $('#res-coins').classList.remove('pulse'), 400);
-}
-
-// ---------- refresh loop ----------
-function updateDynamic() {
+function updateHud() {
   $('#coins').textContent = fmt(S.coins);
-  $('#stars').textContent = fmt(S.stars);
-  $('#studcount').textContent = `${S.students.length}/${beds()}`;
-  document.querySelectorAll('[data-store]').forEach((el) => {
-    const r = room(el.dataset.store); const v = Math.floor(r.store);
-    el.textContent = fmt(v);
-    el.parentElement.classList.toggle('hidden', v < 1);
-    el.parentElement.classList.toggle('full', r.store >= storeCap(r) - 0.5);
-  });
-  document.querySelectorAll('[data-xp]').forEach((el) => {
-    const s = S.students.find((x) => x.id === +el.dataset.xp);
-    if (s) el.style.width = Math.min(100, (s.xp / xpNeed(s.course)) * 100) + '%';
-  });
+  $('#stars').textContent = fmt(S.stats.graduated);
+  $('#rate').textContent = fmt(S.ema * 60) + '/мин';
   document.querySelectorAll('[data-cost]').forEach((el) => el.classList.toggle('poor', S.coins < +el.dataset.cost));
+  renderMission();
 }
-function refresh(force = false) {
-  const k = structureKey();
-  if (force || k !== structKey) { structKey = k; renderScreen(); }
-  if (sheet && force) $('#sheet').innerHTML = sheet();
-  renderQuest();
-  updateDynamic();
-}
+function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
 
-let lastTick = performance.now();
-let saveTimer = 0;
-function loop() {
-  const now = performance.now();
-  const dt = Math.min(5, (now - lastTick) / 1000); lastTick = now;
-  step(dt);
-  S.last = Date.now();
-  refresh();
-  saveTimer += dt; if (saveTimer > 5) { saveTimer = 0; save(); }
-}
+// ======================= input =======================
+let down = null;
+scroller.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, st: scroller.scrollTop }; });
+scroller.addEventListener('pointerup', (e) => {
+  if (!down) return;
+  const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y) + Math.abs(scroller.scrollTop - down.st);
+  down = null; if (moved > 10) return;
+  const r = scroller.getBoundingClientRect();
+  const wx = (e.clientX - r.left) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
+  for (let i = 0; i < CLASSES.length; i++) {
+    const R = roomRect(i);
+    if (wx >= R.x && wx <= R.x + R.w && wy >= R.y && wy <= R.y + R.h) {
+      if (S.classes[i].built) openPanel(classPanel(i));
+      else if (S.classes.findIndex((c) => !c.built) === i) openPanel(buildPanel(i));
+      else toast('Сначала построй предыдущий класс');
+      return;
+    }
+  }
+  if (wy > recTop && wy < recTop + RECH) { openPanel(receptionPanel); return; }
+  if (wy < GT) toast(`🎓 Выпускников: ${S.stats.graduated}`);
+});
 
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button'); if (!t) return;
+  const d = t.dataset, i = +d.i;
+  if (d.close !== undefined) { closePanel(); return; }
+  if (d.mission !== undefined) { const m = MISSIONS[S.mission]; if (m && m.check(G)) { S.coins += m.reward; S.mission++; toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); } return; }
+  if (t.id === 'btn-settings') { openPanel(settingsPanel); return; }
+  if (d.reset !== undefined) { if (confirm('Точно начать заново? Весь прогресс пропадёт.')) { localStorage.removeItem(SAVE_KEY); S = null; location.reload(); } return; }
+  const st = S.classes[i];
+  if (d.act === 'teacher') { if (spend(teacherCost(i))) st.teacher++; }
+  else if (d.act === 'desk') { if (spend(deskCost(i))) { st.desks++; pullWaiting(i); } }
+  else if (d.act === 'time') { if (spend(timeCost(i))) st.time++; }
+  else if (d.act === 'item') { if (spend(itemCost(i, +d.k))) st.items[+d.k]++; }
+  else if (d.act === 'rec') { if (spend(recCost())) S.reception.level++; }
+  else if (d.act === 'ads') { if (spend(adsCost())) S.reception.ads++; }
+  else if (d.act === 'build') { if (spend(CLASSES[i].build)) { st.built = true; st.buildEnd = Date.now() + CLASSES[i].buildTime * 1000; panel = classPanel(i); } }
+  else return;
+  refreshPanel(); save();
+});
+$('#sheet-bg').addEventListener('click', closePanel);
+
+// ======================= loop, offline =======================
+let earnedThisSec = 0, secT = 0, saveT = 0, last = performance.now(), panelT = 0;
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  stepWorld(dt);
+  secT += dt; if (secT >= 1) { S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); }
+  panelT += dt; if (panel && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
+  saveT += dt; if (saveT > 5) { saveT = 0; save(); }
+  render();
+  requestAnimationFrame(frame);
+}
 function applyOffline() {
   const away = Math.min(OFFLINE_CAP_SEC, (Date.now() - (S.last || Date.now())) / 1000);
-  if (away < 60) return;
-  const before = S.rooms.reduce((a, r) => a + r.store, 0);
-  step(away);
-  const gained = Math.floor(S.rooms.reduce((a, r) => a + r.store, 0) - before);
+  if (away < 60 || S.ema <= 0) return;
+  const gain = Math.floor(S.ema * away);
+  if (gain < 1) return;
+  S.coins += gain;
   const mins = Math.round(away / 60);
-  if (gained > 0) {
-    openSheet(() => `<div class="sh-head"><h2>С возвращением!</h2><button class="x" data-close>✕</button></div>
-      <p class="center">Пока тебя не было ${mins >= 60 ? Math.floor(mins / 60) + ' ч ' : ''}${mins % 60} мин, ученики учились.</p>
-      <div class="center big-txt">🪙 ${fmt(gained)}</div><p class="center muted">Монетки ждут в классах — нажми на них.</p>
-      <button class="btn wide" data-close>Забрать</button>`);
-  }
+  openPanel(() => `<div class="sh-head"><h2>С возвращением!</h2><button class="x" data-close>✕</button></div>
+    <p class="center">Пока тебя не было ${mins >= 60 ? Math.floor(mins / 60) + ' ч ' : ''}${mins % 60} мин, школа работала.</p>
+    <div class="center big-txt">🪙 +${fmt(gain)}</div><button class="btn wide" data-close>Ура!</button>`);
 }
+document.addEventListener('visibilitychange', () => { if (document.hidden) { if (S) save(); } else { applyOffline(); last = performance.now(); } });
+window.addEventListener('pagehide', () => { if (S) save(); });
+window.addEventListener('resize', resize);
 
-// ---------- input ----------
-document.addEventListener('click', (e) => {
-  const t = e.target.closest('button, [data-room], [data-stud]');
-  if (!t) return;
-  const d = t.dataset;
-  if (d.tab) {
-    tab = d.tab;
-    document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b === t));
-    refresh(true); $('#screen').scrollTop = 0; return;
-  }
-  if (d.collect) { collect(d.collect, t); return; }
-  if (d.quest !== undefined) {
-    const q = QUESTS[S.quest]; if (q && q.check(S, ctx)) { S.coins += q.reward; S.quest++; sparkle(`Награда 🪙${q.reward}`); refresh(true); }
-    return;
-  }
-  if (d.act === 'upgrade') { upgrade(d.type); return; }
-  if (d.act === 'build') { build(d.type); return; }
-  if (d.act === 'recruit') { recruit(); return; }
-  if (d.act === 'decor') { buyDecor(d.type, +d.slot, d.id); openSheet(roomSheet(d.type)); return; }
-  if (d.slot !== undefined && d.type) { openSheet(decorSheet(d.type, +d.slot)); return; }
-  if (d.back) { openSheet(roomSheet(d.back)); return; }
-  if (d.move) { openSheet(moveSheet(+d.move)); return; }
-  if (d.moveto) { moveStudent(+d.id, d.moveto); closeSheet(); return; }
-  if (d.exam) { openSheet(examSheet(+d.exam)); return; }
-  if (d.doexam) {
-    const id = +d.doexam; const student = { ...S.students.find((x) => x.id === id) };
-    openSheet(examSheet(id, 'spin', { student }));
-    setTimeout(() => {
-      const res = takeExam(id); if (!res) { closeSheet(); return; }
-      res.student = S.students.find((x) => x.id === id) || student;
-      openSheet(examSheet(id, 'result', res)); refresh(true);
-    }, 1300);
-    return;
-  }
-  if (d.close !== undefined) { closeSheet(); refresh(true); return; }
-  if (d.goto) { $(`#tabs [data-tab="${d.goto}"]`).click(); return; }
-  if (d.gotoRoom) { openSheet(roomSheet(d.gotoRoom)); return; }
-  if (d.reset !== undefined) {
-    if (confirm('Точно начать заново? Весь прогресс пропадёт.')) { localStorage.removeItem(SAVE_KEY); freshState(); save(); closeSheet(); refresh(true); }
-    return;
-  }
-  if (t.id === 'btn-settings') { openSheet(settingsSheet); return; }
-  if (d.stud) {
-    const s = S.students.find((x) => x.id === +d.stud);
-    if (s && examReady(s)) openSheet(examSheet(s.id)); else if (s) toast(`${s.name}, курс ${s.course}: учится…`);
-    return;
-  }
-  if (d.room) { openSheet(roomSheet(d.room)); }
-});
-$('#sheet-bg').addEventListener('click', () => { closeSheet(); refresh(true); });
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) save();
-  else { applyOffline(); lastTick = performance.now(); refresh(true); }
-});
-window.addEventListener('pagehide', save);
-
-// ---------- boot ----------
 load();
+resize();
+scroller.scrollTop = H * scale;
 applyOffline();
-refresh(true);
-setInterval(loop, 250);
+updateHud();
+requestAnimationFrame(frame);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

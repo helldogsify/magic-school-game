@@ -159,3 +159,19 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   padding: 9px 16px; border-radius: 14px; font-size: 14px; white-space: nowrap; animation: toast 1.8s ease forwards; }
 @keyframes toast { 0% { opacity: 0; transform: translate(-50%, 10px); } 12%, 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
 .fly { position: absolute; font-weight: 800; color: #b8860b; font-size: 18px; text-shadow: 0 1px 0 #fff; transition: transform .75s cubic-bezier(.5, -.3, .7, 1), opacity .75s; transform: translate(0, 0); }
+
+/* v0.2 campus */
+#top { position: relative; z-index: 2; }
+#quest { position: relative; z-index: 2; }
+#stage { position: relative; flex: 1; min-height: 0; margin-top: 2px; border-radius: 22px 22px 0 0; overflow: hidden; }
+#world { position: absolute; inset: 0; pointer-events: none; }
+#view { position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+#view::-webkit-scrollbar { display: none; }
+#spacer { width: 100%; }
+.res b { font-size: 15px; }
+.stats3 { display: flex; gap: 8px; margin: 10px 0 12px; }
+.stats3 > div { flex: 1; background: #f6f0ff; border-radius: 14px; padding: 8px 4px; text-align: center; display: flex; flex-direction: column; }
+.stats3 span { font-size: 18px; } .stats3 b { font-size: 17px; } .stats3 i { font-style: normal; font-size: 11px; color: var(--muted); }
+.card.up { box-shadow: none; background: #faf6ff; margin-bottom: 6px; }
+.lvbar { height: 5px; border-radius: 3px; background: #ece4f8; margin-top: 4px; overflow: hidden; }
+.lvbar i { display: block; height: 100%; background: linear-gradient(90deg, #8f6ef0, #ff7fb4); }
