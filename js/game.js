@@ -1,11 +1,11 @@
-// Magic school idle tycoon — v0.2: top-down (3/4) campus with walking creatures.
+// Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=4';
+} from './data.js?v=5';
 
 const SAVE_KEY = 'magicschool.save.v2';
-const VERSION = '0.2';
+const VERSION = '0.3';
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -47,302 +47,380 @@ const G = { // helpers exposed to missions
   maxItem: () => Math.max(...S.classes.flatMap((c) => c.items)),
 };
 
-function earn(n, x, y, color) { S.coins += n; earnedThisSec += n; if (x !== undefined) popup(`+${fmt(n)}`, x, y, color || '#c98a00'); }
+function earn(n, x, y, color, lift) { S.coins += n; earnedThisSec += n; if (x !== undefined) popup(`+${fmt(n)}`, x, y, color || '#c98a00', lift); }
 function spend(c) { if (S.coins < c) { toast('Не хватает монет 🪙'); return false; } S.coins -= c; return true; }
 
-// ======================= world geometry =======================
-const W = 400, GT = 150, RH = 210, RECH = 250, GATE = 70;
-const ROWS = Math.ceil(CLASSES.length / 2);
-const H = GT + ROWS * RH + RECH + GATE;
-const CX = 200, CORR = 30;                 // corridor centre and half width
-const recTop = GT + ROWS * RH;
-const rowTop = (r) => GT + (ROWS - 1 - r) * RH;
-function roomRect(i) {
-  const r = Math.floor(i / 2), left = i % 2 === 0;
-  const x = left ? 8 : CX + CORR + 4, w = CX - CORR - 12;
-  const y = rowTop(r) + 12, h = RH - 20;
-  return { x, y, w, h, left, doorY: y + h - 46, doorX: left ? x + w : x };
+// ======================= world geometry (isometric tile map) =======================
+// Tile coords (x, y). Screen: sx = OX + (x - y) * HW, sy = OY + (x + y) * HH.
+// HH/HW = 0.62 matches the angle of the room art.
+const HW = 16, HH = HW * 0.62;
+const ROOM = 6;                                    // rooms are 6x6 tiles
+const WALLH = ROOM * 2 * HW * 0.3676;              // wall height in the art, relative to room width
+const GW = 40, GH = 30;
+
+// Halls: zigzag corridor, always in FRONT of the rooms it serves.
+const HALLS = [
+  { x0: 12, y0: -1, x1: 14, y1: 14 },   // H1 down-left (top part)
+  { x0: 12, y0: 12, x1: 26, y1: 14 },   // H2 down-right
+  { x0: 24, y0: 12, x1: 26, y1: 28 },   // H3 down-left
+  { x0: 24, y0: 26, x1: 39, y1: 28 },   // H4 down-right to the gate
+];
+// Room slots. door = [roomTile, hallTile]; cut = back wall drawn low because a hall runs behind it.
+function slot(x0, y0, door, cut = {}) { return { x0, y0, x1: x0 + ROOM, y1: y0 + ROOM, door, cut }; }
+const SLOTS = {
+  R1: slot(6, 0, [[11, 3], [12, 3]]),
+  R2: slot(6, 6, [[11, 9], [12, 9]]),
+  R3: slot(14, 6, [[17, 11], [17, 12]], { left: true }),
+  R4: slot(20, 6, [[23, 11], [23, 12]]),
+  R5: slot(18, 14, [[23, 17], [24, 17]], { right: true }),
+  R6: slot(18, 20, [[23, 23], [24, 23]]),
+  REC: slot(26, 20, [[29, 25], [29, 26]], { left: true }),
+  LOUNGE: slot(32, 20, [[35, 25], [35, 26]]),
+  GARDEN: slot(14, 0, [[14, 3], [13, 3]]),
+};
+const CLASS_SLOT = ['R6', 'R5', 'R4', 'R3', 'R2', 'R1'];   // class i lives in this slot
+const ART = {                                               // room pictures with floor corners in image px
+  herbs: { src: 'assets/rooms/herbs.webp', L: [105, 653], R: [913, 655], F: [512, 905] },
+};
+const GATE_TILE = { x: 38.5, y: 27 };
+
+// region grid
+const REG = Array.from({ length: GW }, () => Array(GH + 2).fill(null));
+const inGrid = (x, y) => x >= 0 && y >= -1 && x < GW && y < GH;
+const regAt = (x, y) => (inGrid(x, y) ? REG[x][y + 1] : null);
+function fillRect(r, id) { for (let x = r.x0; x < r.x1; x++) for (let y = r.y0; y < r.y1; y++) if (inGrid(x, y)) REG[x][y + 1] = id; }
+Object.entries(SLOTS).forEach(([id, r]) => fillRect(r, id));
+HALLS.forEach((h) => fillRect(h, 'hall'));
+const DOORS = new Set();
+Object.values(SLOTS).forEach((s) => { const [a, b] = s.door; DOORS.add(`${a[0]},${a[1]}|${b[0]},${b[1]}`); DOORS.add(`${b[0]},${b[1]}|${a[0]},${a[1]}`); });
+function canStep(ax, ay, bx, by) {
+  const ra = regAt(ax, ay), rb = regAt(bx, by);
+  if (!ra || !rb) return false;
+  if (ra === rb) return true;
+  return DOORS.has(`${ax},${ay}|${bx},${by}`);
 }
-function deskPos(i, d) {
-  const R = roomRect(i);
-  const col = d % 2, row = Math.floor(d / 2);
-  return { x: R.x + (col === 0 ? 44 : R.w - 44), y: R.y + 92 + row * 34 };
+function bfs(sx, sy, tx, ty) {
+  sx = Math.floor(sx); sy = Math.floor(sy); tx = Math.floor(tx); ty = Math.floor(ty);
+  const key = (x, y) => x * 100 + y + 1;
+  const prev = new Map([[key(sx, sy), null]]); const q = [[sx, sy]];
+  while (q.length) {
+    const [x, y] = q.shift();
+    if (x === tx && y === ty) break;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy, k = key(nx, ny);
+      if (prev.has(k) || !canStep(x, y, nx, ny)) continue;
+      prev.set(k, [x, y]); q.push([nx, ny]);
+    }
+  }
+  if (!prev.has(key(tx, ty))) return [];
+  const out = []; let cur = [tx, ty];
+  while (cur) { out.push({ x: cur[0] + 0.5, y: cur[1] + 0.5 }); cur = prev.get(key(cur[0], cur[1])); }
+  out.reverse(); out.shift();
+  return out;
 }
-const teacherPos = (i) => { const R = roomRect(i); return { x: R.x + R.w / 2, y: R.y + 58 }; };
-const queueSlot = (k) => ({ x: CX, y: recTop + 120 + k * 20 });
-const DESK_FRONT = { x: CX, y: recTop + 96 };
-const GATE_POS = { x: CX, y: H - 16 };
+function pathTo(a, tx, ty) { const p = bfs(a.x, a.y, tx, ty); p.pop(); p.push({ x: tx, y: ty }); return p; }
+
+const slotOf = (i) => SLOTS[CLASS_SLOT[i]];
+function deskPos(i, d) { const s = slotOf(i); return { x: s.x0 + 2.0 + (d % 2) * 1.9, y: s.y0 + 2.5 + Math.floor(d / 2) * 1.15 }; }
+const seatPos = (i, d) => { const p = deskPos(i, d); return { x: p.x, y: p.y - 0.45 }; };
+const teacherPos = (i) => { const s = slotOf(i); return { x: s.x0 + 4.3, y: s.y0 + 1.0 }; };
+const REC = SLOTS.REC;
+const OFFICER = { x: REC.x0 + 3, y: REC.y0 + 0.9 };
+const queueSlot = (k) => (k < 4 ? { x: REC.x0 + 3, y: REC.y0 + 2.4 + k * 0.75 } : { x: REC.x0 + 3.5 + (k - 4) * 0.8, y: REC.y0 + 6.6 });
+function waitSpot(i, k) { const [, h] = slotOf(i).door; return { x: h[0] + 0.5 + (k % 2) * 0.6 - 0.3, y: h[1] + 0.5 + Math.floor(k / 2) * 0.6 }; }
 
 // ======================= agents =======================
 let agents = [];
-let queue = [];                                     // agents waiting at reception, front first
+let queue = [];
 const deskOcc = CLASSES.map(() => Array(MAX_DESKS).fill(null));
 const waitList = CLASSES.map(() => []);
 let processing = null; let procT = 0;
 let arrivalT = 1;
 
+function walk(a, tx, ty, then) { a.path = pathTo(a, tx, ty); a.onArrive = then; if (!a.path.length && then) { a.onArrive = null; then(); } }
 function spawn() {
-  const a = { id: S.nextId++, sp: rnd(SPECIES), name: rnd(NAMES), x: GATE_POS.x + (Math.random() * 20 - 10), y: GATE_POS.y,
-    path: [], speed: 46 + Math.random() * 10, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6 };
-  agents.push(a);
-  queue.push(a);
-  goQueue(a);
+  const a = { id: S.nextId++, sp: rnd(SPECIES), name: rnd(NAMES), x: GATE_TILE.x, y: GATE_TILE.y, z: 0,
+    path: [], speed: 2.3 + Math.random() * 0.4, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6 };
+  agents.push(a); queue.push(a); goQueue(a);
 }
-function goQueue(a) {
-  const k = queue.indexOf(a);
-  a.state = 'walk'; a.path = [queueSlot(k)]; a.onArrive = () => { a.state = 'queue'; };
-}
+function goQueue(a) { const p = queueSlot(queue.indexOf(a)); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'queue'; }); }
 function startNextProcess() {
   if (processing || !queue.length) return;
-  const a = queue[0];
-  if (a.state !== 'queue') return;
+  const a = queue[0]; if (a.state !== 'queue') return;
   processing = a; procT = 0; a.state = 'process';
 }
 function finishProcess() {
   const a = processing; processing = null;
-  queue.shift();
-  queue.forEach(goQueue);
+  queue.shift(); queue.forEach(goQueue);
   S.stats.enrolled++;
-  earn(fee(), CX + 20, recTop + 60, '#c98a00');
+  earn(fee(), OFFICER.x + 1, OFFICER.y, '#c98a00');
   a.state = 'walk';
-  a.path = [{ x: CX + 40, y: DESK_FRONT.y + 12 }, { x: CX + 40, y: recTop + 20 }, { x: CX, y: recTop - 4 }];
-  a.onArrive = () => goClass(a, nextClass(-1));
+  goClass(a, nextClass(-1));
 }
 function nextClass(i) { for (let k = i + 1; k < CLASSES.length; k++) if (isOpen(k)) return k; return -1; }
-
 function goClass(a, i) {
   if (i < 0) { goGraduate(a); return; }
-  const R = roomRect(i);
+  const [, h] = slotOf(i).door;
   a.c = i; a.state = 'walk';
-  a.path = [{ x: CX, y: R.doorY }];
-  a.onArrive = () => arriveClass(a, i);
+  walk(a, h[0] + 0.5, h[1] + 0.5, () => arriveClass(a, i));
 }
-function waitSpot(i, k) { const R = roomRect(i); return { x: CX + (R.left ? -14 : 14), y: R.doorY + 16 + k * 14 }; }
 function arriveClass(a, i) {
   const d = freeDesk(i);
-  if (d < 0) {
-    waitList[i].push(a);
-    a.state = 'walkwait'; a.path = [waitSpot(i, waitList[i].length - 1)];
-    a.onArrive = () => { a.state = 'wait'; };
-    return;
-  }
+  if (d < 0) { waitList[i].push(a); const p = waitSpot(i, waitList[i].length - 1); a.state = 'walkwait'; walk(a, p.x, p.y, () => { a.state = 'wait'; }); return; }
   seat(a, i, d);
 }
 function freeDesk(i) { for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc[i][d]) return d; return -1; }
 function seat(a, i, d) {
-  const R = roomRect(i), p = deskPos(i, d);
+  const p = seatPos(i, d);
   deskOcc[i][d] = a.id; a.desk = d; a.c = i; a.state = 'walk';
-  a.path = [{ x: R.doorX + (R.left ? -10 : 10), y: R.doorY }, { x: p.x, y: R.doorY }, { x: p.x, y: p.y }];
-  a.onArrive = () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i); };
+  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i); a.flip = true; });
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
-  if (Math.random() < success(i)) {
-    S.stats.passed++;
-    earn(tuition(i), p.x, p.y - 40);
-    leaveDesk(a);
-  } else {
-    S.stats.failed++;
-    popup('💧 ещё раз', p.x, p.y - 36, '#5b7fd6');
-    a.t = 0; a.dur = lessonTime(i);
-  }
+  if (Math.random() < success(i)) { S.stats.passed++; earn(tuition(i), p.x, p.y, null, 46); leaveDesk(a); }
+  else { S.stats.failed++; popup('💧 ещё раз', p.x, p.y, '#5b7fd6', 46); a.t = 0; a.dur = lessonTime(i); }
 }
 function leaveDesk(a) {
-  const i = a.c, R = roomRect(i), p = deskPos(i, a.desk);
-  deskOcc[i][a.desk] = null; a.desk = -1;
-  a.state = 'walk';
-  a.path = [{ x: p.x, y: R.doorY }, { x: R.doorX + (R.left ? -10 : 10), y: R.doorY }, { x: CX, y: R.doorY }];
-  a.onArrive = () => goClass(a, nextClass(i));
+  const i = a.c;
+  deskOcc[i][a.desk] = null; a.desk = -1; a.state = 'walk';
+  goClass(a, nextClass(i));
   pullWaiting(i);
 }
 function pullWaiting(i) {
-  while (waitList[i].length) {
-    const d = freeDesk(i); if (d < 0) break;
-    seat(waitList[i].shift(), i, d);
-  }
-  waitList[i].forEach((w, k) => { w.state = 'walkwait'; w.path = [waitSpot(i, k)]; w.onArrive = () => { w.state = 'wait'; }; });
+  while (waitList[i].length) { const d = freeDesk(i); if (d < 0) break; seat(waitList[i].shift(), i, d); }
+  waitList[i].forEach((w, k) => { const p = waitSpot(i, k); w.state = 'walkwait'; walk(w, p.x, p.y, () => { w.state = 'wait'; }); });
 }
 function goGraduate(a) {
+  const g = SLOTS.GARDEN;
   a.c = -1; a.state = 'walk';
-  a.path = [{ x: CX, y: GT - 6 }, { x: CX + (Math.random() * 140 - 70), y: 74 + Math.random() * 40 }];
-  a.onArrive = () => {
+  walk(a, g.x0 + 1 + Math.random() * 4, g.y0 + 1 + Math.random() * 4, () => {
     S.stats.graduated++;
-    popup('🎓 ⭐+1', a.x, a.y - 34, '#7b5cd6');
-    a.state = 'fly'; a.t = 0; a.vx = (Math.random() < 0.5 ? -1 : 1) * (20 + Math.random() * 20);
-  };
+    popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
+    a.state = 'fly'; a.t = 0; a.vx = (Math.random() < 0.5 ? -1 : 1) * 0.6;
+  });
 }
-
 function stepAgents(dt) {
   for (const a of agents) {
     a.ph += dt;
-    if (a.state === 'fly') { a.t += dt; a.y -= (30 + a.t * 40) * dt; a.x += a.vx * dt; continue; }
+    if (a.state === 'fly') { a.t += dt; a.z += (40 + a.t * 60) * dt; a.x += a.vx * dt; a.y -= a.vx * dt; continue; }
     if (a.path.length) {
-      const p = a.path[0], dx = p.x - a.x, dy = p.y - a.y, dist = Math.hypot(dx, dy);
-      const stepLen = a.speed * dt;
-      if (Math.abs(dx) > 0.5) a.flip = dx < 0;
-      if (dist <= stepLen) {
-        a.x = p.x; a.y = p.y; a.path.shift();
-        if (!a.path.length && a.onArrive) { const f = a.onArrive; a.onArrive = null; f(); }
-      } else { a.x += dx / dist * stepLen; a.y += dy / dist * stepLen; }
+      const p = a.path[0], dx = p.x - a.x, dy = p.y - a.y, dist = Math.hypot(dx, dy), stepLen = a.speed * dt;
+      const sdx = dx - dy; if (Math.abs(sdx) > 0.01) a.flip = sdx < 0;
+      if (dist <= stepLen) { a.x = p.x; a.y = p.y; a.path.shift(); if (!a.path.length && a.onArrive) { const f = a.onArrive; a.onArrive = null; f(); } }
+      else { a.x += dx / dist * stepLen; a.y += dy / dist * stepLen; }
       continue;
     }
     if (a.state === 'study') { a.t += dt; if (a.t >= a.dur) finishLesson(a); }
   }
-  agents = agents.filter((a) => !(a.state === 'fly' && a.y < -80));
+  agents = agents.filter((a) => !(a.state === 'fly' && a.z > 400));
 }
-
 function stepWorld(dt) {
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6) spawn(); }
   startNextProcess();
   if (processing) { procT += dt; if (procT >= procTime()) finishProcess(); }
-  S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; } });
+  S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; staticKey = ''; } });
   stepAgents(dt);
-  for (let i = popups.length - 1; i >= 0; i--) { const p = popups[i]; p.t += dt; p.y -= 22 * dt; if (p.t > 1.3) popups.splice(i, 1); }
+  for (let i = popups.length - 1; i >= 0; i--) { const p = popups[i]; p.t += dt; p.lift += 26 * dt; if (p.t > 1.3) popups.splice(i, 1); }
 }
 
 // ======================= rendering =======================
 const canvas = $('#world'), ctx = canvas.getContext('2d');
 const scroller = $('#view');
-let scale = 1, dpr = 1, viewH = 0;
+// world pixel bounds
+const MINE = -8, MAXE = 21, MINS = -2, MAXS = 67;
+const OX = -MINE * HW + 10, OY = -MINS * HH + WALLH + 40;
+const WW = (MAXE - MINE) * HW + 20, WH = (MAXS - MINS) * HH + WALLH + 80;
+const P = (x, y) => ({ x: OX + (x - y) * HW, y: OY + (x + y) * HH });
+let scale = 1, dpr = 1, viewW = 0, viewH = 0;
 const sprites = {};
 for (const sp of SPECIES) { const im = new Image(); im.src = `assets/creatures/${sp}.png`; sprites[sp] = im; }
+const arts = {};
+for (const [k, a] of Object.entries(ART)) { const im = new Image(); im.onload = () => { staticKey = ''; }; im.src = a.src; arts[k] = im; }
 const popups = [];
-function popup(t, x, y, color) { popups.push({ text: t, x, y, color, t: 0 }); }
+function popup(t, x, y, color, lift = 30) { popups.push({ text: t, x, y, color, t: 0, lift }); }
 
 function resize() {
   const r = scroller.getBoundingClientRect();
   dpr = Math.min(3, window.devicePixelRatio || 1);
-  scale = r.width / W; viewH = r.height;
+  viewW = r.width; viewH = r.height;
+  scale = (r.width / WW) * 1.65;
   canvas.style.width = r.width + 'px'; canvas.style.height = r.height + 'px';
   canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
-  $('#spacer').style.height = H * scale + 'px';
+  $('#spacer').style.height = WH * scale + 'px'; $('#spacer').style.width = WW * scale + 'px';
+  staticKey = '';
 }
-
 function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
-function emoji(e, x, y, size) { ctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(e, x, y); }
-function text(t, x, y, size, color, weight = 700) { ctx.font = `${weight} ${size}px ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = color; ctx.fillText(t, x, y); }
+function emoji(e, x, y, size, c = ctx) { c.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(e, x, y); }
+function text(t, x, y, size, color, c = ctx, weight = 800) { c.font = `${weight} ${size}px ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = color; c.fillText(t, x, y); }
+function poly(c, pts, fill, stroke) { c.beginPath(); pts.forEach((p, k) => (k ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y))); c.closePath(); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.stroke(); } }
+const up = (p, h) => ({ x: p.x, y: p.y - h });
 
-function drawGround() {
-  ctx.fillStyle = '#a9d98f'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#9ccf82';
-  for (let i = 0; i < 160; i++) { const x = (i * 97) % W, y = (i * 211) % H; ctx.fillRect(x, y, 3, 2); }
-  // garden at the top
-  ctx.fillStyle = '#c7e9b0'; rr(40, 20, W - 80, GT - 30, 30); ctx.fill();
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.setLineDash([6, 6]); ctx.stroke(); ctx.setLineDash([]);
-  text('Сад выпускников', CX, 36, 13, '#4f7a3d');
-  emoji('🌳', 70, 62, 30); emoji('🌸', 330, 70, 24); emoji('🌷', 92, 112, 18); emoji('⛲', CX, 96, 30); emoji('🌳', 335, 115, 26);
-  // corridor
-  ctx.fillStyle = '#f3e6cf'; ctx.fillRect(CX - CORR, GT - 14, CORR * 2, recTop - GT + 20);
-  ctx.fillStyle = '#e7d5b5'; for (let y = GT; y < recTop; y += 24) ctx.fillRect(CX - CORR, y, CORR * 2, 2);
-  ctx.fillStyle = '#c9b8ee'; ctx.fillRect(CX - 9, GT - 14, 18, recTop - GT + 20);
-  // reception hall
-  ctx.fillStyle = '#f6ead6'; rr(16, recTop + 4, W - 32, RECH - 8, 18); ctx.fill();
-  ctx.fillStyle = '#d8c3f2'; rr(16, recTop + 4, W - 32, 30, [18, 18, 0, 0]); ctx.fill();
-  ctx.fillStyle = '#c8b0ec'; ctx.fillRect(16, recTop + 34, W - 32, 4);
-  text('Приёмная', CX, recTop + 19, 13, '#5a3fb0');
-  ctx.fillStyle = '#ffd1e3'; ctx.fillRect(CX - 16, recTop + 100, 32, RECH - 96);
-  // reception desk
-  ctx.fillStyle = '#b98457'; rr(CX - 56, DESK_FRONT.y - 26, 112, 22, 6); ctx.fill();
-  ctx.fillStyle = '#9a6a41'; ctx.fillRect(CX - 56, DESK_FRONT.y - 8, 112, 8);
-  emoji('📜', CX - 38, DESK_FRONT.y - 17, 14); emoji('🔔', CX + 40, DESK_FRONT.y - 17, 14);
-  emoji('🪴', 40, recTop + 60, 24); emoji('🪴', W - 40, recTop + 60, 24); emoji('🛋️', 56, recTop + 182, 26); emoji('🗺️', W - 56, recTop + 172, 24);
-  // gate
-  ctx.fillStyle = '#8d6a9f'; ctx.fillRect(CX - 40, H - GATE + 10, 10, 50); ctx.fillRect(CX + 30, H - GATE + 10, 10, 50);
-  ctx.fillStyle = '#6c4fd1'; rr(CX - 46, H - GATE + 2, 92, 14, 6); ctx.fill();
-  text('ВОРОТА', CX, H - GATE + 9, 9, '#fff');
-}
-
-function drawRoom(i) {
-  const R = roomRect(i), C = CLASSES[i], st = S.classes[i];
-  if (!st.built) { drawPlot(i); return; }
-  ctx.fillStyle = C.floor; rr(R.x, R.y, R.w, R.h, 10); ctx.fill();
-  ctx.strokeStyle = '#0000000f'; ctx.lineWidth = 1;
-  for (let y = R.y + 40; y < R.y + R.h; y += 16) { ctx.beginPath(); ctx.moveTo(R.x + 4, y); ctx.lineTo(R.x + R.w - 4, y); ctx.stroke(); }
-  ctx.fillStyle = C.wall; rr(R.x, R.y, R.w, 38, [10, 10, 0, 0]); ctx.fill();
-  ctx.fillStyle = '#00000018'; ctx.fillRect(R.x, R.y + 34, R.w, 4);
-  ctx.fillStyle = '#fff'; ctx.fillRect(R.x, R.y, 4, R.h); ctx.fillRect(R.x + R.w - 4, R.y, 4, R.h); ctx.fillRect(R.x, R.y + R.h - 4, R.w, 4);
-  ctx.fillStyle = C.floor; ctx.fillRect(R.left ? R.x + R.w - 4 : R.x, R.doorY - 14, 4, 28);
-  ctx.fillStyle = '#3f5f4a'; rr(R.x + R.w / 2 - 34, R.y + 6, 68, 24, 4); ctx.fill();
-  ctx.strokeStyle = '#a77b4f'; ctx.lineWidth = 2; ctx.stroke();
-  text(C.emoji + ' ' + C.name, R.x + R.w / 2, R.y + R.h - 12, 10.5, '#5d4a6e');
-  const spots = [[R.x + 18, R.y + 20], [R.x + R.w - 18, R.y + 20], [R.x + 16, R.y + R.h - 16], [R.x + R.w - 16, R.y + R.h - 16]];
-  C.items.forEach((it, k) => { if (st.items[k] > 0) emoji(it.emoji, spots[k][0], spots[k][1], 15 + Math.min(8, st.items[k] / 3)); });
-  if (st.buildEnd && Date.now() < st.buildEnd) {
-    ctx.fillStyle = '#ffffffcc'; rr(R.x, R.y, R.w, R.h, 10); ctx.fill();
-    emoji('🏗️', R.x + R.w / 2, R.y + R.h / 2 - 16, 36);
-    const left = Math.ceil((st.buildEnd - Date.now()) / 1000);
-    text(`Стройка ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, R.x + R.w / 2, R.y + R.h / 2 + 22, 13, '#5a3fb0');
+// ---- static layer (floors, rooms, walls) cached in an offscreen canvas ----
+const stat = document.createElement('canvas'); const sctx = stat.getContext('2d');
+let staticKey = '';
+function statKey() { return S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + scale; }
+function drawStatic() {
+  const k = statKey(); if (k === staticKey) return; staticKey = k;
+  stat.width = Math.round(WW * scale * dpr); stat.height = Math.round(WH * scale * dpr);
+  const c = sctx; c.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  c.fillStyle = '#a9d98f'; c.fillRect(0, 0, WW, WH);
+  c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2);
+  // halls
+  for (let x = 0; x < GW; x++) for (let y = -1; y < GH; y++) {
+    if (regAt(x, y) !== 'hall') continue;
+    poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], (x + y) % 2 ? '#efe2cb' : '#f5ead6', '#e3d3b6');
   }
+  // gate
+  const g = P(GATE_TILE.x + 0.5, GATE_TILE.y - 1), g2 = P(GATE_TILE.x + 0.5, GATE_TILE.y + 1);
+  c.strokeStyle = '#6c4fd1'; c.lineWidth = 5; c.beginPath(); c.moveTo(g.x, g.y); c.lineTo(g.x, g.y - 34); c.lineTo(g2.x, g2.y - 34); c.lineTo(g2.x, g2.y); c.stroke();
+  text('ВОРОТА', (g.x + g2.x) / 2, (g.y + g2.y) / 2 - 40, 9, '#5a3fb0', c);
+  // rooms from back to front
+  const order = Object.keys(SLOTS).sort((a, b) => (SLOTS[a].x0 + SLOTS[a].y0) - (SLOTS[b].x0 + SLOTS[b].y0));
+  for (const id of order) drawSlot(c, id);
 }
-function drawPlot(i) {
-  const R = roomRect(i), C = CLASSES[i];
-  const next = S.classes.findIndex((c) => !c.built) === i;
-  ctx.fillStyle = '#b9e2a0'; rr(R.x, R.y, R.w, R.h, 10); ctx.fill();
-  ctx.strokeStyle = '#ffffffaa'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.stroke(); ctx.setLineDash([]);
-  if (next) {
-    ctx.fillStyle = '#fffaf0'; rr(R.x + R.w / 2 - 60, R.y + R.h / 2 - 34, 120, 64, 10); ctx.fill();
-    ctx.strokeStyle = '#b98457'; ctx.lineWidth = 3; ctx.stroke();
-    text(C.emoji + ' ' + C.name, R.x + R.w / 2, R.y + R.h / 2 - 16, 11, '#5d4a6e');
-    text('🪙 ' + fmt(C.build), R.x + R.w / 2, R.y + R.h / 2 + 8, 14, S.coins >= C.build ? '#2f9e7a' : '#b05a7a');
-    if (S.coins >= C.build) text('Нажми, чтобы построить', R.x + R.w / 2, R.y + R.h / 2 + 46, 10, '#2f6e3a');
-  } else { emoji('🔒', R.x + R.w / 2, R.y + R.h / 2, 22); }
+function roomColors(id) {
+  const ci = CLASS_SLOT.indexOf(id);
+  if (ci >= 0) return { floor: CLASSES[ci].floor, wall: CLASSES[ci].wall };
+  if (id === 'REC') return { floor: '#f3e4cf', wall: '#cdb6f0' };
+  if (id === 'LOUNGE') return { floor: '#f0e1d0', wall: '#f5c7d6' };
+  return { floor: '#bfe6a6', wall: null };
 }
+function drawSlot(c, id) {
+  const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id);
+  const L = P(s.x0, s.y1), B = P(s.x0, s.y0), R = P(s.x1, s.y0), F = P(s.x1, s.y1);
+  const center = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2);
+  if (id === 'GARDEN') {
+    poly(c, [L, B, R, F], '#c3eaa9', '#ffffff');
+    emoji('⛲', center.x, center.y - 8, 26, c); emoji('🌳', B.x, B.y + 16, 28, c); emoji('🌸', R.x - 22, R.y, 18, c); emoji('🌷', L.x + 24, L.y, 16, c);
+    text('Сад выпускников', center.x, F.y + 10, 9, '#3f6e2e', c);
+    return;
+  }
+  if (ci >= 0 && !S.classes[ci].built) { drawPlot(c, s, ci, L, B, R, F, center); return; }
+  const col = roomColors(id);
+  const art = ci >= 0 && arts[CLASSES[ci].id];
+  if (art && art.complete && art.naturalWidth && !s.cut.left && !s.cut.right) {
+    const A = ART[CLASSES[ci].id];
+    const u = [A.R[0] - A.L[0], A.R[1] - A.L[1]], v = [A.F[0] - A.L[0], A.F[1] - A.L[1]];
+    const U = [R.x - L.x, R.y - L.y], V = [F.x - L.x, F.y - L.y];
+    const det = u[0] * v[1] - u[1] * v[0];
+    const ia = v[1] / det, ib = -u[1] / det, ic = -v[0] / det, id2 = u[0] / det;      // inverse of [u v]
+    const m11 = U[0] * ia + V[0] * ib, m12 = U[0] * ic + V[0] * id2, m21 = U[1] * ia + V[1] * ib, m22 = U[1] * ic + V[1] * id2;
+    const e = L.x - (m11 * A.L[0] + m12 * A.L[1]), f = L.y - (m21 * A.L[0] + m22 * A.L[1]);
+    c.save(); c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
+  } else {
+    poly(c, [L, B, R, F], col.floor, '#00000012');
+    c.strokeStyle = '#0000000d'; c.lineWidth = 1;
+    for (let k = 1; k < ROOM; k++) { const a = P(s.x0 + k, s.y0), b = P(s.x0 + k, s.y1); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); }
+    const lh = s.cut.left ? 8 : WALLH * 0.7, rh = s.cut.right ? 8 : WALLH * 0.7;
+    poly(c, [L, B, up(B, lh), up(L, lh)], shade(col.wall, -14));
+    poly(c, [B, R, up(R, rh), up(B, rh)], col.wall);
+    c.fillStyle = '#ffffff'; poly(c, [up(L, lh), up(B, lh), up(B, lh + 3), up(L, lh + 3)], '#fff'); poly(c, [up(B, rh), up(R, rh), up(R, rh + 3), up(B, rh + 3)], '#fff');
+    if (ci >= 0 && !s.cut.right) { // chalkboard on the right wall
+      const a = P(s.x0 + 2.2, s.y0), b = P(s.x0 + 4.6, s.y0);
+      poly(c, [up(a, rh * 0.35), up(b, rh * 0.35), up(b, rh * 0.8), up(a, rh * 0.8)], '#3f5f4a', '#a77b4f');
+    }
+    if (id === 'REC') { emoji('🪴', P(s.x0 + 0.7, s.y0 + 0.7).x, P(s.x0 + 0.7, s.y0 + 0.7).y - 8, 18, c); emoji('🗺️', P(s.x0 + 5.3, s.y0 + 0.6).x, P(s.x0 + 5.3, s.y0 + 0.6).y - 20, 16, c); }
+    if (id === 'LOUNGE') { emoji('🛋️', center.x, center.y - 6, 26, c); emoji('🪴', B.x, B.y + 6, 18, c); }
+  }
+  // sign
+  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : '🛋️ Скоро: Столовая';
+  const sp = up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
+  c.font = '800 9px ui-rounded,"Nunito","Segoe UI",sans-serif'; const tw = c.measureText(name).width + 12;
+  c.fillStyle = '#fffaf2ee'; c.beginPath(); c.roundRect(sp.x - tw / 2, sp.y - 8, tw, 16, 8); c.fill();
+  text(name, sp.x, sp.y, 9, '#5d4a6e', c);
+}
+function drawPlot(c, s, ci, L, B, R, F, center) {
+  const next = S.classes.findIndex((q) => !q.built) === ci;
+  poly(c, [L, B, R, F], '#b9e2a0');
+  c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
+  if (!next) { emoji('🔒', center.x, center.y, 18, c); return; }
+  const C = CLASSES[ci];
+  c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 54, center.y - 26, 108, 48, 10); c.fill();
+  c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+  text(C.emoji + ' ' + C.name, center.x, center.y - 11, 9.5, '#5d4a6e', c);
+  text('🪙 ' + fmt(C.build), center.x, center.y + 8, 12, '#7b5cd6', c);
+}
+function shade(hex, d) { const n = parseInt(hex.slice(1), 16); const f = (v) => Math.max(0, Math.min(255, v + d)); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; }
 
 function drawCreature(a, x, y, h, extra) {
   const im = sprites[a.sp];
+  const s = P(x, y);
   const walking = a.path && a.path.length > 0;
-  const bob = walking ? Math.abs(Math.sin(a.ph * 9)) * 2.5 : Math.sin(a.ph * 2) * 0.8;
-  ctx.fillStyle = '#00000022'; ctx.beginPath(); ctx.ellipse(x, y, h * 0.32, h * 0.1, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.save(); ctx.translate(x, y - bob);
+  const bob = walking ? Math.abs(Math.sin(a.ph * 9)) * 2 : Math.sin(a.ph * 2) * 0.6;
+  const z = a.z || 0;
+  ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(s.x, s.y, h * 0.3, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.translate(s.x, s.y - bob - z);
   if (a.flip) ctx.scale(-1, 1);
   if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; ctx.drawImage(im, -w / 2, -h, w, h); }
   else { ctx.fillStyle = '#ffd6e8'; ctx.beginPath(); ctx.ellipse(0, -h / 2, h / 2.6, h / 2.2, 0, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
-  if (extra) extra();
+  if (extra) extra(s.x, s.y - z);
 }
 function ring(x, y, frac, color = '#3fbf6f') {
-  ctx.fillStyle = '#ffffffdd'; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); ctx.stroke();
+  ctx.fillStyle = '#ffffffe6'; ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 4.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); ctx.stroke();
+}
+function drawHat(x, y, color) {
+  ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x, y - 14); ctx.lineTo(x - 7, y); ctx.lineTo(x + 7, y); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x, y, 10, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+  emoji('⭐', x, y - 7, 6);
+}
+function drawDesk(p) {
+  const a = P(p.x - 0.55, p.y - 0.25), b = P(p.x + 0.55, p.y - 0.25), cc = P(p.x + 0.55, p.y + 0.25), d = P(p.x - 0.55, p.y + 0.25);
+  const h = 9;
+  poly(ctx, [d, cc, up(cc, h), up(d, h)], '#9a6a41');
+  poly(ctx, [cc, b, up(b, h), up(cc, h)], '#86592f');
+  poly(ctx, [up(a, h), up(b, h), up(cc, h), up(d, h)], '#c99a68', '#8a5f3a');
+  const m = P(p.x, p.y); emoji('📖', m.x, m.y - h - 1, 8);
 }
 const staff = SPECIES.map((sp, k) => ({ sp, ph: k * 1.7, flip: false, path: [] }));
 const officer = { sp: 'fernhorn', ph: 0.5, flip: false, path: [] };
-function drawHat(x, y, color) {
-  ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x, y - 16); ctx.lineTo(x - 8, y); ctx.lineTo(x + 8, y); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(x, y, 11, 3, 0, 0, Math.PI * 2); ctx.fill();
-  emoji('⭐', x, y - 8, 7);
-}
 
 function render() {
-  const camY = scroller.scrollTop / scale;
-  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, -camY * dpr * scale);
-  ctx.clearRect(0, camY, W, viewH / scale);
-  drawGround();
-  for (let i = 0; i < CLASSES.length; i++) drawRoom(i);
+  drawStatic();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(stat, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
   const list = [];
   for (let i = 0; i < CLASSES.length; i++) {
-    if (!isOpen(i)) continue;
-    const tp = teacherPos(i);
-    list.push({ y: tp.y, draw: () => drawCreature(staff[(i + 1) % staff.length], tp.x, tp.y, 42, () => drawHat(tp.x, tp.y - 39, '#6c4fd1')) });
-    for (let d = 0; d < S.classes[i].desks; d++) {
-      const p = deskPos(i, d);
-      list.push({ y: p.y + 7, draw: () => { ctx.fillStyle = '#c49a6c'; rr(p.x - 17, p.y - 4, 34, 12, 3); ctx.fill(); ctx.fillStyle = '#a57b4f'; ctx.fillRect(p.x - 17, p.y + 6, 34, 4); emoji('📖', p.x, p.y + 1, 9); } });
+    const st = S.classes[i]; if (!st.built) continue;
+    const s = slotOf(i);
+    if (!isOpen(i)) {
+      const c = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), left = Math.max(0, Math.ceil((st.buildEnd - Date.now()) / 1000));
+      list.push({ d: s.x0 + s.y0 + 6, draw: () => { emoji('🏗️', c.x, c.y - 14, 30); ctx.fillStyle = '#fffaf2ee'; rr(c.x - 40, c.y + 8, 80, 18, 9); ctx.fill(); text(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, c.x, c.y + 17, 11, '#5a3fb0'); } });
+      continue;
     }
+    const tp = teacherPos(i);
+    list.push({ d: tp.x + tp.y, draw: () => drawCreature(staff[(i + 1) % staff.length], tp.x, tp.y, 34, (x, y) => drawHat(x, y - 32, '#6c4fd1')) });
+    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); list.push({ d: p.x + p.y, draw: () => drawDesk(p) }); }
+    CLASSES[i].items.forEach((it, k) => {
+      if (!st.items[k]) return;
+      const spots = [[s.x0 + 0.7, s.y0 + 0.7], [s.x0 + 5.3, s.y0 + 0.7], [s.x0 + 0.7, s.y0 + 5.2], [s.x0 + 5.3, s.y0 + 5.2]];
+      const p = P(spots[k][0], spots[k][1]);
+      list.push({ d: spots[k][0] + spots[k][1], draw: () => emoji(it.emoji, p.x, p.y - 8, 14 + Math.min(8, st.items[k] / 3)) });
+    });
   }
-  const off = { x: CX, y: DESK_FRONT.y - 28 };
-  list.push({ y: off.y, draw: () => drawCreature(officer, off.x, off.y, 42, () => {
-    drawHat(off.x, off.y - 39, '#d14f8f');
-    if (processing) ring(off.x + 22, off.y - 30, Math.min(1, procT / procTime()), '#ff8a3d');
+  // reception desk + officer
+  list.push({ d: OFFICER.x + OFFICER.y, draw: () => drawCreature(officer, OFFICER.x, OFFICER.y, 34, (x, y) => {
+    drawHat(x, y - 32, '#d14f8f');
+    if (processing) ring(x + 18, y - 30, Math.min(1, procT / procTime()), '#ff8a3d');
   }) });
+  list.push({ d: OFFICER.x + OFFICER.y + 1.2, draw: () => {
+    const a = P(REC.x0 + 1.6, REC.y0 + 1.4), b = P(REC.x0 + 4.4, REC.y0 + 1.4), cc = P(REC.x0 + 4.4, REC.y0 + 2.0), d = P(REC.x0 + 1.6, REC.y0 + 2.0), h = 12;
+    poly(ctx, [d, cc, up(cc, h), up(d, h)], '#9a6a41'); poly(ctx, [cc, b, up(b, h), up(cc, h)], '#86592f'); poly(ctx, [up(a, h), up(b, h), up(cc, h), up(d, h)], '#c99a68', '#8a5f3a');
+    const m = P(REC.x0 + 2.2, REC.y0 + 1.7); emoji('📜', m.x, m.y - 16, 11); const n = P(REC.x0 + 3.8, REC.y0 + 1.7); emoji('🔔', n.x, n.y - 16, 11);
+  } });
   for (const a of agents) {
-    list.push({ y: a.y, draw: () => drawCreature(a, a.x, a.y, 36, () => {
-      if (a.state === 'study' && !a.path.length) ring(a.x + 16, a.y - 38, Math.min(1, a.t / a.dur));
-      if (a.state === 'fly') emoji('✨', a.x - 14, a.y - 6, 10);
+    list.push({ d: a.x + a.y + (a.state === 'fly' ? 100 : 0), draw: () => drawCreature(a, a.x, a.y, 30, (x, y) => {
+      if (a.state === 'study' && !a.path.length) ring(x + 13, y - 32, Math.min(1, a.t / a.dur));
+      if (a.state === 'fly') emoji('✨', x - 12, y - 6, 10);
     }) });
   }
-  list.sort((p, q) => p.y - q.y).forEach((o) => o.draw());
-  for (const p of popups) { ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, p.x, p.y, 13, p.color); ctx.globalAlpha = 1; }
+  list.sort((p, q) => p.d - q.d).forEach((o) => o.draw());
+  for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
 }
 
 // ======================= UI =======================
@@ -431,24 +509,30 @@ function toast(t) { const d = document.createElement('div'); d.className = 'toas
 
 // ======================= input =======================
 let down = null;
-scroller.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, st: scroller.scrollTop }; });
+scroller.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, sl: scroller.scrollLeft, st: scroller.scrollTop }; });
 scroller.addEventListener('pointerup', (e) => {
   if (!down) return;
-  const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y) + Math.abs(scroller.scrollTop - down.st);
+  const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y) + Math.abs(scroller.scrollTop - down.st) + Math.abs(scroller.scrollLeft - down.sl);
   down = null; if (moved > 10) return;
   const r = scroller.getBoundingClientRect();
-  const wx = (e.clientX - r.left) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
-  for (let i = 0; i < CLASSES.length; i++) {
-    const R = roomRect(i);
-    if (wx >= R.x && wx <= R.x + R.w && wy >= R.y && wy <= R.y + R.h) {
-      if (S.classes[i].built) openPanel(classPanel(i));
-      else if (S.classes.findIndex((c) => !c.built) === i) openPanel(buildPanel(i));
+  const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
+  // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
+  for (const lift of [0, 20, 40]) {
+    const a = (wx - OX) / HW, b = (wy + lift - OY) / HH;
+    const tx = Math.floor((a + b) / 2), ty = Math.floor((b - a) / 2);
+    const id = regAt(tx, ty);
+    if (!id || id === 'hall') continue;
+    const ci = CLASS_SLOT.indexOf(id);
+    if (ci >= 0) {
+      if (S.classes[ci].built) openPanel(classPanel(ci));
+      else if (S.classes.findIndex((c) => !c.built) === ci) openPanel(buildPanel(ci));
       else toast('Сначала построй предыдущий класс');
       return;
     }
+    if (id === 'REC') { openPanel(receptionPanel); return; }
+    if (id === 'GARDEN') { toast(`🎓 Выпускников: ${S.stats.graduated}`); return; }
+    if (id === 'LOUNGE') { toast('🛋️ Скоро здесь будет столовая'); return; }
   }
-  if (wy > recTop && wy < recTop + RECH) { openPanel(receptionPanel); return; }
-  if (wy < GT) toast(`🎓 Выпускников: ${S.stats.graduated}`);
 });
 
 document.addEventListener('click', (e) => {
@@ -500,7 +584,7 @@ window.addEventListener('resize', resize);
 load();
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
 resize();
-scroller.scrollTop = H * scale;
+{ const h = P(21, 23); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.45; }
 applyOffline();
 updateHud();
 requestAnimationFrame(frame);
