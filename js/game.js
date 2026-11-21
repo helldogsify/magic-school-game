@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=65';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=65';
+} from './data.js?v=66';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=66';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 65;   // keep equal to the ?v= number in index.html
+const BUILD = 66;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -38,7 +38,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal })),
+    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -107,15 +107,15 @@ const ART = {                                               // room pictures wit
 // on the back walls and furniture placed on the floor by the engine. A themed room replaces its painted picture.
 const THEMES = {
   herbs: { dir: 'assets/parts/herbs/', wallTiles: 4, floorTiles: 3, board: 'board',
-    decor: ['window', 'herbs_rack', 'clock', 'shelf', 'window2'], back: ['plant', 'lavender'], side: ['bookcase', 'table'], front: ['magic_pot', 'basket', 'barrel'], rug: 'rug' },
+    decor: ['window', 'herbs_rack', 'clock', 'shelf', 'window2'], iso: true, back: ['plant', 'lavender'], side: ['bookcase', 'table'], front: ['magic_pot', 'basket', 'barrel'], rug: 'rug' },
 };
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
 const DECOR = { board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
 const PROP_H = { plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
-for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.board, t.rug, ...t.decor, ...t.back, ...t.side, ...t.front])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=65`; parts[k + '/' + n] = im;
+for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.board, t.rug, ...t.decor, ...t.back, ...t.side, ...t.front, ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=66`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -268,7 +268,10 @@ const MAX_WAIT = 6;                                   // students allowed to wai
 // line of a class = waiting + already walking there
 const lineCount = (i) => waitList[i].length + agents.reduce((n, a) => n + (a.goal && a.goal.t === 'c' && a.goal.i === i && (a.state === 'walk') ? 1 : 0), 0);
 const classFull = (i) => i >= 0 && waitList[i].length >= MAX_WAIT;   // the line = only those standing at the door
-const roomForWaker = (i) => i < 0 || lineCount(i) < MAX_WAIT;          // waking sleepers also count those already walking there
+// sleepers go first (her rule 2026-11-21: one waited 10 min for a half-empty class while newcomers kept walking in):
+// a waker needs room in the standing line plus the other wakers already on their way; newcomers walking there do not block it
+const wakersFor = (i) => agents.reduce((n, a) => n + (a.woke && a.goal && a.goal.t === 'c' && a.goal.i === i && a.state === 'walk' ? 1 : 0), 0);
+const roomForWaker = (i) => i < 0 || waitList[i].length + wakersFor(i) < MAX_WAIT;
 const sleepersFor = (i) => dorm.reduce((n, a) => n + (a && a.goal && a.goal.t === 'd' && a.goal.i === i ? 1 : 0), 0);
 // dorm: upset students sleep here until there is room in the line of their class
 let DS = SLOTS.DORM, DS2 = SLOTS.DORM2;
@@ -303,7 +306,7 @@ const dorm = Array(DORM_CAP).fill(null);           // agent per bed (only the fi
 const freeBed = () => { for (let b = 0; b < DORM_CAP; b++) if (bedExists(b) && !dorm[b]) return b; return -1; };
 const dormFree = () => freeBed() >= 0;
 function goDorm(a, i, bed = freeBed()) {   // bed is reserved now, the student queues at the concierge first
-  dorm[bed] = a; a.bed = bed; a.goal = { t: 'd', i }; a.c = -1;
+  dorm[bed] = a; a.bed = bed; a.goal = { t: 'd', i }; a.c = -1; a.since = Date.now();
   dormLine.push(a); goDormLine(a);
 }
 function goDormLine(a) { const p = dormLineSpot(dormLine.indexOf(a)); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'dline'; }); }
@@ -325,18 +328,21 @@ function leaveSchool(a) {   // no room anywhere: the student is upset and goes h
   walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; });
 }
 function route(a, i) {   // send a student on to class i, or to the dorm when its line is full
-  if (i < 0 || !classFull(i)) { goClass(a, i); return true; }
+  // nobody jumps the queue: while students sleep waiting for this class and its line is busy, a newcomer lies down behind them
+  const behind = i >= 0 && sleepersFor(i) > 0 && lineCount(i) + sleepersFor(i) >= MAX_WAIT && dormFree();
+  if (i < 0 || (!classFull(i) && !behind)) { goClass(a, i); return true; }
   if (!dormFree()) { leaveSchool(a); return false; }
   popup('😢', a.x, a.y, '#5b7fd6', 44);
   goDorm(a, i);
   return true;
 }
-function wakeSleepers() {
-  for (let b = 0; b < DORM_CAP; b++) {
-    const a = dorm[b]; if (!a || a.state !== 'sleep') continue;
+function wakeSleepers() {   // the one who has waited longest wakes first
+  const sl = []; for (let b = 0; b < DORM_CAP; b++) { const a = dorm[b]; if (a && a.state === 'sleep') sl.push(a); }
+  sl.sort((p, q) => (p.since || 0) - (q.since || 0));
+  for (const a of sl) {
     let i = a.goal.i; if (!isOpen(i)) i = nextClass(i - 1);
     if (i >= 0 && !roomForWaker(i)) continue;
-    dorm[b] = null; a.bed = -1; popup('😊', a.x, a.y, '#2f9e7a', 44); goClass(a, i);
+    dorm[a.bed] = null; a.bed = -1; a.woke = true; popup('😊', a.x, a.y, '#2f9e7a', 44); goClass(a, i);
   }
 }
 function nextClass(i) { for (let k = i + 1; k < CLASSES.length; k++) if (isOpen(k)) return k; return -1; }
@@ -347,6 +353,7 @@ function goClass(a, i) {
   walk(a, h[0] + 0.5, h[1] + 0.5, () => arriveClass(a, i));
 }
 function arriveClass(a, i) {
+  a.woke = false;
   const d = freeDesk(i);
   if (d < 0 && waitList[i].length >= MAX_WAIT) {   // the line filled up while walking here
     a.state = 'walk';
@@ -648,7 +655,21 @@ function texWall(c, th, e, a, b, h) {
   return true;
 }
 // a flat sprite hung on a back wall: side 'y0' runs along x (back-right wall), 'x0' along y (back-left wall)
+// iso_* sprites are drawn in the room's own angle for the back-left wall (with depth: shelves stick out, windows are set in);
+// on the back-right wall they are mirrored. They are placed as they are, not skewed.
+const ISO_W = { board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
+function hangIso(c, th, n, s, side, t0, lo) {
+  const im = part(th, 'iso_' + n); if (!im) return false;
+  const d = DECOR[n], w = ISO_W[n] || d.w, sw = w * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - w * HH);
+  const tm = t0 + d.w / 2, base = side === 'y0' ? P(tm, s.y0) : P(s.x0, tm), m = up(base, lo * TALL_H() + vert / 2);
+  const k = scale * dpr * (c === ctx ? 1 : 0.6);
+  c.save(); c.translate(m.x, m.y); if (side === 'y0') c.scale(-1, 1);
+  c.shadowColor = 'rgba(55,35,80,0.35)'; c.shadowBlur = 3 * k; c.shadowOffsetX = (side === 'y0' ? -1.2 : 1.2) * k; c.shadowOffsetY = 1.8 * k;
+  c.drawImage(im, -sw / 2, -sh / 2, sw, sh); c.restore();
+  return true;
+}
 function hang(c, th, n, s, side, t0, lo) {
+  if (THEMES[th].iso && hangIso(c, th, n, s, side, t0, lo)) return;
   const im = part(th, n); if (!im) return;
   const d = DECOR[n], H = TALL_H(), wpx = wallPx(th), hp = d.w * wpx * im.naturalHeight / im.naturalWidth;
   const at = (t) => (side === 'y0' ? P(t, s.y0) : P(s.x0, t));
@@ -1735,7 +1756,7 @@ watchEmoji();
 load();
 relayout();   // the map depends on the saved class sizes
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
-window.__test = { P, SLOTS, focusTile, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
