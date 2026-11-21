@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=96';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=96';
+} from './data.js?v=98';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=98';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 96;   // keep equal to the ?v= number in index.html
+const BUILD = 98;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -175,7 +175,7 @@ const DECOR = { portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3
 const PROP_H = { desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=96`; parts[k + '/' + n] = im;
+  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=98`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
@@ -303,6 +303,16 @@ function deskPos(i, d) {   // 3 columns across the room, rows from the board tow
 }
 const seatPos = (i, d) => { const p = deskPos(i, d); if (frontFacing(i)) return { x: p.x - 0.45, y: p.y + 0.4 };   // charms: beside the lectern, on its left on screen (her ruling 2026-11-21)
   return { x: p.x, y: p.y + (sitsOn(i) ? 0.05 : 0.45) }; };   // in front of the desk (nearer to us): the desk is between the student and the board
+// render-only stroll: the teacher walks slowly left and right along the board, pauses, turns to the class
+function teacherWalk(i) {
+  const b = teacherPos(i), s = slotOf(i), T = performance.now() / 1000 + i * 3.7;
+  const span = Math.max(0.8, Math.min(2.2, (s.x1 - s.x0) / 2 - 1.4));
+  const ph = (T % 9) / 9;                                         // 9 s loop: walk, stop, walk back, stop
+  const u = ph < 0.35 ? ph / 0.35 : ph < 0.5 ? 1 : ph < 0.85 ? 1 - (ph - 0.5) / 0.35 : 0;
+  const x = b.x - span + 2 * span * (0.5 - 0.5 * Math.cos(u * Math.PI)), y = b.y + Math.sin(T * 0.7) * 0.25;
+  const moving = (ph < 0.35 || (ph >= 0.5 && ph < 0.85));
+  return { x, y, moving, left: ph >= 0.5 && ph < 0.85 };
+}
 const teacherPos = (i) => { const s = slotOf(i); return frontFacing(i) ? { x: s.x0 + (s.x1 - s.x0) / 2 + 0.6, y: s.y1 - 0.9 } : { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
 let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.75, y: REC.y0 + 3.3 };
 const queueSlot = (k) => ({ x: REC.x0 + 3.0 + k * 0.7, y: REC.y0 + 4.6 });
@@ -601,6 +611,7 @@ function drawIncidents() {
 // Every ~12 minutes of play an inspector checks one thing for 3 minutes. Passed: a school star (+3% to every lesson,
 // needed for new classes and worlds) and a reward. Failed: a fine. The goal is announced 40 s ahead. Only while the game is open.
 const INSP_EVERY = 720, INSP_FIRST = 420, INSP_LEN = 180, INSP_WARN = 40;
+function spendStars(n) { if (!n) return true; if (schoolStars() < n) { toast(`Нужно ⭐ ${n} звёзд школы`); return false; } insp().stars -= n; return true; }
 const schoolStars = () => (S && S.insp && S.insp.stars) || 0;
 const insp = () => (S.insp ||= { t: INSP_FIRST, stars: 0, cur: null, passed: 0, failed: 0 });
 const NOLEAVE_MAX = 7, NOLEAVE_LEN = 60;   // her ruling 2026-11-21: one minute, up to 7 may leave
@@ -671,7 +682,7 @@ function inspPanel() {
       : S.stats.graduated < 20 ? '<p>Инспектор начнёт приходить, когда у школы будет 20 выпускников.</p>' : `<p>Следующая проверка через <b>${mmss(I.t)}</b>${I.next ? `: ${inspNextText(I.next)}` : ''}.</p>`}
     ${calmBlock()}
     <p class="muted">Раз в 12 минут игры приходит инспектор и 1–3 минуты проверяет что-то одно: настроение учеников, что почти никто не ушёл расстроенным (не больше 7 за минуту), как быстро ты чинишь происшествия, как сдают экзамены или сколько школа заработала. О проверке предупреждают за 40 секунд.</p>
-    <p class="muted">Прошла — звезда школы (+3% к плате за все уроки) и награда. Не прошла — штраф. Звёзды нужны, чтобы строить новые классы. Пока игра закрыта, инспектор не приходит.</p>`;
+    <p class="muted">Прошла — звезда школы (+3% к плате за все уроки) и награда. Не прошла — штраф. Звёзды тратятся на постройку новых классов, кабинета директора и открытие новых миров. Пока игра закрыта, инспектор не приходит.</p>`;
 }
 // how many students are in the school right now (her wish 2026-11-21)
 const inSchool = () => agents.filter((a) => a.state !== 'fly' && !(a.goal && (a.goal.t === 'x' || a.goal.t === 'g')));
@@ -1304,10 +1315,10 @@ function render() {
       add((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, () => { emoji('🏗️', c.x, c.y - 14, 30); ctx.fillStyle = '#fffaf2ee'; rr(c.x - 40, c.y + 8, 80, 18, 9); ctx.fill(); text(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, c.x, c.y + 17, 11, '#5a3fb0'); });
       continue;
     }
-    const tp = teacherPos(i);
+    const tp = teacherWalk(i);   // the teacher strolls along the front of the class as if explaining (her wish 2026-11-21)
     { const own = WORLD === 1 && STAFF_ART[CLASSES[i].id] && sprites['staff_' + CLASSES[i].id];
-      if (own && own.complete && own.naturalWidth) { const t1 = { sp: 'staff_' + CLASSES[i].id, ph: i * 1.3, flip: false, path: [] }; add(tp.x, tp.y, () => drawCreature(t1, tp.x, tp.y, 44)); }   // own drawn professor (her approval, one at a time)
-      else { const t0 = staff[(i + 1) % staff.length], tch = frontFacing(i) ? { ...t0, back: true } : t0; add(tp.x, tp.y, () => drawCreature(tch, tp.x, tp.y, 34, (x, y) => drawHat(x, y - 32, '#6c4fd1'))); } }
+      if (own && own.complete && own.naturalWidth) { const t1 = { sp: 'staff_' + CLASSES[i].id, ph: performance.now() / 1000 + i, flip: tp.left, path: tp.moving ? [1] : [] }; add(tp.x, tp.y, () => drawCreature(t1, tp.x, tp.y, 44)); }   // own drawn professor (her approval, one at a time)
+      else { const t0 = staff[(i + 1) % staff.length], tch = { ...t0, back: frontFacing(i), flip: tp.left, path: tp.moving ? [1] : [], ph: performance.now() / 1000 + i }; add(tp.x, tp.y, () => drawCreature(tch, tp.x, tp.y, 34, (x, y) => drawHat(x, y - 32, '#6c4fd1'))); } }
     const thI = themeOf(CLASS_SLOT[i]), stations = thI && THEMES[thI].stations;   // potions: a little cauldron instead of a desk
     for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI }; add(p.x, p.y, () => drawProp(o)); } else add(p.x, p.y, () => drawDesk(p)); }
     for (const o of roomProps(i)) add(o.x, o.y, () => drawProp(o));
@@ -1481,7 +1492,7 @@ function dirBuildPanel() {
   return `<div class="sh-head"><span class="remoji big">👑</span><div><h2>Кабинет директора</h2><div class="muted">Решения для всей школы</div></div><button class="x" data-close>✕</button></div>
     <p>Здесь ты будешь принимать решения для всей школы: правила возврата взноса ушедшим, забота об учениках, дежурный завхоз и связи с инспекцией.</p>
     <p class="muted">Нужно: 🪙${fmt(DIR_COST)} и звёзды школы <b>⭐ ${st}/${DIR_STARS}</b>${ok ? '' : ' — звёзды дают проверки инспектора 🧐'}.</p>
-    <button class="btn wide" data-cost="${DIR_COST}" data-act="dirbuild" ${ok ? '' : 'disabled'}>Построить <span class="cost">🪙${fmt(DIR_COST)}</span></button>`;
+    <button class="btn wide" data-cost="${DIR_COST}" data-act="dirbuild" ${ok ? '' : 'disabled'}>Построить <span class="cost">🪙${fmt(DIR_COST)} ⭐${DIR_STARS}</span></button>`;
 }
 function dirPanel() {
   let h = `<div class="sh-head"><span class="remoji big">👑</span><div><h2>Кабинет директора</h2><div class="muted">Решения для всей школы</div></div><button class="x" data-close>✕</button></div>
@@ -1508,7 +1519,7 @@ function buildPanel(i) {
       <p>Ученики будут приходить сюда после предыдущего урока. Плата за урок: <b>🪙${fmt(C.tuition)}</b>.</p>
       <p class="muted">Стройка займёт ${C.buildTime >= 60 ? Math.round(C.buildTime / 60) + ' мин' : C.buildTime + ' с'}.</p>
       ${starsNeed(i) > schoolStars() ? `<p class="muted">Нужно звёзд школы: <b>⭐ ${schoolStars()}/${starsNeed(i)}</b>. Звёзды дают проверки инспектора 🧐${calm() ? ' — выключи спокойный режим в ⚙️, чтобы он приходил' : ''}.</p>` : ''}
-      <button class="btn wide" data-cost="${C.build}" data-act="build" data-i="${i}" ${starsNeed(i) > schoolStars() ? 'disabled' : ''}>Построить <span class="cost">🪙${fmt(C.build)}</span></button>`;
+      <button class="btn wide" data-cost="${C.build}" data-act="build" data-i="${i}" ${starsNeed(i) > schoolStars() ? 'disabled' : ''}>Построить <span class="cost">🪙${fmt(C.build)}${starsNeed(i) ? ` ⭐${starsNeed(i)}` : ''}</span></button>`;
   };
 }
 const starsNeed = (i) => (WORLD === 1 ? [0, 0, 0, 1, 3, 5][i] || 0 : 0);   // stars are needed in calm mode too: the player turns the inspector on when in the mood to earn them (her ruling 2026-11-21)   // charms 1, flight 3, elements 5 stars (classes already built stay)
@@ -1801,7 +1812,7 @@ function worldsPanel() {
     else {
       const src = worldStats(WORLD === 1 ? 1 : 1) || { grads: 0, coins: 0 }, n = w.need;
       const ok = src.grads >= n.grads && src.coins >= n.coins && (src.stars || 0) >= (n.stars || 0);
-      right = ok ? `<button class="btn hot" data-world-open="${w.id}">Открыть 🪙${fmt(n.coins)}</button>` : '<span class="lock">🔒</span>';
+      right = ok ? `<button class="btn hot" data-world-open="${w.id}">Открыть 🪙${fmt(n.coins)}${n.stars ? ` ⭐${n.stars}` : ''}</button>` : '<span class="lock">🔒</span>';
       w._need = `🎓 ${fmt(Math.min(src.grads, n.grads))}/${fmt(n.grads)} выпускников · 🪙 ${fmt(Math.min(src.coins, n.coins))}/${fmt(n.coins)}${n.stars ? ` · ⭐ ${Math.min(src.stars || 0, n.stars)}/${n.stars}` : ''} в Школе магии`;
     }
     return `<div class="card up world ${cur ? 'cur' : ''}"><span class="remoji big">${w.emoji}</span><div class="grow"><b>${w.name}</b><div class="muted">${w.desc}</div>${w._need && !open ? `<div class="muted">${w._need}</div>` : ''}</div>${right}</div>`;
@@ -1816,8 +1827,8 @@ function goWorld(w) {
 function openWorld(w) {
   const n = WORLDS.find((x) => x.id === w).need, src = worldStats(1);
   if (WORLD !== 1 || !src || src.grads < n.grads || src.coins < n.coins || (src.stars || 0) < (n.stars || 0)) return;
-  if (!confirm(`Открыть новый мир за 🪙${fmt(n.coins)}? Монеты спишутся в Школе магии.`)) return;
-  S.coins -= n.coins; save();
+  if (!confirm(`Открыть новый мир за 🪙${fmt(n.coins)}${n.stars ? ` и ⭐ ${n.stars}` : ''}? Они спишутся в Школе магии.`)) return;
+  S.coins -= n.coins; if (n.stars) insp().stars -= n.stars; save();
   const m = readMetaLocal(); m.unlocked = [...new Set([...(m.unlocked || []), w])]; localStorage.setItem('magicschool.meta', JSON.stringify(m));
   toast('✨ Новый мир открыт!'); openPanel(worldsPanel);
 }
@@ -1960,13 +1971,13 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
-  else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!dirBuilt() && spend(DIR_COST)) { S.dirBuilt = true; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
+  else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!dirBuilt() && S.coins >= DIR_COST && spendStars(DIR_STARS) && spend(DIR_COST)) { S.dirBuilt = true; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
   else if (d.act === 'dir') { const k = d.k; if (dirLvl(k) < DIR_UP[k].max && spend(dirCost(k))) { S.dir ||= {}; S.dir[k] = dirLvl(k) + 1; } }
   else if (d.act === 'libseats') { if (libSeats() < MAX_LIB_SEATS && spend(libSeatsCost())) libUp().seats++; }
   else if (d.act === 'libspeed') { if (libUp().speed < MAX_LIB_LVL && spend(libSpeedCost())) libUp().speed++; }
   else if (d.act === 'libbonus') { if (libUp().bonus < MAX_LIB_LVL && spend(libBonusCost())) libUp().bonus++; }
   else if (d.act === 'conc') { if (dormUp().conc < MAX_CONC && spend(concCost())) dormUp().conc++; }
-  else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (spend(CLASSES[i].build)) { st.built = true; st.buildEnd = Date.now() + CLASSES[i].buildTime * 1000; panel = classPanel(i); } }
+  else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= CLASSES[i].build && spendStars(starsNeed(i)) && spend(CLASSES[i].build)) { st.built = true; st.buildEnd = Date.now() + CLASSES[i].buildTime * 1000; panel = classPanel(i); } }
   else return;
   refreshPanel(); save();
 });
