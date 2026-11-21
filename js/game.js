@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=130';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=130';
+} from './data.js?v=131';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=131';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 130;   // keep equal to the ?v= number in index.html
+const BUILD = 131;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -438,7 +438,7 @@ function goDorm(a, i, bed = freeBed()) {   // bed is reserved now, the student q
 function goDormLine(a) { const p = dormLineSpot(dormLine.indexOf(a)); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'dline'; }); }
 function toBed(a) { const p = DORM_SPOTS[a.bed]; a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'sleep'; }); }
 function stepConcierge(dt) {
-  if (!checkin && dormLine.length && dormLine[0].state === 'dline') { checkin = dormLine[0]; checkinT = 0; checkin.state = 'checkin'; }
+  if (!checkin && dormLine.length && dormLine[0].state === 'dline' && !conciergeAway()) { checkin = dormLine[0]; checkinT = 0; checkin.state = 'checkin'; }
   if (!checkin) return;
   checkinT += dt;
   if (checkinT < checkinTime()) return;
@@ -795,6 +795,32 @@ const STAFF_GLOW = { lun: 'rgba(255,240,190,0.95)' }, STAFF_GLOW_ALL = 'rgba(255
 const STAFF_OTHER = ['secretary', 'concierge'];
 const SEC_POSES = ['write', 'stamp', 'carry', 'pin'];   // pose sprites of the secretary (her ruling 2026-11-21: real animations, not sliding)
 for (const f of SEC_POSES) { const im = new Image(); im.src = `assets/staff/sec_${f}.png?v=2`; sprites['sec_' + f] = im; }
+// a full-body pose picture standing on the floor (with a soft shadow); a gentle step while walking
+function drawPose(im, x, y, H, flip, moving) {
+  const q = P(x, y), w = H * im.naturalWidth / im.naturalHeight, bob = moving ? Math.abs(Math.sin(performance.now() / 260)) * 1.2 : 0;
+  ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(q.x, q.y, H * 0.28, H * 0.11, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.translate(q.x, q.y - bob); if (flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -H, w, H); ctx.restore();
+}
+// The concierge (her ask 2026-11-21: animations): writes the guest into the book, then hands over the key;
+// with nobody to check in she yawns with her candle and now and then walks along the dorm wall to see that all sleep.
+const CON_POSES = ['write', 'key', 'yawn', 'walk'];
+for (const f of CON_POSES) { const im = new Image(); im.src = `assets/staff/con_${f}.png?v=1`; sprites['con_' + f] = im; }
+let conU = 0, conTrip = 0, conIdle = 0, conLast = 0;
+function conciergePos() {
+  const now = performance.now() / 1000, dt = Math.min(0.2, now - (conLast || now)); conLast = now;
+  conIdle = checkin || dormLine.length ? 0 : conIdle + dt;
+  if (!conTrip && conU === 0 && conIdle > 8) { conTrip = 1; conIdle = 0; }
+  if (conTrip === 1 && conU >= 1) conTrip = -1;
+  if (conTrip === -1 && conU <= 0) conTrip = 0;
+  if (conTrip) conU = Math.max(0, Math.min(1, conU + conTrip * dt / 2.2));
+  const k = 0.5 - 0.5 * Math.cos(conU * Math.PI), far = { x: CONCIERGE.x - 0.1, y: CONCIERGE.y + 3.2 };
+  let pose;
+  if (conTrip) pose = 'walk';
+  else if (checkin) pose = checkinT / checkinTime() < 0.65 ? 'write' : 'key';
+  else pose = (now % 6) < 2 ? 'yawn' : 'write';
+  return { x: CONCIERGE.x + (far.x - CONCIERGE.x) * k, y: CONCIERGE.y + (far.y - CONCIERGE.y) * k, pose, moving: !!conTrip, flip: conTrip === 1 ? false : conTrip === -1 };
+}
+const conciergeAway = () => conU > 0.02;
 function drawSecretary(so) {
   const im = so.pose !== 'walk' && sprites['sec_' + so.pose], ok = im && im.complete && im.naturalWidth;
   if (!ok) { drawCreature({ ...officer, sp: 'staff_secretary', flip: false, path: so.moving ? [1] : [], ph: performance.now() / 1000 }, so.x, so.y, 52); return; }
@@ -1405,7 +1431,9 @@ function render() {
     for (const o of (T.extras ? T.extras(s) : [])) { const oo = { ...o, th }; add(oo.x, oo.y, () => drawProp(oo)); }
   }
   // reception desk + officer
-  add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(staffSprite('concierge') ? { ...concierge, sp: 'staff_concierge', flip: false } : concierge, CONCIERGE.x, CONCIERGE.y, staffSprite('concierge') ? 62 : 34, (x, y) => {
+  const co = conciergePos();
+  if (staffSprite('concierge') && sprites['con_' + co.pose]?.naturalWidth) add(co.x, co.y, () => { drawPose(sprites['con_' + co.pose], co.x, co.y, 62, co.flip, co.moving); if (checkin) { const q = P(co.x, co.y); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } });
+  else add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(staffSprite('concierge') ? { ...concierge, sp: 'staff_concierge', flip: false } : concierge, CONCIERGE.x, CONCIERGE.y, staffSprite('concierge') ? 62 : 34, (x, y) => {
     if (!staffSprite('concierge')) drawHat(x, y - 32, '#2f9e7a');
     if (checkin) ring(x + 18, y - 30, Math.min(1, checkinT / checkinTime()), '#2f9e7a');
   }));
