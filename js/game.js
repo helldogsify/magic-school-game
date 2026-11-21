@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=29';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=29';
+} from './data.js?v=30';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=30';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 29;   // keep equal to the ?v= number in index.html
+const BUILD = 30;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -67,7 +67,9 @@ function spend(c) { if (S.coins < c) { toast('Не хватает монет �
 // ======================= world geometry (isometric tile map) =======================
 // Tile coords (x, y). Screen: sx = OX + (x - y) * HW, sy = OY + (x + y) * HH.
 // HH/HW = 0.62 matches the angle of the room art.
-const HW = 16, HH = HW * 0.62;
+// ROOMS_K: rooms are drawn 1.5x bigger than at first while creatures, signs and icons keep their on-screen size
+const ROOMS_K = 1.5;
+const HW = 16 * ROOMS_K, HH = HW * 0.62;
 const ROOM = 6;                                    // rooms are 6x6 tiles
 const WALLH = ROOM * 2 * HW * 0.3676;              // wall height in the art, relative to room width
 const GW = 32, GH = 44;
@@ -306,12 +308,13 @@ function goGraduate(a) {
     a.state = 'fly'; a.t = 0; a.vx = (Math.random() < 0.5 ? -1 : 1) * 0.6;
   });
 }
+const WALK_K = 0.8;   // walking a bit slower: the rooms got bigger on screen
 function stepAgents(dt) {
   for (const a of agents) {
     a.ph += dt;
     if (a.state === 'fly') { a.t += dt; a.z += (40 + a.t * 60) * dt; a.x += a.vx * dt; a.y -= a.vx * dt; continue; }
     if (a.path.length) {
-      const p = a.path[0], dx = p.x - a.x, dy = p.y - a.y, dist = Math.hypot(dx, dy), stepLen = a.speed * dt;
+      const p = a.path[0], dx = p.x - a.x, dy = p.y - a.y, dist = Math.hypot(dx, dy), stepLen = a.speed * WALK_K * dt;
       const sdx = dx - dy; if (Math.abs(sdx) > 0.01) a.flip = sdx < 0;
       if (dist <= stepLen) { a.x = p.x; a.y = p.y; a.path.shift(); if (!a.path.length && a.onArrive) { const f = a.onArrive; a.onArrive = null; f(); } }
       else { a.x += dx / dist * stepLen; a.y += dy / dist * stepLen; }
@@ -342,7 +345,7 @@ const scroller = $('#view');
 let MINE = 1e9, MAXE = -1e9, MINS = 1e9, MAXS = -1e9;
 for (let x = 0; x < GW; x++) for (let y = -1; y < GH; y++) if (regAt(x, y)) { MINE = Math.min(MINE, x - y - 1); MAXE = Math.max(MAXE, x - y + 1); MINS = Math.min(MINS, x + y); MAXS = Math.max(MAXS, x + y + 2); }
 // MARGIN = grass around the school, so the camera can put any place (gate, garden) in the middle of the screen
-const MARGIN = 600;
+const MARGIN = 900;
 const BASEW = (MAXE - MINE) * HW + 20;                       // width of the school itself: zoom is relative to it
 const OX = -MINE * HW + 10 + MARGIN, OY = -MINS * HH + WALLH + 40 + MARGIN;
 const WW = BASEW + 2 * MARGIN, WH = (MAXS - MINS) * HH + WALLH + 80 + 2 * MARGIN;
@@ -361,7 +364,7 @@ function resize() {
   dpr = Math.min(3, window.devicePixelRatio || 1);
   viewW = r.width; viewH = r.height;
   viewW = r.width; viewH = r.height; zoom = Math.max(zoom, minZoom());
-  scale = (r.width / BASEW) * zoom;
+  scale = (r.width / BASEW) * zoom * ROOMS_K;
   canvas.style.width = r.width + 'px'; canvas.style.height = r.height + 'px';
   canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
   $('#spacer').style.height = WH * scale + 'px'; $('#spacer').style.width = WW * scale + 'px';
@@ -834,7 +837,7 @@ function toast(t) { const d = document.createElement('div'); d.className = 'toas
 const minZoom = () => 0.9;
 function setZoom(z, cx, cy, wx, wy) {   // keep world point (wx, wy) under client point (cx, cy) of the scroller
   zoom = Math.max(minZoom(), Math.min(ZMAX, z));
-  scale = (viewW / BASEW) * zoom;
+  scale = (viewW / BASEW) * zoom * ROOMS_K;
   $('#spacer').style.height = WH * scale + 'px'; $('#spacer').style.width = WW * scale + 'px';
   scroller.scrollLeft = wx * scale - cx; scroller.scrollTop = wy * scale - cy;
 }
