@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=91';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=91';
+} from './data.js?v=92';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=92';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 91;   // keep equal to the ?v= number in index.html
+const BUILD = 92;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -38,7 +38,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood })),
+    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -60,11 +60,25 @@ const timeCost = (i) => Math.round(CLASSES[i].tuition * 10 * Math.pow(1.6, S.cla
 const MAX_REC_LVL = 40;   // both reception upgrades stop at level 40
 const recLvl = () => Math.min(MAX_REC_LVL, S.reception.level), adsLvl = () => Math.min(MAX_REC_LVL, S.reception.ads);
 const procTime = () => 3.5 * Math.pow(0.92, recLvl() - 1);
-const fee = () => 3 + recLvl();
+// entry fee: grows with the school (half the lesson price of the most expensive open class); upset leavers get it back x refundRate()
+const fee = () => { let mx = 0; for (let i = 0; i < CLASSES.length; i++) if (!CLASSES[i].final && isOpen(i)) mx = Math.max(mx, tuition(i)); return Math.max(3 + recLvl(), Math.round(mx * 0.5)); };
 const arrivalInterval = () => 5 * Math.pow(0.9, adsLvl() - 1);
 const recCost = () => Math.round(20 * Math.pow(1.4, S.reception.level - 1));
 const adsCost = () => Math.round(30 * Math.pow(1.45, S.reception.ads - 1));
 
+// ======================= director's office (Ruslan's idea, Maria's choices 2026-11-21) =======================
+const DIR_UP = {
+  refund: { emo: '💸', name: 'Правила возврата', max: 8, base: 20000, k: 2.2, desc: (l) => `ушедшим возвращаем ${Math.round(refundRateAt(l) * 100)}% взноса` },
+  care: { emo: '💗', name: 'Забота об учениках', max: 10, base: 10000, k: 2.0, desc: (l) => `в очередях грустят на ${Math.round((1 - careK(l)) * 100)}% медленнее` },
+  keeper: { emo: '🧹', name: 'Дежурный завхоз', max: 10, base: 15000, k: 2.0, desc: (l) => `происшествия реже на ${Math.round(l * 10)}%, сами проходят за ${Math.round(INC_AUTO_AT(l) / 60)} мин` },
+  ties: { emo: '🤝', name: 'Связи с инспекцией', max: 10, base: 10000, k: 2.0, desc: (l) => `награда за проверку +${l * 10}%, штраф −${l * 7}%` },
+};
+const dirLvl = (k) => (S && S.dir && S.dir[k]) || 0;
+const dirCost = (k) => Math.round(DIR_UP[k].base * Math.pow(DIR_UP[k].k, dirLvl(k)));
+const refundRateAt = (l) => 3 - 0.25 * l;                 // 300% -> 100%
+const refundRate = () => refundRateAt(dirLvl('refund'));
+const careK = (l) => 1 - 0.06 * l;                         // mood drop x1 -> x0.4
+const INC_AUTO_AT = (l) => 600 * (1 - 0.07 * l);           // 10 min -> 3 min
 const G = { // helpers exposed to missions
   get S() { return S; }, cls, built: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return isOpen(i); },
   item: (cid, iid) => { const i = CLASSES.findIndex((c) => c.id === cid); return S.classes[i].items[CLASSES[i].items.findIndex((x) => x.id === iid)]; },
@@ -142,6 +156,11 @@ const THEMES = {
   DORM2: { dir: 'assets/parts/dorm/', wallTiles: 4, floorTiles: 3, board: 'garland', isoOnly: true, iso: true,
     decor: ['round_window', 'painting', 'shelf', 'window', 'moon_clock'], back: [], side: [], front: [], rug: 'rug', beds: ['bed_lilac', 'bed_pink', 'bed_mint'],
     extras: (s) => [{ n: 'plant', x: s.x1 - 0.45, y: s.y1 - 0.5 }, { n: 'toy_chest', x: s.x0 + 0.5, y: s.y1 - 0.6 }] },
+  // Director's office (Ruslan's idea 2026-11-21): the director sits behind a big desk
+  DIR: { dir: 'assets/parts/director/', wallTiles: 4, floorTiles: 3, board: 'portrait', isoOnly: true, iso: true,
+    decor: ['window', 'certificates', 'clock', 'shelf', 'banner'], back: [], side: [], front: [], rug: 'rug', h: { bookcase: 48 },
+    extras: (s) => [{ n: 'desk', x: s.x0 + 2.6, y: s.y0 + 2.4 }, { n: 'armchair', x: s.x0 + 4.4, y: s.y0 + 4.2 }, { n: 'globe', x: s.x1 - 0.55, y: s.y0 + 0.6 },
+      { n: 'bookcase', x: s.x0 + 0.45, y: s.y0 + 1.0 }, { n: 'palm', x: s.x0 + 0.5, y: s.y1 - 0.5 }, { n: 'tea_table', x: s.x0 + 3.2, y: s.y1 - 1.1 }, { n: 'cabinet', x: s.x1 - 0.5, y: s.y1 - 0.6 }] },
   // Library (her choice 2026-11-21: a cozy reading room, students read in soft armchair-poufs)
   LIB: { dir: 'assets/parts/library/', wallTiles: 4, floorTiles: 3, board: 'bookshelf', isoOnly: true, iso: true,
     decor: ['window', 'lamp', 'bookshelf2', 'map', 'round_window'], back: [], side: [], front: [], rug: 'rug',
@@ -149,12 +168,12 @@ const THEMES = {
     extras: (s) => [{ n: 'globe', x: s.x0 + 0.5, y: s.y0 + 0.5 }, { n: 'book_pile', x: s.x1 - 0.6, y: s.y0 + 0.6 }, { n: 'lib_desk', x: s.x0 + 3, y: s.y1 - 0.45 }, { n: 'plant', x: s.x0 + 0.5, y: s.y1 - 0.5 }] },
 };
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
-const DECOR = { notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
+const DECOR = { portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
-const PROP_H = { counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
+const PROP_H = { desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=91`; parts[k + '/' + n] = im;
+  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=92`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
@@ -170,6 +189,7 @@ function genLayout() {
   // top: exam hall across the whole width, graduates' garden next to it (outside, no walls)
   SLOTS.EXAM = slot(7, y, [[13, y + 5], [13, y + 6]], {}, 17, 6, [[[14, y + 5], [14, y + 6]], [[15, y + 5], [15, y + 6]], [[16, y + 5], [16, y + 6]], [[17, y + 5], [17, y + 6]], [[23, y + 3], [24, y + 3]]]);
   SLOTS.GARDEN = slot(24, y, [[24, y + 3], [23, y + 3]], {}, 6, 6);
+  if (WORLD === 1) SLOTS.DIR = slot(1, y + 6, [[6, y + 8], [7, y + 8]], {}, 6, 6, [[[6, y + 9], [7, y + 9]]]);   // director's office, door to the top corridor
   y += 6;
   const hallTop = y; y += CW;
   let lastGap = null;
@@ -310,7 +330,7 @@ function finishProcess() {
   const a = processing; processing = null;
   queue.shift(); queue.forEach(goQueue);
   S.stats.enrolled++;
-  earn(fee(), OFFICER.x + 1, OFFICER.y, '#c98a00');
+  a.paid = fee(); earn(a.paid, OFFICER.x + 1, OFFICER.y, '#c98a00');
   a.state = 'walk';
   route(a, nextClass(-1));
 }
@@ -371,8 +391,10 @@ function stepConcierge(dt) {
   popup('📝', a.x, a.y, '#7b5cd6', 44);
   toBed(a);
 }
-function leaveSchool(a) {   // no room anywhere: the student is upset and goes home
+function leaveSchool(a) {   // no room anywhere: the student is upset and goes home — and the school pays its fee back with a penalty
   S.stats.left = (S.stats.left || 0) + 1;
+  const back = Math.min(S.coins, Math.round((a.paid || fee()) * refundRate()));
+  if (back > 0) { S.coins -= back; S.stats.refunded = (S.stats.refunded || 0) + back; popup(`−${fmt(back)}`, a.x, a.y, '#e0245e', 60); }
   popup('😢💔', a.x, a.y, '#c0436b', 44);
   a.c = -1; a.goal = { t: 'x' }; a.state = 'walk';
   walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; });
@@ -495,7 +517,7 @@ function stepMood(a, dt, live) {
   let d = 0;
   if (a.state === 'study') d = incOf(a.c) ? -1.5 : 0.8;
   else if (a.state === 'read') d = 1.2;
-  else if (MOOD_DROP[a.state] !== undefined) d = -MOOD_DROP[a.state] * (a.state === 'sleep' ? 1 - 0.05 * (dormUp().conc - 1) : 1);   // a better dorm keeps them calmer
+  else if (MOOD_DROP[a.state] !== undefined) d = -MOOD_DROP[a.state] * (a.state === 'sleep' ? 1 - 0.05 * (dormUp().conc - 1) : 1) * careK(dirLvl('care'));   // a better dorm and the director's care keep them calmer
   if (d < 0 && !live) return;
   a.mood = Math.max(0, Math.min(100, moodOf(a) + d * dt));
   if (live && a.mood < 8 && (a.state === 'wait' || a.state === 'sleep')) giveUp(a);
@@ -535,10 +557,10 @@ function hintOnce(key, emo, title, text) {   // a short explanation the first ti
 }
 function stepIncidents(dt, live) {
   S.inc ||= {};
-  for (const [i, x] of Object.entries(S.inc)) { x.t = (x.t || 0) + dt; if (x.t > INC_AUTO) delete S.inc[i]; }
+  for (const [i, x] of Object.entries(S.inc)) { x.t = (x.t || 0) + dt; if (x.t > INC_AUTO_AT(dirLvl('keeper'))) delete S.inc[i]; }
   if (!live || S.stats.graduated < 5 || tourStep >= 0) return;   // never while the game is closed, nor for a brand-new school
   incT -= dt; if (incT > 0) return;
-  incT = INC_MIN + Math.random() * (INC_MAX - INC_MIN);
+  incT = (INC_MIN + Math.random() * (INC_MAX - INC_MIN)) * (1 + 0.1 * dirLvl('keeper'));
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !S.inc[i]);
   if (Object.keys(S.inc).length >= INC_MAXN || !open.length) return;
   const i = rnd(open); S.inc[i] = { k: Math.random() < 0.3 ? 'g' : 'c', t: 0 };
@@ -621,10 +643,10 @@ let inspResult = null;
 function finishInspection() {
   const I = insp(), c = I.cur, K = INSP_KINDS[c.kind];
   const ok = !c.failed && (K.check ? K.check(c) : true);
-  const income = Math.max(200, Math.round((S.ema || 1) * 180 / 10) * 10);
+  const income = Math.max(200, Math.round((S.ema || 1) * 180 / 10) * 10), ties = dirLvl('ties');
   I.cur = null; I.t = INSP_EVERY;
-  if (ok) { I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; S.coins += income; S.stats.earned = (S.stats.earned || 0) + income; inspResult = { ok, income }; }
-  else { const fine = Math.min(S.coins, Math.round(income / 2)); S.coins -= fine; I.failed = (I.failed || 0) + 1; inspResult = { ok, fine, text: inspText(c) }; }
+  if (ok) { const rw = Math.round(income * (1 + 0.1 * ties)); I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; S.coins += rw; S.stats.earned = (S.stats.earned || 0) + rw; inspResult = { ok, income: rw }; }
+  else { const fine = Math.min(S.coins, Math.round(income / 2 * (1 - 0.07 * ties))); S.coins -= fine; I.failed = (I.failed || 0) + 1; inspResult = { ok, fine, text: inspText(c) }; }
   openPanel(inspResultPanel); updateHud(); save();
 }
 function inspResultPanel() {
@@ -890,7 +912,7 @@ function texWall(c, th, e, a, b, h) {
 // a flat sprite hung on a back wall: side 'y0' runs along x (back-right wall), 'x0' along y (back-left wall)
 // iso_* sprites are drawn in the room's own angle for the back-left wall (with depth: shelves stick out, windows are set in);
 // on the back-right wall they are mirrored. They are placed as they are, not skewed.
-const ISO_W = { notice: 1.0, lantern: 0.6, garland: 2.6, moon_clock: 0.85, bookshelf: 1.5, bookshelf2: 1.4, lamp: 0.6, map: 1.2, banner: 1.1, sconce: 0.7, diploma: 0.9, el_poster: 1.6, torch: 0.75, planter: 1.35, wing_poster: 1.8, birds: 1.5, circle: 1.8, mirror: 0.95, wand_rack: 1.4, chart: 1.9, painting: 0.95, poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
+const ISO_W = { portrait: 1.3, certificates: 1.4, notice: 1.0, lantern: 0.6, garland: 2.6, moon_clock: 0.85, bookshelf: 1.5, bookshelf2: 1.4, lamp: 0.6, map: 1.2, banner: 1.1, sconce: 0.7, diploma: 0.9, el_poster: 1.6, torch: 0.75, planter: 1.35, wing_poster: 1.8, birds: 1.5, circle: 1.8, mirror: 0.95, wand_rack: 1.4, chart: 1.9, painting: 0.95, poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
 function hangIso(c, th, n, s, side, t0, lo) {
   const im = part(th, 'iso_' + n); if (!im) return false;
   const d = DECOR[n], w = ISO_W[n] || d.w, sw = w * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - w * HH);
@@ -1091,7 +1113,7 @@ function drawGate(c) {
 function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
   if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built())) return;
-  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
+  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   const fs = 12, hgt = 22;
   c.font = `800 ${fs}px ui-rounded,"Nunito","Segoe UI",sans-serif`; const tw = c.measureText(name).width + 22;
@@ -1113,7 +1135,7 @@ function drawSign(c, id) {
     }
   }
 }
-const SIGN_BG = { REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f' };
+const SIGN_BG = { REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f', DIR: '#f5d77a' };
 let signRects = [];   // tappable room signs of the last frame, world coords
 function drawPlot(c, s, ci, L, B, R, F, center) {
   const next = S.classes.findIndex((q) => !q.built) === ci;
@@ -1162,6 +1184,7 @@ function drawDesk(p) {
 const staff = SPECIES.map((sp, k) => ({ sp, ph: k * 1.7, flip: false, path: [] }));
 const officer = { sp: 'fernhorn', ph: 0.5, flip: false, path: [] };
 const concierge = { sp: 'petalear', ph: 1.3, flip: false, path: [] };
+const director = { sp: 'starwhisker', ph: 0.9, flip: true, path: [] };
 
 // ======================= guided tour =======================
 // Each step: camera focus in tile coords (null = stay), title and text (Russian UI).
@@ -1282,7 +1305,8 @@ function render() {
     });
   }
   // library (themed): an armchair at every open reading place and a few things around
-  for (const rid of ['LIB', 'REC', 'DORM', 'DORM2']) {
+  if (SLOTS.DIR) { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); }   // the director behind the desk
+  for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR']) {
     const th = themeOf(rid); if (!th || (rid === 'DORM2' && !dorm2Built())) continue;
     const T = THEMES[th], s = SLOTS[rid];
     if (rid === 'LIB') LIB_SPOTS.slice(0, libSeats()).forEach((q, k) => { const o = { n: T.seats[k % T.seats.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); });
@@ -1437,6 +1461,16 @@ function libPanel() {
     <div class="card up"><span class="remoji">💡</span><div class="grow"><b>Лучше подготовка</b> <span class="muted">ур. ${u.bonus}/${MAX_LIB_LVL}</span><div class="muted">+3% к шансу сдать после библиотеки</div></div>
       ${u.bonus >= MAX_LIB_LVL ? '<span class="done">макс.</span>' : costBtn('↑', libBonusCost(), 'libbonus')}</div>
     <p class="muted">После библиотеки урок у ученика в 2 раза короче, а шанс сдать выше на ${Math.round(libBonus() * 100)}%.</p>`;
+}
+function dirPanel() {
+  let h = `<div class="sh-head"><span class="remoji big">👑</span><div><h2>Кабинет директора</h2><div class="muted">Решения для всей школы</div></div><button class="x" data-close>✕</button></div>
+    <p class="muted">Взнос новичка сейчас 🪙${fmt(fee())}. Кто уходит расстроенным, получает его назад: ${Math.round(refundRate() * 100)}%. Уже вернули: 🪙${fmt(S.stats.refunded || 0)}.</p>`;
+  for (const [k, u] of Object.entries(DIR_UP)) {
+    const l = dirLvl(k);
+    h += `<div class="card up"><span class="remoji">${u.emo}</span><div class="grow"><b>${u.name}</b> <span class="muted">ур. ${l}/${u.max}</span><div class="muted">${u.desc(l)}</div></div>
+      ${l >= u.max ? '<span class="done">макс.</span>' : costBtn('↑', dirCost(k), 'dir', `data-k="${k}"`)}</div>`;
+  }
+  return h;
 }
 function receptionPanel() {
   return `<div class="sh-head"><span class="remoji big">🛎️</span><div><h2>Приёмная</h2><div class="muted">Здесь новые ученики поступают в школу</div></div><button class="x" data-close>✕</button></div>
@@ -1862,6 +1896,7 @@ function openRoom(id) {
     if (id === 'REC') { openPanel(receptionPanel); return; }
     if (id === 'GARDEN') { toast(`🎓 Выпускников: ${S.stats.graduated}`); return; }
     if (id === 'LIB') { openPanel(libPanel); return; }
+    if (id === 'DIR') { openPanel(dirPanel); return; }
     if (id === 'DORM' || id === 'DORM2') { openPanel(dormPanel); return; }
   }
 }
@@ -1904,6 +1939,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
+  else if (d.act === 'dir') { const k = d.k; if (dirLvl(k) < DIR_UP[k].max && spend(dirCost(k))) { S.dir ||= {}; S.dir[k] = dirLvl(k) + 1; } }
   else if (d.act === 'libseats') { if (libSeats() < MAX_LIB_SEATS && spend(libSeatsCost())) libUp().seats++; }
   else if (d.act === 'libspeed') { if (libUp().speed < MAX_LIB_LVL && spend(libSpeedCost())) libUp().speed++; }
   else if (d.act === 'libbonus') { if (libUp().bonus < MAX_LIB_LVL && spend(libBonusCost())) libUp().bonus++; }
