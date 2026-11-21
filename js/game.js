@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=120';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=120';
+} from './data.js?v=122';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=122';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 120;   // keep equal to the ?v= number in index.html
+const BUILD = 122;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -314,23 +314,23 @@ function teacherGlow(tp, hh, col = 'rgba(255,244,205,0.6)') {   // soft light ar
 //  - every 5 enrolment forms she carries the stack to the scroll shelf on the wall behind her and comes back;
 //  - when nobody waits for 3 s she goes to pin a note on the notice board.
 // secU = 0 at the counter, 1 at the trip's goal; enrolment waits until she is back (live only).
-let secIdle = 0, secLast = 0, secU = 0, secForms = 0, secTrip = null, secHold = 0, secLastTrip = 0;
+let secIdle = 0, secLast = 0, secU = 0, secForms = 0, secTrip = null, secHold = 0, secLastTrip = 0, secLastBoard = 0;
 function secretaryPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (secLast || now)); secLast = now;
   const waiting = processing || queue.some((q) => q.state === 'queue');
   secIdle = waiting ? 0 : secIdle + dt;
   if (!secTrip && secU === 0) {
     if (secForms >= 15 && !processing && now - secLastTrip > 20) { secTrip = 'shelf'; secForms = 0; secLastTrip = now; }   // a big school enrols fast: not more often than every 20 s
-    else if (!waiting && secIdle > 3) secTrip = 'board';
+    else if ((!waiting && secIdle > 3 && now - secLastBoard > 12) || (now - secLastBoard > 30 && !processing)) { secTrip = 'board'; secLastBoard = now; }   // pins a note at least every 30 s, even in a busy school
   }
   let target = 0;
   if (secTrip === 'shelf') { target = 1; if (secU >= 1) { secHold += dt; if (secHold > 0.6) { secTrip = 'back'; secHold = 0; } } }
-  else if (secTrip === 'board') { target = waiting ? 0 : 1; if (waiting) secTrip = 'back'; }
+  else if (secTrip === 'board') { target = 1; if (secU >= 1) { secHold += dt; if (secHold > 1.2 && (waiting || secHold > 3)) { secTrip = 'back'; secHold = 0; } } }   // stays to pin the note, then comes back
   else if (secTrip === 'back') { target = 0; if (secU <= 0) secTrip = null; }
   const sp = target ? 1 / 1.6 : 1 / 1.2;
-  secU = target > secU ? Math.min(1, secU + sp * dt) : Math.max(0, secU - sp * dt);
+  secU = target > secU ? Math.min(1, secU + sp * dt) : target < secU ? Math.max(0, secU - sp * dt) : secU;   // BUG fixed: at the goal she used to slip back every other frame (the jitter she saw)
   const s = SLOTS.REC, home = { x: OFFICER.x, y: OFFICER.y };
-  const goal = (secTrip === 'board' || (secTrip === 'back' && secGoal === 'board')) ? { x: s.x0 + 3.6, y: s.y0 + 0.9 } : { x: s.x0 + 0.55, y: s.y0 + 1.3 };   // board / scroll shelf
+  const goal = (secTrip === 'board' || (secTrip === 'back' && secGoal === 'board')) ? { x: s.x0 + 2.5, y: s.y0 + 0.45 } : { x: s.x0 + 0.55, y: s.y0 + 1.3 };   // under the school map on the back wall (she pins notes to it) / scroll shelf
   if (secTrip === 'board' || secTrip === 'shelf') secGoal = secTrip;
   const k = 0.5 - 0.5 * Math.cos(secU * Math.PI);
   const moving = secU > 0 && secU < 1;
@@ -339,6 +339,7 @@ function secretaryPos() {
   if (secTrip === 'shelf' || (secTrip === 'back' && secGoal === 'shelf' && secU > 0)) pose = secTrip === 'shelf' ? 'carry' : 'walk';
   else if (secGoal === 'board' && secU > 0) pose = secU >= 1 ? 'pin' : 'walk';
   else pose = (now % 2.4) > 1.7 ? 'stamp' : 'write';   // at the counter: writes ~1.7 s, stamps ~0.7 s, so both are seen even when enrolment is very fast
+  secretaryPos.lastPose = pose;
   return { x: home.x + (goal.x - home.x) * k, y: home.y + (goal.y - home.y) * k, moving, left: false, pose };   // never mirrored (her ruling)
 }
 let secGoal = 'board';
@@ -798,6 +799,8 @@ function drawSecretary(so) {
   const bob = so.moving && so.pose !== 'carry' ? Math.abs(Math.sin(performance.now() / 260)) * 1.2 : 0;   // no shaking with the stack of papers (her report 2026-11-21); a slow gentle step otherwise
   ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(q.x, q.y, H * 0.3, H * 0.12, 0, 0, Math.PI * 2); ctx.fill();
   ctx.drawImage(im, q.x - w / 2, q.y - lift - h - bob, w, h);
+  if (so.pose === 'write') emoji('✏️', q.x + w * 0.42, q.y - lift - h * 0.45 + Math.sin(performance.now() / 120) * 2, 9);   // the pencil moves: she is writing
+  if (so.pose === 'pin') emoji('📌', q.x + w * 0.35, q.y - h * 1.02, 10);
 }
 for (const f of STAFF_OTHER) { const im = new Image(); im.src = `assets/staff/${f}.png?v=1`; sprites['staff_' + f] = im; }
 const staffSprite = (f) => WORLD === 1 && STAFF_OTHER.includes(f) && sprites['staff_' + f]?.naturalWidth;
@@ -2314,7 +2317,7 @@ watchEmoji();
 load();
 relayout();   // the map depends on the saved class sizes
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
-window.__test = { P, SLOTS, focusTile, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
