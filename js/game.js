@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=115';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=115';
+} from './data.js?v=117';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=117';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 115;   // keep equal to the ?v= number in index.html
+const BUILD = 117;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -153,8 +153,8 @@ const THEMES = {
       { n: 'bench_l', x: s.x1 - 0.7, y: s.y0 + 5.6 }, { n: 'bench_l', x: s.x1 - 0.7, y: s.y0 + 7.3 }, { n: 'bush', x: s.x1 - 0.5, y: s.y1 - 0.4 }, { n: 'signpost', x: s.x0 + 3.4, y: s.y1 - 0.6 }] },
   // Dorms (her choice 2026-11-21: small beds with blankets; the sleeper lies on its bed)
   DORM: { dir: 'assets/parts/dorm/', wallTiles: 4, floorTiles: 3, board: 'garland', isoOnly: true, iso: true,
-    decor: ['window', 'shelf', 'painting', 'moon_clock', 'round_window'], back: [], side: [], front: [], rug: 'rug', beds: ['bed_pink', 'bed_mint', 'bed_lilac'],
-    extras: (s) => [{ n: 'conc_desk', x: s.x0 + 1.4, y: s.y0 + 1.5 }, { n: 'nightstand', x: s.x0 + 0.5, y: s.y0 + 3.6 }, { n: 'toy_chest', x: s.x0 + 0.55, y: s.y1 - 0.6 }] },
+    decor: ['window', 'shelf', 'painting', 'moon_clock', 'round_window'], back: [], side: [], front: [], rug: 'rug', beds: ['bed_pink', 'bed_mint', 'bed_lilac'], load: ['conc_desk'],
+    extras: (s) => [{ n: 'nightstand', x: s.x0 + 0.5, y: s.y0 + 3.6 }, { n: 'toy_chest', x: s.x0 + 0.55, y: s.y1 - 0.6 }] },
   DORM2: { dir: 'assets/parts/dorm/', wallTiles: 4, floorTiles: 3, board: 'garland', isoOnly: true, iso: true,
     decor: ['round_window', 'painting', 'shelf', 'window', 'moon_clock'], back: [], side: [], front: [], rug: 'rug', beds: ['bed_lilac', 'bed_pink', 'bed_mint'],
     extras: (s) => [{ n: 'plant', x: s.x1 - 0.45, y: s.y1 - 0.5 }, { n: 'toy_chest', x: s.x0 + 0.5, y: s.y1 - 0.6 }] },
@@ -174,7 +174,7 @@ const DECOR = { flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9
 // floor props: height in world px (a creature is 30)
 const PROP_H = { desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
-for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
+for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
   if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=2111`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
@@ -309,20 +309,33 @@ function teacherGlow(tp, hh, col = 'rgba(255,244,205,0.6)') {   // soft light ar
   g.addColorStop(0, col); g.addColorStop(1, 'rgba(255,240,200,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.x, q.y - hh * 0.5, hh * 0.75, 0, Math.PI * 2); ctx.fill();
 }
 // the secretary leaves the counter only while nobody waits (her idea 2026-11-21): she pins notes on the board, then comes back
-let secIdle = 0, secLast = 0, secU = 0;
+// The secretary moves only with a reason (her ruling 2026-11-21: «должна быть логика у этого движения»):
+//  - while a newcomer is being enrolled she stands at the counter and works;
+//  - every 5 enrolment forms she carries the stack to the scroll shelf on the wall behind her and comes back;
+//  - when nobody waits for 3 s she goes to pin a note on the notice board.
+// secU = 0 at the counter, 1 at the trip's goal; enrolment waits until she is back (live only).
+let secIdle = 0, secLast = 0, secU = 0, secForms = 0, secTrip = null, secHold = 0;
 function secretaryPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (secLast || now)); secLast = now;
-  const busy = processing || queue.some((q) => q.state === 'queue');   // only someone already standing at the counter calls her back
-  secIdle = busy ? 0 : secIdle + dt;
-  const target = !busy && secIdle > 3 ? 1 : 0, sp = target ? 1 / 2.5 : 1 / 1.4;     // waits 3 s, strolls out in 2.5 s, hurries back in 1.4 s
+  const waiting = processing || queue.some((q) => q.state === 'queue');
+  secIdle = waiting ? 0 : secIdle + dt;
+  if (!secTrip && secU === 0) {
+    if (secForms >= 5 && !processing) { secTrip = 'shelf'; secForms = 0; }
+    else if (!waiting && secIdle > 3) secTrip = 'board';
+  }
+  let target = 0;
+  if (secTrip === 'shelf') { target = 1; if (secU >= 1) { secHold += dt; if (secHold > 0.6) { secTrip = 'back'; secHold = 0; } } }
+  else if (secTrip === 'board') { target = waiting ? 0 : 1; if (waiting) secTrip = 'back'; }
+  else if (secTrip === 'back') { target = 0; if (secU <= 0) secTrip = null; }
+  const sp = target ? 1 / 1.6 : 1 / 1.2;
   secU = target > secU ? Math.min(1, secU + sp * dt) : Math.max(0, secU - sp * dt);
-  const s = SLOTS.REC, home = { x: OFFICER.x, y: OFFICER.y }, board = { x: s.x0 + 3.6, y: s.y0 + 0.9 };
+  const s = SLOTS.REC, home = { x: OFFICER.x, y: OFFICER.y };
+  const goal = (secTrip === 'board' || (secTrip === 'back' && secGoal === 'board')) ? { x: s.x0 + 3.6, y: s.y0 + 0.9 } : { x: s.x0 + 0.55, y: s.y0 + 1.3 };   // board / scroll shelf
+  if (secTrip === 'board' || secTrip === 'shelf') secGoal = secTrip;
   const k = 0.5 - 0.5 * Math.cos(secU * Math.PI);
-  // behind the counter she is never still: she paces along it (papers, the scroll shelf) and turns (her report «всегда стоит на одном месте боком»)
-  const T = now % 7, pace = T < 2.5 ? T / 2.5 : T < 3.5 ? 1 : T < 6 ? 1 - (T - 3.5) / 2.5 : 0, pk = (0.5 - 0.5 * Math.cos(pace * Math.PI)) * (1 - k);
-  const walkingBehind = (T < 2.5 || (T >= 3.5 && T < 6)) && k < 0.05;
-  return { x: home.x + (board.x - home.x) * k, y: home.y + (board.y - home.y) * k + pk * 1.6, moving: (secU > 0 && secU < 1 && secU !== target) || walkingBehind, left: false };   // always as originally drawn: facing her counter (her ruling 2026-11-21, never mirrored)
+  return { x: home.x + (goal.x - home.x) * k, y: home.y + (goal.y - home.y) * k, moving: secU > 0 && secU < 1, left: false };   // never mirrored (her ruling)
 }
+let secGoal = 'board';
 function teacherWalk(i) {
   const b = teacherPos(i), s = slotOf(i), T = performance.now() / 1000 + i * 3.7;
   const span = Math.max(0.8, Math.min(2.2, (s.x1 - s.x0) / 2 - 1.4));
@@ -361,7 +374,7 @@ function startNextProcess(live) {
 function finishProcess() {
   const a = processing; processing = null;
   queue.shift(); queue.forEach(goQueue);
-  S.stats.enrolled++;
+  S.stats.enrolled++; secForms++;
   a.paid = fee(); earn(a.paid, OFFICER.x + 1, OFFICER.y, '#c98a00');
   a.state = 'walk';
   route(a, nextClass(-1));
@@ -387,7 +400,7 @@ function dormSpots() {
 }
 dormSpots();
 // concierge: everybody checks in at her desk before going to bed
-let CONCIERGE = { x: DS.x0 + 0.6, y: DS.y0 + 1.4 };
+let CONCIERGE = { x: DS.x0 - 0.55, y: DS.y0 + 1.1 };
 const MAX_CONC = 10, DORM2_COST = 1500;
 const dormExpandCost = (k) => Math.round(2500 * Math.pow(3, dormSize(k) - 1) * (k === 2 ? 1.5 : 1));
 const dorm2Built = () => !!(S && S.dormUp && S.dormUp.room2);
@@ -401,7 +414,7 @@ const bedExists = (b) => (b < DORM_STRIDE ? b < beds1() : b - DORM_STRIDE < beds
 const checkinTime = () => 2 * Math.pow(0.85, dormUp().conc - 1);
 const bedsCost = () => Math.round(150 * Math.pow(1.6, dormUp().beds - 1));
 const concCost = () => Math.round(100 * Math.pow(1.5, dormUp().conc - 1));
-const dormLineSpot = (k) => ({ x: DS.x0 + 1.4, y: DS.y0 + 1.6 + k * 0.55 });
+const dormLineSpot = (k) => ({ x: DS.x0 - 1.5, y: DS.y0 + 1.5 + k * 0.6 });   // the check-in line waits in the reception, by the dorm door
 let dormLine = [], checkin = null, checkinT = 0;
 const DORM_CAP = DORM_SPOTS.length;
 const dorm = Array(DORM_CAP).fill(null);           // agent per bed (only the first bedCount() beds exist)
@@ -1359,6 +1372,7 @@ function render() {
   }
   // library (themed): an armchair at every open reading place and a few things around
   if (SLOTS.DIR && dirBuilt()) { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); }   // the director behind the desk
+  if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR']) {
     const th = themeOf(rid); if (!th || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt())) continue;
     const T = THEMES[th], s = SLOTS[rid];
@@ -2182,7 +2196,7 @@ function relayout() {   // rebuild the map (a class was expanded): creatures kee
   const snap = agents.length ? (save(), S.world) : null;
   genLayout(); buildGrid(); buildEdges(); decorateEdges();
   REC = SLOTS.REC; OFFICER = { x: REC.x0 + 0.75, y: REC.y0 + 3.3 };
-  DS = SLOTS.DORM; DS2 = SLOTS.DORM2; CONCIERGE = { x: DS.x0 + 0.6, y: DS.y0 + 1.4 }; dormSpots();
+  DS = SLOTS.DORM; DS2 = SLOTS.DORM2; CONCIERGE = { x: DS.x0 - 0.55, y: DS.y0 + 1.1 }; dormSpots();
   LS = SLOTS.LIB; libSpots();
   computeBounds(); staticKey = ''; resize();
   if (snap) {
