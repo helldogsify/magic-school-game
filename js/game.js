@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=76';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=76';
+} from './data.js?v=77';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=77';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 76;   // keep equal to the ?v= number in index.html
+const BUILD = 77;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -122,7 +122,7 @@ const DECOR = { chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 
 const PROP_H = { tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=76`; parts[k + '/' + n] = im;
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=77`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -544,8 +544,15 @@ function forceIncident() {
 const inspText = (c) => (c.kind === 'earn' ? `${INSP_KINDS.earn.text} ${fmt(c.goal)} 🪙` : INSP_KINDS[c.kind].text);
 const INSP_SHORT = { mood: 'настроение 60%+', noleave: 'никто не уйдёт', inc: 'чинить за 20 с', pass: 'экзамены 70%+', earn: 'заработок' };
 const inspNextText = (k) => (k === 'earn' ? 'сколько школа заработает' : INSP_KINDS[k].text);
+const calm = () => !!(S && S.calm);
+function setCalm(on) {
+  S.calm = on;
+  const I = insp(); if (on) { I.cur = null; I.next = null; I.t = Math.max(I.t, INSP_WARN + 60); }   // a running check is cancelled without a fine
+  toast(on ? '😌 Спокойный режим: инспектор не придёт' : '🧐 Инспектор снова будет приходить');
+  save(); updateHud(); dirtyPanel = true;
+}
 function stepInspector(dt, live) {
-  if (!live || S.stats.graduated < 20 || tourStep >= 0) return;
+  if (calm() || !live || S.stats.graduated < 20 || tourStep >= 0) return;
   const I = insp();
   if (!I.cur) {
     I.t -= dt;
@@ -576,11 +583,17 @@ function inspResultPanel() {
     <p class="center">Штраф: <b>🪙 ${fmt(r.fine)}</b>. В следующий раз получится!</p><button class="btn wide" data-close>Понятно</button>`;
 }
 const mmss = (x) => `${Math.floor(Math.max(0, x) / 60)}:${String(Math.floor(Math.max(0, x) % 60)).padStart(2, '0')}`;
+function calmBlock() {
+  return calm()
+    ? `<p class="muted">Спокойный режим включён: инспектор не приходит, новые классы строятся без звёзд. Новых звёзд в этом режиме не будет.</p><button class="btn ghost wide" data-calm="0">🧐 Выключить спокойный режим</button>`
+    : `<p class="muted">В спокойном режиме инспектор не приходит: никаких проверок и штрафов. Новые классы строятся без звёзд, но и новых звёзд не будет. Включить и выключить можно в любой момент.</p><button class="btn ghost wide" data-calm="1">😌 Включить спокойный режим</button>`;
+}
 function inspPanel() {
   const I = insp(), c = I.cur;
   return `<div class="sh-head"><span class="remoji big">🧐</span><div><h2>Инспектор и звёзды школы</h2><div class="muted">У школы ⭐ ${schoolStars()} · пройдено ${I.passed || 0}, провалено ${I.failed || 0}</div></div><button class="x" data-close>✕</button></div>
     ${c ? `<div class="card up"><span class="remoji">🧐</span><div class="grow"><b>Идёт проверка: ${inspText(c)}</b><div class="muted">${INSP_KINDS[c.kind].now(c)} · осталось ${mmss(c.left)}</div></div></div>`
       : S.stats.graduated < 20 ? '<p>Инспектор начнёт приходить, когда у школы будет 20 выпускников.</p>' : `<p>Следующая проверка через <b>${mmss(I.t)}</b>${I.next ? `: ${inspNextText(I.next)}` : ''}.</p>`}
+    ${calmBlock()}
     <p class="muted">Раз в 12 минут игры приходит инспектор и 3 минуты проверяет что-то одно: настроение учеников, что никто не ушёл расстроенным, как быстро ты чинишь происшествия, как сдают экзамены или сколько школа заработала. О проверке предупреждают за 40 секунд.</p>
     <p class="muted">Прошла — звезда школы (+3% к плате за все уроки) и награда. Не прошла — штраф. Звёзды нужны, чтобы строить новые классы. Пока игра закрыта, инспектор не приходит.</p>`;
 }
@@ -603,6 +616,7 @@ function renderInsp() {
   const el = $('#insp'); if (!el || !S) return;
   const I = S.insp || {}, c = I.cur;
   const html = c ? `<button class="ipill live" data-insp>🧐 Проверка ${mmss(c.left)} · ${INSP_KINDS[c.kind].now(c)}</button>`
+    : calm() ? `<button class="ipill" data-insp>😌 ⭐ ${schoolStars()}</button>`
     : I.next ? `<button class="ipill warn" data-insp>🧐 через ${mmss(I.t)}: ${INSP_SHORT[I.next]}</button>` : `<button class="ipill" data-insp>⭐ ${schoolStars()}</button>`;   // the warning names what will be checked (her report 2026-11-21)
   const all = html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>`;
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }   // in-place update: icons are never re-created (they blinked)
@@ -1367,11 +1381,12 @@ function buildPanel(i) {
       <button class="btn wide" data-cost="${C.build}" data-act="build" data-i="${i}" ${starsNeed(i) > schoolStars() ? 'disabled' : ''}>Построить <span class="cost">🪙${fmt(C.build)}</span></button>`;
   };
 }
-const starsNeed = (i) => (WORLD === 1 ? [0, 0, 0, 1, 3, 5][i] || 0 : 0);   // charms 1, flight 3, elements 5 stars (classes already built stay)
+const starsNeed = (i) => (WORLD === 1 && !calm() ? [0, 0, 0, 1, 3, 5][i] || 0 : 0);   // calm mode: no stars needed   // charms 1, flight 3, elements 5 stars (classes already built stay)
 function settingsPanel() {
   return `<div class="sh-head"><h2>Настройки</h2><button class="x" data-close>✕</button></div>
     <p class="muted">Версия ${VERSION} (сборка ${BUILD}). Это тестовая версия, картинки пока не все. Значки: Twemoji (CC-BY 4.0).</p>
     <p>Экзаменов сдано: ${S.stats.passed} · не сдано: ${S.stats.failed} · выпускников: ${S.stats.graduated}</p>
+    <h3>😌 Спокойный режим</h3>${calmBlock()}
     ${cloudBlock()}
     <h3>Отзыв</h3>
     <input id="fb-name" class="fb" placeholder="Твоё имя" value="${(localStorage.getItem('magicschool.name') || '').replace(/"/g, '&quot;')}">
@@ -1782,6 +1797,7 @@ document.addEventListener('click', (e) => {
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.people !== undefined) { openPanel(peoplePanel); return; }
+  if (d.calm !== undefined) { setCalm(d.calm === '1'); if (panel === settingsPanel) { openPanel(settingsPanel); drawFbPics(); } return; }
   if (d.worlds !== undefined) { openPanel(worldsPanel); return; }
   if (d.world !== undefined) { goWorld(+d.world); return; }
   if (d.worldOpen !== undefined) { openWorld(+d.worldOpen); return; }
