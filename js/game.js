@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=18';
+} from './data.js?v=19';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 18;   // keep equal to the ?v= number in index.html
+const BUILD = 19;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -325,8 +325,11 @@ const scroller = $('#view');
 // world pixel bounds
 let MINE = 1e9, MAXE = -1e9, MINS = 1e9, MAXS = -1e9;
 for (let x = 0; x < GW; x++) for (let y = -1; y < GH; y++) if (regAt(x, y)) { MINE = Math.min(MINE, x - y - 1); MAXE = Math.max(MAXE, x - y + 1); MINS = Math.min(MINS, x + y); MAXS = Math.max(MAXS, x + y + 2); }
-const OX = -MINE * HW + 10, OY = -MINS * HH + WALLH + 40;
-const WW = (MAXE - MINE) * HW + 20, WH = (MAXS - MINS) * HH + WALLH + 80;
+// MARGIN = grass around the school, so the camera can put any place (gate, garden) in the middle of the screen
+const MARGIN = 600;
+const BASEW = (MAXE - MINE) * HW + 20;                       // width of the school itself: zoom is relative to it
+const OX = -MINE * HW + 10 + MARGIN, OY = -MINS * HH + WALLH + 40 + MARGIN;
+const WW = BASEW + 2 * MARGIN, WH = (MAXS - MINS) * HH + WALLH + 80 + 2 * MARGIN;
 const P = (x, y) => ({ x: OX + (x - y) * HW, y: OY + (x + y) * HH });
 let scale = 1, dpr = 1, viewW = 0, viewH = 0, zoom = 2.2, pinching = false;
 const ZMIN = 0.9, ZMAX = 3.4;
@@ -342,7 +345,7 @@ function resize() {
   dpr = Math.min(3, window.devicePixelRatio || 1);
   viewW = r.width; viewH = r.height;
   viewW = r.width; viewH = r.height; zoom = Math.max(zoom, minZoom());
-  scale = (r.width / WW) * zoom;
+  scale = (r.width / BASEW) * zoom;
   canvas.style.width = r.width + 'px'; canvas.style.height = r.height + 'px';
   canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
   $('#spacer').style.height = WH * scale + 'px'; $('#spacer').style.width = WW * scale + 'px';
@@ -357,13 +360,14 @@ const up = (p, h) => ({ x: p.x, y: p.y - h });
 // ---- static layer (floors, rooms, walls) cached in an offscreen canvas ----
 const stat = document.createElement('canvas'); const sctx = stat.getContext('2d');
 let staticKey = '';
-const statQ = () => Math.min(scale * dpr, Math.sqrt(12e6 / (WW * WH)));   // px per world unit, capped (iOS canvas limit)
+const SW = WW - 2 * MARGIN, SH = WH - 2 * MARGIN;   // the static layer covers the school only, not the grass margin
+const statQ = () => Math.min(scale * dpr, Math.sqrt(12e6 / (SW * SH)));   // px per world unit, capped (iOS canvas limit)
 function statKey() { return S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + statQ().toFixed(2); }
 function drawStatic() {
   const k = statKey(); if (k === staticKey || (pinching && stat.width)) return; staticKey = k;
   const q = statQ();
-  stat.width = Math.round(WW * q); stat.height = Math.round(WH * q);
-  const c = sctx; c.setTransform(q, 0, 0, q, 0, 0);
+  stat.width = Math.round(SW * q); stat.height = Math.round(SH * q);
+  const c = sctx; c.setTransform(q, 0, 0, q, -MARGIN * q, -MARGIN * q);
   c.fillStyle = '#a9d98f'; c.fillRect(0, 0, WW, WH);
   c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2);
   // halls
@@ -519,20 +523,23 @@ const TOUR = [
   { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту, 🎓 выпускники. Под ними задание с наградой. Нажми на любого зверька — увидишь, что он сейчас делает. Повторить обучение можно в ⚙️. Удачи, директор!' },
 ];
 let tourStep = -1;
-function focusTile(x, y, smooth = true) {
+function focusTile(x, y, smooth = true) {   // the point goes to the middle of the free part of the screen (above the tour card)
   const p = P(x, y);
-  scroller.scrollTo({ left: p.x * scale - scroller.clientWidth / 2, top: p.y * scale - scroller.clientHeight * 0.38, behavior: smooth ? 'smooth' : 'auto' });
+  const box = $('#tour:not(.hidden)');   // the container is not animated, unlike the card sliding in
+  const sr = scroller.getBoundingClientRect();
+  const freeH = box ? Math.max(120, box.getBoundingClientRect().top - 12 - sr.top) : scroller.clientHeight;
+  scroller.scrollTo({ left: p.x * scale - scroller.clientWidth / 2, top: p.y * scale - 15 * scale - freeH / 2, behavior: smooth ? 'smooth' : 'auto' });
 }
 function showTour(i) {
   tourStep = i;
   const el = $('#tour');
   if (i < 0 || i >= TOUR.length) { el.classList.add('hidden'); tourStep = -1; S.tourDone = true; save(); return; }
   const st = TOUR[i];
-  if (st.at) focusTile(st.at[0], st.at[1]);
   el.innerHTML = `<div class="tour-card"><div class="tour-top"><b>${st.title}</b><span class="muted">${i + 1}/${TOUR.length}</span></div>
     <p>${st.text}</p><div class="tour-btns"><button class="btn ghost small" data-tour-skip>Пропустить</button>
     ${i > 0 ? '<button class="btn ghost small" data-tour-back>← Назад</button>' : ''}<button class="btn small" data-tour-next>${i === TOUR.length - 1 ? 'Понятно!' : 'Дальше →'}</button></div></div>`;
   el.classList.remove('hidden');
+  if (st.at) requestAnimationFrame(() => focusTile(st.at[0], st.at[1]));
 }
 
 // ======================= tap on a creature: what is it doing? =======================
@@ -566,7 +573,8 @@ function render() {
   drawStatic();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(stat, 0, 0, stat.width, stat.height, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr, WW * scale * dpr, WH * scale * dpr);
+  ctx.fillStyle = '#a9d98f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(stat, 0, 0, stat.width, stat.height, (MARGIN * scale - scroller.scrollLeft) * dpr, (MARGIN * scale - scroller.scrollTop) * dpr, SW * scale * dpr, SH * scale * dpr);
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
   const list = [];
@@ -758,10 +766,10 @@ function updateHud() {
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
 
 // ======================= pinch zoom =======================
-const minZoom = () => Math.max(1, (viewH / WH) / (viewW / WW));
+const minZoom = () => 0.9;
 function setZoom(z, cx, cy, wx, wy) {   // keep world point (wx, wy) under client point (cx, cy) of the scroller
   zoom = Math.max(minZoom(), Math.min(ZMAX, z));
-  scale = (viewW / WW) * zoom;
+  scale = (viewW / BASEW) * zoom;
   $('#spacer').style.height = WH * scale + 'px'; $('#spacer').style.width = WW * scale + 'px';
   scroller.scrollLeft = wx * scale - cx; scroller.scrollTop = wy * scale - cy;
 }
