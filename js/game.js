@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=71';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=71';
+} from './data.js?v=72';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=72';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 71;   // keep equal to the ?v= number in index.html
+const BUILD = 72;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -122,7 +122,7 @@ const DECOR = { chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 
 const PROP_H = { tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=71`; parts[k + '/' + n] = im;
+  const im = new Image(); im.src = `${t.dir}${n}.webp?v=72`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
@@ -1384,9 +1384,43 @@ ${msg}
 // ======================= endless missions =======================
 // The fixed chain (data.js) comes first; then a new mission is generated each time from the state of the school.
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+// ---- fair mission rewards (her ruling 2026-11-21: «Задания не соразмерны полученным деньгам») ----
+// upgrades pay back REWARD_SHARE of what they cost; counting missions pay for the minutes they really take at the current pace
+const REWARD_SHARE = 0.3, TIME_SHARE = 0.25;
+const nice = (x) => { const e = Math.pow(10, Math.max(0, Math.floor(Math.log10(Math.max(1, x))) - 1)); return Math.round(x / e) * e; };
+function missionCost(m) {   // coins still needed from the current state to the target
+  const C = CLASSES[m.i], st = m.i >= 0 ? S.classes[m.i] : null; let c = 0;
+  switch (m.type) {
+    case 'item': for (let L = st.items[m.k]; L < m.target; L++) c += C.tuition * 2 * (1 + m.k) * Math.pow(1.25, L); return c;
+    case 'teacher': for (let L = st.teacher; L < m.target; L++) c += C.tuition * 6 * Math.pow(1.35, L - 1); return c;
+    case 'desk': return deskCost(m.i);
+    case 'time': return timeCost(m.i);
+    case 'rec': for (let L = S.reception.level; L < m.target; L++) c += 20 * Math.pow(1.4, L - 1); return c;
+    case 'beds': return bedsCost();
+    case 'lib': return libSeatsCost();
+    case 'build': return C.build;
+  }
+  return -1;
+}
+const RATE_KEY = { grad: 'graduated', exams: 'passed', enroll: 'enrolled', read: 'read' };
+let rateLast = null;
+function stepRates(sec) {   // per-second pace of every counter (EMA), measured while the game is open
+  const now = { graduated: S.stats.graduated, passed: S.stats.passed, enrolled: S.stats.enrolled, read: S.stats.read || 0 };
+  S.rt ||= {};
+  if (rateLast) for (const k of Object.keys(now)) S.rt[k] = (S.rt[k] || 0) * 0.97 + ((now[k] - rateLast[k]) / sec) * 0.03;
+  rateLast = now;
+}
+function rewardFor(m) {
+  const cost = missionCost(m);
+  if (cost >= 0) return Math.max(50, nice(cost * REWARD_SHARE));
+  const perMin = Math.max(1, (S.ema || 1) * 60);
+  if (m.type === 'earn') return Math.max(50, nice((m.n || 0) * TIME_SHARE));
+  const key = RATE_KEY[m.type], rate = key ? (S.rt && S.rt[key]) || 0 : 0;
+  const minutes = rate > 0.001 ? Math.min(15, Math.max(0.5, (m.n || 0) / (rate * 60))) : 3;
+  return Math.max(50, nice(perMin * minutes * TIME_SHARE));
+}
 function makeMission() {
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i));
-  const reward = () => Math.max(50, Math.round((S.ema || 1) * 60 * rint(4, 8) / 100) * 10);   // about half a minute to a minute of income: missions are hints, the school is the income (her ruling 2026-11-21)
   const kinds = [];
   kinds.push(() => { const n = rint(3, 8) * 10; return { type: 'grad', target: S.stats.graduated + n, text: `Выпусти ещё ${n} учеников 🎓` }; });
   kinds.push(() => { const n = rint(5, 15) * 10; return { type: 'enroll', target: S.stats.enrolled + n, text: `Прими в школу ещё ${n} новичков 🛎️` }; });
@@ -1407,7 +1441,9 @@ function makeMission() {
   if (nextPlot >= 0) kinds.push(() => ({ type: 'build', i: nextPlot, target: 1, text: `Построй класс «${CLASSES[nextPlot].name}»` }));
   const m = kinds[Math.floor(Math.random() * kinds.length)]();
   if (m.type === 'rec') m.text = `Улучши секретаря в приёмной до ур. ${m.target}`;
-  m.reward = reward();
+  const statNow = { grad: S.stats.graduated, enroll: S.stats.enrolled, earn: S.stats.earned || 0, read: S.stats.read || 0, exams: S.stats.passed }[m.type];
+  if (statNow !== undefined) m.n = m.target - statNow;
+  m.reward = rewardFor(m); m.rv = 2;
   return m;
 }
 function dynDone(m) {
@@ -1468,6 +1504,10 @@ function missionList() {   // [{key, text, reward, ok, prog}]
     }
   };
   S.dynList = S.dynList.filter((m) => dynDone(m) || possible(m));
+  for (const m of S.dynList) if (m.rv !== 2 && !dynDone(m)) {   // missions made before the fair rewards: priced again from what is left to do
+    const pr = dynProgress(m); if (pr && ['grad', 'enroll', 'earn', 'read', 'exams'].includes(m.type)) m.n = pr[1] - pr[0];
+    m.reward = rewardFor(m); m.rv = 2;
+  }
   for (let tries = 0; out.length + S.dynList.length < MISSION_SLOTS && tries < 200; tries++) {
     const m = makeMission();
     if (S.dynList.some((x) => kindKey(x) === kindKey(m))) continue;
@@ -1880,7 +1920,7 @@ let earnedThisSec = 0, secT = 0, saveT = 0, last = performance.now(), panelT = 0
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   stepWorld(dt, true);
-  secT += dt; if (secT >= 1) { S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); }
+  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
   render();
