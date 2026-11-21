@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=92';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=92';
+} from './data.js?v=93';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=93';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 92;   // keep equal to the ?v= number in index.html
+const BUILD = 93;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -173,7 +173,7 @@ const DECOR = { portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3
 const PROP_H = { desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=92`; parts[k + '/' + n] = im;
+  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=93`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
@@ -189,7 +189,7 @@ function genLayout() {
   // top: exam hall across the whole width, graduates' garden next to it (outside, no walls)
   SLOTS.EXAM = slot(7, y, [[13, y + 5], [13, y + 6]], {}, 17, 6, [[[14, y + 5], [14, y + 6]], [[15, y + 5], [15, y + 6]], [[16, y + 5], [16, y + 6]], [[17, y + 5], [17, y + 6]], [[23, y + 3], [24, y + 3]]]);
   SLOTS.GARDEN = slot(24, y, [[24, y + 3], [23, y + 3]], {}, 6, 6);
-  if (WORLD === 1) SLOTS.DIR = slot(1, y + 6, [[6, y + 8], [7, y + 8]], {}, 6, 6, [[[6, y + 9], [7, y + 9]]]);   // director's office, door to the top corridor
+  if (WORLD === 1) SLOTS.DIR = slot(1, y, [[6, y + 3], [7, y + 3]], {}, 6, 6);   // director's office on the top row left of the exam hall: nothing tall stands in front of it (her report 2026-11-21: behind a class it was half hidden)
   y += 6;
   const hallTop = y; y += CW;
   let lastGap = null;
@@ -254,7 +254,7 @@ function buildEdges() {
       if (doorAt.has(`${x},${y},${dx},${dy}`)) continue;
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
-      const lowSide = (id === 'DORM' || id === 'DORM2') && side === 'x0';   // dorms share low walls with the reception and each other (they hid the rooms)
+      const lowSide = ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR');   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
       EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
     }
   }
