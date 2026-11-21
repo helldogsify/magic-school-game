@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=53';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=53';
+} from './data.js?v=54';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=54';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 53;   // keep equal to the ?v= number in index.html
+const BUILD = 54;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -101,6 +101,10 @@ const ART = {                                               // room pictures wit
   DORM2: { src: 'assets/rooms/dorm.webp', L: [105, 650], R: [931, 648], F: [512, 898] },
   REC: { src: 'assets/rooms/reception.webp', L: [102, 667], R: [920, 650], F: [512, 900] },
 };
+const dormSize = (k) => (S && S.dormUp && S.dormUp['size' + k]) || 1;      // 1..3, like class sizes
+const dormDepth = (k) => ROOM + 2 * (dormSize(k) - 1);
+const dormRows = (k) => 4 + 2 * (dormSize(k) - 1);                          // 4 beds per row: 16, 24, 32 per room
+const DORM_STRIDE = 32;                                                     // bed index: room 1 = 0..31, room 2 = 32..63
 function genLayout() {
   for (const k of Object.keys(SLOTS)) delete SLOTS[k];
   const rows = Math.ceil(NCLS / 2), CW = 5;   // corridors are wider than what a tall wall hides                        // CW: depth of a cross corridor
@@ -125,8 +129,8 @@ function genLayout() {
   SLOTS.LIB = slot(0, recY, [[2, recY], [2, recY - 1]], {}, 6, 8, [[[3, recY], [3, recY - 1]], [[5, recY + 3], [6, recY + 3]], [[5, recY + 4], [6, recY + 4]]]);   // own space: the reception's tall wall must not hide it
   SLOTS.REC = slot(10, recY, [[13, recY], [13, recY - 1]], {}, 9, 9,
     [[[14, recY], [14, recY - 1]], [[15, recY], [15, recY - 1]], [[16, recY], [16, recY - 1]], [[17, recY], [17, recY - 1]], [[14, recY + 8], [14, recY + 9]], [[15, recY + 8], [15, recY + 9]], [[18, recY + 3], [19, recY + 3]]]);
-  SLOTS.DORM = slot(19, recY, [[19, recY + 3], [18, recY + 3]], {});
-  SLOTS.DORM2 = slot(25, recY, [[25, recY + 3], [24, recY + 3]], {});
+  SLOTS.DORM = slot(19, recY, [[19, recY + 3], [18, recY + 3]], {}, ROOM, dormDepth(1));
+  SLOTS.DORM2 = slot(25, recY, [[25, recY + 3], [24, recY + 3]], {}, ROOM, dormDepth(2));
   BUILDING = { x0: 0, y0: hallTop, x1: 31, y1: recY + 8 };
   HALLS = [
     { x0: 7, y0: hallTop, x1: 24, y1: recY },                       // rows + corridors (rooms are cut out of it)
@@ -247,21 +251,27 @@ const roomForWaker = (i) => i < 0 || lineCount(i) < MAX_WAIT;          // waking
 const sleepersFor = (i) => dorm.reduce((n, a) => n + (a && a.goal && a.goal.t === 'd' && a.goal.i === i ? 1 : 0), 0);
 // dorm: upset students sleep here until there is room in the line of their class
 let DS = SLOTS.DORM, DS2 = SLOTS.DORM2;
-// beds 0..15 are in the first dorm, 16..31 in the second one
-const DORM_SPOTS = [];
-function dormSpots() { DORM_SPOTS.length = 0; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) DORM_SPOTS.push({ x: DS.x0 + 2.05 + c * 1.12, y: DS.y0 + 1.0 + r * 1.22 });
-  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) DORM_SPOTS.push({ x: DS2.x0 + 1.0 + c * 1.3, y: DS2.y0 + 1.0 + r * 1.22 }); }
+// beds of room 1 are 0..31, of room 2 32..63 (only the first ones exist, see bedExists)
+const DORM_SPOTS = Array(64).fill(null);
+function dormSpots() {
+  for (const [k, R, x0, dx] of [[1, DS, 2.05, 1.12], [2, DS2, 1.0, 1.3]]) {
+    const rows = dormRows(k), step = (R.y1 - R.y0 - 1.6) / rows;
+    for (let b = 0; b < DORM_STRIDE; b++) { const r = Math.floor(b / 4), c = b % 4; DORM_SPOTS[(k - 1) * DORM_STRIDE + b] = { x: R.x0 + x0 + c * dx, y: R.y0 + 1.0 + Math.min(r, rows - 1) * step }; }
+  }
+}
 dormSpots();
 // concierge: everybody checks in at her desk before going to bed
 let CONCIERGE = { x: DS.x0 + 0.6, y: DS.y0 + 1.4 };
 const MAX_CONC = 10, DORM2_COST = 1500;
+const dormExpandCost = (k) => Math.round(2500 * Math.pow(3, dormSize(k) - 1) * (k === 2 ? 1.5 : 1));
 const dorm2Built = () => !!(S && S.dormUp && S.dormUp.room2);
-const maxBeds = () => (dorm2Built() ? 32 : 16);
+const cap1 = () => 4 * dormRows(1), cap2 = () => 4 * dormRows(2);
+const maxBeds = () => cap1() + (dorm2Built() ? cap2() : 0);
 const dormUp = () => (S.dormUp ||= { beds: 1, conc: 1 });
-const beds1 = () => Math.min(16, 8 + dormUp().beds);                                             // 9 beds at level 1
-const beds2 = () => (dorm2Built() ? Math.min(16, 9 + Math.max(0, dormUp().beds - 8)) : 0);   // 9 at once, then the upgrade fills it
+const beds1 = () => Math.min(cap1(), 8 + dormUp().beds);                                             // 9 beds at level 1
+const beds2 = () => (dorm2Built() ? Math.min(cap2(), 9 + Math.max(0, 8 + dormUp().beds - cap1())) : 0);   // 9 at once, then the upgrade fills it
 const bedCount = () => beds1() + beds2();
-const bedExists = (b) => (b < 16 ? b < beds1() : b - 16 < beds2());
+const bedExists = (b) => (b < DORM_STRIDE ? b < beds1() : b - DORM_STRIDE < beds2());
 const checkinTime = () => 2 * Math.pow(0.85, dormUp().conc - 1);
 const bedsCost = () => Math.round(150 * Math.pow(1.6, dormUp().beds - 1));
 const concCost = () => Math.round(100 * Math.pow(1.5, dormUp().conc - 1));
@@ -621,7 +631,7 @@ function drawSlot(c, id) {
     if (id === 'DORM') emoji('🪴', B.x, B.y + 8, 16, c);
   }
   if (id === 'DORM') DORM_SPOTS.slice(0, beds1()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); });
-  if (id === 'DORM2') DORM_SPOTS.slice(16, 16 + beds2()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); });
+  if (id === 'DORM2') DORM_SPOTS.slice(DORM_STRIDE, DORM_STRIDE + beds2()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); });
 }
 // outer stone walls of the building where no room supplies a wall: [x0, y0, x1, y1, height]
 // OUTER_WALLS come from genLayout()
@@ -927,8 +937,10 @@ function dormPanel() {
     <div class="stats3"><div><span>🛏️</span><b>${used}/${bedCount()}</b><i>кровати</i></div><div><span>📝</span><b>${sec(checkinTime())}</b><i>запись</i></div><div><span>💔</span><b>${S.stats.left || 0}</b><i>ушли из школы</i></div></div>
     <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Больше кроватей</b> <span class="muted">${bedCount()}/${maxBeds()}</span><div class="muted">${bedCount() >= maxBeds() && !dorm2Built() ? 'первая спальня заполнена — построй вторую' : '+1 кровать: меньше зверьков уходит'}</div></div>
       ${bedCount() >= maxBeds() ? '<span class="done">макс.</span>' : costBtn('+1', bedsCost(), 'beds')}</div>
-    <div class="card up"><span class="remoji">🏗️</span><div class="grow"><b>Вторая спальня</b><div class="muted">${dorm2Built() ? 'построена: ещё до 16 кроватей' : 'сразу +9 кроватей, всего можно до 32'}</div></div>
+    <div class="card up"><span class="remoji">🏗️</span><div class="grow"><b>Вторая спальня</b><div class="muted">${dorm2Built() ? 'построена' : 'сразу +9 кроватей'}</div></div>
       ${dorm2Built() ? '<span class="done">✓ есть</span>' : costBtn('Построить', DORM2_COST, 'dorm2')}</div>
+    ${[1, 2].filter((k) => k === 1 || dorm2Built()).map((k) => `<div class="card up"><span class="remoji">📐</span><div class="grow"><b>Расширить ${k === 1 ? 'первую' : 'вторую'} спальню</b> <span class="muted">${['маленькая', 'средняя', 'большая'][dormSize(k) - 1]}</span><div class="muted">${dormSize(k) < 3 ? `место до ${4 * (dormRows(k) + 2)} кроватей` : 'уже самая большая'}</div></div>
+      ${dormSize(k) >= 3 ? '<span class="done">макс.</span>' : costBtn('↑', dormExpandCost(k), 'dormexp', `data-k="${k}"`)}</div>`).join('')}
     <div class="card up"><span class="remoji">🗝️</span><div class="grow"><b>Консьержка быстрее</b> <span class="muted">ур. ${u.conc}/${MAX_CONC}</span><div class="muted">−15% времени на запись</div></div>
       ${u.conc >= MAX_CONC ? '<span class="done">макс.</span>' : costBtn('↑', concCost(), 'conc')}</div>
     <p class="muted">У консьержки в очереди: ${dormLine.length}</p>
@@ -1288,6 +1300,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'rec') { if (spend(recCost())) S.reception.level++; }
   else if (d.act === 'ads') { if (spend(adsCost())) S.reception.ads++; }
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
+  else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
   else if (d.act === 'libseats') { if (libSeats() < MAX_LIB_SEATS && spend(libSeatsCost())) libUp().seats++; }
   else if (d.act === 'libspeed') { if (libUp().speed < MAX_LIB_LVL && spend(libSpeedCost())) libUp().speed++; }
