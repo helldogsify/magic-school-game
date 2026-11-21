@@ -2,7 +2,7 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=10';
+} from './data.js?v=11';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.3';
@@ -65,41 +65,43 @@ function spend(c) { if (S.coins < c) { toast('Не хватает монет �
 const HW = 16, HH = HW * 0.62;
 const ROOM = 6;                                    // rooms are 6x6 tiles
 const WALLH = ROOM * 2 * HW * 0.3676;              // wall height in the art, relative to room width
-const GW = 26, GH = 42;
+const GW = 27, GH = 44;
 
-// Layout like a real school: gate -> big reception hall -> main corridor going back, classes on both sides.
+// One school building: a wide shared wooden hall (corridor + cross passages), classes open onto it on both sides,
+// reception and dorm at the front, garden at the back end of the corridor.
 const HALLS = [
-  { x0: 13, y0: 7, x1: 15, y1: 25 },    // main corridor (screen: up-right)
-  { x0: 13, y0: 34, x1: 16, y1: 38 },   // entrance path from the gate
-  { x0: 9, y0: 36, x1: 13, y1: 38 },    // path from the gate to the dorm
+  { x0: 7, y0: 4, x1: 22, y1: 30 },     // the whole inner hall of the building (rooms are cut out of it)
+  { x0: 13, y0: 39, x1: 16, y1: 44 },   // entrance path from the gate
 ];
-// Room slots. door = [roomTile, hallTile]; extra = more door pairs; cut = back wall drawn low (a hall runs behind it).
+const BUILDING = { x0: 7, y0: 4, x1: 22, y1: 30 };
+// Room slots. door = [roomTile, hallTile]; extra = more door pairs; cut = back wall drawn low (something behind it must stay visible).
 function slot(x0, y0, door, cut = {}, w = ROOM, h = ROOM, extra = []) { return { x0, y0, x1: x0 + w, y1: y0 + h, door, cut, extra }; }
 const SLOTS = {
-  L1: slot(7, 19, [[12, 22], [13, 22]]),
-  R1: slot(15, 19, [[15, 22], [14, 22]], { left: true }),
-  L2: slot(7, 13, [[12, 16], [13, 16]]),
-  R2: slot(15, 13, [[15, 16], [14, 16]], { left: true }),
-  L3: slot(7, 7, [[12, 10], [13, 10]]),
-  R3: slot(15, 7, [[15, 10], [14, 10]], { left: true }),
-  REC: slot(9, 25, [[14, 33], [14, 34]], { right: true }, 9, 9, [[[15, 33], [15, 34]], [[13, 25], [13, 24]], [[14, 25], [14, 24]]]),
-  DORM: slot(3, 35, [[8, 37], [9, 37]]),
-  GARDEN: slot(10, 0, [[13, 6], [13, 7]], {}, 8, 7, [[[14, 6], [14, 7]]]),
+  L1: slot(7, 24, [[12, 27], [13, 27]]),
+  R1: slot(16, 24, [[16, 27], [15, 27]], { left: true }),
+  L2: slot(7, 15, [[12, 18], [13, 18]]),
+  R2: slot(16, 15, [[16, 18], [15, 18]], { left: true }),
+  L3: slot(7, 6, [[12, 9], [13, 9]]),
+  R3: slot(16, 6, [[16, 9], [15, 9]], { left: true }),
+  REC: slot(10, 30, [[14, 38], [14, 39]], { right: true }, 9, 9,
+    [[[15, 38], [15, 39]], [[13, 30], [13, 29]], [[14, 30], [14, 29]], [[15, 30], [15, 29]], [[18, 33], [19, 33]]]),
+  DORM: slot(19, 30, [[19, 33], [18, 33]], { left: true, right: true }),
+  GARDEN: slot(10, 0, [[13, 3], [13, 4]], {}, 9, 4, [[[14, 3], [14, 4]], [[15, 3], [15, 4]]]),
 };
 const CLASS_SLOT = ['L1', 'R1', 'L2', 'R2', 'L3', 'R3'];   // class i lives in this slot
 const ART = {                                               // room pictures with floor corners in image px
   herbs: { src: 'assets/rooms/herbs.webp', L: [105, 653], R: [913, 655], F: [512, 905] },
   REC: { src: 'assets/rooms/reception.webp', L: [102, 667], R: [920, 650], F: [512, 900], rightH: 26 },   // right back side clipped to railing height
 };
-const GATE_TILE = { x: 14.5, y: 37.3 };
+const GATE_TILE = { x: 14.5, y: 42.5 };
 
 // region grid
 const REG = Array.from({ length: GW }, () => Array(GH + 2).fill(null));
 const inGrid = (x, y) => x >= 0 && y >= -1 && x < GW && y < GH;
 const regAt = (x, y) => (inGrid(x, y) ? REG[x][y + 1] : null);
 function fillRect(r, id) { for (let x = r.x0; x < r.x1; x++) for (let y = r.y0; y < r.y1; y++) if (inGrid(x, y)) REG[x][y + 1] = id; }
-Object.entries(SLOTS).forEach(([id, r]) => fillRect(r, id));
 HALLS.forEach((h) => fillRect(h, 'hall'));
+Object.entries(SLOTS).forEach(([id, r]) => fillRect(r, id));
 const DOORS = new Set();
 Object.values(SLOTS).forEach((s) => { for (const [a, b] of [s.door, ...s.extra]) { DOORS.add(`${a[0]},${a[1]}|${b[0]},${b[1]}`); DOORS.add(`${b[0]},${b[1]}|${a[0]},${a[1]}`); } });
 function canStep(ax, ay, bx, by) {
@@ -315,7 +317,11 @@ function drawStatic() {
   // halls
   for (let x = 0; x < GW; x++) for (let y = -1; y < GH; y++) {
     if (regAt(x, y) !== 'hall') continue;
-    poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], (x + y) % 2 ? '#efe2cb' : '#f5ead6', '#e3d3b6');
+    const inside = x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
+    const carpet = inside && x === 14 && y > BUILDING.y0;
+    const col = carpet ? (y % 2 ? '#d98f97' : '#dd979f') : inside ? (x % 2 ? '#d7a46e' : '#dcab76') : ((x + y) % 2 ? '#e9dcc4' : '#efe4cf');
+    poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
+    if (carpet && y % 3 === 0) { const m = P(x + 0.5, y + 0.5); emoji('✦', m.x, m.y, 7, c); }
   }
   // gate
   // the gate is drawn in the depth-sorted list (drawGate)
@@ -370,8 +376,18 @@ function drawSlot(c, id) {
     if (id === 'DORM') { DORM_SPOTS.forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 22, c); }); emoji('🪴', B.x, B.y + 8, 16, c); }
   }
 }
+// outer stone walls of the building where no room supplies a wall: [x0, y0, x1, y1, height]
+const OUTER_WALLS = [
+  [7, 21, 7, 24, 1], [7, 12, 7, 15, 1], [7, 4, 7, 6, 1],          // left side, between the classes
+  [7, 4, 10, 4, 0.35], [19, 4, 22, 4, 0.35],                       // back side next to the garden opening (low)
+];
+function wallSeg([x0, y0, x1, y1, k]) {
+  const a = P(x0, y0), b = P(x1, y1), h = WALLH * 0.72 * k;
+  poly(ctx, [a, b, up(b, h), up(a, h)], x0 === x1 ? '#b7a3cf' : '#cbb9e2', '#8f7aa8');
+  poly(ctx, [up(a, h), up(b, h), up(b, h + 3), up(a, h + 3)], '#fff');
+}
 function drawGate(c) {
-  const g = P(13, 36.5), g2 = P(16, 36.5);
+  const g = P(13, 41.5), g2 = P(16, 41.5);
   c.strokeStyle = '#6c4fd1'; c.lineWidth = 5; c.beginPath(); c.moveTo(g.x, g.y); c.lineTo(g.x, g.y - 34); c.lineTo(g2.x, g2.y - 34); c.lineTo(g2.x, g2.y); c.stroke();
   text('ВОРОТА', (g.x + g2.x) / 2, (g.y + g2.y) / 2 - 40, 9, '#5a3fb0', c);
 }
@@ -386,7 +402,7 @@ function drawSign(c, id) {
 }
 function drawPlot(c, s, ci, L, B, R, F, center) {
   const next = S.classes.findIndex((q) => !q.built) === ci;
-  poly(c, [L, B, R, F], '#b9e2a0');
+  poly(c, [L, B, R, F], '#ecd2a8');
   c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
   if (!next) { emoji('🔒', center.x, center.y, 18, c); return; }
   const C = CLASSES[ci];
@@ -442,7 +458,8 @@ function render() {
   const zone = (x, y) => { const id = regAt(Math.floor(x), Math.floor(y)); if (id && id !== 'hall') { const s = SLOTS[id]; return (s.x0 + s.x1 + s.y0 + s.y1) / 2; } return x + y; };
   const add = (x, y, draw, bias = 0) => list.push({ k1: zone(x, y), k2: x + y + bias, draw });
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: () => drawSlot(ctx, id) }); }
-  list.push({ k1: 14.5 + 36.5, k2: 0, draw: () => drawGate(ctx) });
+  list.push({ k1: 14.5 + 41.5, k2: 0, draw: () => drawGate(ctx) });
+  for (const w of OUTER_WALLS) list.push({ k1: (w[0] + w[2] + w[1] + w[3]) / 2 - 0.5, k2: -1e9, draw: () => wallSeg(w) });
   for (let i = 0; i < CLASSES.length; i++) {
     const st = S.classes[i]; if (!st.built) continue;
     const s = slotOf(i);
@@ -660,7 +677,9 @@ function frame(now) {
   render();
   requestAnimationFrame(frame);
 }
+const LAYOUT = 3;   // bump when the map changes: old creature positions are dropped
 function restoreWorld() {
+  if (S.layout !== LAYOUT) { S.layout = LAYOUT; S.world = null; }
   const w = S.world; if (!w) return;
   arrivalT = w.arrivalT ?? 1; procT = 0;
   const byId = new Map();
@@ -719,7 +738,7 @@ window.addEventListener('resize', resize);
 load();
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
 resize();
-{ const h = P(14, 26); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
+{ const h = P(14, 31); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
 updateHud();
 requestAnimationFrame(frame);
