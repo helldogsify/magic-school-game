@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=52';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=52';
+} from './data.js?v=53';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=53';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 52;   // keep equal to the ?v= number in index.html
+const BUILD = 53;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -603,10 +603,7 @@ function drawSlot(c, id) {
     const m11 = U[0] * ia + V[0] * ib, m12 = U[0] * ic + V[0] * id2, m21 = U[1] * ia + V[1] * ib, m22 = U[1] * ic + V[1] * id2;
     const e = L.x - (m11 * A.L[0] + m12 * A.L[1]), f = L.y - (m21 * A.L[0] + m22 * A.L[1]);
     c.save();
-    {   // painted walls are cut to the common wall height
-      const h = TALL_H();
-      poly(c, [{ x: L.x - 60, y: F.y + 60 }, { x: L.x - 60, y: L.y }, up(L, h), up(B, h), up(R, h), { x: R.x + 60, y: R.y }, { x: R.x + 60, y: F.y + 60 }]); c.clip();
-    }
+    // painted rooms are drawn whole (no cut): their walls are the reference height for the built ones
     c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
 
   } else {
