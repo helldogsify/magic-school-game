@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=19';
+} from './data.js?v=20';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 19;   // keep equal to the ?v= number in index.html
+const BUILD = 20;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -648,7 +648,7 @@ const sec = (x) => x.toFixed(1).replace('.', ',') + ' с';
 function costBtn(label, cost, act, extra = '') { return `<button class="btn" data-cost="${cost}" data-act="${act}" ${extra}>${label} <span class="cost">🪙${fmt(cost)}</span></button>`; }
 
 let panel = null; let dirtyPanel = false;
-function openPanel(fn) { panel = fn; $('#sheet').innerHTML = fn(); $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
+function openPanel(fn) { panel = fn; const sh = $('#sheet'); sh.style.transform = ''; sh.innerHTML = fn(); sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
 function closePanel() { panel = null; $('#sheet-wrap').classList.add('hidden'); }
 function refreshPanel() { if (panel) { const sc = $('#sheet').scrollTop; $('#sheet').innerHTML = panel(); $('#sheet').scrollTop = sc; } updateHud(); }
 
@@ -862,6 +862,29 @@ document.addEventListener('click', (e) => {
   refreshPanel(); save();
 });
 $('#sheet-bg').addEventListener('click', closePanel);
+// Swipe the panel down to close it: drag its header, or pull down when it is scrolled to the top.
+{
+  const sh = $('#sheet'); let sw = null;
+  sh.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1 || e.target.closest('textarea, input')) return;
+    const onHead = !!e.target.closest('.sh-head');
+    sw = { y0: e.touches[0].clientY, dy: 0, onHead, top: sh.scrollTop <= 0, active: false };
+  }, { passive: true });
+  sh.addEventListener('touchmove', (e) => {
+    if (!sw) return;
+    const dy = e.touches[0].clientY - sw.y0;
+    if (!sw.active) { if (dy > 8 && (sw.onHead || (sw.top && sh.scrollTop <= 0))) sw.active = true; else if (Math.abs(dy) > 8) { sw = null; return; } else return; }
+    e.preventDefault();
+    sw.dy = Math.max(0, dy); sh.style.transition = 'none'; sh.style.transform = `translateY(${sw.dy}px)`;
+  }, { passive: false });
+  const end = () => {
+    if (!sw) return; const s0 = sw; sw = null; if (!s0.active) return;
+    sh.style.transition = 'transform .2s ease-out';
+    if (s0.dy > Math.min(140, sh.offsetHeight * 0.25)) { sh.style.transform = 'translateY(100%)'; setTimeout(() => { closePanel(); sh.style.transition = ''; sh.style.transform = ''; }, 200); }
+    else { sh.style.transform = ''; setTimeout(() => { sh.style.transition = ''; }, 200); }
+  };
+  sh.addEventListener('touchend', end); sh.addEventListener('touchcancel', end);
+}
 
 // ======================= loop, offline =======================
 let earnedThisSec = 0, secT = 0, saveT = 0, last = performance.now(), panelT = 0;
