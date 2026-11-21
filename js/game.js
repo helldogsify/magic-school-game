@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=22';
+} from './data.js?v=23';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 22;   // keep equal to the ?v= number in index.html
+const BUILD = 23;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -658,8 +658,8 @@ const sec = (x) => x.toFixed(1).replace('.', ',') + ' с';
 function costBtn(label, cost, act, extra = '') { return `<button class="btn" data-cost="${cost}" data-act="${act}" ${extra}>${label} <span class="cost">🪙${fmt(cost)}</span></button>`; }
 
 let panel = null; let dirtyPanel = false;
-function openPanel(fn) { panel = fn; const sh = $('#sheet'); sh.style.transform = ''; sh.innerHTML = fn(); sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
-function closePanel() { panel = null; $('#sheet-wrap').classList.add('hidden'); }
+function openPanel(fn) { $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; sh.innerHTML = fn(); sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
+function closePanel() { panel = null; $('#sheet-wrap').classList.add('hidden'); $('#tour').classList.remove('under-panel'); }   // the tour card hides while a panel is open
 function refreshPanel() { if (panel) { const sc = $('#sheet').scrollTop; $('#sheet').innerHTML = panel(); $('#sheet').scrollTop = sc; } updateHud(); }
 
 function classPanel(i) {
