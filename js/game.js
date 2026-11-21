@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=88';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=88';
+} from './data.js?v=89';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=89';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 88;   // keep equal to the ?v= number in index.html
+const BUILD = 89;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -131,6 +131,20 @@ const THEMES = {
   final: { dir: 'assets/parts/final/', wallTiles: 4, floorTiles: 6, board: 'banner', isoOnly: true, iso: true,
     decor: ['window', 'sconce', 'diploma', 'clock', 'round_window', 'sconce'], back: ['candelabra', 'laurel'], side: ['trophy', ''], front: [], rug: 'rug',
     stations: ['exdesk_a', 'exdesk_b', 'exdesk_c'], teacherProp: 'commission' },
+  // Reception (her choice 2026-11-21: the same look as the old picture, built from parts). The counter stands where the painted one was
+  // (tiles blocked by recBlocked), a pink runner leads from the street entrance to the back passage.
+  REC: { dir: 'assets/parts/reception/', wallTiles: 4, floorTiles: 3, board: 'map', isoOnly: true, iso: true,
+    decor: ['window', 'notice', 'clock', 'lantern', 'shelf', 'window'], back: [], side: [], front: [], rug: '', runner: { u0: 4.3, u1: 6.3, color: '#eaa6b4' },
+    h: { plant_big: 40, bush: 24 },
+    extras: (s) => [{ n: 'counter', x: s.x0 + 1.55, y: s.y0 + 3.9 }, { n: 'coat_rack', x: s.x0 + 0.45, y: s.y0 + 0.5 }, { n: 'plant_big', x: s.x0 + 0.5, y: s.y1 - 0.5 },
+      { n: 'bench_l', x: s.x1 - 0.7, y: s.y0 + 5.6 }, { n: 'bench_l', x: s.x1 - 0.7, y: s.y0 + 7.3 }, { n: 'bush', x: s.x1 - 0.5, y: s.y1 - 0.4 }, { n: 'signpost', x: s.x0 + 3.4, y: s.y1 - 0.6 }] },
+  // Dorms (her choice 2026-11-21: small beds with blankets; the sleeper lies on its bed)
+  DORM: { dir: 'assets/parts/dorm/', wallTiles: 4, floorTiles: 3, board: 'garland', isoOnly: true, iso: true,
+    decor: ['window', 'shelf', 'painting', 'moon_clock', 'round_window'], back: [], side: [], front: [], rug: 'rug', beds: ['bed_pink', 'bed_mint', 'bed_lilac'],
+    extras: (s) => [{ n: 'conc_desk', x: s.x0 + 1.4, y: s.y0 + 1.5 }, { n: 'nightstand', x: s.x0 + 0.5, y: s.y0 + 3.6 }, { n: 'toy_chest', x: s.x0 + 0.55, y: s.y1 - 0.6 }] },
+  DORM2: { dir: 'assets/parts/dorm/', wallTiles: 4, floorTiles: 3, board: 'garland', isoOnly: true, iso: true,
+    decor: ['round_window', 'painting', 'shelf', 'window', 'moon_clock'], back: [], side: [], front: [], rug: 'rug', beds: ['bed_lilac', 'bed_pink', 'bed_mint'],
+    extras: (s) => [{ n: 'plant', x: s.x1 - 0.45, y: s.y1 - 0.5 }, { n: 'toy_chest', x: s.x0 + 0.5, y: s.y1 - 0.6 }] },
   // Library (her choice 2026-11-21: a cozy reading room, students read in soft armchair-poufs)
   LIB: { dir: 'assets/parts/library/', wallTiles: 4, floorTiles: 3, board: 'bookshelf', isoOnly: true, iso: true,
     decor: ['window', 'lamp', 'bookshelf2', 'map', 'round_window'], back: [], side: [], front: [], rug: 'rug',
@@ -138,15 +152,16 @@ const THEMES = {
     extras: (s) => [{ n: 'globe', x: s.x0 + 0.5, y: s.y0 + 0.5 }, { n: 'book_pile', x: s.x1 - 0.6, y: s.y0 + 0.6 }, { n: 'lib_desk', x: s.x0 + 3, y: s.y1 - 0.45 }, { n: 'plant', x: s.x0 + 0.5, y: s.y1 - 0.5 }] },
 };
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
-const DECOR = { bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
+const DECOR = { notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
-const PROP_H = { pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
+const PROP_H = { counter: 46, bench_l: 22, bench_r: 22, signpost: 34, coat_rack: 40, bed_pink: 17, bed_mint: 17, bed_lilac: 17, conc_desk: 26, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
-for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  const im = new Image(); im.src = `${t.dir}${n}.webp?v=88`; parts[k + '/' + n] = im;
+for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
+  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=89`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
-const themeOf = (id) => { if (WORLD !== 1 || !id) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
+const THEMES_OFF = new Set(['REC', 'DORM', 'DORM2']);   // parts still being drawn: keep the painted pictures until they are in
+const themeOf = (id) => { if (WORLD !== 1 || !id || THEMES_OFF.has(id)) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? CLASSES[ci].id : id; return THEMES[key] ? key : null; };
 const dormSize = (k) => (S && S.dormUp && S.dormUp['size' + k]) || 1;      // 1..3, like class sizes
 const dormDepth = (k) => ROOM + 2 * (dormSize(k) - 1);
 const dormRows = (k) => 4 + 2 * (dormSize(k) - 1);                          // 4 beds per row: 16, 24, 32 per room
@@ -560,11 +575,11 @@ function drawIncidents() {
 const INSP_EVERY = 720, INSP_FIRST = 420, INSP_LEN = 180, INSP_WARN = 40;
 const schoolStars = () => (S && S.insp && S.insp.stars) || 0;
 const insp = () => (S.insp ||= { t: INSP_FIRST, stars: 0, cur: null, passed: 0, failed: 0 });
-const NOLEAVE_MAX = 5;
+const NOLEAVE_MAX = 7, NOLEAVE_LEN = 60;   // her ruling 2026-11-21: one minute, up to 7 may leave
 const leftNow = () => (S.stats.left || 0) + (S.stats.gaveUp || 0);
 const INSP_KINDS = {
   mood: { text: 'настроение учеников 60% и выше', check: () => avgMood() >= 60, now: () => `настроение ${Math.round(avgMood())}%` },
-  noleave: { text: `расстроенными уйдут не больше ${NOLEAVE_MAX} учеников`, start: () => ({ v: leftNow() }), fail: (c) => leftNow() - c.v > NOLEAVE_MAX, now: (c) => `ушли: ${leftNow() - c.v} из ${NOLEAVE_MAX}` },   // was «nobody»: too hard (her report 2026-11-21)
+  noleave: { text: `расстроенными уйдут не больше ${NOLEAVE_MAX} учеников`, start: () => ({ v: leftNow() }), len: NOLEAVE_LEN, fail: (c) => leftNow() - c.v > NOLEAVE_MAX, now: (c) => `ушли: ${leftNow() - c.v} из ${NOLEAVE_MAX}` },   // was «nobody»: too hard (her report 2026-11-21)
   inc: { text: 'каждое происшествие исправлено быстрее чем за 20 секунд', start: () => { forceIncident(); return {}; }, fail: () => Object.values(S.inc || {}).some((x) => x.t > 20), now: () => (Object.keys(S.inc || {}).length ? '⚠️ происшествие!' : 'всё спокойно') },
   pass: { text: 'экзамены сдают 70% учеников и больше', start: () => ({ p: S.stats.passed, f: S.stats.failed }), check: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f >= 5 && p / (p + f) >= 0.7; }, now: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f ? `сдали ${Math.round(p / (p + f) * 100)}%` : 'экзаменов ещё не было'; } },
   earn: { text: 'школа заработает', start: () => ({ e: S.stats.earned || 0, goal: Math.max(300, Math.round((S.ema || 1) * 140 / 10) * 10) }), check: (c) => (S.stats.earned || 0) - c.e >= c.goal, now: (c) => `заработано ${fmt((S.stats.earned || 0) - c.e)} из ${fmt(c.goal)}` },
@@ -574,7 +589,7 @@ function forceIncident() {
   const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'c', t: 0 }; const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`);
 }
 const inspText = (c) => (c.kind === 'earn' ? `${INSP_KINDS.earn.text} ${fmt(c.goal)} 🪙` : INSP_KINDS[c.kind].text);
-const INSP_SHORT = { mood: 'настроение 60%+', noleave: 'уйдут не больше 5', inc: 'чинить за 20 с', pass: 'экзамены 70%+', earn: 'заработок' };
+const INSP_SHORT = { mood: 'настроение 60%+', noleave: 'уйдут не больше 7', inc: 'чинить за 20 с', pass: 'экзамены 70%+', earn: 'заработок' };
 const inspNextText = (k) => (k === 'earn' ? 'сколько школа заработает' : INSP_KINDS[k].text);
 const calm = () => !!(S && S.calm);
 function setCalm(on) {
@@ -589,7 +604,7 @@ function stepInspector(dt, live) {
   if (!I.cur) {
     I.t -= dt;
     if (I.t <= INSP_WARN && !I.next) { I.next = rnd(Object.keys(INSP_KINDS)); toast(`🧐 Скоро инспектор! Проверит: ${inspNextText(I.next)}`); }
-    if (I.t <= 0) { const kind = I.next || 'mood', K = INSP_KINDS[kind]; I.cur = { kind, left: INSP_LEN, failed: false, ...(K.start ? K.start() : {}) }; I.next = null; toast('🧐 Инспектор пришёл! Проверка 3 минуты'); }
+    if (I.t <= 0) { const kind = I.next || 'mood', K = INSP_KINDS[kind]; I.cur = { kind, left: K.len || INSP_LEN, failed: false, ...(K.start ? K.start() : {}) }; I.next = null; toast(`🧐 Инспектор пришёл! Проверка ${(K.len || INSP_LEN) >= 120 ? Math.round((K.len || INSP_LEN) / 60) + ' минуты' : '1 минуту'}`); }
     return;
   }
   const c = I.cur, K = INSP_KINDS[c.kind];
@@ -626,7 +641,7 @@ function inspPanel() {
     ${c ? `<div class="card up"><span class="remoji">🧐</span><div class="grow"><b>Идёт проверка: ${inspText(c)}</b><div class="muted">${INSP_KINDS[c.kind].now(c)} · осталось ${mmss(c.left)}</div></div></div>`
       : S.stats.graduated < 20 ? '<p>Инспектор начнёт приходить, когда у школы будет 20 выпускников.</p>' : `<p>Следующая проверка через <b>${mmss(I.t)}</b>${I.next ? `: ${inspNextText(I.next)}` : ''}.</p>`}
     ${calmBlock()}
-    <p class="muted">Раз в 12 минут игры приходит инспектор и 3 минуты проверяет что-то одно: настроение учеников, что почти никто не ушёл расстроенным (не больше 5), как быстро ты чинишь происшествия, как сдают экзамены или сколько школа заработала. О проверке предупреждают за 40 секунд.</p>
+    <p class="muted">Раз в 12 минут игры приходит инспектор и 1–3 минуты проверяет что-то одно: настроение учеников, что почти никто не ушёл расстроенным (не больше 7 за минуту), как быстро ты чинишь происшествия, как сдают экзамены или сколько школа заработала. О проверке предупреждают за 40 секунд.</p>
     <p class="muted">Прошла — звезда школы (+3% к плате за все уроки) и награда. Не прошла — штраф. Звёзды нужны, чтобы строить новые классы. Пока игра закрыта, инспектор не приходит.</p>`;
 }
 // how many students are in the school right now (her wish 2026-11-21)
@@ -870,7 +885,7 @@ function texWall(c, th, e, a, b, h) {
 // a flat sprite hung on a back wall: side 'y0' runs along x (back-right wall), 'x0' along y (back-left wall)
 // iso_* sprites are drawn in the room's own angle for the back-left wall (with depth: shelves stick out, windows are set in);
 // on the back-right wall they are mirrored. They are placed as they are, not skewed.
-const ISO_W = { bookshelf: 1.5, bookshelf2: 1.4, lamp: 0.6, map: 1.2, banner: 1.1, sconce: 0.7, diploma: 0.9, el_poster: 1.6, torch: 0.75, planter: 1.35, wing_poster: 1.8, birds: 1.5, circle: 1.8, mirror: 0.95, wand_rack: 1.4, chart: 1.9, painting: 0.95, poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
+const ISO_W = { notice: 1.0, lantern: 0.6, garland: 2.6, moon_clock: 0.85, bookshelf: 1.5, bookshelf2: 1.4, lamp: 0.6, map: 1.2, banner: 1.1, sconce: 0.7, diploma: 0.9, el_poster: 1.6, torch: 0.75, planter: 1.35, wing_poster: 1.8, birds: 1.5, circle: 1.8, mirror: 0.95, wand_rack: 1.4, chart: 1.9, painting: 0.95, poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
 function hangIso(c, th, n, s, side, t0, lo) {
   const im = part(th, 'iso_' + n); if (!im) return false;
   const d = DECOR[n], w = ISO_W[n] || d.w, sw = w * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - w * HH);
@@ -946,7 +961,7 @@ function drawProp(o) {
   ctx.save(); ctx.translate(p.x, p.y + h * 0.08); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
 }
 function drawRugAt(c, th, s) {   // rooms without desks (library): a rug in the middle
-  const im = part(th, THEMES[th].rug); if (!im) return;
+  const im = THEMES[th].rug && part(th, THEMES[th].rug); if (!im) return;
   const w = s.x1 - s.x0, h = s.y1 - s.y0, d = Math.min(w, h) - 1.6, m = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2 + 0.3);
   const sw = d * HW * Math.SQRT2, sh = sw * im.naturalHeight / im.naturalWidth; c.drawImage(im, m.x - sw / 2, m.y - sh / 2, sw, sh);
 }
@@ -1037,6 +1052,8 @@ function drawSlot(c, id) {
 
   } else if (themeOf(id) && texFloor(c, themeOf(id), s)) {
     if (ci >= 0) drawRug(c, themeOf(id), s, ci); else drawRugAt(c, themeOf(id), s);
+    const rn = THEMES[themeOf(id)].runner;
+    if (rn) { poly(c, [P(s.x0 + rn.u0, s.y0), P(s.x0 + rn.u1, s.y0), P(s.x0 + rn.u1, s.y1), P(s.x0 + rn.u0, s.y1)], rn.color, '#c9849488'); }
   } else {
     poly(c, [L, B, R, F], col.floor, '#00000012');
     c.strokeStyle = '#0000000d'; c.lineWidth = 1;
@@ -1051,8 +1068,8 @@ function drawSlot(c, id) {
     if (id === 'DORM2') emoji('🧸', F.x - 20, F.y - 14, 16, c);
     if (id === 'DORM') emoji('🪴', B.x, B.y + 8, 16, c);
   }
-  if (id === 'DORM') DORM_SPOTS.slice(0, beds1()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); });
-  if (id === 'DORM2') DORM_SPOTS.slice(DORM_STRIDE, DORM_STRIDE + beds2()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); });
+  if (id === 'DORM' && !themeOf(id)) DORM_SPOTS.slice(0, beds1()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); });
+  if (id === 'DORM2' && !themeOf(id)) DORM_SPOTS.slice(DORM_STRIDE, DORM_STRIDE + beds2()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); });
 }
 // outer stone walls of the building where no room supplies a wall: [x0, y0, x1, y1, height]
 // OUTER_WALLS come from genLayout()
@@ -1256,15 +1273,20 @@ function render() {
     });
   }
   // library (themed): an armchair at every open reading place and a few things around
-  { const th = themeOf('LIB'); if (th) { const T = THEMES[th], s = SLOTS.LIB;
-    LIB_SPOTS.slice(0, libSeats()).forEach((q, k) => { const o = { n: T.seats[k % T.seats.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); });
-    for (const o of T.extras(s)) { const oo = { ...o, th }; add(oo.x, oo.y, () => drawProp(oo)); } } }
+  for (const rid of ['LIB', 'REC', 'DORM', 'DORM2']) {
+    const th = themeOf(rid); if (!th || (rid === 'DORM2' && !dorm2Built())) continue;
+    const T = THEMES[th], s = SLOTS[rid];
+    if (rid === 'LIB') LIB_SPOTS.slice(0, libSeats()).forEach((q, k) => { const o = { n: T.seats[k % T.seats.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); });
+    if (T.beds) { const from = rid === 'DORM' ? 0 : DORM_STRIDE, n = rid === 'DORM' ? beds1() : beds2();
+      DORM_SPOTS.slice(from, from + n).forEach((q, k) => { const o = { n: T.beds[k % T.beds.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); }); }
+    for (const o of (T.extras ? T.extras(s) : [])) { const oo = { ...o, th }; add(oo.x, oo.y, () => drawProp(oo)); }
+  }
   // reception desk + officer
   add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(concierge, CONCIERGE.x, CONCIERGE.y, 34, (x, y) => {
     drawHat(x, y - 32, '#2f9e7a');
     if (checkin) ring(x + 18, y - 30, Math.min(1, checkinT / checkinTime()), '#2f9e7a');
   }));
-  add(CONCIERGE.x + 0.75, CONCIERGE.y, () => {
+  if (!themeOf('DORM')) add(CONCIERGE.x + 0.75, CONCIERGE.y, () => {
     const a = P(DS.x0 + 1.1, DS.y0 + 0.8), b = P(DS.x0 + 1.6, DS.y0 + 0.8), cc = P(DS.x0 + 1.6, DS.y0 + 2.1), d = P(DS.x0 + 1.1, DS.y0 + 2.1), h = 11;
     poly(ctx, [d, cc, up(cc, h), up(d, h)], '#7d8fb8'); poly(ctx, [cc, b, up(b, h), up(cc, h)], '#6a7ca5'); poly(ctx, [up(a, h), up(b, h), up(cc, h), up(d, h)], '#a9b9dd', '#5d6f98');
     const m = P(DS.x0 + 1.35, DS.y0 + 1.2); emoji('🗝️', m.x, m.y - 15, 10); const n = P(DS.x0 + 1.35, DS.y0 + 1.8); emoji('📒', n.x, n.y - 15, 10);
@@ -1273,7 +1295,7 @@ function render() {
     drawHat(x, y - 32, '#d14f8f');
     if (processing) ring(x + 18, y - 30, Math.min(1, procT / procTime()), '#ff8a3d');
   }));
-  if (!(arts.REC && arts.REC.naturalWidth)) add(OFFICER.x + 0.9, OFFICER.y, () => {
+  if (!themeOf('REC') && !(arts.REC && arts.REC.naturalWidth)) add(OFFICER.x + 0.9, OFFICER.y, () => {
     const a = P(REC.x0 + 1.5, REC.y0 + 3.1), b = P(REC.x0 + 2.1, REC.y0 + 3.1), cc = P(REC.x0 + 2.1, REC.y0 + 5.9), d = P(REC.x0 + 1.5, REC.y0 + 5.9), h = 12;
     poly(ctx, [d, cc, up(cc, h), up(d, h)], '#9a6a41'); poly(ctx, [cc, b, up(b, h), up(cc, h)], '#86592f'); poly(ctx, [up(a, h), up(b, h), up(cc, h), up(d, h)], '#c99a68', '#8a5f3a');
     const m = P(REC.x0 + 1.8, REC.y0 + 3.6); emoji('📜', m.x, m.y - 16, 11); const n = P(REC.x0 + 1.8, REC.y0 + 5.4); emoji('🔔', n.x, n.y - 16, 11);
@@ -1281,7 +1303,7 @@ function render() {
   for (const a of agents) {
     // an incident in the class: its students leave their places and rush around the room in a panic (her wish 2026-11-21)
     const pn = panicPos(a), ax = pn ? pn.x : a.x, ay = pn ? pn.y : a.y;
-    if (a.state !== 'fly') a.z = !pn && a.state === 'study' && !(a.path && a.path.length) && sitsOn(a.c) ? 9 : (a.state === 'read' && !(a.path && a.path.length) && themeOf('LIB') ? 6 : 0);   // on a cloud / in an armchair
+    if (a.state !== 'fly') a.z = !pn && a.state === 'study' && !(a.path && a.path.length) && sitsOn(a.c) ? 9 : (a.state === 'read' && !(a.path && a.path.length) && themeOf('LIB') ? 6 : a.state === 'sleep' && !(a.path && a.path.length) && themeOf('DORM') ? 4 : 0);   // on a cloud / in an armchair
     if (pn) { a._panic = true; a.flip = pn.left; a.back = pn.up; } else if (a._panic) { a._panic = false; if (a.state === 'study') faceTeacher(a, a.c); }
     const draw = () => drawCreature(a, ax, ay, 30, (x, y) => {
       if (pn) { if (Math.sin(a.ph * 3 + a.id) > 0.2) emoji(a.id % 3 ? '❗' : '😱', x + 2, y - 36, 12); return; }
