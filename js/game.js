@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=141';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=141';
+} from './data.js?v=142';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=142';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 141;   // keep equal to the ?v= number in index.html
+const BUILD = 142;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -81,7 +81,7 @@ const shopChance = () => 0.12 + 0.03 * (shopUp().shelves - 1);                 /
 const shopTime = () => 2.2 * Math.pow(0.88, shopUp().seller - 1);              // seconds to serve one
 const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1))));
 const shopCost = (k) => Math.round(SHOP_COST * 0.4 * Math.pow(1.9, shopUp()[k] - 1));
-const SHOP_SPOTS = (s) => [0, 1, 2, 3, 4].map((k) => ({ x: s.x0 + 2.7 + (k % 2) * 0.7, y: s.y0 + 1.5 + k * 0.7 }));   // in front of the counter
+const SHOP_SPOTS = (s) => [0, 1, 2, 3, 4, 5].map((k) => ({ x: s.x0 + 2.75, y: s.y0 + 1.6 + k * 0.62 }));   // a line in front of the counter: the first is served, the rest wait (her ask)
 const DIR_COST = 50000, DIR_STARS = 2;
 const dirBuilt = () => !!(S && S.dirBuilt);
 const dirLvl = (k) => (S && S.dir && S.dir[k]) || 0;
@@ -314,10 +314,10 @@ const sitsOn = (i) => !!clsTheme(i)?.sitOn;                     // students sit 
 function faceTeacher(a, i) { const tp = teacherPos(i); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = !frontFacing(i); }
 function deskPos(i, d) {   // 3 columns across the room, rows from the board towards us: the first rows stay on the room picture
   const s = slotOf(i), w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3, gap = (w - 2.2) / (cols - 1);
-  return { x: s.x0 + 1.1 + (d % cols) * gap, y: s.y0 + (frontFacing(i) ? 1.9 : 2.5) + Math.floor(d / cols) * 1.2 };
+  return { x: s.x0 + 1.1 + (d % cols) * gap, y: s.y0 + (frontFacing(i) ? 1.9 : 2.5) + Math.floor(d / cols) * (CLASSES[i].final ? 1.45 : 1.2) };   // exam rows wider apart: each student clearly sits at his own desk
 }
 const seatPos = (i, d) => { const p = deskPos(i, d); if (frontFacing(i)) return { x: p.x - 0.45, y: p.y + 0.4 };   // charms: beside the lectern, on its left on screen (her ruling 2026-11-21)
-  return { x: p.x, y: p.y + (sitsOn(i) ? 0.05 : 0.45) }; };   // in front of the desk (nearer to us): the desk is between the student and the board
+  return { x: p.x, y: p.y + (sitsOn(i) ? 0.05 : CLASSES[i].final ? 0.32 : 0.45) }; };   // in front of the desk (nearer to us): the desk is between the student and the board
 // render-only stroll: the teacher walks slowly left and right along the board, pauses, turns to the class
 function teacherGlow(tp, hh, col = 'rgba(255,244,205,0.6)') {   // soft light around a teacher so they stand out from the class
   const q = P(tp.x, tp.y), g = ctx.createRadialGradient(q.x, q.y - hh * 0.5, 2, q.x, q.y - hh * 0.5, hh * 0.75);
@@ -547,15 +547,17 @@ function finishReading(a) {
   popup('💡', a.x, a.y, '#e0a100', 44);
   route(a, a.goal.i);
 }
+const shopLine = [];
+function shopPlace(a) { const k = shopLine.indexOf(a), sp = SHOP_SPOTS(SLOTS.SHOP)[Math.min(k, 5)]; a.state = 'walk'; walk(a, sp.x, sp.y, () => { a.state = k === 0 ? 'shopping' : 'shopwait'; a.t = 0; a.dur = shopTime(); a.back = true; }); }
 function goShop(a, next) {
-  const s = SLOTS.SHOP, spots = SHOP_SPOTS(s), sp = spots[Math.floor(Math.random() * spots.length)];
-  a.goal = { t: 'shop', n: next }; a.c = -1; a.state = 'walk';
-  walk(a, sp.x, sp.y, () => { a.state = 'shopping'; a.t = 0; a.dur = shopTime() * (1 + Math.random() * 0.5); a.back = true; });
+  if (shopLine.length >= 6) { route(a, next); return; }   // the line is full: maybe next time
+  a.goal = { t: 'shop', n: next }; a.c = -1; shopLine.push(a); shopPlace(a);
 }
 function finishShopping(a) {
   const p = shopPrice(); earn(p, a.x, a.y, '#d96b9f', 44); S.stats.shop = (S.stats.shop || 0) + 1;
   a.mood = Math.min(100, (a.mood ?? 80) + 15); popup(rnd(['🍭', '🧁', '🪶', '📜', '🍬']), a.x - 0.3, a.y - 0.3, '#d96b9f', 60);
-  a.back = false; route(a, a.goal.n);
+  a.back = false; const k = shopLine.indexOf(a); if (k >= 0) shopLine.splice(k, 1); route(a, a.goal.n);
+  shopLine.forEach(shopPlace);   // the line moves up
 }
 function leaveDesk(a) {
   const i = a.c;
@@ -622,7 +624,7 @@ function stepAgents(dt, live = false) {
     if (a.state === 'study') { if (!incOf(a.c)) a.t += dt; if (a.t >= a.dur) finishLesson(a); }   // an incident stops the lesson
     else if (a.state === 'done') leaveDesk(a);
     else if (a.state === 'read') { a.t += dt; if (a.t >= a.dur) finishReading(a); }
-    else if (a.state === 'shopping') { a.t += dt; if (a.t >= a.dur) finishShopping(a); }
+    else if (a.state === 'shopping') { if (!(live && foxU > 0.02)) a.t += dt; if (a.t >= a.dur) finishShopping(a); }   // the fox serves only from behind his counter
   }
   agents = agents.filter((a) => !(a.state === 'fly' && a.z > 400) && !a.gone);
 }
@@ -875,10 +877,10 @@ let foxU = 0, foxTrip = 0, foxClock = 0, foxHold = 0, foxLast = 0, foxSold = 0, 
 function foxPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (foxLast || now)); foxLast = now;
   const s = SLOTS.SHOP, home = { x: s.x0 + 1.5, y: s.y0 + 1.5 }, shelf = { x: s.x0 + 3.4, y: s.y0 + 0.55 };
-  const shopping = agents.some((a) => a.state === 'shopping');
+  const shopping = shopLine.length > 0;
   if ((S.stats.shop || 0) > foxSold) { foxSold = S.stats.shop || 0; foxCoinsT = 1.4; }
   foxCoinsT = Math.max(0, foxCoinsT - dt);
-  if (!foxTrip && !shopping) { foxClock += dt; if (foxClock > 10) { foxClock = 0; foxTrip = 1; } }
+  if (!foxTrip && (!shopping || foxClock > 0)) { foxClock += dt; if (foxClock > 4) { foxClock = 0; foxTrip = 1; } }
   if (foxTrip === 1) { foxU = Math.min(1, foxU + dt / 2.2); if (foxU >= 1) { foxHold += dt; if (foxHold > 1.2) { foxHold = 0; foxTrip = -1; } } }
   else if (foxTrip === -1) { foxU = Math.max(0, foxU - dt / 2.2); if (foxU <= 0) foxTrip = 0; }
   const k = 0.5 - 0.5 * Math.cos(foxU * Math.PI);
@@ -2364,7 +2366,7 @@ function relayout() {   // rebuild the map (a class was expanded): creatures kee
   LS = SLOTS.LIB; libSpots();
   computeBounds(); staticKey = ''; resize();
   if (snap) {
-    agents = []; queue = []; processing = null; dormLine = []; checkin = null;
+    agents = []; queue = []; processing = null; dormLine = []; checkin = null; shopLine.length = 0;
     deskOcc.forEach((a) => a.fill(null)); waitList.forEach((l) => (l.length = 0)); dorm.fill(null); lib.fill(null);
     S.world = snap; restoreWorld(true);
   }
