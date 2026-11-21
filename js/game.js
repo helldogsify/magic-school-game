@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=134';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=134';
+} from './data.js?v=135';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=135';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 134;   // keep equal to the ?v= number in index.html
+const BUILD = 135;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -823,6 +823,23 @@ function conciergePos() {
 const conciergeAway = () => conU > 0.02;
 // The librarian hedgehog (her choice 2026-11-21): reads at his desk, carries a stack of books to the shelf and puts one up,
 // comes back reading; when the room is full of readers he sometimes goes «shhh».
+// The headmaster lion (her yes 2026-11-21): signs papers behind his desk, walks to the window and thinks, comes back and raises his scepter.
+const DIR_POSES = ['sign', 'think', 'walk', 'proud'];
+for (const f of DIR_POSES) { const im = new Image(); im.src = `assets/staff/dir_${f}.png?v=1`; sprites['dir_' + f] = im; }
+let dirU = 0, dirTrip = 0, dirClock = 0, dirHold = 0, dirLast = 0;
+function directorPos() {
+  const now = performance.now() / 1000, dt = Math.min(0.2, now - (dirLast || now)); dirLast = now;
+  const s = SLOTS.DIR, home = { x: s.x0 + 2.0, y: s.y0 + 1.75 }, spot = { x: s.x0 + 4.3, y: s.y0 + 0.8 };
+  if (!dirTrip) { dirClock += dt; if (dirClock > 10) { dirClock = 0; dirTrip = 1; } }
+  if (dirTrip === 1) { dirU = Math.min(1, dirU + dt / 2.4); if (dirU >= 1) { dirHold += dt; if (dirHold > 3) { dirHold = 0; dirTrip = -1; } } }
+  else if (dirTrip === -1) { dirU = Math.max(0, dirU - dt / 2.4); if (dirU <= 0) dirTrip = 0; }
+  const k = 0.5 - 0.5 * Math.cos(dirU * Math.PI);
+  let pose = 'sign';
+  if (dirTrip === 1) pose = dirU >= 1 ? 'think' : 'walk';
+  else if (dirTrip === -1) pose = 'walk';
+  else if (dirClock < 1.6) pose = 'proud';   // back at his desk: raises the scepter for a moment
+  return { x: home.x + (spot.x - home.x) * k, y: home.y + (spot.y - home.y) * k, pose, moving: dirU > 0 && dirU < 1, flip: dirTrip === -1 };
+}
 const LIB_POSES = ['read', 'carry', 'shelve', 'shh'];
 for (const f of LIB_POSES) { const im = new Image(); im.src = `assets/staff/lib_${f}.png?v=1`; sprites['lib_' + f] = im; }
 let libU = 0, libTrip = 0, libClock = 0, libHold = 0, libLast = 0;
@@ -1438,7 +1455,7 @@ function render() {
     });
   }
   // library (themed): an armchair at every open reading place and a few things around
-  if (SLOTS.DIR && dirBuilt()) { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); }   // the director behind the desk
+  if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = sprites['dir_' + dp.pose]; if (WORLD === 1 && im && im.naturalWidth) add(dp.x, dp.y, () => { teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, 64, dp.flip, dp.moving); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
   if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR']) {
     const th = themeOf(rid); if (!th || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt())) continue;
