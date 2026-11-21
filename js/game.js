@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=140';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=140';
+} from './data.js?v=141';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=141';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 140;   // keep equal to the ?v= number in index.html
+const BUILD = 141;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -867,6 +867,26 @@ function directorPos() {
   else if (dirClock < 1.6) pose = 'proud';   // back at his desk: raises the scepter for a moment
   return { x: home.x + (spot.x - home.x) * k, y: home.y + (spot.y - home.y) * k, pose, moving: dirU > 0 && dirU < 1, flip: dirTrip === -1 };
 }
+// The fox shopkeeper (her choice 2026-11-21: a curiosity shop): hands over the treat while a student is shopping,
+// counts coins after a sale; when the shop is empty he polishes a crystal ball or carries a box of glowing jars to the shelf.
+const FOX_POSES = ['give', 'coins', 'carry', 'polish'];
+for (const f of FOX_POSES) { const im = new Image(); im.src = `assets/staff/fox_${f}.png?v=1`; sprites['fox_' + f] = im; }
+let foxU = 0, foxTrip = 0, foxClock = 0, foxHold = 0, foxLast = 0, foxSold = 0, foxCoinsT = 0;
+function foxPos() {
+  const now = performance.now() / 1000, dt = Math.min(0.2, now - (foxLast || now)); foxLast = now;
+  const s = SLOTS.SHOP, home = { x: s.x0 + 1.5, y: s.y0 + 1.5 }, shelf = { x: s.x0 + 3.4, y: s.y0 + 0.55 };
+  const shopping = agents.some((a) => a.state === 'shopping');
+  if ((S.stats.shop || 0) > foxSold) { foxSold = S.stats.shop || 0; foxCoinsT = 1.4; }
+  foxCoinsT = Math.max(0, foxCoinsT - dt);
+  if (!foxTrip && !shopping) { foxClock += dt; if (foxClock > 10) { foxClock = 0; foxTrip = 1; } }
+  if (foxTrip === 1) { foxU = Math.min(1, foxU + dt / 2.2); if (foxU >= 1) { foxHold += dt; if (foxHold > 1.2) { foxHold = 0; foxTrip = -1; } } }
+  else if (foxTrip === -1) { foxU = Math.max(0, foxU - dt / 2.2); if (foxU <= 0) foxTrip = 0; }
+  const k = 0.5 - 0.5 * Math.cos(foxU * Math.PI);
+  let pose = 'polish';
+  if (foxTrip === 1) pose = 'carry'; else if (foxTrip === -1) pose = 'polish';
+  else if (foxCoinsT > 0) pose = 'coins'; else if (shopping) pose = 'give';
+  return { x: home.x + (shelf.x - home.x) * k, y: home.y + (shelf.y - home.y) * k, pose, moving: foxU > 0 && foxU < 1, flip: foxTrip === -1 };
+}
 const LIB_POSES = ['read', 'carry', 'shelve', 'shh'];
 for (const f of LIB_POSES) { const im = new Image(); im.src = `assets/staff/lib_${f}.png?v=1`; sprites['lib_' + f] = im; }
 let libU = 0, libTrip = 0, libClock = 0, libHold = 0, libLast = 0;
@@ -1507,6 +1527,7 @@ function render() {
   }
   // reception desk + officer
   if (WORLD === 1 && SLOTS.LIB) { const lo = librarianPos(), im = sprites['lib_' + lo.pose]; if (im && im.naturalWidth) add(lo.x, lo.y, () => { teacherGlow(lo, 56, 'rgba(255,244,200,0.85)'); drawPose(im, lo.x, lo.y, 56, lo.flip, lo.moving); }); }   // glow: he blended into the dark green room (her report)
+  if (shopOpen() && SLOTS.SHOP) { const fo = foxPos(), im = sprites['fox_' + fo.pose]; if (im && im.naturalWidth) add(fo.x, fo.y, () => { teacherGlow(fo, 56, 'rgba(255,240,200,0.7)'); drawPose(im, fo.x, fo.y, 56, fo.flip, fo.moving); }); }
   const co = conciergePos();
   if (staffSprite('concierge') && sprites['con_' + co.pose]?.naturalWidth) add(co.x, co.y, () => { drawPose(sprites['con_' + co.pose], co.x, co.y, 62, co.flip, co.moving); if (checkin) { const q = P(co.x, co.y); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } });
   else add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(staffSprite('concierge') ? { ...concierge, sp: 'staff_concierge', flip: false } : concierge, CONCIERGE.x, CONCIERGE.y, staffSprite('concierge') ? 62 : 34, (x, y) => {
