@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=59';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=59';
+} from './data.js?v=60';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=60';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 59;   // keep equal to the ?v= number in index.html
+const BUILD = 60;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -611,12 +611,20 @@ function drawSlot(c, id) {
   const art = WORLD === 1 ? arts[artKey] : null;
   if (art && art.complete && art.naturalWidth) {
     const A = ART[artKey];
+    // the picture is square: it keeps its size in the back corner; an expanded room gets plain floor (and built walls) beyond it
+    const sq = Math.min(s.x1 - s.x0, s.y1 - s.y0);
+    if (sq < Math.max(s.x1 - s.x0, s.y1 - s.y0)) {
+      poly(c, [L, B, R, F], col.floor, '#00000012');
+      c.strokeStyle = '#0000000d'; c.lineWidth = 1;
+      for (let k = 1; k < s.y1 - s.y0; k++) { const a = P(s.x0, s.y0 + k), b = P(s.x1, s.y0 + k); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); }
+    }
+    const L2 = P(s.x0, s.y0 + sq), R2 = P(s.x0 + sq, s.y0), F2 = P(s.x0 + sq, s.y0 + sq);
     const u = [A.R[0] - A.L[0], A.R[1] - A.L[1]], v = [A.F[0] - A.L[0], A.F[1] - A.L[1]];
-    const U = [R.x - L.x, R.y - L.y], V = [F.x - L.x, F.y - L.y];
+    const U = [R2.x - L2.x, R2.y - L2.y], V = [F2.x - L2.x, F2.y - L2.y];
     const det = u[0] * v[1] - u[1] * v[0];
     const ia = v[1] / det, ib = -u[1] / det, ic = -v[0] / det, id2 = u[0] / det;      // inverse of [u v]
     const m11 = U[0] * ia + V[0] * ib, m12 = U[0] * ic + V[0] * id2, m21 = U[1] * ia + V[1] * ib, m22 = U[1] * ic + V[1] * id2;
-    const e = L.x - (m11 * A.L[0] + m12 * A.L[1]), f = L.y - (m21 * A.L[0] + m22 * A.L[1]);
+    const e = L2.x - (m11 * A.L[0] + m12 * A.L[1]), f = L2.y - (m21 * A.L[0] + m22 * A.L[1]);
     c.save();
     // painted rooms are drawn whole (no cut): their walls are the reference height for the built ones
     c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
@@ -809,7 +817,7 @@ function render() {
     if (e.id !== 'hall' && CLASS_SLOT.indexOf(e.id) >= 0 && !S.classes[CLASS_SLOT.indexOf(e.id)].built) continue;
     const sl = SLOTS[e.id];
     const k1 = e.id === 'hall' ? e.x + e.y : (sl.x0 + sl.x1 + sl.y0 + sl.y1) / 2;
-    if (painted) continue;
+    if (painted) { const sl0 = SLOTS[e.id], sq = Math.min(sl0.x1 - sl0.x0, sl0.y1 - sl0.y0); if (e.x < sl0.x0 + sq && e.y < sl0.y0 + sq) continue; }
     list.push({ k1, k2: e.tall ? -1e9 + 1 : 1e9, draw: () => drawEdge(ctx, e) });
   }
   for (let i = 0; i < CLASSES.length; i++) {
