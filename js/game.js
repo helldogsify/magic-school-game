@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=20';
+} from './data.js?v=21';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 20;   // keep equal to the ?v= number in index.html
+const BUILD = 21;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -454,10 +454,17 @@ function drawSign(c, id) {
   if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built)) return;
   const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : '🛏️ Спальня';
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
-  c.font = '800 9px ui-rounded,"Nunito","Segoe UI",sans-serif'; const tw = c.measureText(name).width + 12;
-  c.fillStyle = '#fffaf2ee'; c.beginPath(); c.roundRect(sp.x - tw / 2, sp.y - 8, tw, 16, 8); c.fill();
-  text(name, sp.x, sp.y, 9, '#5d4a6e', c);
+  const fs = 12, hgt = 22;
+  c.font = `800 ${fs}px ui-rounded,"Nunito","Segoe UI",sans-serif`; const tw = c.measureText(name).width + 22;
+  const bg = ci >= 0 ? CLASSES[ci].wall : SIGN_BG[id] || '#ffffff';
+  c.save(); c.shadowColor = '#3a2f4a55'; c.shadowBlur = 6; c.shadowOffsetY = 2;
+  c.fillStyle = bg; c.beginPath(); c.roundRect(sp.x - tw / 2, sp.y - hgt / 2, tw, hgt, 11); c.fill(); c.restore();
+  c.strokeStyle = '#ffffff'; c.lineWidth = 2; c.beginPath(); c.roundRect(sp.x - tw / 2, sp.y - hgt / 2, tw, hgt, 11); c.stroke();
+  text(name, sp.x, sp.y + 0.5, fs, '#2e2340', c);
+  signRects.push({ id, x0: sp.x - tw / 2, y0: sp.y - hgt / 2, x1: sp.x + tw / 2, y1: sp.y + hgt / 2 });
 }
+const SIGN_BG = { REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f' };
+let signRects = [];   // tappable room signs of the last frame, world coords
 function drawPlot(c, s, ci, L, B, R, F, center) {
   const next = S.classes.findIndex((q) => !q.built) === ci;
   poly(c, [L, B, R, F], '#ecd2a8');
@@ -630,6 +637,7 @@ function render() {
     if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else add(a.x, a.y, draw);
   }
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
+  signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
   if (tourStep >= 0 && TOUR[tourStep].at) { const f = P(TOUR[tourStep].at[0], TOUR[tourStep].at[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
   for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
@@ -815,6 +823,8 @@ scroller.addEventListener('pointerup', (e) => {
   const r = scroller.getBoundingClientRect();
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
+  const sign = signRects.find((r) => wx >= r.x0 - 6 && wx <= r.x1 + 6 && wy >= r.y0 - 6 && wy <= r.y1 + 6);   // a sign always opens its room
+  if (sign) { openRoom(sign.id); return; }
   const who = creatureAt(e.clientX, e.clientY);
   if (who) { toast(`${who.name}: ${statusOf(who)}`); return; }
   for (const lift of [0, 20, 40]) {
@@ -822,6 +832,11 @@ scroller.addEventListener('pointerup', (e) => {
     const tx = Math.floor((a + b) / 2), ty = Math.floor((b - a) / 2);
     const id = regAt(tx, ty);
     if (!id || id === 'hall') continue;
+    openRoom(id); return;
+  }
+});
+function openRoom(id) {
+  {
     const ci = CLASS_SLOT.indexOf(id);
     if (ci >= 0) {
       if (S.classes[ci].built) openPanel(classPanel(ci));
@@ -834,7 +849,7 @@ scroller.addEventListener('pointerup', (e) => {
     if (id === 'LIB') { toast(`📚 Библиотека: готовятся к пересдаче ${lib.filter(Boolean).length}/${lib.length}`); return; }
     if (id === 'DORM') { openPanel(dormPanel); return; }
   }
-});
+}
 
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button'); if (!t) return;
