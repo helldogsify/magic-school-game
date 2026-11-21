@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=26';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=26';
+} from './data.js?v=27';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=27';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 26;   // keep equal to the ?v= number in index.html
+const BUILD = 27;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -70,7 +70,7 @@ function spend(c) { if (S.coins < c) { toast('Не хватает монет �
 const HW = 16, HH = HW * 0.62;
 const ROOM = 6;                                    // rooms are 6x6 tiles
 const WALLH = ROOM * 2 * HW * 0.3676;              // wall height in the art, relative to room width
-const GW = 29, GH = 44;
+const GW = 32, GH = 44;
 
 // One school building: a wide shared wooden hall (corridor + cross passages), classes open onto it on both sides,
 // reception and dorm at the front, garden at the back end of the corridor.
@@ -92,6 +92,7 @@ const SLOTS = {
   REC: slot(10, 30, [[14, 38], [14, 39]], { right: true }, 9, 9,
     [[[15, 38], [15, 39]], [[13, 30], [13, 29]], [[14, 30], [14, 29]], [[15, 30], [15, 29]], [[18, 33], [19, 33]]]),
   DORM: slot(19, 30, [[19, 33], [18, 33]], { left: true, right: true }),
+  DORM2: slot(25, 30, [[25, 33], [24, 33]], { left: true, right: true }),   // second dorm, bought in the dorm panel
   LIB: slot(22, 24, [[24, 24], [24, 23]], { left: true, right: true }, 6, 6, [[[25, 24], [25, 23]]]),
   GARDEN: slot(10, 0, [[13, 3], [13, 4]], {}, 9, 4, [[[14, 3], [14, 4]], [[15, 3], [15, 4]]]),
 };
@@ -115,6 +116,7 @@ function canStep(ax, ay, bx, by) {
   const ra = regAt(ax, ay), rb = regAt(bx, by);
   if (!ra || !rb) return false;
   if (ra === rb) return true;
+  if ((ra === 'DORM2' || rb === 'DORM2') && !dorm2Built()) return false;
   return DOORS.has(`${ax},${ay}|${bx},${by}`);
 }
 function bfs(sx, sy, tx, ty) {
@@ -181,12 +183,20 @@ const lineCount = (i) => waitList[i].length + agents.reduce((n, a) => n + (a.goa
 const classFull = (i) => i >= 0 && lineCount(i) >= MAX_WAIT;
 // dorm: upset students sleep here until there is room in the line of their class
 const DS = SLOTS.DORM;
+const DS2 = SLOTS.DORM2;
+// beds 0..15 are in the first dorm, 16..31 in the second one
 const DORM_SPOTS = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) DORM_SPOTS.push({ x: DS.x0 + 2.05 + c * 1.12, y: DS.y0 + 1.0 + r * 1.22 });
+for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) DORM_SPOTS.push({ x: DS2.x0 + 1.0 + c * 1.3, y: DS2.y0 + 1.0 + r * 1.22 });
 // concierge: everybody checks in at her desk before going to bed
 const CONCIERGE = { x: DS.x0 + 0.6, y: DS.y0 + 1.4 };
-const MAX_BEDS = 16, MAX_CONC = 10;
+const MAX_CONC = 10, DORM2_COST = 1500;
+const dorm2Built = () => !!(S && S.dormUp && S.dormUp.room2);
+const maxBeds = () => (dorm2Built() ? 32 : 16);
 const dormUp = () => (S.dormUp ||= { beds: 1, conc: 1 });
-const bedCount = () => Math.min(MAX_BEDS, 8 + dormUp().beds);                 // 9 beds at level 1
+const beds1 = () => Math.min(16, 8 + dormUp().beds);                                             // 9 beds at level 1
+const beds2 = () => (dorm2Built() ? Math.min(16, 9 + Math.max(0, dormUp().beds - 8)) : 0);   // 9 at once, then the upgrade fills it
+const bedCount = () => beds1() + beds2();
+const bedExists = (b) => (b < 16 ? b < beds1() : b - 16 < beds2());
 const checkinTime = () => 2 * Math.pow(0.85, dormUp().conc - 1);
 const bedsCost = () => Math.round(150 * Math.pow(1.6, dormUp().beds - 1));
 const concCost = () => Math.round(100 * Math.pow(1.5, dormUp().conc - 1));
@@ -194,7 +204,7 @@ const dormLineSpot = (k) => ({ x: DS.x0 + 1.4, y: DS.y0 + 1.6 + k * 0.55 });
 let dormLine = [], checkin = null, checkinT = 0;
 const DORM_CAP = DORM_SPOTS.length;
 const dorm = Array(DORM_CAP).fill(null);           // agent per bed (only the first bedCount() beds exist)
-const freeBed = () => { for (let b = 0; b < bedCount(); b++) if (!dorm[b]) return b; return -1; };
+const freeBed = () => { for (let b = 0; b < DORM_CAP; b++) if (bedExists(b) && !dorm[b]) return b; return -1; };
 const dormFree = () => freeBed() >= 0;
 function goDorm(a, i, bed = freeBed()) {   // bed is reserved now, the student queues at the concierge first
   dorm[bed] = a; a.bed = bed; a.goal = { t: 'd', i }; a.c = -1;
@@ -409,7 +419,7 @@ function roomColors(id) {
   const ci = CLASS_SLOT.indexOf(id);
   if (ci >= 0) return { floor: CLASSES[ci].floor, wall: CLASSES[ci].wall };
   if (id === 'REC') return { floor: '#f3e4cf', wall: '#cdb6f0' };
-  if (id === 'DORM') return { floor: '#efe0d2', wall: '#bcd3f2' };
+  if (id === 'DORM' || id === 'DORM2') return { floor: '#efe0d2', wall: '#bcd3f2' };
   if (id === 'LIB') return { floor: '#e9dccb', wall: '#c9a27a' };
   return { floor: '#bfe6a6', wall: null };
 }
@@ -424,6 +434,12 @@ function drawSlot(c, id) {
     return;
   }
   if (ci >= 0 && !S.classes[ci].built) { drawPlot(c, s, ci, L, B, R, F, center); return; }
+  if (id === 'DORM2' && !dorm2Built()) {
+    poly(c, [L, B, R, F], '#ecd2a8'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
+    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 58, center.y - 26, 116, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    text('🛏️ Вторая спальня', center.x, center.y - 11, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(DORM2_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
+    return;
+  }
   const col = roomColors(id);
   const artKey = ci >= 0 ? CLASSES[ci].id : id;
   const art = arts[artKey];
@@ -452,7 +468,8 @@ function drawSlot(c, id) {
     }
     if (id === 'REC') { const q = (x, y) => P(s.x0 + x, s.y0 + y); emoji('🪴', q(0.6, 0.6).x, q(0.6, 0.6).y - 8, 18, c); emoji('🪴', q(9.4, 7.4).x, q(9.4, 7.4).y - 8, 18, c); emoji('🗺️', q(0.2, 2).x, q(0.2, 2).y - 34, 16, c); poly(c, [q(4, 0.3), q(6, 0.3), q(6, 7.7), q(4, 7.7)], '#e9b8c9'); poly(c, [q(2.6, 3.9), q(9.5, 3.9), q(9.5, 5.1), q(2.6, 5.1)], '#c7b5ee88'); }
     if (id === 'LIB') { const q = (x, y) => P(s.x0 + x, s.y0 + y); [[0.5, 0.5], [2, 0.4], [3.5, 0.4], [5, 0.4]].forEach(([x, y]) => emoji('📚', q(x, y).x, q(x, y).y - 14, 20, c)); emoji('🕯️', q(5.5, 5.5).x, q(5.5, 5.5).y - 8, 14, c); LIB_SPOTS.forEach((p) => { const t = P(p.x, p.y + 0.55); emoji('📖', t.x, t.y - 4, 12, c); }); }
-    if (id === 'DORM') { DORM_SPOTS.slice(0, bedCount()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); }); emoji('🪴', B.x, B.y + 8, 16, c); }
+    if (id === 'DORM2') { DORM_SPOTS.slice(16, 16 + beds2()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); }); emoji('🧸', F.x - 20, F.y - 14, 16, c); }
+    if (id === 'DORM') { DORM_SPOTS.slice(0, beds1()).forEach((p) => { const q = P(p.x, p.y + 0.2); emoji('🛏️', q.x, q.y - 6, 18, c); }); emoji('🪴', B.x, B.y + 8, 16, c); }
   }
 }
 // outer stone walls of the building where no room supplies a wall: [x0, y0, x1, y1, height]
@@ -472,8 +489,8 @@ function drawGate(c) {
 }
 function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
-  if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built)) return;
-  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : '🛏️ Спальня';
+  if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built())) return;
+  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   const fs = 12, hgt = 22;
   c.font = `800 ${fs}px ui-rounded,"Nunito","Segoe UI",sans-serif`; const tw = c.measureText(name).width + 22;
@@ -711,11 +728,13 @@ function classPanel(i) {
   };
 }
 function dormPanel() {
-  const u = dormUp(), used = dorm.slice(0, bedCount()).filter(Boolean).length;
+  const u = dormUp(), used = dorm.filter(Boolean).length;
   return `<div class="sh-head"><span class="remoji big">🛏️</span><div><h2>Спальня</h2><div class="muted">Здесь ждут те, кому не хватило места у класса</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🛏️</span><b>${used}/${bedCount()}</b><i>кровати</i></div><div><span>📝</span><b>${sec(checkinTime())}</b><i>запись</i></div><div><span>💔</span><b>${S.stats.left || 0}</b><i>ушли из школы</i></div></div>
-    <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Больше кроватей</b> <span class="muted">${bedCount()}/${MAX_BEDS}</span><div class="muted">+1 кровать: меньше зверьков уходит</div></div>
-      ${bedCount() >= MAX_BEDS ? '<span class="done">макс.</span>' : costBtn('+1', bedsCost(), 'beds')}</div>
+    <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Больше кроватей</b> <span class="muted">${bedCount()}/${maxBeds()}</span><div class="muted">${bedCount() >= maxBeds() && !dorm2Built() ? 'первая спальня заполнена — построй вторую' : '+1 кровать: меньше зверьков уходит'}</div></div>
+      ${bedCount() >= maxBeds() ? '<span class="done">макс.</span>' : costBtn('+1', bedsCost(), 'beds')}</div>
+    <div class="card up"><span class="remoji">🏗️</span><div class="grow"><b>Вторая спальня</b><div class="muted">${dorm2Built() ? 'построена: ещё до 16 кроватей' : 'сразу +9 кроватей, всего можно до 32'}</div></div>
+      ${dorm2Built() ? '<span class="done">✓ есть</span>' : costBtn('Построить', DORM2_COST, 'dorm2')}</div>
     <div class="card up"><span class="remoji">🗝️</span><div class="grow"><b>Консьержка быстрее</b> <span class="muted">ур. ${u.conc}/${MAX_CONC}</span><div class="muted">−15% времени на запись</div></div>
       ${u.conc >= MAX_CONC ? '<span class="done">макс.</span>' : costBtn('↑', concCost(), 'conc')}</div>
     <p class="muted">У консьержки в очереди: ${dormLine.length}</p>`;
@@ -877,7 +896,7 @@ function openRoom(id) {
     if (id === 'REC') { openPanel(receptionPanel); return; }
     if (id === 'GARDEN') { toast(`🎓 Выпускников: ${S.stats.graduated}`); return; }
     if (id === 'LIB') { toast(`📚 Библиотека: готовятся к пересдаче ${lib.filter(Boolean).length}/${lib.length}`); return; }
-    if (id === 'DORM') { openPanel(dormPanel); return; }
+    if (id === 'DORM' || id === 'DORM2') { openPanel(dormPanel); return; }
   }
 }
 
@@ -904,7 +923,8 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'item') { if (spend(itemCost(i, +d.k))) st.items[+d.k]++; }
   else if (d.act === 'rec') { if (spend(recCost())) S.reception.level++; }
   else if (d.act === 'ads') { if (spend(adsCost())) S.reception.ads++; }
-  else if (d.act === 'beds') { if (bedCount() < MAX_BEDS && spend(bedsCost())) dormUp().beds++; }
+  else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
+  else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
   else if (d.act === 'conc') { if (dormUp().conc < MAX_CONC && spend(concCost())) dormUp().conc++; }
   else if (d.act === 'build') { if (spend(CLASSES[i].build)) { st.built = true; st.buildEnd = Date.now() + CLASSES[i].buildTime * 1000; panel = classPanel(i); } }
   else return;
@@ -1046,7 +1066,7 @@ function restoreWorld() {
     if (wi >= 0) continue;
     const g = a.goal || { t: 'c', i: nextClass(-1) };
     if (g.t === 'd') {
-      const bed = (a.bed >= 0 && a.bed < bedCount() && !dorm[a.bed]) ? a.bed : freeBed();
+      const bed = (a.bed >= 0 && a.bed < DORM_CAP && bedExists(a.bed) && !dorm[a.bed]) ? a.bed : freeBed();
       if (bed >= 0 && a.state === 'sleep') { dorm[bed] = a; a.bed = bed; const p = DORM_SPOTS[bed]; a.x = p.x; a.y = p.y; continue; }
       if (bed >= 0) { goDorm(a, g.i, bed); continue; }
     }
