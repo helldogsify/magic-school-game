@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=125';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=125';
+} from './data.js?v=126';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=126';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 125;   // keep equal to the ?v= number in index.html
+const BUILD = 126;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2306,6 +2306,16 @@ function musicStart() { if (!musicOn() || document.hidden) return; if (!music.sr
 document.addEventListener('pointerdown', () => { if (music.paused) musicStart(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) music.pause(); else musicStart(); });
 function setMusic(on) { localStorage.setItem('magicschool.music', on ? '1' : '0'); if (on) musicStart(); else music.pause(); toast(on ? '🎵 Музыка включена' : '🔇 Музыка выключена'); }
+// a newer build on the server reloads the game by itself (on start and every time it comes back to the screen)
+async function checkUpdate() {
+  try {
+    const t = await (await fetch('index.html?nc=' + Date.now(), { cache: 'no-store' })).text();
+    const m = t.match(/game\.js\?v=(\d+)/); const v = m ? +m[1] : 0;
+    if (v > BUILD && sessionStorage.getItem('magicschool.reloadedFor') !== String(v)) { sessionStorage.setItem('magicschool.reloadedFor', String(v)); if (S) save(); location.reload(); }
+  } catch (e) { /* offline */ }
+}
+setTimeout(checkUpdate, 3000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); if (S) save(); cloudPush(true); return; }
@@ -2329,4 +2339,4 @@ updateHud();
 if (!S.tourDone && WORLD === 1) setTimeout(() => { closePanel(); showTour(0); }, 600);
 requestAnimationFrame(frame);
 if (localStorage.getItem('magicschool.forcePush')) { localStorage.removeItem('magicschool.forcePush'); cloudForce(); } else cloudPull();
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});   // always look for a new service worker
