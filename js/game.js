@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS,
-} from './data.js?v=24';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji } from './emoji.js?v=24';
+} from './data.js?v=25';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji } from './emoji.js?v=25';
 
 const SAVE_KEY = 'magicschool.save.v2';
 const VERSION = '0.9';
-const BUILD = 24;   // keep equal to the ?v= number in index.html
+const BUILD = 25;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -548,7 +548,7 @@ const TOUR = [
   { at: [22, 33], title: 'Спальня и консьержка 🛏️', text: 'В спальне консьержка в зелёной шляпе записывает гостя, и он спит 💤, пока в его классе не освободится место. Если и кроватей нет — ученик уходит из школы 💔. Нажми на спальню, чтобы купить кровати.' },
   { at: [14.5, 2], title: 'Выпускники 🎓', text: 'Кто прошёл все открытые классы — выпускник. Он идёт в сад и улетает на своих крылышках. Число выпускников видно вверху экрана.' },
   { at: [10, 18], title: 'Новые классы', text: 'На пустых местах можно построить новые классы — нажми на табличку с ценой. Чем больше классов, тем больше ученики платят за обучение.' },
-  { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту, 🎓 выпускники. Под ними задание с наградой. Нажми на любого зверька — увидишь, что он сейчас делает. Повторить обучение можно в ⚙️. Удачи, директор!' },
+  { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту, 🎓 выпускники. Под ними задание с наградой. Нажми на зверька в коридоре — увидишь, что он сейчас делает. Нажатие внутри комнаты открывает комнату. Повторить обучение можно в ⚙️. Удачи, директор!' },
 ];
 let tourStep = -1;
 function focusTile(x, y, smooth = true) {   // the point goes to the middle of the free part of the screen (above the tour card)
@@ -838,17 +838,18 @@ scroller.addEventListener('pointermove', (e) => {
   scroller.style.cursor = 'grabbing';
 });
 window.addEventListener('pointerup', () => { scroller.style.cursor = ''; });
-scroller.addEventListener('pointerup', (e) => {
-  if (!down) return;
-  const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y) + Math.abs(scroller.scrollTop - down.st) + Math.abs(scroller.scrollLeft - down.sl);
-  down = null; if (moved > 10 || pinching || Date.now() - pinchedAt < 300) return;
+// Taps use the 'click' event: phones fire it only for a real tap (never after a scroll), while pointerup
+// was often cancelled on Android because the browser took the touch for the start of a scroll.
+scroller.addEventListener('click', (e) => {
+  const d0 = down; down = null;
+  if (d0 && Math.hypot(e.clientX - d0.x, e.clientY - d0.y) > 12) return;   // mouse drag on a PC is not a tap
+  if (pinching || Date.now() - pinchedAt < 300) return;
   const r = scroller.getBoundingClientRect();
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
   const sign = signRects.find((r) => wx >= r.x0 - 6 && wx <= r.x1 + 6 && wy >= r.y0 - 6 && wy <= r.y1 + 6);   // a sign always opens its room
   if (sign) { openRoom(sign.id); return; }
-  const who = creatureAt(e.clientX, e.clientY);
-  if (who) { toast(`${who.name}: ${statusOf(who)}`); return; }
+  // a tap inside a room (floor, or walls/sprites just above it) always opens the room
   for (const lift of [0, 20, 40]) {
     const a = (wx - OX) / HW, b = (wy + lift - OY) / HH;
     const tx = Math.floor((a + b) / 2), ty = Math.floor((b - a) / 2);
@@ -856,6 +857,9 @@ scroller.addEventListener('pointerup', (e) => {
     if (!id || id === 'hall') continue;
     openRoom(id); return;
   }
+  // in the corridors a tap on a creature tells what it is doing
+  const who = creatureAt(e.clientX, e.clientY);
+  if (who) toast(`${who.name}: ${statusOf(who)}`);
 });
 function openRoom(id) {
   {
