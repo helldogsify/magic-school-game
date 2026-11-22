@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=172';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=172';
+} from './data.js?v=173';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=173';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 172;   // keep equal to the ?v= number in index.html
+const BUILD = 173;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -38,7 +38,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake })),
+    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -88,6 +88,27 @@ const shopTime = () => 2.2 * Math.pow(0.88, shopUp().seller - 1);              /
 const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1))));
 const shopCost = (k) => Math.round(SHOP_COST * 0.4 * Math.pow(1.9, shopUp()[k] - 1));
 const SHOP_SPOTS = (s) => [0, 1, 2, 3, 4, 5].map((k) => ({ x: s.x0 + 2.75, y: s.y0 + 1.6 + k * 0.62 }));   // a line in front of the counter: the first is served, the rest wait (her ask)
+// ---- the canteen (her choices 2026-11-22: its own house on the lawn between Charms and the masters' tower; a snack after a lesson
+// for coins and mood, a fed student passes the next lesson a little easier; the cook is a little dragon) ----
+const CANT_COST = 500000, CANT_TIME = 600, CANT_NEED = 2;   // needs the third class (Stars) open
+const CANT_MAX = { cook: 10, tables: 5, menu: 10 };
+const cantUp = () => (S.cant ||= { built: false, end: 0, cook: 1, tables: 1, menu: 1 });
+const cantBuilt = () => WORLD === 1 && !!(S && S.cant && S.cant.built);
+const cantOpen = () => cantBuilt() && Date.now() >= (S.cant.end || 0);
+const cantChance = () => 0.15 + 0.03 * (cantUp().tables - 1);              // share of students who go to eat after a lesson
+const cantServe = () => 2.0 * Math.pow(0.88, cantUp().cook - 1);           // seconds the cook needs to fill one tray
+const CANT_EAT = 4;                                                         // seconds at the table
+const cantPrice = () => Math.max(5, Math.round(fee() * (0.6 + 0.15 * (cantUp().menu - 1))));
+const cantMood = () => 20 + 2 * (cantUp().menu - 1);
+const FED_BONUS = 0.05;                                                     // a fed student: +5% on the next exam
+const cantCost = (k) => Math.round(CANT_COST * 0.4 * Math.pow(1.9, cantUp()[k] - 1));
+const CANT_DISHES = ['🥣', '🍲', '🥞', '🍝', '🥗', '🥧', '🍰', '🍪', '🍩', '🧁', '🍵'];
+const cantDishes = () => CANT_DISHES.slice(0, Math.min(CANT_DISHES.length, cantUp().menu + 1));
+const cantTables = () => cantUp().tables + 1;                               // 2..6 tables, 2 seats each
+const CANT_TABLES = (s) => [[1.2, 2.5], [2.9, 2.5], [1.2, 3.9], [2.9, 3.9], [1.2, 5.3], [2.9, 5.3]].map(([x, y]) => ({ x: s.x0 + x, y: s.y0 + y }));
+const cantSeatPos = (k) => { const t = CANT_TABLES(SLOTS.CANT)[k >> 1]; return { x: t.x + (k & 1 ? 0.62 : -0.62), y: t.y + 0.02, flip: !(k & 1) }; };
+const CANT_SPOTS = (s) => [0, 1, 2, 3, 4, 5].map((k) => ({ x: s.x0 + 4.7, y: s.y0 + 2.0 + k * 0.62 }));   // the line in front of the counter
+const CANT_COOK = (s) => ({ x: s.x0 + 4.6, y: s.y0 + 0.75 });
 const DIR_COST = 50000, DIR_STARS = 2;
 const dirBuilt = () => !!(S && S.dirBuilt);
 const dirLvl = (k) => (S && S.dir && S.dir[k]) || 0;
@@ -219,7 +240,7 @@ function genLayout() {
   if (WORLD === 1) SLOTS.DIR = slot(1, y, [[6, y + 3], [7, y + 3]], {}, 6, 6);   // director's office on the top row left of the exam hall: nothing tall stands in front of it (her report 2026-11-21: behind a class it was half hidden)
   y += 6;
   const hallTop = y; y += CW;
-  let lastGap = null;
+  let lastGap = null, firstGap = null;
   for (let r = rows - 1; r >= 0; r--) {
     const li = 2 * r, ri = 2 * r + 1;
     const d = Math.max(depthOf(li), ri < NCLS ? depthOf(ri) : ROOM);
@@ -227,7 +248,7 @@ function genLayout() {
     SLOTS['C' + li] = slot(7, y1, [[12, ym], [13, ym]], {}, ROOM, h1);                       // door to the main corridor (front side)
     if (ri < NCLS) { const h2 = depthOf(ri), y2 = y + d - h2; SLOTS['C' + ri] = slot(18, y2, [[20, y2 + h2 - 1], [20, y2 + h2]], {}, ROOM, h2, [[[21, y2 + h2 - 1], [21, y2 + h2]]]); }   // door to the cross corridor below
     y += d;
-    lastGap = [y, y + CW]; y += CW;
+    lastGap = [y, y + CW]; if (!firstGap) firstGap = lastGap; y += CW;
   }
   const recY = y;
   PATHS = [];
@@ -235,6 +256,12 @@ function genLayout() {
     PATHS.push({ x0: 24, y0: 9, x1: 35, y1: 11 });
     PATHS.push({ x0: 33, y0: 11, x1: 35, y1: 15 });
     SLOTS.TOWER = slot(31, 15, [[33, 15], [33, 14]], {}, 6, 6, [[[34, 15], [34, 14]]]);
+  }
+  if (WORLD === 1) {   // the canteen: a house on the lawn right of Charms, a path from the corridor between Elements and Charms (her pick 2026-11-22)
+    const g = firstGap[0];
+    PATHS.push({ x0: 24, y0: g + 2, x1: 31, y1: g + 4 });
+    PATHS.push({ x0: 29, y0: g + 4, x1: 31, y1: g + 6 });
+    SLOTS.CANT = slot(28, g + 6, [[29, g + 6], [29, g + 5]], {}, 6, 6, [[[30, g + 6], [30, g + 5]]]);
   }
   if (WORLD === 1) { const sy = lastGap[0] - 6; SLOTS.SHOP = slot(1, sy, [[3, sy + 5], [3, sy + 6]], {}, 6, 6, [[[4, sy + 5], [4, sy + 6]]]); }   // the school shop, door to the wide corridor
   // front block: library | reception | dorms
@@ -559,7 +586,7 @@ function seat(a, i, d) {
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
-  const bonus = a.prepared ? libBonus() : 0; a.prepared = false;
+  const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0); a.prepared = false; a.fed = false;   // a meal in the canteen helps one exam
   if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); earn(Math.round(tuition(i) * payMul(a)), p.x, p.y, null, 46); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
@@ -604,11 +631,33 @@ function finishShopping(a) {
   a.back = false; const k = shopLine.indexOf(a); if (k >= 0) shopLine.splice(k, 1); route(a, a.goal.n);
   shopLine.forEach(shopPlace);   // the line moves up
 }
+const cantLine = [], cantSeats = Array(12).fill(null);
+function cantPlace(a) { const k = cantLine.indexOf(a), sp = CANT_SPOTS(SLOTS.CANT)[Math.min(k, 5)]; a.state = 'walk'; walk(a, sp.x, sp.y, () => { a.state = k === 0 ? 'cantbuy' : 'cantwait'; a.t = 0; a.dur = cantServe(); a.back = true; }); }
+function goCanteen(a, next) {
+  if (cantLine.length >= 6) { route(a, next); return; }   // the line is full: maybe next time
+  a.goal = { t: 'cant', n: next }; a.c = -1; cantLine.push(a); cantPlace(a);
+}
+const freeCantSeat = () => { for (let k = 0; k < 2 * cantTables(); k++) if (!cantSeats[k]) return k; return -1; };
+function cantServed(a) {   // the tray is ready: pay, take a seat (or wait at the counter while every seat is taken)
+  const k = freeCantSeat(); if (k < 0) { a.t = a.dur; return; }
+  earn(cantPrice(), a.x, a.y, '#e08a3d', 44); S.stats.cant = (S.stats.cant || 0) + 1;
+  a.dish = rnd(cantDishes()); a.cseat = k; cantSeats[k] = a;
+  a.back = false; const i = cantLine.indexOf(a); if (i >= 0) cantLine.splice(i, 1);
+  const p = cantSeatPos(k); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'eat'; a.t = 0; a.dur = CANT_EAT; a.flip = p.flip; a.back = false; });
+  cantLine.forEach(cantPlace);   // the line moves up
+}
+function finishEating(a) {
+  if (a.cseat >= 0 && cantSeats[a.cseat] === a) cantSeats[a.cseat] = null; a.cseat = -1;
+  a.mood = Math.min(100, moodOf(a) + cantMood()); a.fed = true;
+  popup(rnd(['😋', '🥰', '😊']), a.x - 0.3, a.y - 0.3, '#e08a3d', 60);
+  route(a, a.goal.n);
+}
 function leaveDesk(a) {
   const i = a.c;
   deskOcc[i][a.desk] = null; a.desk = -1; a.state = 'walk';
   const n = nextClass(i);
-  if (shopOpen() && n >= 0 && Math.random() < shopChance()) goShop(a, n); else route(a, n);
+  if (cantOpen() && SLOTS.CANT && n >= 0 && Math.random() < cantChance()) goCanteen(a, n);
+  else if (shopOpen() && n >= 0 && Math.random() < shopChance()) goShop(a, n); else route(a, n);
   pullWaiting(i);
 }
 function pullWaiting(i) {
@@ -675,6 +724,8 @@ function stepAgents(dt, live = false) {
     if (a.state === 'study') { if (!incOf(a.c)) a.t += dt; if (a.t >= a.dur) finishLesson(a); }   // an incident stops the lesson
     else if (a.state === 'done') leaveDesk(a);
     else if (a.state === 'read') { a.t += dt; if (a.t >= a.dur) finishReading(a); }
+    else if (a.state === 'cantbuy') { a.t += dt; if (a.t >= a.dur) cantServed(a); }
+    else if (a.state === 'eat') { a.t += dt; if (a.t >= a.dur) finishEating(a); }
     else if (a.state === 'shopping') { if (!(live && foxU > 0.02)) a.t += dt; if (a.t >= a.dur) finishShopping(a); }   // the fox serves only from behind his counter
   }
   agents = agents.filter((a) => !(a.state === 'fly' && a.z > 400) && !a.gone);
@@ -1080,6 +1131,7 @@ function peoplePanel() {
     ['🚪', 'в очереди у классов', n((a) => a.state === 'wait' || a.state === 'walkwait')],
     ['💤', 'в спальне ждут места', n((a) => a.state === 'sleep' || a.state === 'dline' || a.state === 'checkin' || (a.goal && a.goal.t === 'd'))],
     ['📚', 'в библиотеке', n((a) => a.state === 'read' || (a.goal && a.goal.t === 'l'))],
+    ...(cantOpen() ? [['🍽️', 'в столовой', n((a) => a.goal && a.goal.t === 'cant')]] : []),
     ['🚶', 'идут по школе', n((a) => a.state === 'walk' && !queue.includes(a) && !(a.goal && (a.goal.t === 'd' || a.goal.t === 'l')))],
   ];
   return `<div class="sh-head"><span class="remoji big">👥</span><div><h2>Ученики в школе: ${l.length}</h2><div class="muted">Настроение ${moodFace(avgMood())} ${Math.round(avgMood())}% · всего выпустилось 🎓 ${fmt(S.stats.graduated)}</div></div><button class="x" data-close>✕</button></div>
@@ -1105,6 +1157,7 @@ function stepWorld(dt, live = false) {
   if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime()) finishProcess(); }
   stepConcierge(dt);
   wakeSleepers();
+  if (cantBuilt() && S.cant.end && Date.now() >= S.cant.end) { S.cant.end = 0; toast('🍽️ Столовая открыта!'); dirtyPanel = true; staticKey = ''; }
   S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; staticKey = ''; } });
   stepAgents(dt, live);
   stepTower(dt);
@@ -1308,7 +1361,7 @@ const up = (p, h) => ({ x: p.x, y: p.y - h });
 const stat = document.createElement('canvas'); const sctx = stat.getContext('2d');
 let staticKey = '';
 const statQ = () => Math.min(scale * dpr, Math.sqrt(12e6 / (SW * SH)));   // px per world unit, capped (iOS canvas limit)
-function statKey() { return S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + statQ().toFixed(2); }
+function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + statQ().toFixed(2); }
 function drawStatic() {
   const k = statKey(); if (k === staticKey || (pinching && stat.width)) return; staticKey = k;
   const q = statQ();
@@ -1337,6 +1390,7 @@ function roomColors(id) {
   if (id === 'DORM' || id === 'DORM2') return { floor: '#efe0d2', wall: '#bcd3f2' };
   if (id === 'LIB') return { floor: '#e9dccb', wall: '#c9a27a' };
   if (id === 'TOWER') return { floor: '#e4dcf3', wall: '#9d84d8' };
+  if (id === 'CANT') return { floor: '#f4e6cf', wall: '#f0b98a' };
   return { floor: '#bfe6a6', wall: null };
 }
 // ---- wall pieces (thick, with a cap) ----
@@ -1593,6 +1647,13 @@ function drawSlot(c, id) {
     text('🛍️ Лавка', center.x, center.y - 11, 10, '#5d4a6e', c); text('🪙 ' + fmt(SHOP_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
+  if (id === 'CANT' && !cantBuilt()) {
+    poly(c, [L, B, R, F], '#ecd2a8'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
+    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 56, center.y - 26, 112, 48, 10); c.fill(); c.strokeStyle = '#e08a3d'; c.lineWidth = 2.5; c.stroke();
+    text('🍽️ Столовая', center.x, center.y - 11, 10, '#5d4a6e', c);
+    if (isOpen(CANT_NEED)) text('🪙 ' + fmt(CANT_COST), center.x, center.y + 8, 12, '#7b5cd6', c); else text('🔒 ' + CLASSES[CANT_NEED].name, center.x, center.y + 8, 10, '#8a7a99', c);
+    return;
+  }
   if (id === 'TOWER' && !towerOpen()) {
     poly(c, [L, B, R, F], '#d9d2ec'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
     c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 62, center.y - 26, 124, 48, 10); c.fill(); c.strokeStyle = '#8f6ef0'; c.lineWidth = 2.5; c.stroke();
@@ -1669,8 +1730,8 @@ function drawGate(c) {
 }
 function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
-  if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen())) return;
-  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
+  if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
+  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   const fs = 12, hgt = 22;
   c.font = `800 ${fs}px ui-rounded,"Nunito","Segoe UI",sans-serif`; const tw = c.measureText(name).width + 22;
@@ -1692,7 +1753,7 @@ function drawSign(c, id) {
     }
   }
 }
-const SIGN_BG = { REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f', DIR: '#f5d77a', SHOP: '#f7c1d9', TOWER: '#cdbdf2' };
+const SIGN_BG = { CANT: '#f9d3a5', REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f', DIR: '#f5d77a', SHOP: '#f7c1d9', TOWER: '#cdbdf2' };
 let signRects = [];   // tappable room signs of the last frame, world coords
 function drawPlot(c, s, ci, L, B, R, F, center) {
   const next = S.classes.findIndex((q) => !q.built) === ci;
@@ -1745,6 +1806,13 @@ function drawHat(x, y, color) {
   ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x, y - 14); ctx.lineTo(x - 7, y); ctx.lineTo(x + 7, y); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.ellipse(x, y, 10, 2.6, 0, 0, Math.PI * 2); ctx.fill();
   emoji('⭐', x, y - 7, 6);
+}
+function drawCounter(p, top = '#d9a36e', side = '#a8713f', hw = 0.55) {   // a plain box: canteen counter and tables until the art is in
+  const a = P(p.x - hw, p.y - 0.28), b = P(p.x + hw, p.y - 0.28), cc = P(p.x + hw, p.y + 0.28), d = P(p.x - hw, p.y + 0.28);
+  const h = 10;
+  poly(ctx, [d, cc, up(cc, h), up(d, h)], side);
+  poly(ctx, [cc, b, up(b, h), up(cc, h)], side);
+  poly(ctx, [up(a, h), up(b, h), up(cc, h), up(d, h)], top, '#8a5f3a');
 }
 function drawDesk(p) {
   const a = P(p.x - 0.55, p.y - 0.25), b = P(p.x + 0.55, p.y - 0.25), cc = P(p.x + 0.55, p.y + 0.25), d = P(p.x - 0.55, p.y + 0.25);
@@ -1814,6 +1882,7 @@ function statusOf0(a) {
   if (a.state === 'read' || g.t === 'l') return `готовится к пересдаче в библиотеке (${cn(g.i)})`;
   if (a.state === 'sleep') return `спит в спальне, ждёт места: ${cn(g.i)}`;
   if (a.state === 'dline' || a.state === 'checkin' || g.t === 'd') return 'записывается в спальню у консьержки';
+  if (g.t === 'cant') return a.state === 'eat' ? `обедает в столовой ${a.dish || '🍲'}` : a.state === 'cantbuy' || a.state === 'cantwait' ? 'стоит в очереди к повару' : 'идёт в столовую';
   if (g.t === 'shop') return a.state === 'shopping' ? 'покупает вкусняшку в лавке 🍭' : 'идёт в лавку';
   if (g.t === 'g' || a.state === 'fly') return 'выпускник! 🎓 идёт в сад';
   if (g.t === 'x') return 'расстроился и уходит из школы 💔';
@@ -1853,6 +1922,7 @@ function render() {
     if (e.id === 'DIR' && !dirBuilt()) continue;
     if (e.id === 'SHOP' && !shopOpen()) continue;
     if (e.id === 'TOWER' && !towerOpen()) continue;
+    if (e.id === 'CANT' && !cantBuilt()) continue;
     if (e.id !== 'hall' && CLASS_SLOT.indexOf(e.id) >= 0 && !S.classes[CLASS_SLOT.indexOf(e.id)].built) continue;
     const sl = SLOTS[e.id];
     const k1 = e.id === 'hall' ? e.x + e.y : (sl.x0 + sl.x1 + sl.y0 + sl.y1) / 2;
@@ -1909,6 +1979,17 @@ function render() {
     T.res.forEach((r, k) => { if (r.away) return; const p = towerPos(k); add(p.x, p.y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: p.flip, path: p.moving ? [1] : [], ph: k * 1.7 + performance.now() / 1000 }, p.x, p.y, 30)); });
     T.wait.forEach((r, k) => { const s = SLOTS.TOWER, x = s.x0 + 2.4 + k * 0.7, y = s.y0 - 0.5; add(x, y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: true, path: [], ph: k }, x, y, 30, (sx, sy) => emoji('⏳', sx + 12, sy - 34, 12))); });
   }
+  if (cantBuilt() && SLOTS.CANT) {   // canteen: counter with pots, tables; the cook stands behind the counter (dragon art comes later)
+    const s = SLOTS.CANT;
+    if (!cantOpen()) { const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2, c = P(cx, cy), left = Math.max(0, Math.ceil((S.cant.end - Date.now()) / 1000));
+      add(cx, cy, () => { emoji('🏗️', c.x, c.y - 14, 30); ctx.fillStyle = '#fffaf2ee'; rr(c.x - 40, c.y + 8, 80, 18, 9); ctx.fill(); text(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, c.x, c.y + 17, 11, '#5a3fb0'); }); }
+    else {
+      const ck = CANT_COOK(s), now = performance.now() / 1000, busy = cantLine.some((a) => a.state === 'cantbuy');
+      [3.6, 4.7].forEach((dx, k) => { const q = { x: s.x0 + dx, y: s.y0 + 1.35 }; add(q.x, q.y, () => { drawCounter(q); const m = P(q.x, q.y); emoji(k ? '🍲' : '🥧', m.x, m.y - 14, 13); }); });
+      add(ck.x, ck.y, () => { const m = P(ck.x, ck.y), hop = busy ? Math.abs(Math.sin(now * 5)) * 3 : 0; teacherGlow(ck, 40, 'rgba(255,225,190,0.75)'); emoji('🐲', m.x, m.y - 18 - hop, 30); if (busy) emoji('🔥', m.x + 14, m.y - 4, 10); });
+      CANT_TABLES(s).slice(0, cantTables()).forEach((t) => add(t.x, t.y, () => drawCounter(t, '#e9c79a', '#c99a68', 0.45)));
+    }
+  }
   if (shopOpen() && SLOTS.SHOP) { const fo = foxPos(), im = sprites['fox_' + fo.pose]; if (im && im.naturalWidth) add(fo.x, fo.y, () => { teacherGlow(fo, 56, 'rgba(255,240,200,0.7)'); drawPose(im, fo.x, fo.y, 56, fo.flip, fo.moving); }); }
   const co = conciergePos();
   if (staffSprite('concierge') && sprites['con_' + co.pose]?.naturalWidth) add(co.x, co.y, () => { drawPose(co.pose === 'walk' ? sprites['staff_concierge'] : sprites['con_' + co.pose], co.x, co.y, 62, co.flip, co.moving); if (checkin) { const q = P(co.x, co.y); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } });
@@ -1941,6 +2022,7 @@ function render() {
       if (a.state === 'study' && !a.path.length) ring(x + 13, y - 32, Math.min(1, a.t / a.dur));
       if (a.state === 'fly') emoji('✨', x - 12, y - 6, 10);
       if (a.state === 'read') { emoji('📚', x - 12, y - 30, 11); ring(x + 13, y - 32, Math.min(1, a.t / a.dur), '#e0a100'); }
+      if (a.state === 'eat' && !a.path.length) { emoji(a.dish || '🍲', x + (a.flip ? -14 : 14), y - 12, 12); ring(x + 13, y - 32, Math.min(1, a.t / a.dur), '#e08a3d'); }
       if (a.state === 'sleep') emoji('💤', x + 12, y - 30 - Math.abs(Math.sin(a.ph * 1.5)) * 4, 11);
       if (moodOf(a) < 35 && a.state !== 'study') emoji(moodFace(moodOf(a)), x - 13, y - 31, 11);   // sad ones show it
       else if (moodOf(a) >= 65 && a.state !== 'sleep') {   // happy ones show it too, now and then (her wish 2026-11-21)
@@ -2059,6 +2141,20 @@ function libPanel() {
     <div class="card up"><span class="remoji">💡</span><div class="grow"><b>Лучше подготовка</b> <span class="muted">ур. ${u.bonus}/${MAX_LIB_LVL}</span><div class="muted">+3% к шансу сдать после библиотеки</div></div>
       ${u.bonus >= MAX_LIB_LVL ? '<span class="done">макс.</span>' : costBtn('↑', libBonusCost(), 'libbonus')}</div>
     <p class="muted">После библиотеки урок у ученика в 2 раза короче, а шанс сдать выше на ${Math.round(libBonus() * 100)}%.</p>`;
+}
+function cantPanel() {
+  const u = cantUp(), head = (sub) => `<div class="sh-head"><span class="remoji big">🍽️</span><div><h2>Столовая</h2><div class="muted">${sub}</div></div><button class="x" data-close>✕</button></div>`;
+  if (!u.built) return `${head('Обеды для учеников')}
+    <p>После урока часть учеников идёт в столовую: стоит в очереди к повару-дракончику, садится за стол и ест. Школа получает монеты, у ученика сильно поднимается настроение, а сытый ученик на следующем экзамене сдаёт на ${Math.round(FED_BONUS * 100)}% легче.</p>
+    ${isOpen(CANT_NEED) ? `<button class="btn wide" data-cost="${CANT_COST}" data-act="cantbuild">Построить <span class="cost">🪙${fmt(CANT_COST)}</span></button><p class="muted">Стройка займёт ${Math.round(CANT_TIME / 60)} минут.</p>` : `<p class="muted">🔒 Сначала откройте класс «${CLASSES[CANT_NEED].name}».</p>`}`;
+  if (!cantOpen()) { const left = Math.max(0, Math.ceil((u.end - Date.now()) / 1000)); return `${head('Идёт стройка')}<p>🏗️ Столовая откроется через ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}.</p>`; }
+  const row = (k, emo, name, desc) => `<div class="card up"><span class="remoji">${emo}</span><div class="grow"><b>${name}</b> <span class="muted">ур. ${u[k]}/${CANT_MAX[k]}</span><div class="muted">${desc}</div></div>${u[k] >= CANT_MAX[k] ? '<span class="done">макс.</span>' : costBtn('↑', cantCost(k), 'cantup', `data-k="${k}"`)}</div>`;
+  return `${head(`Накормлено: ${fmt(S.stats.cant || 0)}`)}
+    <div class="stats3"><div><span>🪙</span><b>${fmt(cantPrice())}</b><i>за обед</i></div><div><span>🚶</span><b>${Math.round(cantChance() * 100)}%</b><i>заходят</i></div><div><span>⏱️</span><b>${sec(cantServe())}</b><i>раздача</i></div></div>
+    ${row('cook', '🐲', 'Повар', 'раздаёт еду быстрее')}
+    ${row('tables', '🪑', 'Столы', `столов: ${cantTables()}, больше учеников заходят (+3%)`)}
+    ${row('menu', '📜', 'Меню', `обед дороже (+15% взноса), настроение +2%. Сейчас: ${cantDishes().join(' ')}`)}
+    <p class="muted">Обед поднимает настроение на ${cantMood()}%. Сытый ученик сдаёт следующий экзамен на ${Math.round(FED_BONUS * 100)}% легче.</p>`;
 }
 function shopPanel() {
   const u = shopUp();
@@ -2517,6 +2613,7 @@ function openRoom(id) {
     if (id === 'LIB') { openPanel(libPanel); return; }
     if (id === 'DIR') { openPanel(dirBuilt() ? dirPanel : dirBuildPanel); return; }
     if (id === 'SHOP') { openPanel(shopPanel); return; }
+    if (id === 'CANT') { openPanel(cantPanel); return; }
     if (id === 'TOWER') { openPanel(towerPanel); return; }
     if (id === 'DORM' || id === 'DORM2') { openPanel(dormPanel); return; }
   }
@@ -2571,6 +2668,8 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'towercap') { if (towerUp().cap < TOWER_MAXUP && spend(towerCapCost())) { towerUp().cap++; towerPull(); } }
   else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && !r.away && confirm(`Отпустить ${r.name} (${resTitle(r)})? Школа получит 🎁 ${fmt(releaseReward(r))}.`)) { earn(releaseReward(r)); T.res.splice(+d.k, 1); towerPull(); toast(`🎁 ${r.name} отправился в большое путешествие`); } }
   else if (d.act === 'towerno') { towerUp().wait.splice(+d.k, 1); }
+  else if (d.act === 'cantbuild') { if (!cantBuilt() && isOpen(CANT_NEED) && spend(CANT_COST)) { const u = cantUp(); u.built = true; u.end = Date.now() + CANT_TIME * 1000; staticKey = ''; toast('🏗️ Столовая строится!'); panel = cantPanel; } }
+  else if (d.act === 'cantup') { const k = d.k; if (cantUp()[k] < CANT_MAX[k] && spend(cantCost(k))) cantUp()[k]++; }
   else if (d.act === 'shopup') { const k = d.k; if (shopUp()[k] < SHOP_MAX && spend(shopCost(k))) shopUp()[k]++; }
   else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!dirBuilt() && S.coins >= DIR_COST && spendStars(DIR_STARS) && spend(DIR_COST)) { S.dirBuilt = true; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
   else if (d.act === 'dir') { const k = d.k; if (dirLvl(k) < DIR_UP[k].max && spend(dirCost(k))) { S.dir ||= {}; S.dir[k] = dirLvl(k) + 1; } }
@@ -2774,7 +2873,7 @@ function relayout() {   // rebuild the map (a class was expanded): creatures kee
   LS = SLOTS.LIB; libSpots();
   computeBounds(); staticKey = ''; resize();
   if (snap) {
-    agents = []; queue = []; processing = null; dormLine = []; checkin = null; shopLine.length = 0;
+    agents = []; queue = []; processing = null; dormLine = []; checkin = null; shopLine.length = 0; cantLine.length = 0; cantSeats.fill(null);
     deskOcc.forEach((a) => a.fill(null)); waitList.forEach((l) => (l.length = 0)); dorm.fill(null); lib.fill(null);
     S.world = snap; restoreWorld(true);
   }
@@ -2822,6 +2921,7 @@ function restoreWorld(teleport = false) {
     if (g.t === 'x') { a.state = 'walk'; walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; }); continue; }
     if (g.t === 'tw') continue;   // was walking into the masters' tower: already counted as a resident
     if (g.t === 'shop') { if (shopOpen() && SLOTS.SHOP) goShop(a, g.n); else route(a, g.n); continue; }
+    if (g.t === 'cant') { if (cantOpen() && SLOTS.CANT) goCanteen(a, g.n); else route(a, g.n); continue; }
     if (g.t === 's' && isOpen(g.i)) { const d = deskOcc[g.i][g.d] ? freeDesk(g.i) : g.d; if (d >= 0 && d < S.classes[g.i].desks) seat(a, g.i, d); else goClass(a, g.i); }
     else if (g.t === 'c' && isOpen(g.i)) goClass(a, g.i);
     else if (g.t === 'g') goGraduate(a);
@@ -2913,6 +3013,7 @@ window.__sim = {
     if (libUp().speed < MAX_LIB_LVL) add('libspeed', libSpeedCost());
     if (libUp().bonus < MAX_LIB_LVL) add('libbonus', libBonusCost());
     if (WORLD === 1) {
+      if (!cantBuilt()) { if (isOpen(CANT_NEED)) add('cantbuild', CANT_COST); } else if (cantOpen()) Object.keys(CANT_MAX).forEach((k) => { if (cantUp()[k] < CANT_MAX[k]) add('cantup', cantCost(k), { k }); });
       if (!shopOpen()) add('shopbuild', SHOP_COST); else ['seller', 'shelves', 'goods'].forEach((k) => { if (shopUp()[k] < SHOP_MAX) add('shopup', shopCost(k), { k }); });
       if (!towerOpen()) { if (isOpen(NCLS - 1)) add('towerbuild', towerCost()); } else if (towerUp().cap < TOWER_MAXUP) add('towercap', towerCapCost());
       if (!dirBuilt()) add('dirbuild', DIR_COST, { stars: DIR_STARS }); else Object.keys(DIR_UP).forEach((k) => { if (dirLvl(k) < DIR_UP[k].max) add('dir', dirCost(k), { k }); });
