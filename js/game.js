@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=200';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=200';
+} from './data.js?v=201';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=201';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 200;   // keep equal to the ?v= number in index.html
+const BUILD = 201;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1492,7 +1492,9 @@ function layoutOutdoor() {
   const out = [], put = (n, x, y, minD, sc = 1) => { if (D(x, y) < minD || !inWorld(x, y)) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
   // scenes, each tied to a building (skipped when that building's slot is missing)
   const zones = [];
-  const scene = (cx, cy, items) => { zones.push([cx, cy]); for (const [n, dx, dy, sc] of items) put(n, cx + dx, cy + dy, 1, sc || 1); };
+  const keep = [];   // every scene / entrance item: no tree may stand in front of (down-screen of) it
+  const scene = (cx, cy, items) => { zones.push([cx, cy]); for (const [n, dx, dy, sc] of items) if (put(n, cx + dx, cy + dy, 1, sc || 1)) keep.push([cx + dx, cy + dy]); };
+  const coversKept = (x, y) => keep.some(([ix, iy]) => { const k = ((x + y) - (ix + iy)) / 2, side = Math.abs((x - y) - (ix - iy)); return k > -1 && k < 8 && side < 3.2; });
   if (SLOTS.CANT && SLOTS.DORM2) scene(SLOTS.CANT.x0 + 4, (SLOTS.CANT.y1 + SLOTS.DORM2.y0) / 2 + 1, [   // the magic glade: a fairy ring in a circle of rune stones, glowing mushrooms and crystals
     ['fairyring', 0, 0, 1.2], ['runestone', -2.6, -0.4], ['runestone', 0.4, -2.6], ['runestone', 2.6, 0.5], ['runestone', -0.3, 2.7], ['glowmush', -1.6, -1.8], ['glowmush', 1.9, 1.7], ['crystals', 1.8, -1.6], ['crystals', -1.9, 1.8, 0.9], ['bells', 3.4, -2.2], ['toadhouse', 4.2, 2.6]]);
   if (SLOTS.TOWER && slotOf(5)) scene((slotOf(5).x1 + SLOTS.TOWER.x0) / 2, SLOTS.TOWER.y0 + 2.2, [   // the apiary between the Elements class and the tower
@@ -1506,7 +1508,7 @@ function layoutOutdoor() {
     for (const [n, x, y, sc] of [['lantern_gold', L, gy - 2, 1], ['lantern_blue', R, gy - 2, 1], ['lantern_blue', L - 0.4, gy + 3.4, 1], ['lantern_gold', R + 0.6, gy + 3.4, 1],
       ['owl_statue', L - 1, gy + 0.6, 1], ['fox_statue', R + 1, gy + 0.6, 1], ['flowerbed', L - 3, gy - 0.7, 1.1], ['flowerbed', R + 3, gy + 1.6, 1.1],
       ['flowerbox', L - 1.6, gy - 2.3, 1], ['urn', L - 0.5, gy + 6.4, 1], ['urn', R + 0.9, gy + 6.4, 1], ['signpost2', R + 2.6, gy + 5.2, 1], ['roses', L - 2.6, gy + 2.6, 0.9], ['roses2', R + 2.8, gy - 1.6, 0.9]])
-      put(n, x, y, 1, sc);
+      if (put(n, x, y, 1, sc)) keep.push([x, y]);
     entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + 8.5 }; }
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
@@ -1518,21 +1520,21 @@ function layoutOutdoor() {
     [['goldtree', 0, 0], ['berrybush', 1.2, 0.8], ['stump', -1.1, 0.7], ['starflowers', 0.2, 1.4]],
     [[null, 0, 0], ['boulder', 0, 0], ['crystals', 1.0, 0.6], ['runestone', -0.9, 0.5], ['glowmush', 0.2, 1.2]],
     [[null, 0, 0], ['flowerbed', 0, 0], ['birdbath', 1.3, 0.4], ['roses', -1.2, 0.8]],
-    [[null, 0, 0], ['pumpkin', 0, 0], ['berrybush', 1.2, 0.5], ['starflowers', -0.9, 1.0], ['fern', 0.6, -1.0]],
+    [[null, 0, 0], ['stump', 0, 0], ['glowmush', 0.9, 0.5], ['berrybush', -1.0, 0.8], ['fern', 0.6, -1.0]],   // the pumpkin cottage stays one per map (her «слишком много домиков тыкв»)
     [['blossom', 0, 0], ['flowerbed', 1.3, 1.0], ['bells', -1.0, 1.0]],
     [[null, 0, 0], ['chestmush', 0, 0], ['glowmush', 0.9, 0.7], ['fern', -0.9, 0.6], ['bells', 0.3, -1.0]],
   ];
   const hidesBuilding = (x, y) => { for (let k = 1; k <= 7; k++) for (let j = -1; j <= 1; j++) if (regAt(Math.floor(x - k + j), Math.floor(y - k - j))) return true; return false; };   // a tall tree covers what is up-screen of it
   // lanterns along the outdoor stone paths, every ~4 tiles on alternating sides
-  { let k = 0; for (let x = X0; x < X1; x++) for (let y = Y0; y < Y1; y++) { if (regAt(x, y) !== 'path') continue; if ((x * 7 + y * 3) % 4) continue;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (regAt(nx, ny)) continue; if (put(k++ % 2 ? 'lantern_gold' : 'lantern_blue', nx + 0.5 - dx * 0.25, ny + 0.5 - dy * 0.25, 1, 0.85)) break; } } }
+  { let k = 0; for (let x = X0; x < X1; x++) for (let y = Y0; y < Y1; y++) { if (regAt(x, y) !== 'path') continue; if ((x * 7 + y * 3) % 9) continue;   // sparse (her «слишком много фонарей»)
+      for (const [dx, dy] of [[1, 0], [0, 1]]) { const nx = x + dx, ny = y + dy; if (regAt(nx, ny)) continue; if (put(k++ % 2 ? 'lantern_gold' : 'lantern_blue', nx + 0.5 - dx * 0.25, ny + 0.5 - dy * 0.25, 1, 0.85)) break; } } }
   const vspots = [];
   for (let gx = X0; gx < X1; gx += 4) for (let gy = Y0; gy < Y1; gy += 4) {
     const x = gx + 0.5 + hash2(gx, gy, 111) * 3, y = gy + 1 + hash2(gx, gy, 112) * 3, d = D(x, y);
     if (d < 2 || d > 6 || !inWorld(x, y) || front(x, y) || zones.some(([zx, zy]) => Math.hypot(zx - x, zy - y) < 5.5) || vspots.some(([vx, vy]) => Math.hypot(vx - x, vy - y) < 3.8)) continue;
     if (hash2(gx, gy, 113) < 0.12) continue;   // leave some lawn open
     vspots.push([x, y]);
-    const v = VIGN[Math.floor(hash2(gx, gy, 114) * VIGN.length)], tree = v[0][0] && d >= 3 && !hidesBuilding(x, y);
+    const v = VIGN[Math.floor(hash2(gx, gy, 114) * VIGN.length)], tree = v[0][0] && d >= 3 && !hidesBuilding(x, y) && !coversKept(x, y);
     v.forEach(([n, dx, dy], k) => { if (!n || (k === 0 && !tree)) return; put(n, x + dx, y + dy, 1, k === 0 ? 0.9 + hash2(gx, gy, 115) * 0.15 : 0.85 + hash2(gx, gy, 116 + k) * 0.3); });
     if (!tree && v[0][0]) put(['roses', 'starflowers', 'bells'][Math.floor(hash2(gx, gy, 117) * 3)], x, y, 1);   // no room for the tree: flowers in its place
   }
@@ -1559,6 +1561,7 @@ function layoutOutdoor() {
     else if (firZone) n = r < 0.82 ? 'fir' : 'oak';
     else n = r < 0.55 ? 'oak' : r < 0.78 ? 'willow' : 'fir';
     const sc = (n === 'fir' ? 0.95 : 0.88) + hash2(gx, gy, 99) * 0.3;
+    if (coversKept(x, y)) continue;
     if (put(n, x, y, 6, sc)) out[out.length - 1].depth = depth;
   }
   OUTDOOR = out;

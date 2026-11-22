@@ -11,6 +11,10 @@
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
+/* iOS home-screen app with a translucent status bar: 100% is shorter than the screen by the status bar, a white strip stayed at the bottom (her screenshots 2026-11-22) */
+html { background: #ffc8e0; }
+html, body { height: 100vh; }
+@supports (height: 100dvh) { html, body { height: 100dvh; } }
 body {
   font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, sans-serif;
   color: var(--ink);
