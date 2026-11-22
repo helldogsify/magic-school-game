@@ -259,3 +259,4 @@ img.em { height: 1.15em; width: 1.15em; vertical-align: -0.2em; margin: 0 .03em;
 .fpic.sil img { filter: brightness(0) opacity(.28); }
 .card.locked { opacity: .85; }
 .stats3.four span { font-size: 16px; } .stats3.four b { font-size: 15px; }
+.fpic em img, .fpic em .em { width: 18px !important; height: 18px !important; }

@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=150';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=150';
+} from './data.js?v=151';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=151';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 150;   // keep equal to the ?v= number in index.html
+const BUILD = 151;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -45,8 +45,8 @@ function save() {
 
 // ---- balance (rebalance 2026-11-22, her goal: world 1 in ~1.5 weeks, first master on ~day 5; tuned with tools/sim_driver.js) ----
 const BAL_NEW = { chance0: 0.45, maxChance: 0.8, item: 1.45, teacher: 1.6, expand: 600, expandK: 4, desk: 3.0, examDesk: 1.8, time: 2.0, rec: 1.5, ads: 1.55,
-  build: [0, 2000, 50000, 1000000, 20000000, 300000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600] };
-const BAL_OLD = { chance0: 0.6, maxChance: 0.85, item: 1.25, teacher: 1.35, expand: 120, expandK: 3, desk: 2.3, examDesk: 1.6, time: 1.6, rec: 1.4, ads: 1.45, build: [], buildTime: [] };
+  build: [0, 2000, 50000, 1000000, 20000000, 300000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000 };
+const BAL_OLD = { chance0: 0.6, maxChance: 0.85, item: 1.25, teacher: 1.35, expand: 120, expandK: 3, desk: 2.3, examDesk: 1.6, time: 1.6, rec: 1.4, ads: 1.45, build: [], buildTime: [], tower: 500000 };
 const BAL = { ...BAL_OLD };   // the new balance goes live only when tuned (the pacing simulation switches it with __sim.bal)
 const buildCost = (i) => (WORLD === 1 && BAL.build[i] !== undefined ? BAL.build[i] : CLASSES[i].build);
 const buildTime = (i) => (WORLD === 1 && BAL.buildTime[i] !== undefined ? BAL.buildTime[i] : CLASSES[i].buildTime);
@@ -56,7 +56,7 @@ const kindSum = (i, kind) => CLASSES[i].items.reduce((a, it, k) => a + (it.kind 
 const rawSuccess = (i) => BAL.chance0 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kindSum(i, 'success');
 const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
 const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance above the cap is not wasted: each 1% gives +2% tuition
-const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()));   // every school star: +3% to every lesson
+const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1));   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * Math.pow(0.92, S.classes[i].time);
 const itemCost = (i, k) => Math.round(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, S.classes[i].items[k]));
 const teacherCost = (i) => Math.round(CLASSES[i].tuition * 6 * Math.pow(BAL.teacher, S.classes[i].teacher - 1));
@@ -225,6 +225,7 @@ function genLayout() {
     lastGap = [y, y + CW]; y += CW;
   }
   const recY = y;
+  if (WORLD === 1) SLOTS.TOWER = slot(24, 8, [[24, 9], [23, 9]], {}, 6, 6, [[[24, 10], [23, 10]]]);   // masters' tower right of the top right class, under the garden (her pick 2026-11-22); door to the corridor below the exam hall
   if (WORLD === 1) { const sy = lastGap[0] - 6; SLOTS.SHOP = slot(1, sy, [[3, sy + 5], [3, sy + 6]], {}, 6, 6, [[[4, sy + 5], [4, sy + 6]]]); }   // the school shop, door to the wide corridor
   // front block: library | reception | dorms
   SLOTS.LIB = slot(0, recY, [[2, recY], [2, recY - 1]], {}, 6, 8, [[[3, recY], [3, recY - 1]], [[5, recY + 3], [6, recY + 3]], [[5, recY + 4], [6, recY + 4]]]);   // own space: the reception's tall wall must not hide it
@@ -277,7 +278,7 @@ function buildEdges() {
       if (doorAt.has(`${x},${y},${dx},${dy}`)) continue;
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
-      const lowSide = ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0');   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
+      const lowSide = ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0') || (id === 'TOWER' && side === 'x0');   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
       EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
     }
   }
@@ -595,6 +596,7 @@ function goGraduate(a) {
   a.c = -1; a.state = 'walk'; a.goal = { t: 'g' };
   walk(a, g.x0 + 1 + Math.random() * 4, g.y0 + 1 + Math.random() * 4, () => {
     S.stats.graduated++;
+    if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower
     popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
     a.state = 'fly'; a.t = 0; a.vx = (Math.random() < 0.5 ? -1 : 1) * 0.6;
   });
@@ -872,6 +874,69 @@ function speciesPanel() {   // 🎓 album (own button at the bottom; her ruling 
     ${FORM_KEYS.filter((k) => k.startsWith(albumSp + ':')).map(formCard).join('')}
     <p class="muted">Звание ученик получает сам, сдав экзамен после урока. Каждый сданный урок даёт опыт карточке его вида и наряда. Накопился опыт — улучши карточку: все такие ученики платят на 5% больше.</p>`;
 }
+// ======================= the masters' tower (her choice 2026-11-22: rare graduates must not vanish) =======================
+// Elder mages (rank 4) and masters (rank 5) who pass the final exam do not fly away: they move into the tower, live there
+// and bring coins every second (also while the game is closed). Few places; more are bought. When the tower is full the
+// newcomer waits by the door (up to TOWER_WAIT); the player frees a place by letting a resident go for a big reward.
+const TOWER_BASE = 4, TOWER_MAXUP = 16, TOWER_WAIT = 3;
+const towerUp = () => (S.tower ||= { built: false, cap: 0, res: [], wait: [] });
+const towerOpen = () => WORLD === 1 && !!(S && S.tower && S.tower.built);
+const towerCap = () => TOWER_BASE + towerUp().cap;
+const towerCost = () => BAL.tower;
+const towerCapCost = () => Math.round(BAL.tower * 0.4 * Math.pow(2.0, towerUp().cap));
+const RES_K = { 4: 0.02, 5: 0.08 };   // coins per second = tuition of the last class x this
+const resRate = (r) => { const li = NCLS - 1; return isOpen(li) ? tuition(li) * (RES_K[r.rk] || 0) : 0; };
+const towerRate = () => (towerOpen() ? towerUp().res.reduce((n, r) => n + resRate(r), 0) : 0);
+const mastersLiving = () => (towerOpen() ? towerUp().res.filter((r) => r.rk === 5).length : 0);
+const resTitle = (r) => (r.rk === 5 ? 'Мастер ' + ELEMS[r.el || 0].name : RANKS[r.rk]);
+const releaseReward = (r) => Math.round(resRate(r) * 3600);   // one hour of what it brings
+function towerCandidate(a) { return towerOpen() && SPECIES.includes(a.sp) && (a.rk || 0) >= 4; }
+function towerAdmit(a) {   // the graduate walks from the garden into the tower (or waits at its door)
+  const T = towerUp(), r = { sp: a.sp, rk: a.rk, el: a.el || 0, name: a.name, t: Date.now() };
+  const s = SLOTS.TOWER;
+  if (T.res.length < towerCap()) {
+    a.state = 'walk'; a.goal = { t: 'tw' };
+    T.res.push(r);   // the place is taken at once (a reload while walking keeps the resident); the walk is only for the eye
+    walk(a, s.x0 + 1.5 + Math.random() * 3, s.y0 + 1.5 + Math.random() * 3, () => { a.gone = true; popup('🏰', a.x, a.y, '#7b5cd6', 44); });
+    if (!ffwd) toast(`🏰 ${a.name} (${resTitle(r)}) поселился в Башне мастеров`);
+  } else if (T.wait.length < TOWER_WAIT) {
+    T.wait.push(r); a.state = 'walk'; a.goal = { t: 'tw' };
+    walk(a, s.x0 - 0.8, s.y0 + 2 + T.wait.length * 0.7, () => { a.gone = true; });
+    if (!ffwd) toast(`🏰 Башня полна: ${a.name} (${resTitle(r)}) ждёт у двери`);
+  } else return false;
+  return true;
+}
+function towerPull() { const T = towerUp(); while (T.wait.length && T.res.length < towerCap()) T.res.push(T.wait.shift()); }
+let towerT = 0;
+function stepTower(dt) {
+  if (!towerOpen()) return;
+  towerT += dt; if (towerT < 1) return;
+  const n = towerRate() * towerT; towerT = 0;
+  if (n > 0) { S.coins += n; S.stats.earned = (S.stats.earned || 0) + n; S.stats.tower = (S.stats.tower || 0) + n; earnedThisSec += n; }
+}
+function towerPos(k, n) {   // render-only stroll of resident k
+  const s = SLOTS.TOWER, cols = 3, cx = s.x0 + 1.2 + (k % cols) * 1.8, cy = s.y0 + 1.3 + Math.floor(k / cols) * 1.1;
+  const T = performance.now() / 1000 + k * 2.3, ph = (T % 12) / 12;
+  const u = ph < 0.3 ? ph / 0.3 : ph < 0.5 ? 1 : ph < 0.8 ? 1 - (ph - 0.5) / 0.3 : 0, w = 0.5 - 0.5 * Math.cos(u * Math.PI);
+  return { x: Math.min(s.x1 - 0.5, cx + w * 0.9), y: Math.min(s.y1 - 0.5, cy + (k % 2 ? w * 0.4 : -w * 0.2)), moving: ph < 0.3 || (ph >= 0.5 && ph < 0.8), flip: ph >= 0.5 && ph < 0.8 };
+}
+function towerPanel() {
+  const T = towerUp();
+  if (!T.built) return `<div class="sh-head"><span class="remoji big">🏰</span><div><h2>Башня мастеров</h2><div class="muted">Дом для самых сильных выпускников</div></div><button class="x" data-close>✕</button></div>
+    <p>Старшие маги и Мастера стихий после финального экзамена не улетают, а живут здесь. Каждый жилец приносит монеты каждую секунду — даже когда игра закрыта. Мастера ещё и поднимают плату в Магии стихий на 3% каждый.</p>
+    <p class="muted">Мест сначала ${TOWER_BASE}, потом можно докупить.</p>
+    ${isOpen(NCLS - 1) ? `<button class="btn wide" data-cost="${towerCost()}" data-act="towerbuild">Построить <span class="cost">🪙${fmt(towerCost())}</span></button>` : '<p><b>Сначала построй Магию стихий 🔥</b> — там ученики становятся Старшими магами.</p>'}`;
+  const pic = (r) => `<div class="fpic${r.rk === 5 ? ' master' : ''}"${r.rk === 5 ? ` style="--ec:rgb(${ELEMS[r.el].col})"` : ''}><img src="${formImg(fkey(r.sp, r.rk, r.el))}">${r.rk === 5 ? `<em>${ELEMS[r.el].emo}</em>` : ''}</div>`;
+  const res = T.res.map((r, k) => `<div class="card up">${pic(r)}<div class="grow"><b>${r.name}</b> <span class="muted">${resTitle(r)}</span><div class="muted">🪙 ${fmt(resRate(r))} в секунду</div></div>
+    <button class="btn ghost" data-act="towerfree" data-k="${k}">Отпустить <span class="cost">🎁 ${fmt(releaseReward(r))}</span></button></div>`).join('');
+  const wait = T.wait.map((r, k) => `<div class="card up locked">${pic(r)}<div class="grow"><b>${r.name}</b> <span class="muted">${resTitle(r)}</span><div class="muted">ждёт места у двери</div></div>
+    <button class="btn ghost" data-act="towerno" data-k="${k}">Не брать</button></div>`).join('');
+  return `<div class="sh-head"><span class="remoji big">🏰</span><div><h2>Башня мастеров</h2><div class="muted">Живут ${T.res.length} из ${towerCap()} · 🪙 ${fmt(towerRate() * 60)} в минуту</div></div><button class="x" data-close>✕</button></div>
+    <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Ещё одно место</b> <span class="muted">${towerCap()}/${TOWER_BASE + TOWER_MAXUP}</span><div class="muted">в башне смогут жить больше мастеров</div></div>
+      ${T.cap >= TOWER_MAXUP ? '<span class="done">макс.</span>' : costBtn('+1', towerCapCost(), 'towercap')}</div>
+    ${T.wait.length ? `<h3>Ждут у двери: ${T.wait.length}</h3>${wait}<p class="muted">Освободи место — и первый ждущий сразу заселится. Если мест нет, а у двери уже ${TOWER_WAIT}, следующие выпускаются как обычно.</p>` : ''}
+    <h3>Жильцы</h3>${res || '<p class="muted">Пока никого. Сюда попадут ученики, которые сдали финальный экзамен Старшим магом или Мастером.</p>'}`;
+}
 function peoplePanel() {
   const l = inSchool(), n = (f) => l.filter(f).length;
   const rows = [
@@ -907,6 +972,7 @@ function stepWorld(dt, live = false) {
   wakeSleepers();
   S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; staticKey = ''; } });
   stepAgents(dt, live);
+  stepTower(dt);
   for (let i = popups.length - 1; i >= 0; i--) { const p = popups[i]; p.t += dt; p.lift += 26 * dt; if (p.t > 1.3) popups.splice(i, 1); }
 }
 
@@ -1106,6 +1172,7 @@ function roomColors(id) {
   if (id === 'REC') return { floor: '#f3e4cf', wall: '#cdb6f0' };
   if (id === 'DORM' || id === 'DORM2') return { floor: '#efe0d2', wall: '#bcd3f2' };
   if (id === 'LIB') return { floor: '#e9dccb', wall: '#c9a27a' };
+  if (id === 'TOWER') return { floor: '#e4dcf3', wall: '#9d84d8' };
   return { floor: '#bfe6a6', wall: null };
 }
 // ---- wall pieces (thick, with a cap) ----
@@ -1115,7 +1182,7 @@ const CAP = '#9a7ec6', STONE = '#f4efe9', STONE_D = '#e2d9cf';
 function wallColor(id) {
   const ci = CLASS_SLOT.indexOf(id);
   if (ci >= 0) return CLASSES[ci].wall;
-  return { REC: '#d9c4f0', DORM: '#bcd3f2', DORM2: '#bcd3f2', LIB: '#d8b48a', hall: '#e9e1f3' }[id] || '#e9e1f3';
+  return { REC: '#d9c4f0', DORM: '#bcd3f2', DORM2: '#bcd3f2', LIB: '#d8b48a', TOWER: '#9d84d8', hall: '#e9e1f3' }[id] || '#e9e1f3';
 }
 function drawEdge(c, e, capOnly = false) {
   const { x, y, side } = e, h = e.tall ? TALL_H() : KNEE_H();
@@ -1362,6 +1429,12 @@ function drawSlot(c, id) {
     text('🛍️ Лавка', center.x, center.y - 11, 10, '#5d4a6e', c); text('🪙 ' + fmt(SHOP_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
+  if (id === 'TOWER' && !towerOpen()) {
+    poly(c, [L, B, R, F], '#d9d2ec'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
+    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 62, center.y - 26, 124, 48, 10); c.fill(); c.strokeStyle = '#8f6ef0'; c.lineWidth = 2.5; c.stroke();
+    text('🏰 Башня мастеров', center.x, center.y - 11, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(towerCost()), center.x, center.y + 8, 12, '#7b5cd6', c);
+    return;
+  }
   if (id === 'DIR' && !dirBuilt()) {
     poly(c, [L, B, R, F], '#ecd2a8'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
     c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 62, center.y - 30, 124, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
@@ -1432,8 +1505,8 @@ function drawGate(c) {
 }
 function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
-  if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt())) return;
-  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
+  if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen())) return;
+  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   const fs = 12, hgt = 22;
   c.font = `800 ${fs}px ui-rounded,"Nunito","Segoe UI",sans-serif`; const tw = c.measureText(name).width + 22;
@@ -1455,7 +1528,7 @@ function drawSign(c, id) {
     }
   }
 }
-const SIGN_BG = { REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f', DIR: '#f5d77a', SHOP: '#f7c1d9' };
+const SIGN_BG = { REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f', DIR: '#f5d77a', SHOP: '#f7c1d9', TOWER: '#cdbdf2' };
 let signRects = [];   // tappable room signs of the last frame, world coords
 function drawPlot(c, s, ci, L, B, R, F, center) {
   const next = S.classes.findIndex((q) => !q.built) === ci;
@@ -1605,6 +1678,7 @@ function render() {
     if (e.id === 'DORM2' && !dorm2Built()) continue;
     if (e.id === 'DIR' && !dirBuilt()) continue;
     if (e.id === 'SHOP' && !shopOpen()) continue;
+    if (e.id === 'TOWER' && !towerOpen()) continue;
     if (e.id !== 'hall' && CLASS_SLOT.indexOf(e.id) >= 0 && !S.classes[CLASS_SLOT.indexOf(e.id)].built) continue;
     const sl = SLOTS[e.id];
     const k1 = e.id === 'hall' ? e.x + e.y : (sl.x0 + sl.x1 + sl.y0 + sl.y1) / 2;
@@ -1650,6 +1724,11 @@ function render() {
   }
   // reception desk + officer
   if (WORLD === 1 && SLOTS.LIB) { const lo = librarianPos(), im = sprites['lib_' + lo.pose]; if (im && im.naturalWidth) add(lo.x, lo.y, () => { teacherGlow(lo, 56, 'rgba(255,244,200,0.85)'); drawPose(im, lo.x, lo.y, 56, lo.flip, lo.moving); }); }   // glow: he blended into the dark green room (her report)
+  if (towerOpen() && SLOTS.TOWER) {   // residents of the masters' tower stroll; those waiting stand at the door outside
+    const T = towerUp();
+    T.res.forEach((r, k) => { const p = towerPos(k); add(p.x, p.y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: p.flip, path: p.moving ? [1] : [], ph: k * 1.7 + performance.now() / 1000 }, p.x, p.y, 30)); });
+    T.wait.forEach((r, k) => { const s = SLOTS.TOWER, x = s.x0 - 0.8, y = s.y0 + 1.2 + k * 0.9; add(x, y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: true, path: [], ph: k }, x, y, 30, (sx, sy) => emoji('⏳', sx + 12, sy - 34, 12))); });
+  }
   if (shopOpen() && SLOTS.SHOP) { const fo = foxPos(), im = sprites['fox_' + fo.pose]; if (im && im.naturalWidth) add(fo.x, fo.y, () => { teacherGlow(fo, 56, 'rgba(255,240,200,0.7)'); drawPose(im, fo.x, fo.y, 56, fo.flip, fo.moving); }); }
   const co = conciergePos();
   if (staffSprite('concierge') && sprites['con_' + co.pose]?.naturalWidth) add(co.x, co.y, () => { drawPose(sprites['con_' + co.pose], co.x, co.y, 62, co.flip, co.moving); if (checkin) { const q = P(co.x, co.y); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } });
@@ -2258,6 +2337,7 @@ function openRoom(id) {
     if (id === 'LIB') { openPanel(libPanel); return; }
     if (id === 'DIR') { openPanel(dirBuilt() ? dirPanel : dirBuildPanel); return; }
     if (id === 'SHOP') { openPanel(shopPanel); return; }
+    if (id === 'TOWER') { openPanel(towerPanel); return; }
     if (id === 'DORM' || id === 'DORM2') { openPanel(dormPanel); return; }
   }
 }
@@ -2306,6 +2386,10 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'exlvl') { if (exLvl(i) < MAX_EX_LVL && spend(exCost(i))) st.ex = exLvl(i) + 1; }
   else if (d.act === 'xpllvl') { if (xplLvl(i) < MAX_XPL_LVL && spend(xplCost(i))) st.xpl = xplLvl(i) + 1; }
   else if (d.act === 'shopbuild') { if (!shopOpen() && spend(SHOP_COST)) { shopUp().built = true; staticKey = ''; toast('🛍️ Лавка открыта!'); panel = shopPanel; } }
+  else if (d.act === 'towerbuild') { if (!towerOpen() && isOpen(NCLS - 1) && spend(towerCost())) { towerUp().built = true; staticKey = ''; toast('🏰 Башня мастеров построена!'); panel = towerPanel; } }
+  else if (d.act === 'towercap') { if (towerUp().cap < TOWER_MAXUP && spend(towerCapCost())) { towerUp().cap++; towerPull(); } }
+  else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && confirm(`Отпустить ${r.name} (${resTitle(r)})? Школа получит 🎁 ${fmt(releaseReward(r))}.`)) { earn(releaseReward(r)); T.res.splice(+d.k, 1); towerPull(); toast(`🎁 ${r.name} отправился в большое путешествие`); } }
+  else if (d.act === 'towerno') { towerUp().wait.splice(+d.k, 1); }
   else if (d.act === 'shopup') { const k = d.k; if (shopUp()[k] < SHOP_MAX && spend(shopCost(k))) shopUp()[k]++; }
   else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!dirBuilt() && S.coins >= DIR_COST && spendStars(DIR_STARS) && spend(DIR_COST)) { S.dirBuilt = true; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
   else if (d.act === 'dir') { const k = d.k; if (dirLvl(k) < DIR_UP[k].max && spend(dirCost(k))) { S.dir ||= {}; S.dir[k] = dirLvl(k) + 1; } }
@@ -2539,6 +2623,7 @@ function restoreWorld(teleport = false) {
     }
     if (g.t === 'l') { const n = (a.seat >= 0 && a.seat < libSeats() && !lib[a.seat]) ? a.seat : libSeat(); if (n >= 0) { goLibrary(a, g.i, n, a.state === 'read' ? a.t : 0); continue; } a.prepared = true; route(a, g.i); continue; }
     if (g.t === 'x') { a.state = 'walk'; walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; }); continue; }
+    if (g.t === 'tw') continue;   // was walking into the masters' tower: already counted as a resident
     if (g.t === 'shop') { if (shopOpen() && SLOTS.SHOP) goShop(a, g.n); else route(a, g.n); continue; }
     if (g.t === 's' && isOpen(g.i)) { const d = deskOcc[g.i][g.d] ? freeDesk(g.i) : g.d; if (d >= 0 && d < S.classes[g.i].desks) seat(a, g.i, d); else goClass(a, g.i); }
     else if (g.t === 'c' && isOpen(g.i)) goClass(a, g.i);
@@ -2632,6 +2717,7 @@ window.__sim = {
     if (libUp().bonus < MAX_LIB_LVL) add('libbonus', libBonusCost());
     if (WORLD === 1) {
       if (!shopOpen()) add('shopbuild', SHOP_COST); else ['seller', 'shelves', 'goods'].forEach((k) => { if (shopUp()[k] < SHOP_MAX) add('shopup', shopCost(k), { k }); });
+      if (!towerOpen()) { if (isOpen(NCLS - 1)) add('towerbuild', towerCost()); } else if (towerUp().cap < TOWER_MAXUP) add('towercap', towerCapCost());
       if (!dirBuilt()) add('dirbuild', DIR_COST, { stars: DIR_STARS }); else Object.keys(DIR_UP).forEach((k) => { if (dirLvl(k) < DIR_UP[k].max) add('dir', dirCost(k), { k }); });
     }
     FORM_KEYS.forEach((k) => { if (formReady(k)) add('formlvl', formCost(k), { k }); });
