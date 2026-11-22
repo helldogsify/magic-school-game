@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=201';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=201';
+} from './data.js?v=202';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=202';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 201;   // keep equal to the ?v= number in index.html
+const BUILD = 202;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -330,14 +330,16 @@ function buildEdges() {
   }
 }
 genLayout(); buildGrid(); buildEdges(); decorateEdges();
+const gardenBlocked = (x, y) => { const g = SLOTS.GARDEN; return WORLD === 1 && g && x - g.x0 >= 2 && x - g.x0 <= 3 && y - g.y0 >= 2 && y - g.y0 <= 3; };   // the fountain's 2x2 tiles
 const recBlocked = (x, y) => { const s = SLOTS.REC; return x - s.x0 <= 1 && y - s.y0 >= 1 && y - s.y0 <= 6; };   // tiles under the painted desk
 function canStep(ax, ay, bx, by) {
   const ra = regAt(ax, ay), rb = regAt(bx, by);
   if (!ra || !rb) return false;
-  if (ra === rb) return true;
+  if (ra === rb) return rb !== 'GARDEN' || !gardenBlocked(bx, by);
   if ((ra === 'path' && rb === 'hall') || (ra === 'hall' && rb === 'path')) return true;   // the garden path leaves the building through an opening
   if ((ra === 'DORM2' || rb === 'DORM2') && !dorm2Built()) return false;
   if (rb === 'REC' && recBlocked(bx, by)) return false;   // the reception desk is not a floor
+  if (rb === 'GARDEN' && gardenBlocked(bx, by)) return false;
   return DOORS.has(`${ax},${ay}|${bx},${by}`);
 }
 function bfs(sx, sy, tx, ty) {
@@ -676,7 +678,8 @@ function goGraduate(a) {
   const g = SLOTS.GARDEN;
   a.c = -1; a.state = 'walk'; a.goal = { t: 'g' };
   if (a.retake) { retakeHome(a); return; }   // an elder from the tower after his retake: not a new graduate
-  walk(a, g.x0 + 1 + Math.random() * 4, g.y0 + 1 + Math.random() * 4, () => {
+  const an = Math.random() * Math.PI * 2, rr = 2.0 + Math.random() * 0.5, tx = WORLD === 1 ? g.x0 + 3 + Math.cos(an) * rr : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 3 + Math.sin(an) * rr : g.y0 + 1 + Math.random() * 4;   // around the fountain
+  walk(a, tx, ty, () => {
     S.stats.graduated++;
     if (helperAdmit(a)) return;                       // mages and elder mages stay as teachers' helpers (elders replace mages)
     if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower                       // mages stay as teachers' helpers (two per class, different kinds)
@@ -1464,6 +1467,7 @@ function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.cl
 // Grass and outdoor paths are iso textures; the lawn around the school is dotted with magic trees, bushes and small things,
 // placed by a fixed hash of the tile so the picture never changes between visits (only where nothing is built or planned).
 const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, toadhouse: 96, glowmush: 40, crystals: 44, berrybush: 44, fern: 38, hedge: 42, roses: 40, roses2: 40, boulder: 40, bells: 38,
+  fountain: 100, flowerarch: 118, gazebo: 132, founder: 96, bench_a: 34, bench_b: 34, topiary_ball: 42, topiary_spiral: 48, hedge_long: 26, peonybed: 30, hydrangea: 40, crystalball: 40,
   lantern_gold: 76, lantern_blue: 76, owl_statue: 62, fox_statue: 62, flowerbed: 34, signpost2: 58, urn: 46, flowerbox: 26, gate_big: 170,
   runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46 };   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
 const outLo = {}, outMid = {}, outSh = {}, outTint = {};   // outTint[n] = { mid: [lvl1, lvl2], lo: [lvl1, lvl2] }: darker, cooler copies for the deep forest
@@ -1472,7 +1476,7 @@ function tintCopies(src) { return [0.17, 0.32].map((a) => { const c = document.c
 for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; if (OUT_H[n]) { const c = document.createElement('canvas'), k = 40 / im.naturalHeight; c.width = Math.max(4, Math.round(im.naturalWidth * k)); c.height = 40; const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(38,48,62)'; x.fillRect(0, 0, c.width, c.height); outSh[n] = c; } if (im.naturalHeight > 560) { const c = document.createElement('canvas'), k = 440 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 440; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outMid[n] = c; } if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } if (OUT_TREE.has(n) && outMid[n] && outLo[n]) outTint[n] = { mid: tintCopies(outMid[n]), lo: tintCopies(outLo[n]) }; }; im.src = `assets/parts/outdoor/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
 let GRASS_ON = true, BG_OFF = false;
 const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-let OUTDOOR = [], outKey = '', OUT_ON = true, entrancePath = null, entranceDecal = null;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
+let OUTDOOR = [], outKey = '', OUT_ON = true, entrancePath = null, entranceDecal = null, gardenDecal = null;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
 // Composed territory (her ruling: no random scatter; «продумай как оно должно быть, и их размеры»):
 //  - a forest of tree groves in a band 6..24 tiles away from every building (the school stands in a clearing),
 //    each grove 3-5 big trees of one character with undergrowth at its edge;
@@ -1512,6 +1516,10 @@ function layoutOutdoor() {
     entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + 8.5 }; }
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
+  if (SLOTS.GARDEN) { const g = SLOTS.GARDEN, X = g.x0, Y = g.y0;   // the graduates' garden: arch at the door, fountain plaza, founder statue, gazebo, benches, flowers
+    for (const [n, dx, dy, fl] of [['flowerarch', 0.55, 3.5, true], ['fountain', 3.55, 3.6], ['gazebo', 1.3, 1.2], ['founder', 5.2, 0.9], ['bench_b', 2.6, 5.45], ['bench_a', 5.45, 2.4],
+      ['topiary_ball', 0.7, 5.4], ['topiary_spiral', 5.4, 5.4], ['topiary_ball', 3.6, 0.6], ['peonybed', 4.6, 0.75], ['hydrangea', 0.6, 2.2], ['crystalball', 5.45, 4.3], ['hydrangea', 4.3, 5.5]]) {
+      out.push({ n, x: X + dx, y: Y + dy, th: 'outdoor', s: 1, flip: !!fl }); keep.push([X + dx, Y + dy]); } }
   // The clearing around the school (her «на поляне ... мало деталей стало красивых»): small composed vignettes every ~5 tiles
   // in the band 2..6 tiles from the buildings; a vignette gets its tree only where the tree cannot hide a building behind it.
   const VIGN = [
@@ -1596,6 +1604,13 @@ function glowSprite(rgb) {   // a soft round glow, rendered once per colour (dra
 }
 function outFx(o, p, h) {
   const T = fxNow() + (o.x * 7.3 + o.y * 3.1);
+  if (o.n === 'fountain') {   // jets from the top bowl: drops arc out and fall back (2.6 s), a soft glow over the water (3 s)
+    const tx = p.x, ty = p.y - h * 0.62;
+    ctx.save(); ctx.globalAlpha = 0.35 + 0.15 * Math.sin(T * Math.PI * 2 / 3); ctx.drawImage(glowSprite('140,240,230'), tx - h * 0.45, p.y - h * 0.45 - h * 0.2, h * 0.9, h * 0.5); ctx.restore();
+    for (let k = 0; k < 8; k++) { const u = ((T + k * 0.33) / 2.6) % 1, an = k * 0.785, vx = Math.cos(an) * h * 0.3, vy = Math.sin(an) * h * 0.12, x = tx + vx * u, y = ty + vy * u - Math.sin(u * Math.PI) * h * 0.18 + u * h * 0.2;
+      ctx.globalAlpha = Math.sin(u * Math.PI) * 0.9; ctx.fillStyle = '#d6fbff'; ctx.beginPath(); ctx.arc(x, y, 1.3, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
   if (o.n === 'lantern_gold' || o.n === 'lantern_blue') {   // the crystal flame glows softly (3 s), two motes drift around it (6 s)
     const rgb = o.n === 'lantern_gold' ? '255,214,120' : '150,200,255', gx = p.x, gy = p.y - h * 0.42, gl = 0.55 + 0.25 * Math.sin(T * Math.PI * 2 / 3), r = h * 0.38;
     ctx.save(); ctx.globalAlpha = gl; ctx.drawImage(glowSprite(rgb), gx - r, gy - r, r * 2, r * 2);
@@ -1931,6 +1946,19 @@ function drawSlot(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id);
   const L = P(s.x0, s.y1), B = P(s.x0, s.y0), R = P(s.x1, s.y0), F = P(s.x1, s.y1);
   const center = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2);
+  if (id === 'GARDEN' && WORLD === 1 && part('outdoor', 'path')) {   // the garden floor: grass (from the ground layer), a round flagstone plaza and the path from the arch
+    if (!gardenDecal || gardenDecal.key !== outKey + staticKey) {
+      const K = 3, minX = Math.min(L.x, B.x) - 10, maxX = Math.max(R.x, F.x) + 10, minY = B.y - 10, maxY = F.y + 10;
+      const cv = document.createElement('canvas'); cv.width = Math.ceil((maxX - minX) * K); cv.height = Math.ceil((maxY - minY) * K); const g = cv.getContext('2d');
+      g.setTransform(K, 0, 0, K, -minX * K, -minY * K); const pt = isoPat(g, 'path', 3);
+      const cx = s.x0 + 3, cy = s.y0 + 3, ring = []; for (let k = 0; k < 40; k++) { const an = k / 40 * Math.PI * 2; ring.push(P(cx + Math.cos(an) * 2.6, cy + Math.sin(an) * 2.6)); }
+      g.fillStyle = pt; poly(g, ring); g.fill(); poly(g, [P(s.x0, cy - 0.8), P(cx, cy - 0.8), P(cx, cy + 0.8), P(s.x0, cy + 0.8)]); g.fill();
+      g.strokeStyle = 'rgba(150,120,170,0.55)'; g.lineWidth = 1.5; poly(g, ring); g.stroke();
+      gardenDecal = { key: outKey + staticKey, cv, x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    }
+    c.drawImage(gardenDecal.cv, gardenDecal.x, gardenDecal.y, gardenDecal.w, gardenDecal.h);
+    return;
+  }
   if (id === 'GARDEN') {
     poly(c, [L, B, R, F], '#c3eaa9', '#ffffff');
     emoji('⛲', center.x, center.y - 8, 26, c); emoji('🌳', B.x, B.y + 16, 28, c); emoji('🌸', R.x - 22, R.y, 18, c); emoji('🌷', L.x + 24, L.y, 16, c);
@@ -2049,6 +2077,8 @@ function signPill(label, bg, fs, hgt, border, ink) {   // a rounded name plate r
 }
 function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
+  if (id === 'GARDEN' && WORLD === 1) {   // drawn over everything like the room signs, above the gazebo
+    const pl = signPill('🎓 Сад выпускников', '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - 150 - pl.h / 2, pl.w, pl.h); return; }
   if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
   const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
