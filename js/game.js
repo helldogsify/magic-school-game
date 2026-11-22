@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=210';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=210';
+} from './data.js?v=211';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=211';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 210;   // keep equal to the ?v= number in index.html
+const BUILD = 211;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1698,6 +1698,56 @@ function drawOut(o) {
   ctx.drawImage(o.flip ? flipped(im) : im, p.x - w / 2, p.y + h * 0.05 - h, w, h);
   if (zoom >= 1.3) outFx(o, p, h);   // zoomed out the life is too small to see: save the iPhone's work
 }
+// ======================= corridors (roadmap step 2, last part; her «Да, можно коридоры делать. Да покрасивше») =======================
+// Herringbone parquet with star inlays on every inner corridor tile (the pink runner stays), free-standing furniture along the
+// corridor edges every few tiles (never near a door or a queue), and floating candles drifting over the corridors (code).
+const CORR_H = { monstera: 44, lavender_pot: 32, bench: 32, armor: 54, globe: 40, bookcase: 44, candelabra: 52, noticeboard: 42, portrait: 44 };
+const CORR_SET = ['monstera', 'bench', 'globe', 'lavender_pot', 'portrait', 'armor', 'bookcase', 'noticeboard', 'candelabra'];
+for (const n of ['floor', ...Object.keys(CORR_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/corridor/${n}.webp?v=1`; parts['corridor/' + n] = im; }
+let CORR = [], CANDLES = [], corrKey = '';
+function layoutCorridor() {
+  const key = outKey + '|' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0).join(';'); if (key === corrKey) return; corrKey = key;
+  const inside = (x, y) => regAt(x, y) === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
+  const doorTiles = []; for (const d of DOORS) { const [a, b] = d.split('|').map((t) => t.split(',').map(Number)); for (const q of [a, b]) if (regAt(q[0], q[1]) === 'hall') doorTiles.push(q); }
+  const nearDoor = (x, y) => doorTiles.some(([dx, dy]) => Math.abs(dx - x) <= 2 && dy - y <= 1 && y - dy <= 3);   // the door and the queue below it stay free
+  const cand = [];
+  for (let x = BUILDING.x0; x < BUILDING.x1; x++) for (let y = BUILDING.y0; y < BUILDING.y1; y++) {
+    if (!inside(x, y) || (x >= 14 && x <= 16) || nearDoor(x, y)) continue;   // never on the pink runner
+    const edge = !inside(x - 1, y) || !inside(x, y - 1) || !inside(x + 1, y) || !inside(x, y + 1); if (!edge) continue;
+    if (regAt(x + 1, y) === 'path' || regAt(x, y + 1) === 'path' || regAt(x - 1, y) === 'path' || regAt(x, y - 1) === 'path') continue;   // garden / tower / canteen openings
+    cand.push([x, y]);
+  }
+  const out = [], k0 = []; let k = 0;
+  cand.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]) || a[0] - b[0]);
+  for (const [x, y] of cand) {
+    if (k0.some(([px, py]) => Math.abs(px - x) + Math.abs(py - y) < 4)) continue;   // spaced out: «не наваливать»
+    k0.push([x, y]);
+    const ox = !inside(x - 1, y) ? 0.32 : !inside(x + 1, y) ? 0.68 : 0.5, oy = !inside(x, y - 1) ? 0.32 : !inside(x, y + 1) ? 0.68 : 0.5;   // pushed against the edge
+    out.push({ n: CORR_SET[k++ % CORR_SET.length], x: x + ox, y: y + oy, th: 'corridor', flip: !inside(x, y - 1) && inside(x - 1, y) });
+  }
+  CORR = out;
+  CANDLES = []; let c = 0;
+  for (let x = BUILDING.x0; x < BUILDING.x1; x += 4) for (let y = BUILDING.y0; y < BUILDING.y1; y += 4) if (inside(x, y) && inside(x + 1, y) && inside(x, y + 1) && inside(x - 1, y) && inside(x, y - 1)) CANDLES.push({ x: x + 0.5 + hash2(x, y, 141) * 0.6, y: y + 0.5 + hash2(x, y, 142) * 0.6, k: c++ });
+}
+function drawCorr(o) {
+  const im = part('corridor', o.n); if (!im) return;
+  const p = P(o.x, o.y), h = CORR_H[o.n] || 36, w = h * im.naturalWidth / im.naturalHeight;
+  if (zoom >= 1.2) { const rx = Math.min(w * 0.4, h * 0.55); ctx.drawImage(propShadow(), p.x - rx, p.y - rx * 0.42, rx * 2, rx * 0.84); }
+  const sm = sized(im, h * scale * dpr); ctx.drawImage(o.flip ? flipped(sm) : sm, p.x - w / 2, p.y + h * 0.06 - h, w, h);
+  if (o.n === 'candelabra' && zoom >= 1.2) { const T = fxNow() + o.x; for (const dx of [-0.3, 0, 0.3]) { ctx.save(); ctx.globalAlpha = 0.5 + 0.2 * Math.sin(T * Math.PI * 2 / 2.8 + dx * 9); ctx.drawImage(glowSprite('255,210,130'), p.x + dx * w - 8, p.y - h * 0.97 - 8, 16, 16); ctx.restore(); } }
+}
+function drawCandles() {   // candles floating over the corridors: each bobs slowly (4 s) with a soft flame glow
+  if (zoom < 1.2) return;
+  const T = fxNow();
+  for (const q of CANDLES) {
+    const m = P(q.x, q.y); if (m.x < VIEW.x0 - 20 || m.x > VIEW.x1 + 20 || m.y < VIEW.y0 - 20 || m.y > VIEW.y1 + 120) continue;
+    const bob = Math.sin((T + q.k * 0.9) * Math.PI * 2 / 4) * 3, x = m.x, y = m.y - 82 + bob;
+    ctx.save(); ctx.globalAlpha = 0.55 + 0.2 * Math.sin(T * 2.3 + q.k); ctx.drawImage(glowSprite('255,205,120'), x - 14, y - 18, 28, 28); ctx.restore();   // warm halo
+    ctx.fillStyle = '#fff6e6'; ctx.strokeStyle = '#a88b6c'; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.roundRect(x - 2.4, y, 4.8, 11, 1.2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f3e2c4'; ctx.beginPath(); ctx.ellipse(x, y, 2.4, 0.9, 0, 0, Math.PI * 2); ctx.fill();   // melted top
+    ctx.fillStyle = '#ffcf5a'; ctx.beginPath(); ctx.ellipse(x, y - 3.2, 1.7, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff8d8'; ctx.beginPath(); ctx.ellipse(x, y - 2.6, 0.8, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+  }
+}
 function drawStatic() {
   const k = statKey(); if (k === staticKey || (pinching && stat.width)) return; staticKey = k; staticN++;
   const q = statQ();
@@ -1706,11 +1756,13 @@ function drawStatic() {
   c.fillStyle = '#a9d98f'; c.fillRect(0, 0, WW, WH);
   { const g = WORLD === 1 && GRASS_ON && grassPat(c); if (g) { c.fillStyle = g; c.fillRect(0, 0, WW, WH); } else { c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2); } }
   const stone = WORLD === 1 && isoPat(c, 'path', 3);
+  const corrFloor = WORLD === 1 && (() => { const pt = pat(c, 'corridor', 'floor'); if (!pt) return null; const T = part('corridor', 'floor').naturalWidth / 3, o = P(0, 0); pt.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, o.x, o.y])); return pt; })();
   // halls
   for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) {
     const rid = regAt(x, y); if (rid !== 'hall' && rid !== 'path') continue;
     const inside = rid === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
     const carpet = inside && x >= 14 && x <= 16 && y > BUILDING.y0;
+    if (inside && !carpet && WORLD === 1 && corrFloor) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = corrFloor; c.fill(); continue; }   // parquet with star inlays
     const col = carpet ? (y % 2 ? '#d98f97' : '#dd979f') : inside ? (x % 2 ? '#d7a46e' : '#dcab76') : ((x + y) % 2 ? '#e9dcc4' : '#efe4cf');
     if (!inside && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); continue; }   // outdoor paths: rune flagstones
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
@@ -2528,6 +2580,7 @@ function render() {
   const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
+  if (WORLD === 1) { layoutCorridor(); for (const o of CORR) add(o.x, o.y, () => drawCorr(o)); }
   if (WORLD === 1 && OUT_ON) { layoutOutdoor(); drawEntrancePath();   // cheap pre-check with the cached screen point before the full add()
     const vx0 = VIEW.x0 - 140, vx1 = VIEW.x1 + 140, vy0 = VIEW.y0 - 20, vy1 = VIEW.y1 + 220;
     const vis = []; for (const o of OUTDOOR) { if (o.px === undefined) { const m = P(o.x, o.y); o.px = m.x; o.py = m.y; } if (o.px < vx0 || o.px > vx1 || o.py < vy0 || o.py > vy1) continue; vis.push(o); }
@@ -2660,6 +2713,7 @@ function render() {
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
   for (const f of fxTop) f();
   fxTop = [];
+  if (WORLD === 1) drawCandles();
   drawSeals();
   // x-ray: every creature is drawn once more, faintly, on top: the ones hidden behind a wall show through as ghosts
   ctx.globalAlpha = 0.38;
