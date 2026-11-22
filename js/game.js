@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=161';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=161';
+} from './data.js?v=162';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=162';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 161;   // keep equal to the ?v= number in index.html
+const BUILD = 162;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -400,7 +400,7 @@ function teacherWalk(i) {
   const u = ph < 0.25 ? ph / 0.25 : ph < 0.5 ? 1 : ph < 0.75 ? 1 - (ph - 0.5) / 0.25 : 0;
   const x = b.x - span + 2 * span * (0.5 - 0.5 * Math.cos(u * Math.PI)), y = b.y + Math.sin(T * 0.7) * 0.25;
   const moving = (ph < 0.25 || (ph >= 0.5 && ph < 0.75));
-  return { x, y, moving, left: ph >= 0.5 && ph < 0.75, stop: ph >= 0.75 ? 1 : 0 };
+  return { x, y, moving, left: ph >= 0.5 && ph < 0.75, stop: ph >= 0.75 ? 1 : 0, cyc: Math.floor(T / 12) };
 }
 const teacherPos = (i) => { const s = slotOf(i); return frontFacing(i) ? { x: s.x0 + (s.x1 - s.x0) / 2 + 0.6, y: s.y1 - 0.9 } : { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
 let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.75, y: REC.y0 + 3.3 };
@@ -1098,13 +1098,15 @@ const STAFF_ART = { herbs: 'moss', potions: 'bubble', stars: 'lun', charms: 'spa
 const STAFF_H = { moss: 58, bubble: 54, lun: 68, spark: 62, breeze: 56, storm: 68, owl: 60 };   // teachers clearly taller than students (30) — her ruling 2026-11-21
 // teachers' pose sheets (her ask 2026-11-22: animations for every teacher): walk while strolling, two kinds of stops,
 // proud for a moment right after a student of the class passes; art one teacher at a time (art/staff/<name>_poses.jpg)
-const TEACHER_POSES = { moss: ['explain', 'water'] };   // bubble poses drawn (assets/staff/bubble_*.png), waiting for her yes
-for (const [n, l] of Object.entries(TEACHER_POSES)) for (const f of [...l, 'walk', 'proud']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/staff/${n}_${f}.png?v=1`; sprites[n + '_' + f] = im; }
+const TEACHER_POSES = { moss: ['explain', 'water', 'sniff', 'read'] };
+const TEACHER_FLY = { moss: true };   // two flight frames <name>_fly1/fly2 (her ruling: «Парение не похоже на полет ... позу полета рисовать»)   // bubble poses drawn (assets/staff/bubble_*.png), waiting for her yes
+for (const [n, l] of Object.entries(TEACHER_POSES)) for (const f of [...l, 'proud', ...(TEACHER_FLY[n] ? ['fly1', 'fly2'] : [])]) { const im = new Image(); im.onerror = () => {}; im.src = `assets/staff/${n}_${f}.png?v=1`; sprites[n + '_' + f] = im; }
 const passAt = {};
 function teacherPose(i, tp) {
   const n = WORLD === 1 && STAFF_ART[CLASSES[i].id], l = n && TEACHER_POSES[n]; if (!l) return null;
+  if (tp.moving && tp.left && TEACHER_FLY[n]) { const im = sprites[n + (Math.floor(performance.now() / 170) % 2 ? '_fly2' : '_fly1')]; if (im && im.complete && im.naturalWidth) return im; }   // flying back: wings flap
   if (tp.moving) { const b = sprites['staff_' + CLASSES[i].id]; return b && b.complete && b.naturalWidth ? b : null; }   // the standing picture, rocked or lifted by drawPose
-  const f = performance.now() - (passAt[i] || -1e9) < 1800 ? 'proud' : l[tp.stop || 0];
+  const f = performance.now() - (passAt[i] || -1e9) < 1800 ? 'proud' : l[((tp.cyc || 0) * 2 + (tp.stop || 0)) % l.length];
   const im = sprites[n + '_' + f]; return im && im.complete && im.naturalWidth ? im : null;
 }
 const STAFF_GLOW = { lun: 'rgba(255,240,190,0.95)' }, STAFF_GLOW_ALL = 'rgba(255,244,205,0.6)';   // every teacher glows softly (her wish 2026-11-21), Lun a bit more   // drawn height: Lun is tall, Bubble small and round
