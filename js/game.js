@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=198';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=198';
+} from './data.js?v=199';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=199';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 198;   // keep equal to the ?v= number in index.html
+const BUILD = 199;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1466,8 +1466,10 @@ function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.cl
 const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, toadhouse: 96, glowmush: 40, crystals: 44, berrybush: 44, fern: 38, hedge: 42, roses: 40, roses2: 40, boulder: 40, bells: 38,
   lantern_gold: 76, lantern_blue: 76, owl_statue: 62, fox_statue: 62, flowerbed: 34, signpost2: 58, urn: 46, flowerbox: 26, gate_big: 170,
   runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46 };   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
-const outLo = {}, outMid = {}, outSh = {};   // outSh: a tiny dark silhouette of each sprite; drawn stretched it gives a soft cast shadow   // small copies (240 px tall) for the far view: downscaling an 800 px tree every frame is slow
-for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; if (OUT_H[n]) { const c = document.createElement('canvas'), k = 40 / im.naturalHeight; c.width = Math.max(4, Math.round(im.naturalWidth * k)); c.height = 40; const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(38,48,62)'; x.fillRect(0, 0, c.width, c.height); outSh[n] = c; } if (im.naturalHeight > 560) { const c = document.createElement('canvas'), k = 440 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 440; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outMid[n] = c; } if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } }; im.src = `assets/parts/outdoor/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
+const outLo = {}, outMid = {}, outSh = {}, outTint = {};   // outTint[n] = { mid: [lvl1, lvl2], lo: [lvl1, lvl2] }: darker, cooler copies for the deep forest
+const OUT_TREE = new Set(['oak', 'fir', 'willow', 'blossom', 'goldtree']);
+function tintCopies(src) { return [0.17, 0.32].map((a) => { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const x = c.getContext('2d'); x.drawImage(src, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = `rgba(26,38,70,${a})`; x.fillRect(0, 0, c.width, c.height); return c; }); }   // outSh: a tiny dark silhouette of each sprite; drawn stretched it gives a soft cast shadow   // small copies (240 px tall) for the far view: downscaling an 800 px tree every frame is slow
+for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; if (OUT_H[n]) { const c = document.createElement('canvas'), k = 40 / im.naturalHeight; c.width = Math.max(4, Math.round(im.naturalWidth * k)); c.height = 40; const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(38,48,62)'; x.fillRect(0, 0, c.width, c.height); outSh[n] = c; } if (im.naturalHeight > 560) { const c = document.createElement('canvas'), k = 440 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 440; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outMid[n] = c; } if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } if (OUT_TREE.has(n) && outMid[n] && outLo[n]) outTint[n] = { mid: tintCopies(outMid[n]), lo: tintCopies(outLo[n]) }; }; im.src = `assets/parts/outdoor/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
 let GRASS_ON = true, BG_OFF = false;
 const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 let OUTDOOR = [], outKey = '', OUT_ON = true, entrancePath = null, entranceDecal = null;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
@@ -1508,22 +1510,30 @@ function layoutOutdoor() {
     entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + 8.5 }; }
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
-  // edge groves near the clearing (sparse), then a deep forest that fills the map to its edges (her «за ним просто ничего»)
-  const grove = (gx, gy, cx, cy, deep) => {
-    const kind = GROVES[Math.floor(hash2(gx, gy, 13) * GROVES.length)], n = deep ? 5 : kind.length;
-    for (let k = 0; k < n; k++) { const an = k * 2.4 + hash2(gx, gy, 20 + k) * 0.8, r = k ? (deep ? 1.9 : 1.7) + hash2(gx, gy, 30 + k) * 0.7 : 0; put(kind[k % kind.length], cx + Math.cos(an) * r, cy + Math.sin(an) * r, 6, 0.9 + hash2(gx, gy, 40 + k) * 0.22); }
-    if (!deep) for (let k = 0; k < 2; k++) { const an = 0.6 + k * 1.1 + hash2(gx, gy, 50 + k) * 0.5; put(UNDER[Math.floor(hash2(gx, gy, 60 + k) * UNDER.length)], cx + Math.cos(an) * 3, cy + Math.sin(an) * 3, 4); }   // undergrowth on the side facing the school
-  };
-  const blocked = (cx, cy) => zones.some(([zx, zy]) => Math.hypot(zx - cx, zy - cy) < 8) || (Math.abs(cx - G.x) < 8 && cy > G.y - 4 && cy < G.y + 16);
-  for (let gx = X0; gx < X1; gx += 9) for (let gy = Y0; gy < Y1; gy += 9) {   // the edge of the forest, 7..13 tiles from the buildings
-    const cx = gx + 2 + hash2(gx, gy, 11) * 5, cy = gy + 2 + hash2(gx, gy, 12) * 5, d = D(cx, cy);
-    if (d < 7 || d > 13 || !inWorld(cx, cy) || blocked(cx, cy)) continue;
-    grove(gx, gy, cx, cy, false);
-  }
-  for (let gx = X0; gx < X1; gx += 5) for (let gy = Y0; gy < Y1; gy += 5) {   // deep forest beyond: dense groves up to the map edge
-    const cx = gx + 1 + hash2(gx, gy, 71) * 3, cy = gy + 1 + hash2(gx, gy, 72) * 3, d = D(cx, cy);
-    if (d <= 13 || !inWorld(cx, cy) || blocked(cx, cy)) continue;
-    grove(gx + 1000, gy, cx, cy, true);
+  // The forest (her «Всё еще некрасиво, думай»): one tree per jittered cell instead of mixed groves.
+  //  - an organic edge line ~8-11 tiles from the buildings, with a soft band of bushes in front of it;
+  //  - species by area: a dark fir forest behind the school (top of the screen), oaks and willows at the sides,
+  //    blossom and golden trees only as rare accents on the edge;
+  //  - the deeper, the darker and cooler the trees (depth tint) and the darker the forest floor under them.
+  const SC = { x: (BUILDING.x0 + BUILDING.x1) / 2, y: (BUILDING.y0 + BUILDING.y1) / 2 };
+  const vnoise = (x, y, f, k) => { const X = Math.floor(x / f), Y = Math.floor(y / f), u = x / f - X, v = y / f - Y, sm = (t) => t * t * (3 - 2 * t);
+    const a = hash2(X, Y, k), b2 = hash2(X + 1, Y, k), c = hash2(X, Y + 1, k), d2 = hash2(X + 1, Y + 1, k); return a + (b2 - a) * sm(u) + (c - a) * sm(v) + (a - b2 - c + d2) * sm(u) * sm(v); };
+  const edgeAt = (x, y) => 8 + 3 * vnoise(x, y, 9, 81);
+  for (let gx = X0; gx < X1; gx += 2) for (let gy = Y0; gy < Y1; gy += 2) {
+    const x = gx + 0.3 + hash2(gx, gy, 91) * 1.4, y = gy + 0.3 + hash2(gx, gy, 92) * 1.4, d = D(x, y), e = edgeAt(x, y);
+    if (!inWorld(x, y) || zones.some(([zx, zy]) => Math.hypot(zx - x, zy - y) < 7) || (Math.abs(x - G.x) < 8 && y > G.y - 4 && y < G.y + 16)) continue;
+    if (d >= e - 1.6 && d < e) { if (hash2(gx, gy, 93) < 0.55) put(['fern', 'hedge', 'berrybush', 'fern', 'roses', 'bells', 'boulder'][Math.floor(hash2(gx, gy, 94) * 7)], x, y, 4, 0.9 + hash2(gx, gy, 95) * 0.3); continue; }   // the soft edge
+    if (d < e) continue;
+    const depth = Math.min(1, (d - e) / 14);
+    if (hash2(gx, gy, 96) > 0.5 + 0.45 * Math.min(1, (d - e) / 4)) continue;   // thin at the edge, closed canopy deeper in
+    const back = (SC.x + SC.y) - (x + y), side = Math.abs((x - y) - (SC.x - SC.y));   // >0: behind the school (top of the screen)
+    const firZone = back > 18 || vnoise(x, y, 14, 97) < 0.3, r = hash2(gx, gy, 98);
+    let n;
+    if (d - e < 2.5 && r < 0.12) n = r < 0.06 ? 'blossom' : 'goldtree';   // accents only on the edge
+    else if (firZone) n = r < 0.82 ? 'fir' : 'oak';
+    else n = r < 0.55 ? 'oak' : r < 0.78 ? 'willow' : 'fir';
+    const sc = (n === 'fir' ? 0.95 : 0.88) + hash2(gx, gy, 99) * 0.3;
+    if (put(n, x, y, 6, sc)) out[out.length - 1].depth = depth;
   }
   OUTDOOR = out;
 }
@@ -1598,15 +1608,17 @@ function drawEntrancePath(c0 = ctx, baking = false) {   // the flagstone path co
 function outShadow(c, o) {   // the cast shadow of an outdoor object on the grass (baked into the static layer when it lies inside it)
   const im = part('outdoor', o.n), sh = outSh[o.n]; if (!im || !sh) return false;
   const p = P(o.x, o.y), h = (OUT_H[o.n] || 28) * (o.s || 1), w = h * im.naturalWidth / im.naturalHeight;
-  c.save(); c.globalAlpha = 0.3; c.translate(p.x, p.y + h * 0.02); c.transform(1, 0, -0.62, -0.3, 0, 0); if (o.flip) c.scale(-1, 1); c.drawImage(sh, -w / 2, -h, w, h); c.restore();
-  c.fillStyle = 'rgba(40,52,46,0.12)'; c.beginPath(); c.ellipse(p.x, p.y, w * 0.16, w * 0.06, 0, 0, Math.PI * 2); c.fill();
+  if (!(o.depth > 0.2)) {   // under the closed canopy cast shadows are not seen: the forest floor patch is enough there
+    c.save(); c.globalAlpha = 0.3; c.translate(p.x, p.y + h * 0.02); c.transform(1, 0, -0.62, -0.3, 0, 0); if (o.flip) c.scale(-1, 1); c.drawImage(sh, -w / 2, -h, w, h); c.restore();
+    c.fillStyle = 'rgba(40,52,46,0.12)'; c.beginPath(); c.ellipse(p.x, p.y, w * 0.16, w * 0.06, 0, 0, Math.PI * 2); c.fill(); }
+  if (o.depth !== undefined) { const rx = w * 0.75, ry = rx * 0.45; c.save(); c.globalAlpha = 0.3 + 0.35 * o.depth; c.drawImage(glowSprite('30,58,38'), p.x - rx, p.y - ry * 0.6 - ry, rx * 2, ry * 2); c.restore(); }   // the forest floor: overlapping dark patches under the canopy
   return true;
 }
 function drawOut(o) {
   let im = part('outdoor', o.n); if (!im) return;
   const p = P(o.x, o.y), h = (OUT_H[o.n] || 28) * (o.s || 1), w = h * im.naturalWidth / im.naturalHeight;
-  { const dh = h * scale * dpr; if (outLo[o.n] && dh < 230) im = outLo[o.n]; else if (outMid[o.n] && dh < 430) im = outMid[o.n]; }   // nearest smaller copy: big downscales every frame are slow
-  if (!o.baked) outShadow(ctx, o);
+  { const dh = h * scale * dpr, lv = o.depth > 0.6 ? 1 : o.depth > 0.25 ? 0 : -1, t = lv >= 0 && outTint[o.n];   // nearest smaller copy (big downscales every frame are slow); deep trees use the tinted copies
+    if (outLo[o.n] && dh < 230) im = t ? t.lo[lv] : outLo[o.n]; else if (outMid[o.n] && (dh < 430 || t)) im = t ? t.mid[lv] : outMid[o.n]; }
   ctx.save(); ctx.translate(p.x, p.y + h * 0.05); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
   if (zoom >= 1.3) outFx(o, p, h);   // zoomed out the life is too small to see: save the iPhone's work
 }
@@ -2395,7 +2407,9 @@ function render() {
   list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
   if (WORLD === 1 && OUT_ON) { layoutOutdoor(); drawEntrancePath();   // cheap pre-check with the cached screen point before the full add()
     const vx0 = VIEW.x0 - 140, vx1 = VIEW.x1 + 140, vy0 = VIEW.y0 - 20, vy1 = VIEW.y1 + 220;
-    for (const o of OUTDOOR) { if (o.px === undefined) { const m = P(o.x, o.y); o.px = m.x; o.py = m.y; } if (o.px < vx0 || o.px > vx1 || o.py < vy0 || o.py > vy1) continue; add(o.x, o.y, () => drawOut(o)); } }
+    const vis = []; for (const o of OUTDOOR) { if (o.px === undefined) { const m = P(o.x, o.y); o.px = m.x; o.py = m.y; } if (o.px < vx0 || o.px > vx1 || o.py < vy0 || o.py > vy1) continue; vis.push(o); }
+    for (const o of vis) if (!o.baked) outShadow(ctx, o);   // ground layer first (shadows, forest floor), then the objects depth-sorted
+    for (const o of vis) add(o.x, o.y, () => drawOut(o)); }
   for (const e of EDGES) {
     const painted = e.id !== 'hall' && e.tall && WORLD === 1 && !!arts[CLASS_SLOT.indexOf(e.id) >= 0 ? CLASSES[CLASS_SLOT.indexOf(e.id)].id : e.id]?.naturalWidth;   // painted rooms: only the cap on top of their own walls
     if (e.id === 'DORM2' && !dorm2Built()) continue;
