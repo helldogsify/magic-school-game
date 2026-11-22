@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=235';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=235';
+} from './data.js?v=236';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=236';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 235;   // keep equal to the ?v= number in index.html
+const BUILD = 236;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -360,6 +360,7 @@ const regAt = (x, y) => (inGrid(x, y) ? REG[x][y + YOFF] : null);
 function fillRect(r, id) { for (let x = r.x0; x < r.x1; x++) for (let y = r.y0; y < r.y1; y++) if (inGrid(x, y)) REG[x][y + YOFF] = id; }
 const DOORS = new Set();
 function buildGrid() {
+  bfsVer++;   // the map changed: cached paths are stale
   REG = Array.from({ length: GW }, () => Array(GH + YOFF + 2).fill(null));
   HALLS.forEach((h) => fillRect(h, 'hall'));
   LAWNS.forEach((h) => fillRect(h, null));   // lawn gaps between rooms (courtyard school)
@@ -438,24 +439,33 @@ function canStep(ax, ay, bx, by) {
   if (rb === 'hall' && courtBlocked(bx, by)) return false;
   return DOORS.has(`${ax},${ay}|${bx},${by}`);
 }
+// Path search (build 236, her «Загрузилась через секунд 10»: the offline catch-up spent ~7 s of 11 here): a typed-array BFS
+// with an index queue instead of Map + Array.shift, and finished tile paths are cached until the map changes.
+var bfsCache = new Map(), bfsVer = 0, bfsKeyVer = "";   // var: buildGrid() runs at load before this line
 function bfs(sx, sy, tx, ty) {
   sx = Math.floor(sx); sy = Math.floor(sy); tx = Math.floor(tx); ty = Math.floor(ty);
-  const key = (x, y) => x * 100 + y + 1;
-  const prev = new Map([[key(sx, sy), null]]); const q = [[sx, sy]];
-  while (q.length) {
-    const [x, y] = q.shift();
-    if (x === tx && y === ty) break;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = x + dx, ny = y + dy, k = key(nx, ny);
-      if (prev.has(k) || !canStep(x, y, nx, ny)) continue;
-      prev.set(k, [x, y]); q.push([nx, ny]);
+  const ver = bfsVer + ':' + (dorm2Built() ? 1 : 0); if (ver !== bfsKeyVer) { bfsCache.clear(); bfsKeyVer = ver; }
+  const ck = ((sx + 64) * 512 + (sy + 64)) * 262144 + (tx + 64) * 512 + (ty + 64);
+  const hit = bfsCache.get(ck); if (hit) return hit.map((q) => ({ x: q.x, y: q.y }));
+  const W = GW + 2, H = GH + YOFF + 4, id = (x, y) => (x + 1) * H + (y + YOFF + 1);
+  if (sx < -1 || sy < -YOFF - 1 || sx > GW || sy > GH + 2 || tx < -1 || ty < -YOFF - 1 || tx > GW || ty > GH + 2) return [];
+  const prev = new Int32Array(W * H).fill(-1), qx = new Int16Array(W * H), qy = new Int16Array(W * H); let qh = 0, qt = 0;
+  const s0 = id(sx, sy); prev[s0] = s0; qx[qt] = sx; qy[qt++] = sy; let found = sx === tx && sy === ty;
+  while (qh < qt && !found) {
+    const x = qx[qh], y = qy[qh++], cur = id(x, y);
+    for (let d = 0; d < 4; d++) {
+      const nx = x + (d === 0 ? 1 : d === 1 ? -1 : 0), ny = y + (d === 2 ? 1 : d === 3 ? -1 : 0);
+      if (nx < -1 || ny < -YOFF - 1 || nx > GW || ny > GH + 2) continue;
+      const k = id(nx, ny); if (prev[k] !== -1 || !canStep(x, y, nx, ny)) continue;
+      prev[k] = cur; qx[qt] = nx; qy[qt++] = ny; if (nx === tx && ny === ty) { found = true; break; }
     }
   }
-  if (!prev.has(key(tx, ty))) return [];
-  const out = []; let cur = [tx, ty];
-  while (cur) { out.push({ x: cur[0] + 0.5, y: cur[1] + 0.5 }); cur = prev.get(key(cur[0], cur[1])); }
+  if (!found) return [];
+  const out = []; let k = id(tx, ty);
+  while (true) { const x = Math.floor(k / H) - 1, y = (k % H) - YOFF - 1; out.push({ x: x + 0.5, y: y + 0.5 }); if (k === s0) break; k = prev[k]; }
   out.reverse(); out.shift();
-  return out;
+  if (bfsCache.size > 6000) bfsCache.clear(); bfsCache.set(ck, out);
+  return out.map((q) => ({ x: q.x, y: q.y }));
 }
 // Ruslan's feedback 2026-11-22 («ходят по очень ровным траекториям ... более рандомные»): every creature keeps its own
 // lane inside the corridors (a personal offset from the tile centres) plus a little jitter per step. A point stays inside
