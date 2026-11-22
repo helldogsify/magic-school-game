@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=191';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=191';
+} from './data.js?v=192';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=192';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 191;   // keep equal to the ?v= number in index.html
+const BUILD = 192;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1456,7 +1456,7 @@ const up = (p, h) => ({ x: p.x, y: p.y - h });
 
 // ---- static layer (floors, rooms, walls) cached in an offscreen canvas ----
 const stat = document.createElement('canvas'); const sctx = stat.getContext('2d');
-let staticKey = '';
+let staticKey = '', staticN = 0;
 const statQ = () => Math.min(scale * dpr, Math.sqrt(12e6 / (SW * SH)));   // px per world unit, capped (iOS canvas limit)
 function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + statQ().toFixed(2); }
 // ======================= territory (roadmap step 2, her wish 2026-11-22: «очень волшебные и красивые с большим количеством деталей») =======================
@@ -1467,8 +1467,9 @@ const OUT_H = { oak: 92, blossom: 80, willow: 86, goldtree: 76, fir: 82, toadhou
 const OUT_TREES = ['oak', 'oak', 'blossom', 'blossom', 'willow', 'goldtree', 'fir', 'fir', 'toadhouse'];
 const OUT_SMALL = ['glowmush', 'glowmush', 'crystals', 'berrybush', 'fern', 'fern', 'hedge', 'roses', 'roses2', 'boulder', 'bells', 'bells', 'runestone', 'stump', 'starflowers', 'starflowers', 'pumpkin', 'well', 'beehive', 'birdbath', 'chestmush', 'fairyring'];
 for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; }; im.src = `assets/parts/outdoor/${n}.webp?v=1`; parts['outdoor/' + n] = im; }
+let GRASS_ON = true, BG_OFF = false;
 const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-let OUTDOOR = [], outKey = '';
+let OUTDOOR = [], outKey = '', OUT_ON = false;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
 function layoutOutdoor() {   // once per layout: free lawn tiles get a tree (two free tiles around) or a small thing (one free tile around)
   const key = GW + ':' + GH + ':' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0 + ',' + s.x1 + ',' + s.y1).join(';'); if (key === outKey) return; outKey = key;
   const free = (x, y, r) => { for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) if (regAt(x + dx, y + dy)) return false; return true; };
@@ -1485,6 +1486,20 @@ function layoutOutdoor() {   // once per layout: free lawn tiles get a tree (two
     for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) taken.add((x + dx) + ',' + (y + dy));
   }
   OUTDOOR = out;
+}
+// The iso grass repeats on an axis-aligned rectangle 2N*HW x 2N*HH: it is rendered once into a small tile canvas and then
+// filled as a plain (scale-only) pattern. Filling the rotated pattern itself every frame cost ~25x the whole frame (her «Очень лагать стало»).
+const GRASS_K = 3, GRASS_N = 8;   // tile canvas px per world unit; tiles covered by one grass picture (bigger = the repeat is less visible)
+let grassTile = null;
+const grassPats = new WeakMap();
+function grassPat(c) {
+  if (!grassTile) { const im = part('outdoor', 'grass'); if (!im) return null;
+    const t = document.createElement('canvas'); t.width = Math.round(2 * GRASS_N * HW * GRASS_K); t.height = Math.round(2 * GRASS_N * HH * GRASS_K);
+    const tc = t.getContext('2d'), pt = tc.createPattern(im, 'repeat'), T = im.naturalWidth / GRASS_N;
+    pt.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, 0, 0])); tc.setTransform(GRASS_K, 0, 0, GRASS_K, 0, 0); tc.fillStyle = pt; tc.fillRect(0, 0, 2 * GRASS_N * HW, 2 * GRASS_N * HH);
+    grassTile = t; }
+  let p = grassPats.get(c); if (!p) { p = c.createPattern(grassTile, 'repeat'); p.setTransform(new DOMMatrix([1 / GRASS_K, 0, 0, 1 / GRASS_K, 0, 0])); grassPats.set(c, p); }
+  return p;
 }
 function isoPat(c, n, tiles) {   // a ground texture laid on the iso grid, aligned to the world origin
   const p = pat(c, 'outdoor', n); if (!p) return null;
@@ -1522,12 +1537,12 @@ function drawOut(o) {
   if (zoom >= 1.3) outFx(o, p, h);   // zoomed out the life is too small to see: save the iPhone's work
 }
 function drawStatic() {
-  const k = statKey(); if (k === staticKey || (pinching && stat.width)) return; staticKey = k;
+  const k = statKey(); if (k === staticKey || (pinching && stat.width)) return; staticKey = k; staticN++;
   const q = statQ();
   stat.width = Math.round(SW * q); stat.height = Math.round(SH * q);
   const c = sctx; c.setTransform(q, 0, 0, q, -MARGIN * q, -MARGIN * q);
   c.fillStyle = '#a9d98f'; c.fillRect(0, 0, WW, WH);
-  { const g = WORLD === 1 && isoPat(c, 'grass', 4); if (g) { c.fillStyle = g; c.fillRect(0, 0, WW, WH); } else { c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2); } }
+  { const g = WORLD === 1 && GRASS_ON && grassPat(c); if (g) { c.fillStyle = g; c.fillRect(0, 0, WW, WH); } else { c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2); } }
   const stone = WORLD === 1 && isoPat(c, 'path', 3);
   // halls
   for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) {
@@ -2259,7 +2274,19 @@ function render() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#a9d98f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  { const g = WORLD === 1 && isoPat(ctx, 'grass', 4); if (g) { ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr); ctx.fillStyle = g; ctx.fillRect(scroller.scrollLeft / scale - 2, scroller.scrollTop / scale - 2, scroller.clientWidth / scale + 4, scroller.clientHeight / scale + 4); ctx.setTransform(1, 0, 0, 1, 0, 0); } }
+  { const g = WORLD === 1 && GRASS_ON && !BG_OFF && grassPat(ctx); if (g) {   // grass only where the cached static layer (which has it) does not cover the view
+      const vx0 = scroller.scrollLeft / scale - 2, vy0 = scroller.scrollTop / scale - 2, vx1 = vx0 + scroller.clientWidth / scale + 4, vy1 = vy0 + scroller.clientHeight / scale + 4;
+      const sx0 = MARGIN, sy0 = MARGIN, sx1 = MARGIN + SW, sy1 = MARGIN + SH, strips = [];
+      if (vy0 < sy0) strips.push([vx0, vy0, vx1, Math.min(vy1, sy0)]);
+      if (vy1 > sy1) strips.push([vx0, Math.max(vy0, sy1), vx1, vy1]);
+      const my0 = Math.max(vy0, sy0), my1 = Math.min(vy1, sy1);
+      if (my1 > my0) { if (vx0 < sx0) strips.push([vx0, my0, Math.min(vx1, sx0), my1]); if (vx1 > sx1) strips.push([Math.max(vx0, sx1), my0, vx1, my1]); }
+      if (strips.length) {   // whole tile pictures (drawImage is far cheaper than a pattern fill); the static layer is drawn over them
+        ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
+        const tw = 2 * GRASS_N * HW, th = 2 * GRASS_N * HH, done = new Set();
+        for (const [a, b, c2, d] of strips) { if (c2 <= a || d <= b) continue;
+          for (let i = Math.floor(a / tw); i * tw < c2; i++) for (let j = Math.floor(b / th); j * th < d; j++) { const key = i + ',' + j; if (done.has(key)) continue; done.add(key); ctx.drawImage(grassTile, i * tw, j * th, tw + 0.5, th + 0.5); } }
+        ctx.setTransform(1, 0, 0, 1, 0, 0); } } }
   ctx.drawImage(stat, 0, 0, stat.width, stat.height, (MARGIN * scale - scroller.scrollLeft) * dpr, (MARGIN * scale - scroller.scrollTop) * dpr, SW * scale * dpr, SH * scale * dpr);
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
@@ -2271,7 +2298,7 @@ function render() {
   const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: GATE_TILE.x + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
-  if (WORLD === 1) { layoutOutdoor(); for (const o of OUTDOOR) add(o.x, o.y, () => drawOut(o)); }
+  if (WORLD === 1 && OUT_ON) { layoutOutdoor(); for (const o of OUTDOOR) add(o.x, o.y, () => drawOut(o)); }
   for (const e of EDGES) {
     const painted = e.id !== 'hall' && e.tall && WORLD === 1 && !!arts[CLASS_SLOT.indexOf(e.id) >= 0 ? CLASSES[CLASS_SLOT.indexOf(e.id)].id : e.id]?.naturalWidth;   // painted rooms: only the cap on top of their own walls
     if (e.id === 'DORM2' && !dorm2Built()) continue;
@@ -3225,13 +3252,14 @@ function restoreBackup() {
 
 // ======================= loop, offline =======================
 let earnedThisSec = 0, secT = 0, saveT = 0, last = performance.now(), panelT = 0;
+let renderMs = 0;   // average time of one render (test hook __test.renderMs)
 function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
   stepWorld(dt, true);
   secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); cloudHint(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
-  render();
+  { const t0 = performance.now(); render(); renderMs = renderMs * 0.95 + (performance.now() - t0) * 0.05; }
   warmRooms();
   requestAnimationFrame(frame);
 }
@@ -3396,7 +3424,7 @@ window.__sim = {
   stars: () => schoolStars(),
   inSchool: () => inSchool().length,
 };
-window.__test = { P, SLOTS, focusTile, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, get renderMs() { return renderMs; }, get staticN() { return staticN; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
