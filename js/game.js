@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=163';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=163';
+} from './data.js?v=164';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=164';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 163;   // keep equal to the ?v= number in index.html
+const BUILD = 164;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -361,7 +361,7 @@ function teacherGlow(tp, hh, col = 'rgba(255,244,205,0.6)') {   // soft light ar
 //  - when nobody waits for 3 s she goes to pin a note on the notice board.
 // secU = 0 at the counter, 1 at the trip's goal; enrolment waits until she is back (live only).
 let secIdle = 0, secLast = 0, secU = 0, secForms = 0, secTrip = null, secHold = 0, secClock = 0, secNext = 'shelf';
-const SEC_STAMPS = 3 * 0.55, SEC_WRITES = 2 * 1.5;
+const SEC_STAMPS = 3 * 0.85, SEC_WRITES = 2 * 1.6;   // every pose at least ~2.5 s (her rule 2026-11-22: nothing may flash by)
 function secretaryPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (secLast || now)); secLast = now;
   const waiting = processing || queue.some((q) => q.state === 'queue');
@@ -373,8 +373,8 @@ function secretaryPos() {
     if (secClock > SEC_STAMPS + SEC_WRITES) { secClock = 0; secTrip = secNext; secNext = secNext === 'shelf' ? 'board' : 'shelf'; }
   }
   let target = 0;
-  if (secTrip === 'shelf') { target = 1; if (secU >= 1) { secHold += dt; if (secHold > 0.6) { secTrip = 'back'; secHold = 0; } } }
-  else if (secTrip === 'board') { target = 1; if (secU >= 1) { secHold += dt; if (secHold > 1.8) { secTrip = 'back'; secHold = 0; } } }   // stays to pin the note, then comes back
+  if (secTrip === 'shelf') { target = 1; if (secU >= 1) { secHold += dt; if (secHold > 2.2) { secTrip = 'back'; secHold = 0; } } }
+  else if (secTrip === 'board') { target = 1; if (secU >= 1) { secHold += dt; if (secHold > 2.6) { secTrip = 'back'; secHold = 0; } } }   // stays to pin the note, then comes back
   else if (secTrip === 'back') { target = 0; if (secU <= 0) secTrip = null; }
   const sp = target ? 1 / 1.6 : 1 / 1.2;
   secU = target > secU ? Math.min(1, secU + sp * dt) : target < secU ? Math.max(0, secU - sp * dt) : secU;   // BUG fixed: at the goal she used to slip back every other frame (the jitter she saw)
@@ -389,18 +389,19 @@ function secretaryPos() {
   else if (secGoal === 'board' && secU > 0) pose = secU >= 1 ? 'pin' : 'walk';
   else pose = secClock < SEC_STAMPS ? 'stamp' : 'write';   // at the counter: writes ~1.7 s, stamps ~0.7 s, so both are seen even when enrolment is very fast
   secretaryPos.lastPose = pose;
-  const hit = pose === 'stamp' ? ((secClock % 0.55) > 0.38 ? 3 : -2) : 0;   // each stamp: raise, then thump down
+  const hit = pose === 'stamp' ? ((secClock % 0.85) > 0.6 ? 3 : -2) : 0;   // each stamp: raise, then thump down
   return { x: home.x + (goal.x - home.x) * k, y: home.y + (goal.y - home.y) * k, moving, left: false, pose, hit };   // never mirrored (her ruling)
 }
 let secGoal = 'board';
 function teacherWalk(i) {
   const b = teacherPos(i), s = slotOf(i), T = performance.now() / 1000 + i * 3.7;
   const span = Math.max(0.8, Math.min(2.2, (s.x1 - s.x0) / 2 - 1.4));
-  const ph = (T % 12) / 12;                                        // 12 s loop: walk, stop (3 s), walk back, stop
-  const u = ph < 0.25 ? ph / 0.25 : ph < 0.5 ? 1 : ph < 0.75 ? 1 - (ph - 0.5) / 0.25 : 0;
+  const ph = (T % 16) / 16;                                        // 16 s loop: walk 3 s, stop 5 s, walk back 3 s, stop 5 s
+  const W = 3 / 16, u = ph < W ? ph / W : ph < 0.5 ? 1 : ph < 0.5 + W ? 1 - (ph - 0.5) / W : 0;
   const x = b.x - span + 2 * span * (0.5 - 0.5 * Math.cos(u * Math.PI)), y = b.y + Math.sin(T * 0.7) * 0.25;
-  const moving = (ph < 0.25 || (ph >= 0.5 && ph < 0.75));
-  return { x, y, moving, left: ph >= 0.5 && ph < 0.75, stop: ph >= 0.75 ? 1 : 0, cyc: Math.floor(T / 12) };
+  const moving = (ph < W || (ph >= 0.5 && ph < 0.5 + W));
+  const inStop = ph >= 0.5 + W ? (ph - 0.5 - W) * 16 : ph >= W && ph < 0.5 ? (ph - W) * 16 : 0;
+  return { x, y, moving, left: ph >= 0.5 && ph < 0.5 + W, stop: ph >= 0.5 + W ? 1 : 0, cyc: Math.floor(T / 16), inStop };
 }
 const teacherPos = (i) => { const s = slotOf(i); return frontFacing(i) ? { x: s.x0 + (s.x1 - s.x0) / 2 + 0.6, y: s.y1 - 0.9 } : { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
 let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.75, y: REC.y0 + 3.3 };
@@ -493,6 +494,7 @@ function stepConcierge(dt) {
   const a = checkin; checkin = null;
   dormLine.shift(); dormLine.forEach(goDormLine);
   popup('📝', a.x, a.y, '#7b5cd6', 44);
+  conKeyAt = performance.now() / 1000;
   toBed(a);
 }
 function leaveSchool(a) {   // no room anywhere: the student is upset and goes home — and the school pays its fee back with a penalty
@@ -1106,7 +1108,9 @@ function teacherPose(i, tp) {
   const n = WORLD === 1 && STAFF_ART[CLASSES[i].id], l = n && TEACHER_POSES[n]; if (!l) return null;
   if (tp.moving && tp.left && TEACHER_FLY[n]) { const im = sprites[n + (Math.floor(performance.now() / 170) % 2 ? '_fly2' : '_fly1')]; if (im && im.complete && im.naturalWidth) return im; }   // flying back: wings flap
   if (tp.moving) { const b = sprites['staff_' + CLASSES[i].id]; return b && b.complete && b.naturalWidth ? b : null; }   // the standing picture, rocked or lifted by drawPose
-  const f = performance.now() - (passAt[i] || -1e9) < 1800 ? 'proud' : l[((tp.cyc || 0) * 2 + (tp.stop || 0)) % l.length];
+  // her report 2026-11-22 («переливание колбы ... буквально моргание»): in a busy class a pass came every second and the proud
+  // pose ate the whole stop. Now a stop pose always shows for its first 3.2 s; proud may only close a stop, once.
+  const f = tp.inStop > 3.2 && performance.now() - (passAt[i] || -1e9) < 4000 ? 'proud' : l[((tp.cyc || 0) * 2 + (tp.stop || 0)) % l.length];
   const im = sprites[n + '_' + f]; return im && im.complete && im.naturalWidth ? im : null;
 }
 const STAFF_GLOW = { lun: 'rgba(255,240,190,0.95)' }, STAFF_GLOW_ALL = 'rgba(255,244,205,0.6)';   // every teacher glows softly (her wish 2026-11-21), Lun a bit more   // drawn height: Lun is tall, Bubble small and round
@@ -1134,7 +1138,7 @@ function drawPose(im, x, y, H, flip, moving, style = 'waddle') {
 // with nobody to check in she yawns with her candle and now and then walks along the dorm wall to see that all sleep.
 const CON_POSES = ['write', 'key', 'yawn', 'walk'];
 for (const f of CON_POSES) { const im = new Image(); im.src = `assets/staff/con_${f}.png?v=1`; sprites['con_' + f] = im; }
-let conU = 0, conTrip = 0, conIdle = 0, conLast = 0;
+let conU = 0, conTrip = 0, conIdle = 0, conLast = 0, conKeyAt = -1e9;
 function conciergePos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (conLast || now)); conLast = now;
   conIdle = checkin || dormLine.length ? 0 : conIdle + dt;
@@ -1145,8 +1149,9 @@ function conciergePos() {
   const k = 0.5 - 0.5 * Math.cos(conU * Math.PI), far = { x: CONCIERGE.x - 0.1, y: CONCIERGE.y + 3.2 };
   let pose;
   if (conTrip) pose = 'walk';
-  else if (checkin) pose = checkinT / checkinTime() < 0.65 ? 'write' : 'key';
-  else pose = (now % 6) < 2 ? 'yawn' : 'write';
+  else if (now - conKeyAt < 2.5) pose = 'key';   // hands the key over for a while after each check-in (it used to flash by)
+  else if (checkin) pose = 'write';
+  else pose = (now % 8) < 2.6 ? 'yawn' : 'write';
   return { x: CONCIERGE.x + (far.x - CONCIERGE.x) * k, y: CONCIERGE.y + (far.y - CONCIERGE.y) * k, pose, moving: !!conTrip, flip: conTrip === 1 ? false : conTrip === -1 };
 }
 const conciergeAway = () => conU > 0.02;
@@ -1160,13 +1165,13 @@ function directorPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (dirLast || now)); dirLast = now;
   const s = SLOTS.DIR, home = { x: s.x0 + 2.0, y: s.y0 + 1.75 }, spot = { x: s.x0 + 4.3, y: s.y0 + 0.8 };
   if (!dirTrip) { dirClock += dt; if (dirClock > 10) { dirClock = 0; dirTrip = 1; } }
-  if (dirTrip === 1) { dirU = Math.min(1, dirU + dt / 2.4); if (dirU >= 1) { dirHold += dt; if (dirHold > 3) { dirHold = 0; dirTrip = -1; } } }
+  if (dirTrip === 1) { dirU = Math.min(1, dirU + dt / 2.4); if (dirU >= 1) { dirHold += dt; if (dirHold > 4) { dirHold = 0; dirTrip = -1; } } }
   else if (dirTrip === -1) { dirU = Math.max(0, dirU - dt / 2.4); if (dirU <= 0) dirTrip = 0; }
   const k = 0.5 - 0.5 * Math.cos(dirU * Math.PI);
   let pose = 'sign';
   if (dirTrip === 1) pose = dirU >= 1 ? 'think' : 'walk';
   else if (dirTrip === -1) pose = 'walk';
-  else if (dirClock < 1.6) pose = 'proud';   // back at his desk: raises the scepter for a moment
+  else if (dirClock < 3) pose = 'proud';   // back at his desk: raises the scepter for a moment
   return { x: home.x + (spot.x - home.x) * k, y: home.y + (spot.y - home.y) * k, pose, moving: dirU > 0 && dirU < 1, flip: dirTrip === -1 };
 }
 // The fox shopkeeper (her choice 2026-11-21: a curiosity shop): hands over the treat while a student is shopping,
@@ -1178,10 +1183,10 @@ function foxPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (foxLast || now)); foxLast = now;
   const s = SLOTS.SHOP, home = { x: s.x0 + 1.5, y: s.y0 + 1.5 }, shelf = { x: s.x0 + 3.4, y: s.y0 + 0.55 };
   const shopping = shopLine.length > 0;
-  if ((S.stats.shop || 0) > foxSold) { foxSold = S.stats.shop || 0; foxCoinsT = 1.4; }
+  if ((S.stats.shop || 0) > foxSold) { foxSold = S.stats.shop || 0; foxCoinsT = Math.max(foxCoinsT, 2.6); }
   foxCoinsT = Math.max(0, foxCoinsT - dt);
   if (!foxTrip && (!shopping || foxClock > 0)) { foxClock += dt; if (foxClock > 4) { foxClock = 0; foxTrip = 1; } }
-  if (foxTrip === 1) { foxU = Math.min(1, foxU + dt / 2.2); if (foxU >= 1) { foxHold += dt; if (foxHold > 1.2) { foxHold = 0; foxTrip = -1; } } }
+  if (foxTrip === 1) { foxU = Math.min(1, foxU + dt / 2.2); if (foxU >= 1) { foxHold += dt; if (foxHold > 2.6) { foxHold = 0; foxTrip = -1; } } }
   else if (foxTrip === -1) { foxU = Math.max(0, foxU - dt / 2.2); if (foxU <= 0) foxTrip = 0; }
   const k = 0.5 - 0.5 * Math.cos(foxU * Math.PI);
   let pose = 'polish';
@@ -1196,13 +1201,13 @@ function librarianPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (libLast || now)); libLast = now;
   const s = SLOTS.LIB, home = { x: s.x0 + 3.0, y: s.y1 - 1.25 }, shelf = { x: s.x0 + 1.0, y: s.y0 + 0.55 };
   if (!libTrip) { libClock += dt; if (libClock > 9) { libClock = 0; libTrip = 1; } }
-  if (libTrip === 1) { libU = Math.min(1, libU + dt / 2.6); if (libU >= 1) { libHold += dt; if (libHold > 1.6) { libHold = 0; libTrip = -1; } } }
+  if (libTrip === 1) { libU = Math.min(1, libU + dt / 2.6); if (libU >= 1) { libHold += dt; if (libHold > 2.8) { libHold = 0; libTrip = -1; } } }
   else if (libTrip === -1) { libU = Math.max(0, libU - dt / 2.6); if (libU <= 0) libTrip = 0; }
   const k = 0.5 - 0.5 * Math.cos(libU * Math.PI), readers = lib.filter(Boolean).length;
   let pose = 'read';
   if (libTrip === 1) pose = libU >= 1 ? 'shelve' : 'carry';
   else if (libTrip === -1) pose = 'read';
-  else if (readers >= 5 && libClock > 5.5 && libClock < 7.3) pose = 'shh';
+  else if (readers >= 5 && libClock > 5 && libClock < 8) pose = 'shh';
   return { x: home.x + (shelf.x - home.x) * k, y: home.y + (shelf.y - home.y) * k, pose, moving: libU > 0 && libU < 1, flip: pose === 'carry' };
 }
 function drawSecretary(so) {
