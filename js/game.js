@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=169';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=169';
+} from './data.js?v=170';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=170';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 169;   // keep equal to the ?v= number in index.html
+const BUILD = 170;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2545,7 +2545,7 @@ document.addEventListener('click', (e) => {
   if (d.cloudLoad !== undefined) { cloudLoad(); return; }
   if (d.backupRestore !== undefined) { restoreBackup(); return; }
   if (d.cloudCopy !== undefined) { navigator.clipboard?.writeText(cloudCode()).then(() => toast('Код скопирован'), () => window.prompt('Твой код:', cloudCode())); return; }
-  if (d.cloudOff !== undefined) { if (confirm('Отключить облако на этом устройстве? Прогресс здесь останется, просто перестанет сохраняться в облако.')) { localStorage.removeItem(CODE_KEY); cloudState = ''; openPanel(settingsPanel); } return; }
+  if (d.cloudOff !== undefined) { if (confirm('Отключить облако на этом устройстве? Прогресс здесь останется, просто перестанет сохраняться в облако.')) { localStorage.removeItem(CODE_KEY); localStorage.setItem('magicschool.cloudOff', '1'); cloudState = ''; openPanel(settingsPanel); } return; }
   if (d.tourAgain !== undefined) { closePanel(); showTour(0); return; }
   if (d.tourNext !== undefined) { showTour(tourStep + 1); return; }
   if (d.tourBack !== undefined) { showTour(tourStep - 1); return; }
@@ -2676,6 +2676,22 @@ function adopt(raw) {   // replace the local save with a cloud one and restart t
   else localStorage.setItem(SAVE_KEY, raw);
   location.reload();
 }
+// every player gets a cloud code automatically (her ruling 2026-11-22: «облачные сохранения были у всех сразу и не надо было
+// ничего для этого делать»); only an explicit «Отключить облако» on this device stops it (magicschool.cloudOff)
+async function cloudAuto() {
+  if (cloudCode() || localStorage.getItem('magicschool.cloudOff')) return;
+  localStorage.setItem(CODE_KEY, newCode());
+  await cloudPush(true);
+}
+function cloudHint() {   // once per device: show the code so the player can write it down
+  if (!cloudCode() || localStorage.getItem('magicschool.cloudShown') || tourStep >= 0 || panel || !S || (S.stats.enrolled || 0) < 3) return;
+  localStorage.setItem('magicschool.cloudShown', '1');
+  openPanel(() => `<div class="sh-head"><span class="remoji big">☁️</span><div><h2>Твоя школа сохраняется в облако</h2><div class="muted">Сама, ничего делать не нужно</div></div><button class="x" data-close>✕</button></div>
+    <p>Это код твоей школы. Запиши его или скопируй себе в заметки: по нему школа откроется на другом телефоне или если игра пропадёт.</p>
+    <div class="cloud-code">${cloudCode()}</div>
+    <button class="btn wide" data-cloud-copy>📋 Скопировать код</button>
+    <p class="muted">Код всегда можно посмотреть в ⚙️ → «Облачное сохранение».</p>`);
+}
 async function cloudPull() {   // a newer save made on another device wins
   const code = cloudCode(); if (!code) return false;
   try {
@@ -2688,7 +2704,7 @@ async function cloudPull() {   // a newer save made on another device wins
   return false;
 }
 async function cloudCreate() {
-  const code = newCode(); localStorage.setItem(CODE_KEY, code);
+  const code = newCode(); localStorage.setItem(CODE_KEY, code); localStorage.removeItem('magicschool.cloudOff');
   await cloudPush(true);
   openPanel(settingsPanel);
   toast(cloudState.startsWith('сохранено') ? '☁️ Прогресс в облаке! Запиши код' : '⚠️ ' + cloudState);
@@ -2704,7 +2720,7 @@ async function cloudLoad() {
   const msg = `По коду: ${fmt(gr(rem.data))} выпускников. На этом устройстве: ${fmt(gr(localBundle()))}.
 ` + (there < here ? 'ВНИМАНИЕ: по коду прогресса МЕНЬШЕ, чем здесь! Всё равно загрузить? (Твой прогресс отсюда сохранится в запасной копии в ⚙️)' : 'Загрузить прогресс по коду? Прогресс этого устройства сохранится в запасной копии в ⚙️.');
   if (!confirm(msg)) return;
-  localStorage.setItem(CODE_KEY, code);
+  localStorage.setItem(CODE_KEY, code); localStorage.removeItem('magicschool.cloudOff'); localStorage.setItem('magicschool.cloudShown', '1');
   adopt(rem.data);
 }
 function cloudBlock() {
@@ -2742,7 +2758,7 @@ let earnedThisSec = 0, secT = 0, saveT = 0, last = performance.now(), panelT = 0
 function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
   stepWorld(dt, true);
-  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); }
+  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); cloudHint(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
   render();
@@ -2915,5 +2931,5 @@ resize();
 updateHud();
 if (!S.tourDone && WORLD === 1) setTimeout(() => { closePanel(); showTour(0); }, 600);
 requestAnimationFrame(frame);
-if (localStorage.getItem('magicschool.forcePush')) { localStorage.removeItem('magicschool.forcePush'); cloudForce(); } else cloudPull();
+if (localStorage.getItem('magicschool.forcePush')) { localStorage.removeItem('magicschool.forcePush'); cloudForce(); } else if (cloudCode()) cloudPull(); else cloudAuto();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});   // always look for a new service worker
