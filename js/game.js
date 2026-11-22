@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=239';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=239';
+} from './data.js?v=240';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=240';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 239;   // keep equal to the ?v= number in index.html
+const BUILD = 240;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -151,8 +151,8 @@ function startCamp(k) {
   arrivalT = Math.min(arrivalT, arrivalInterval());
   toast(`${CAMPS[k].emo} Акция «${CAMPS[k].name}» началась на 5 минут!`); save();
 }
-// parents' letters: every 8-15 minutes of play one complaint; three answers; 10 minutes without an answer = a refusal
-const MAIL_FIRST = 300, MAIL_MIN = 480, MAIL_MAX = 900, MAIL_AUTO = 600, REP_MAX = 5;
+// parents' letters: every 8-15 minutes of play one complaint; three answers; no deadline since build 240 (only while the game is on screen)
+const MAIL_FIRST = 300, MAIL_MIN = 480, MAIL_MAX = 900, REP_MAX = 5;
 const MAILS = [
   ['⏳', 'Мой ребёнок целый час простоял в очереди у класса и так и не попал на урок!'],
   ['🛏️', 'Нам написали, что пришлось ночевать в общежитии, потому что в классе не было места. Мы платили не за это!'],
@@ -172,13 +172,13 @@ function stepBoss(dt, live) {
   const B = boss();
   if (B.camp && B.camp.k && Date.now() >= B.camp.end) { if (live) toast(`${CAMPS[B.camp.k].emo} Рекламная акция закончилась`); B.camp.k = null; dirtyPanel = true; }
   const M = B.mail;
-  if (M.cur) { if (live) { M.cur.t = (M.cur.t || 0) + dt; if (M.cur.t >= MAIL_AUTO) answerMail('no', true); } return; }   // the letter waits while the game is closed
+  if (M.cur) { if (live) M.cur.t = (M.cur.t || 0) + dt; return; }   // build 240 (her «10 мин это слишком жестко»): no deadline, the letter simply waits for an answer; no new letter meanwhile
   if (!live || calm() || S.stats.graduated < 20 || tourStep >= 0) return;   // only while playing; the calm mode has no complaints either
   M.t -= dt; if (M.t > 0) return;
   M.t = MAIL_MIN + Math.random() * (MAIL_MAX - MAIL_MIN);
   M.cur = { m: Math.floor(Math.random() * MAILS.length), name: rnd(NAMES), t: 0 };
   toast('✉️ Письмо от родителей! Загляни в кабинет директора'); try { navigator.vibrate?.(60); } catch (e) { /* no vibration */ }
-  hintOnce('mail', '✉️', 'Письмо от родителей', 'Родители учеников иногда жалуются директору. Над кабинетом директора 👑 появляется конверт ✉️: нажми на кабинет и ответь. Можно вернуть деньги, пригласить на открытый урок или отказать. От ответа зависят настроение учеников и репутация школы (она меняет награду инспектора). Если не ответить за 10 минут, это считается отказом.');
+  hintOnce('mail', '✉️', 'Письмо от родителей', 'Родители учеников иногда жалуются директору. Над кабинетом директора 👑 появляется конверт ✉️: нажми на кабинет и ответь. Можно вернуть деньги, пригласить на открытый урок или отказать. От ответа зависят настроение учеников и репутация школы (она меняет награду инспектора). Письмо подождёт, пока ты ответишь, а новые не придут, пока не ответишь на это.');
   dirtyPanel = true;
 }
 let mailResult = '';
@@ -204,7 +204,7 @@ function bossBlock() {   // the routine part of the director's panel
   const B = boss(), M = B.mail, cn = campNow(), w = campWait();
   let h = '';
   if (M.cur) { const [e, t] = MAILS[M.cur.m] || MAILS[0];
-    h += `<div class="card up"><span class="remoji">✉️</span><div class="grow"><b>Письмо от родителей ученика ${M.cur.name}</b><div>${e} «${t}»</div><div class="muted">Ответить надо за ${mmss(MAIL_AUTO - M.cur.t)}</div></div></div>
+    h += `<div class="card up"><span class="remoji">✉️</span><div class="grow"><b>Письмо от родителей ученика ${M.cur.name}</b><div>${e} «${t}»</div><div class="muted">Письмо подождёт, отвечай когда удобно</div></div></div>
       <button class="btn wide" data-cost="${mailPayCost()}" data-act="mail" data-k="pay">💐 Извиниться и вернуть деньги <span class="cost">🪙${fmt(mailPayCost())}</span></button>
       <button class="btn ghost wide" data-act="mail" data-k="lesson">🎓 Пригласить на открытый урок <span class="cost">60%</span></button>
       <button class="btn ghost wide" data-act="mail" data-k="no">🙅 Отказать</button>`; }
