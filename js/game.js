@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=246';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=246';
+} from './data.js?v=247';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=247';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 246;   // keep equal to the ?v= number in index.html
+const BUILD = 247;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1588,7 +1588,7 @@ function renderInsp() {
     : `<button class="ipill" data-insp>⭐ ${schoolStars()}</button>`;   // the warning itself is the banner below (iwarn)   // the warning names what will be checked (her report 2026-11-21)
   const warn = !c && !calm() && I.next ? `<button class="iwarn" data-insp>🧐 Через ${mmss(I.t)} придёт инспектор<br><b>Проверит: ${inspNextText(I.next)}</b></button>` : '';   // full text of what will be checked, 40 s ahead (her wish 2026-11-21)
   const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
-  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button>` + html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + res + warn;
+  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button><button class="ipill rate" data-top aria-label="Топ школ">🏆</button>` + html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + res + warn;
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }   // in-place update: icons are never re-created (they blinked)
 }
 function stepWorld(dt, live = false) {
@@ -3325,7 +3325,6 @@ function settingsPanel() {
     <p>Экзаменов сдано: ${S.stats.passed} · не сдано: ${S.stats.failed} · выпускников: ${S.stats.graduated}</p>
     <h3>🎵 Музыка</h3><button class="btn ghost wide" data-music="${musicOn() ? 0 : 1}">${musicOn() ? '🔇 Выключить музыку' : '🎵 Включить музыку'}</button>
     <h3>😌 Спокойный режим</h3>${calmBlock()}
-    <h3>🏆 Топ школ</h3><button class="btn ghost wide" data-top>🏆 Топ школ и название твоей школы</button>
     ${cloudBlock()}
     <h3>Отзыв</h3>
     <input id="fb-name" class="fb" placeholder="Твоё имя" value="${(localStorage.getItem('magicschool.name') || '').replace(/"/g, '&quot;')}">
