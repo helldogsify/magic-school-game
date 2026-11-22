@@ -38,7 +38,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !a.mcls).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed })),
+    agents: agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !a.mcls && !(a.goal && a.goal.t === 'tw')).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -3655,6 +3655,7 @@ function restoreWorld(teleport = false) {
   arrivalT = w.arrivalT ?? 1; procT = 0;
   const byId = new Map();
   for (const o of w.agents) {
+    if (o.goal && o.goal.t === 'tw') continue;   // walkers into the tower / back to a helper place / home from a retake are only for the eye (the record is already there): after a reload they froze in place (her screenshot 2026-11-22)
     const a = { ...o, z: 0, path: [], onArrive: null, flip: false, ph: Math.random() * 6 };
     const broken = !Number.isFinite(a.x) || !Number.isFinite(a.y);   // saves from builds <= 85 could hold NaN (saved as null) positions
     if (broken) { a.x = GATE_TILE.x; a.y = GATE_TILE.y; }
