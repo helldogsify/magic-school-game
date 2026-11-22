@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=227';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=227';
+} from './data.js?v=228';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=228';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 227;   // keep equal to the ?v= number in index.html
+const BUILD = 228;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -155,6 +155,11 @@ const ART = {                                               // room pictures wit
 // on the back walls and furniture placed on the floor by the engine. A themed room replaces its painted picture.
 const THEMES = {
   // World 2, Hall of Runes (her approved mood concept art/concepts/w2/hall_runes_v1.jpg): cold granite, glowing rune tablets, braziers
+  // World 2, the mine (Штольня; her plan 2026-11-22): rock walls with timber, a tunnel mouth with rails instead of a board,
+  // students dig at glowing ore veins, the teacher by a big ore cart with a winch
+  mine: { w2: true, dir: 'assets/parts/mine/', wallTiles: 4, floorTiles: 3, board: 'tunnel', isoOnly: true, iso: true,
+    decor: ['lantern', 'map', 'rack', 'sign', 'rope'], back: ['ore_heap', 'barrels'], side: ['logs', 'post_lantern'], front: [], rug: '',
+    stations: ['ore_orange', 'ore_blue', 'ore_green'], teacherProp: 'cart_winch', h: { ore_heap: 30, barrels: 34, logs: 26, post_lantern: 46, ore_orange: 26, ore_blue: 26, ore_green: 26, cart_winch: 40 } },
   runes: { w2: true, dir: 'assets/parts/runes/', wallTiles: 4, floorTiles: 3, board: 'board', isoOnly: true, iso: true,
     decor: ['torch', 'shield', 'banner', 'niche', 'plaque'], back: ['brazier', 'brazier'], side: ['bookcase', 'runestone'], front: [], rug: '',
     stations: ['st_blue', 'st_teal', 'st_violet'], teacherProp: 'rune_altar', h: { bookcase: 50, brazier: 36, runestone: 30, rune_altar: 40, st_blue: 24, st_teal: 24, st_violet: 24 } },
@@ -227,7 +232,7 @@ const THEMES = {
     extras: (s) => [{ n: 'globe', x: s.x0 + 0.5, y: s.y0 + 0.5 }, { n: 'book_pile', x: s.x1 - 0.6, y: s.y0 + 0.6 }, { n: 'lib_desk', x: s.x0 + 3, y: s.y1 - 0.45 }, { n: 'plant', x: s.x0 + 0.5, y: s.y1 - 0.5 }] },
 };
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
-const DECOR = { shield: { w: 0.8, lo: 0.4, deep: 0.8 }, niche: { w: 0.8, lo: 0.25, deep: 1.0 }, plaque: { w: 0.75, lo: 0.35, deep: 0.8 }, menu: { w: 0.8, lo: 0.3, deep: 0.8 }, plates: { w: 1.1, lo: 0.35, deep: 1.4 }, pots: { w: 1.1, lo: 0.4, deep: 1.2 }, dried_herbs: { w: 0.8, lo: 0.35, deep: 1.2 }, stained: { w: 0.95, lo: 0.3, deep: 0.6 }, masters_art: { w: 1.4, lo: 0.32, deep: 0.7 }, trophies: { w: 1.3, lo: 0.4, deep: 1.4 }, jar_shelf: { w: 1.1, lo: 0.25, deep: 1.3 }, toy_rack: { w: 1.2, lo: 0.4, deep: 1.4 }, owl_clock: { w: 0.7, lo: 0.45, deep: 1.2 }, flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9, lo: 0.55, deep: 1.6 }, portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
+const DECOR = { tunnel: { w: 2.4, lo: 0.0, deep: 1.0 }, rack: { w: 1.0, lo: 0.35, deep: 1.0 }, sign: { w: 0.7, lo: 0.4, deep: 0.6 }, rope: { w: 0.45, lo: 0.3, deep: 1.0 }, shield: { w: 0.8, lo: 0.4, deep: 0.8 }, niche: { w: 0.8, lo: 0.25, deep: 1.0 }, plaque: { w: 0.75, lo: 0.35, deep: 0.8 }, menu: { w: 0.8, lo: 0.3, deep: 0.8 }, plates: { w: 1.1, lo: 0.35, deep: 1.4 }, pots: { w: 1.1, lo: 0.4, deep: 1.2 }, dried_herbs: { w: 0.8, lo: 0.35, deep: 1.2 }, stained: { w: 0.95, lo: 0.3, deep: 0.6 }, masters_art: { w: 1.4, lo: 0.32, deep: 0.7 }, trophies: { w: 1.3, lo: 0.4, deep: 1.4 }, jar_shelf: { w: 1.1, lo: 0.25, deep: 1.3 }, toy_rack: { w: 1.2, lo: 0.4, deep: 1.4 }, owl_clock: { w: 0.7, lo: 0.45, deep: 1.2 }, flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9, lo: 0.55, deep: 1.6 }, portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
 const PROP_H = { fire_ped: 42, water_ped: 42, earth_ped: 42, air_ped: 42, sofa: 22, gold_chair: 30, lectern: 32, moon_plant: 40, toy_table: 34, quill_barrel: 34, candy_stand: 32, book_crate: 26, floss_cauldron: 30, desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
@@ -1010,9 +1015,10 @@ const SP_NAMES = { mothfox: 'Лисичка-мотылёк', petalear: 'Ушас
   mossmole: 'Мшистик', owlbat: 'Сумрачный совёнок', quartzhog: 'Кварцевый ёжик', batbunny: 'Медный крольчонок', geosnail: 'Улитка-жеода', axolotl: 'Пещерный тритон' };
 const SP_H = { geosnail: 0.72, axolotl: 0.85, owlbat: 1.05 };   // world-2 creatures: wide ones are drawn lower so they do not look huge
 const SP_GLOW = { owlbat: 1, quartzhog: 1, mossmole: 1 };      // dark creatures get a soft rim light in the dark halls
-const RANKS = ['Новичок', 'Ученик', 'Младший маг', 'Маг', 'Старший маг', 'Мастер'];
-const RANKS_TO = ['новичком', 'учеником', 'младшим магом', 'магом', 'старшим магом', 'мастером'];
-const ELEMS = [{ name: 'огня', emo: '🔥', col: '255,106,43' }, { name: 'воды', emo: '💧', col: '63,169,245' }, { name: 'земли', emo: '🌱', col: '90,160,44' }, { name: 'воздуха', emo: '🌪️', col: '255,120,190' }];
+// world 2 has dwarven ranks, not mages (her remark 2026-11-22: «наверное же уже тут не маги»)
+const RANKS = WORLD === 2 ? ['Новичок', 'Подмастерье', 'Мастеровой', 'Умелец', 'Старший мастер', 'Хранитель'] : ['Новичок', 'Ученик', 'Младший маг', 'Маг', 'Старший маг', 'Мастер'];
+const RANKS_TO = WORLD === 2 ? ['новичком', 'подмастерьем', 'мастеровым', 'умельцем', 'старшим мастером', 'хранителем'] : ['новичком', 'учеником', 'младшим магом', 'магом', 'старшим магом', 'мастером'];
+const ELEMS = [{ name: WORLD === 2 ? 'горна' : 'огня', emo: '🔥', col: '255,106,43' }, { name: WORLD === 2 ? 'глубин' : 'воды', emo: '💧', col: '63,169,245' }, { name: WORLD === 2 ? 'камня' : 'земли', emo: '🌱', col: '90,160,44' }, { name: WORLD === 2 ? 'ветров' : 'воздуха', emo: '🌪️', col: '255,120,190' }];
 const RANK_AT = (i) => (CLASSES[i].final ? 5 : [1, 1, 2, 2, 3, 4][i] || 0);   // the rank exam each class holds
 const RANK_BASE = [0, 0.30, 0.20, 0.12, 0.05, 0.025];    // chance at upgrade level 0 (rank 5: all four elements together)
 const RANK_STEP = [0, 0.01, 0.01, 0.01, 0.01, 0.004];   // + per «Шанс экзамена» level
@@ -1067,8 +1073,8 @@ function rankTry(a, i, p) {   // the rank exam right after a passed lesson
 function rankSection(i) {   // the class panel part about the rank exam held here
   const T = RANK_AT(i); if (!T) return '';
   const st = S.classes[i], ch = rankChance(i);
-  const who = T === 5 ? 'Старший маг → Мастер стихии' : `${RANKS[T - 1]} → ${RANKS[T]}`;
-  const cells = T === 5 ? ELEMS.map((e) => `<div><span>${e.emo}</span><b>${(ch / 4 * 100).toFixed(1).replace('.0', '')}%</b><i>мастер ${e.name}</i></div>`).join('')
+  const who = T === 5 ? (WORLD === 2 ? 'Старший мастер → Хранитель горы' : 'Старший маг → Мастер стихии') : `${RANKS[T - 1]} → ${RANKS[T]}`;
+  const cells = T === 5 ? ELEMS.map((e) => `<div><span>${e.emo}</span><b>${(ch / 4 * 100).toFixed(1).replace('.0', '')}%</b><i>${WORLD === 2 ? 'хранитель' : 'мастер'} ${e.name}</i></div>`).join('')
     : `<div><span>🌟</span><b>${pct(ch)}</b><i>сдают</i></div><div><span>🎯</span><b>${fmt(st.rkPass || 0)}</b><i>получили</i></div><div><span>💰</span><b>×${RANK_MUL[T]}</b><i>плата</i></div>`;
   return `<h3>Экзамен на звание</h3><p class="muted">После урока его пробуют только ученики со званием «${RANKS[T - 1]}»: <b>${who}</b>.</p>
     <div class="stats3${T === 5 ? ' four' : ''}">${cells}</div>
