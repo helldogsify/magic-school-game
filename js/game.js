@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=222';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=222';
+} from './data.js?v=223';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=223';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 222;   // keep equal to the ?v= number in index.html
+const BUILD = 223;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -319,6 +319,21 @@ function roomNear(x, y, side) {   // a room close behind, beside or ahead along 
   for (let dx = -3; dx <= (side === 'y0' ? 1 : -1); dx++) for (let dy = -3; dy <= (side === 'x0' ? 1 : -1); dy++) { const r = regAt(x + dx, y + dy); if (r && r !== 'hall' && r !== 'path') return true; }
   return false;
 }
+function dropLooseHallWalls() {   // a tall corridor wall must join another tall wall at both ends, or it stands with a free end in the air (her «Корявая стена» on 221)
+  const ends = (e) => (e.side === 'x0' ? [[e.x, e.y], [e.x, e.y + 1]] : e.side === 'y0' ? [[e.x, e.y], [e.x + 1, e.y]] : []);
+  for (const side of ['x0', 'y0']) {
+    const W = EDGES.filter((e) => e.hallWall && e.side === side), seen = new Set();
+    for (const e0 of W) {
+      if (seen.has(e0)) continue;
+      const run = W.filter((e) => (side === 'x0' ? e.x === e0.x : e.y === e0.y)).sort((p, q) => (side === 'x0' ? p.y - q.y : p.x - q.x));
+      let k = run.indexOf(e0), a = k, b = k; while (a > 0 && (side === 'x0' ? run[a - 1].y === run[a].y - 1 : run[a - 1].x === run[a].x - 1)) a--; while (b < run.length - 1 && (side === 'x0' ? run[b + 1].y === run[b].y + 1 : run[b + 1].x === run[b].x + 1)) b++;
+      const part = run.slice(a, b + 1); part.forEach((e) => seen.add(e));
+      const p0 = ends(part[0])[0], p1 = ends(part[part.length - 1])[1];
+      const joined = (pt) => EDGES.some((e) => e.tall && !part.includes(e) && ends(e).some(([x, y]) => x === pt[0] && y === pt[1]));
+      if (!joined(p0) || !joined(p1)) part.forEach((e) => { e.tall = false; e.hallWall = false; e.wallTheme = undefined; });
+    }
+  }
+}
 function dropShortHallWalls() {   // a tall corridor wall shorter than 3 tiles looks like a stray piece: back to a knee wall
   for (const side of ['x0', 'y0']) {
     const W = EDGES.filter((e) => e.hallWall && e.side === side), key = (e) => (side === 'y0' ? e.y + ':' + e.x : e.x + ':' + e.y);
@@ -350,6 +365,7 @@ function buildEdges() {
     }
   }
   dropShortHallWalls();
+  dropLooseHallWalls();
 }
 genLayout(); buildGrid(); buildEdges(); decorateEdges();
 const gardenBlocked = (x, y) => { const g = SLOTS.GARDEN; return WORLD === 1 && g && x - g.x0 >= 2 && x - g.x0 <= 3 && y - g.y0 >= 2 && y - g.y0 <= 3; };   // the fountain's 2x2 tiles
@@ -1734,9 +1750,13 @@ function drawOut(o) {
 // ======================= corridors (roadmap step 2, last part; her «Да, можно коридоры делать. Да покрасивше») =======================
 // Herringbone parquet with star inlays on every inner corridor tile (the pink runner stays), free-standing furniture along the
 // corridor edges every few tiles (never near a door or a queue), and floating candles drifting over the corridors (code).
-const CORR_H = { monstera: 44, lavender_pot: 32, bench: 32, armor: 54, globe: 40, bookcase: 44, candelabra: 52, noticeboard: 42, portrait: 44 };
-const CORR_SET = ['monstera', 'bench', 'globe', 'lavender_pot', 'portrait', 'armor', 'bookcase', 'noticeboard', 'candelabra'];
-for (const n of ['floor', ...Object.keys(CORR_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/corridor/${n}.webp?v=1`; parts['corridor/' + n] = im; }
+// world 2: dark granite slabs and dwarven things (armour, barrels, crates, anvil, weapon rack, brazier, crystal, candles, bench)
+const CORR_H = WORLD === 2 ? { armor: 56, barrels: 36, crates: 40, anvil: 34, weapon_rack: 46, brazier: 44, crystal_ped: 46, candle_stand: 58, bench: 26 }
+  : { monstera: 44, lavender_pot: 32, bench: 32, armor: 54, globe: 40, bookcase: 44, candelabra: 52, noticeboard: 42, portrait: 44 };
+const CORR_SET = WORLD === 2 ? ['armor', 'barrels', 'brazier', 'crates', 'weapon_rack', 'crystal_ped', 'anvil', 'candle_stand', 'bench']
+  : ['monstera', 'bench', 'globe', 'lavender_pot', 'portrait', 'armor', 'bookcase', 'noticeboard', 'candelabra'];
+const CORR_DIR = WORLD === 2 ? 'corridor_w2' : 'corridor';
+for (const n of ['floor', ...Object.keys(CORR_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/${CORR_DIR}/${n}.webp?v=1`; parts['corridor/' + n] = im; }
 let CORR = [], CANDLES = [], corrKey = '';
 function layoutCorridor() {
   const key = outKey + '|' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0).join(';'); if (key === corrKey) return; corrKey = key;
@@ -1749,7 +1769,7 @@ function layoutCorridor() {
   const cand = [];
   for (let x = BUILDING.x0; x < BUILDING.x1; x++) for (let y = BUILDING.y0; y < BUILDING.y1; y++) {
     if (!inside(x, y) || (x >= 14 && x <= 16) || nearDoor(x, y)) continue;
-    const wy = tall.has(x + ',' + y + ',y0'), wx = tall.has(x + ',' + y + ',x0'); if (!wy && !wx) continue;
+    const wy = WORLD === 2 ? !inside(x, y - 1) && regAt(x, y - 1) !== null : tall.has(x + ',' + y + ',y0'), wx = WORLD === 2 ? !inside(x - 1, y) && regAt(x - 1, y) !== null : tall.has(x + ',' + y + ',x0'); if (!wy && !wx) continue;   // world 2: no tall corridor walls, things stand by the room walls
     if (!inside(x + 1, y) || !inside(x, y + 1) || (wy && !wx && !inside(x - 1, y)) || (wx && !wy && !inside(x, y - 1))) continue;   // open on the near sides
     cand.push([x, y, wy, wx]);
   }
@@ -1812,13 +1832,13 @@ function drawStatic() {
   c.fillStyle = '#a9d98f'; c.fillRect(0, 0, WW, WH);
   { const g = WORLD <= 2 && GRASS_ON && grassPat(c); if (g) { c.fillStyle = g; c.fillRect(0, 0, WW, WH); } else { c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2); } }
   const stone = WORLD <= 2 && isoPat(c, 'path', 3);
-  const corrFloor = WORLD === 1 && (() => { const pt = pat(c, 'corridor', 'floor'); if (!pt) return null; const T = part('corridor', 'floor').naturalWidth / 3, o = P(0, 0); pt.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, o.x, o.y])); return pt; })();
+  const corrFloor = WORLD <= 2 && (() => { const pt = pat(c, 'corridor', 'floor'); if (!pt) return null; const T = part('corridor', 'floor').naturalWidth / 3, o = P(0, 0); pt.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, o.x, o.y])); return pt; })();
   // halls
   for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) {
     const rid = regAt(x, y); if (rid !== 'hall' && rid !== 'path') continue;
     const inside = rid === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
-    const carpet = WORLD !== 1 && inside && x >= 14 && x <= 16 && y > BUILDING.y0;   // world 1: no pink runner any more, parquet everywhere (her «Зачем розовая полоса плитки по коридору»)
-    if (inside && !carpet && WORLD === 1 && corrFloor) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = corrFloor; c.fill(); continue; }   // parquet with star inlays
+    const carpet = WORLD > 2 && inside && x >= 14 && x <= 16 && y > BUILDING.y0;   // world 1: no pink runner any more, parquet everywhere (her «Зачем розовая полоса плитки по коридору»)
+    if (inside && !carpet && WORLD <= 2 && corrFloor) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = corrFloor; c.fill(); continue; }   // parquet with star inlays
     const col = carpet ? (y % 2 ? '#d98f97' : '#dd979f') : inside ? (x % 2 ? '#d7a46e' : '#dcab76') : ((x + y) % 2 ? '#e9dcc4' : '#efe4cf');
     if (!inside && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); continue; }   // outdoor paths: rune flagstones
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
@@ -2639,7 +2659,7 @@ function render() {
   const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
-  if (WORLD === 1) { layoutCorridor(); for (const o of CORR) add(o.x, o.y, () => drawCorr(o)); }
+  if (WORLD <= 2) { layoutCorridor(); for (const o of CORR) add(o.x, o.y, () => drawCorr(o)); }
   if (WORLD <= 2 && OUT_ON) { layoutOutdoor(); drawEntrancePath();   // cheap pre-check with the cached screen point before the full add()
     const vx0 = VIEW.x0 - 140, vx1 = VIEW.x1 + 140, vy0 = VIEW.y0 - 20, vy1 = VIEW.y1 + 220;
     const vis = []; for (const o of OUTDOOR) { if (o.px === undefined) { const m = P(o.x, o.y); o.px = m.x; o.py = m.y; } if (o.px < vx0 || o.px > vx1 || o.py < vy0 || o.py > vy1) continue; vis.push(o); }
@@ -2773,7 +2793,7 @@ function render() {
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
   for (const f of fxTop) f();
   fxTop = [];
-  if (WORLD === 1) drawCandles();
+  if (WORLD <= 2) drawCandles();
   drawSeals();
   // x-ray: every creature is drawn once more, faintly, on top: the ones hidden behind a wall show through as ghosts
   ctx.globalAlpha = 0.38;
