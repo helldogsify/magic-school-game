@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=193';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=193';
+} from './data.js?v=194';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=194';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 193;   // keep equal to the ?v= number in index.html
+const BUILD = 194;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1465,7 +1465,7 @@ function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.cl
 const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, toadhouse: 96, glowmush: 40, crystals: 44, berrybush: 44, fern: 38, hedge: 42, roses: 40, roses2: 40, boulder: 40, bells: 38,
   runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46 };   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
 const outLo = {};   // small copies (240 px tall) for the far view: downscaling an 800 px tree every frame is slow
-for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } }; im.src = `assets/parts/outdoor/${n}.webp?v=1`; parts['outdoor/' + n] = im; }
+for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } }; im.src = `assets/parts/outdoor/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
 let GRASS_ON = true, BG_OFF = false;
 const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 let OUTDOOR = [], outKey = '', OUT_ON = true;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
