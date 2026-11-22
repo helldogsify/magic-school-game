@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=258';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=258';
+} from './data.js?v=259';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=259';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 258;   // keep equal to the ?v= number in index.html
+const BUILD = 259;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -274,6 +274,11 @@ const THEMES = {
   gems: { w2: true, dir: 'assets/parts/gems/', wallTiles: 4, floorTiles: 3, board: 'gcab', isoOnly: true, iso: true,
     decor: ['cuts', 'gsconce', 'shelf', 'gtap', 'gcrys'], back: ['crystal_rock', 'chest'], side: ['drawers', 'scales'], front: [], rug: '',
     stations: ['wb_violet', 'wb_blue', 'wb_green'], teacherProp: 'geode', h: { crystal_rock: 30, chest: 26, drawers: 44, scales: 28, wb_violet: 24, wb_blue: 24, wb_green: 24, geode: 44 } },
+  // World 2, the guard hall (Зал стражей): granite with knotwork bands, a war banner in a stone ring instead of a board,
+  // students train at armoured dummies, the teacher by a stone table of weapons
+  guards: { w2: true, dir: 'assets/parts/guards/', wallTiles: 4, floorTiles: 3, board: 'gbanner', isoOnly: true, iso: true,
+    decor: ['shields', 'gtorch', 'axes', 'helm', 'warhorn'], back: ['gbrazier', 'sandbags'], side: ['spear_stand', 'shield_barrel'], front: [], rug: '',
+    stations: ['dummy_a', 'dummy_b', 'dummy_c'], teacherProp: 'arms_table', h: { gbrazier: 34, sandbags: 22, spear_stand: 44, shield_barrel: 30, dummy_a: 34, dummy_b: 34, dummy_c: 34, arms_table: 30 } },
   runes: { w2: true, dir: 'assets/parts/runes/', wallTiles: 4, floorTiles: 3, board: 'board', isoOnly: true, iso: true,
     decor: ['torch', 'shield', 'banner', 'niche', 'plaque'], back: ['brazier', 'brazier'], side: ['bookcase', 'runestone'], front: [], rug: '',
     stations: ['st_blue', 'st_teal', 'st_violet'], teacherProp: 'rune_altar', h: { bookcase: 50, brazier: 36, runestone: 30, rune_altar: 40, st_blue: 24, st_teal: 24, st_violet: 24 } },
@@ -346,7 +351,7 @@ const THEMES = {
     extras: (s) => [{ n: 'globe', x: s.x0 + 0.5, y: s.y0 + 0.5 }, { n: 'book_pile', x: s.x1 - 0.6, y: s.y0 + 0.6 }, { n: 'lib_desk', x: s.x0 + 3, y: s.y1 - 0.45 }, { n: 'plant', x: s.x0 + 0.5, y: s.y1 - 0.5 }] },
 };
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
-const DECOR = { gcab: { w: 2.0, lo: 0.05, deep: 1.0 }, cuts: { w: 0.8, lo: 0.3, deep: 0.5 }, gsconce: { w: 0.45, lo: 0.45, deep: 1.2 }, gtap: { w: 0.8, lo: 0.3, deep: 0.5 }, gcrys: { w: 0.5, lo: 0.35, deep: 1.0 }, hearth: { w: 2.1, lo: 0.0, deep: 1.2 }, tongs: { w: 0.9, lo: 0.35, deep: 0.8 }, chain: { w: 0.4, lo: 0.3, deep: 0.8 }, tunnel: { w: 2.4, lo: 0.0, deep: 1.0 }, rack: { w: 1.0, lo: 0.35, deep: 1.0 }, sign: { w: 0.7, lo: 0.4, deep: 0.6 }, rope: { w: 0.45, lo: 0.3, deep: 1.0 }, shield: { w: 0.8, lo: 0.4, deep: 0.8 }, niche: { w: 0.8, lo: 0.25, deep: 1.0 }, plaque: { w: 0.75, lo: 0.35, deep: 0.8 }, menu: { w: 0.8, lo: 0.3, deep: 0.8 }, plates: { w: 1.1, lo: 0.35, deep: 1.4 }, pots: { w: 1.1, lo: 0.4, deep: 1.2 }, dried_herbs: { w: 0.8, lo: 0.35, deep: 1.2 }, stained: { w: 0.95, lo: 0.3, deep: 0.6 }, masters_art: { w: 1.4, lo: 0.32, deep: 0.7 }, trophies: { w: 1.3, lo: 0.4, deep: 1.4 }, jar_shelf: { w: 1.1, lo: 0.25, deep: 1.3 }, toy_rack: { w: 1.2, lo: 0.4, deep: 1.4 }, owl_clock: { w: 0.7, lo: 0.45, deep: 1.2 }, flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9, lo: 0.55, deep: 1.6 }, portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
+const DECOR = { gbanner: { w: 1.5, lo: 0.05, deep: 1.0 }, shields: { w: 1.2, lo: 0.3, deep: 0.8 }, gtorch: { w: 0.4, lo: 0.45, deep: 1.2 }, axes: { w: 0.9, lo: 0.3, deep: 0.8 }, helm: { w: 0.5, lo: 0.35, deep: 1.0 }, warhorn: { w: 0.8, lo: 0.35, deep: 0.8 }, gcab: { w: 2.0, lo: 0.05, deep: 1.0 }, cuts: { w: 0.8, lo: 0.3, deep: 0.5 }, gsconce: { w: 0.45, lo: 0.45, deep: 1.2 }, gtap: { w: 0.8, lo: 0.3, deep: 0.5 }, gcrys: { w: 0.5, lo: 0.35, deep: 1.0 }, hearth: { w: 2.1, lo: 0.0, deep: 1.2 }, tongs: { w: 0.9, lo: 0.35, deep: 0.8 }, chain: { w: 0.4, lo: 0.3, deep: 0.8 }, tunnel: { w: 2.4, lo: 0.0, deep: 1.0 }, rack: { w: 1.0, lo: 0.35, deep: 1.0 }, sign: { w: 0.7, lo: 0.4, deep: 0.6 }, rope: { w: 0.45, lo: 0.3, deep: 1.0 }, shield: { w: 0.8, lo: 0.4, deep: 0.8 }, niche: { w: 0.8, lo: 0.25, deep: 1.0 }, plaque: { w: 0.75, lo: 0.35, deep: 0.8 }, menu: { w: 0.8, lo: 0.3, deep: 0.8 }, plates: { w: 1.1, lo: 0.35, deep: 1.4 }, pots: { w: 1.1, lo: 0.4, deep: 1.2 }, dried_herbs: { w: 0.8, lo: 0.35, deep: 1.2 }, stained: { w: 0.95, lo: 0.3, deep: 0.6 }, masters_art: { w: 1.4, lo: 0.32, deep: 0.7 }, trophies: { w: 1.3, lo: 0.4, deep: 1.4 }, jar_shelf: { w: 1.1, lo: 0.25, deep: 1.3 }, toy_rack: { w: 1.2, lo: 0.4, deep: 1.4 }, owl_clock: { w: 0.7, lo: 0.45, deep: 1.2 }, flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9, lo: 0.55, deep: 1.6 }, portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
 const PROP_H = { fire_ped: 42, water_ped: 42, earth_ped: 42, air_ped: 42, sofa: 22, gold_chair: 30, lectern: 32, moon_plant: 40, toy_table: 34, quill_barrel: 34, candy_stand: 32, book_crate: 26, floss_cauldron: 30, desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
@@ -774,6 +779,7 @@ function route(a, i) {   // send a student on to class i, or to the dorm when it
   // her rule 2026-11-22: everybody stands at the door first, the dorm only when the door line is full.
   // Sleepers already woken and walking back keep their places (roomForWaker counts them), so nobody is overtaken.
   if (i < 0 || waitList[i].length < MAX_WAIT) { goClass(a, i); return true; }   // the door line decides, not the walkers (Sonya's report 2026-11-22: dorm full, lines empty)
+  if (courtRoom()) { goCourt(a, i); return true; }   // build 259: the court first (mood rises there), the dorm only when the court is full
   if (!dormFree()) { leaveSchool(a); return false; }
   popup('😢', a.x, a.y, '#5b7fd6', 44);
   goDorm(a, i);
@@ -783,12 +789,14 @@ function wakeSleepers() {   // the one who has waited longest goes back first
   // also those still on their way to the dorm or waiting at the concierge: when the door line has room they turn back
   // at once instead of checking in first (her rule 2026-11-22)
   const sl = []; for (let b = 0; b < DORM_CAP; b++) { const a = dorm[b]; if (a && a.goal && a.goal.t === 'd' && (a.state === 'sleep' || a.state === 'dline' || a.state === 'checkin' || a.state === 'walk')) sl.push(a); }
+  for (const a of courtList) if (!a.goal.brk) sl.push(a);   // build 259: those waiting in the court go back the same way (oldest first); a break ends by itself
   if (!sl.length) return;
   sl.sort((p, q) => (p.since || 0) - (q.since || 0));
   let moved = false;
   for (const a of sl) {
     let i = a.goal.i; if (!isOpen(i)) i = nextClass(i - 1);
     if (i >= 0 && !roomForWaker(i)) continue;
+    if (a.goal.t === 'k') { leaveCourt(a); a.woke = true; popup('😊', a.x, a.y, '#2f9e7a', 44); goClass(a, i); continue; }
     if (a.state !== 'sleep') {   // not checked in yet (or walking to the bed): leave the concierge line
       const k = dormLine.indexOf(a); if (k >= 0) { dormLine.splice(k, 1); moved = true; }
       if (checkin === a) { checkin = null; checkinT = 0; }
@@ -798,6 +806,73 @@ function wakeSleepers() {   // the one who has waited longest goes back first
   if (moved) dormLine.forEach((w) => { if (w.state === 'dline' || w.state === 'walk') goDormLine(w); });   // the line moves up
 }
 function nextClass(i) { for (let k = i + 1; k < CLASSES.length; k++) if (isOpen(k)) return k; return -1; }
+// ======================= the court (build 259, agreed plan «жизнь во дворе») =======================
+// A student whose class has no room at the door waits in the court instead of the dorm: mood rises there. The dorm takes
+// the overflow when the court is full. In the court they pass the time: chat on the benches, play tag round the fountain,
+// throw a coin into it, try wand sparks, feed the birds, read under a tree; each activity lasts at least 2.5 s.
+const courtList = [];
+const COURT_CAP0 = 14;
+const courtCap = () => (WORLD === 1 && COURT ? COURT_CAP0 : 0);
+const courtRoom = () => courtList.length < courtCap();
+const courtFor = (i) => courtList.reduce((n, a) => n + (a.goal && a.goal.i === i && !a.goal.brk ? 1 : 0), 0);
+const COURT_MOOD = 0.6;   // mood per second while waiting in the court
+const COURT_BREAK = 0.2;  // share of students who take a short break in the court after a lesson (the court stays alive when nobody waits)
+const courtBreakOk = () => courtCap() > 0 && courtList.length < courtCap() - 4;   // breaks leave room for those who really wait
+const COURT_ACTS = ['bench', 'bench', 'tag', 'coin', 'sparks', 'birds', 'read'];
+function courtSpots() {   // fixed points per activity (a small fixed set keeps the path cache warm)
+  if (courtSpots.ver === bfsVer && courtSpots.v) return courtSpots.v;
+  const c = courtC(), W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, ok = (p) => regAt(Math.floor(p.x), Math.floor(p.y)) === 'hall' && !courtBlocked(Math.floor(p.x), Math.floor(p.y));
+  const v = { bench: [], tag: [], coin: [], sparks: [], birds: [], read: [] };
+  [0.75, 2.36, 3.93, 5.5].forEach((an) => { const bx = c.x + Math.cos(an) * 3.6, by = c.y + Math.sin(an) * 3.6; v.bench.push({ x: bx + 0.45, y: by + 0.45 }, { x: bx - 0.45, y: by + 0.45 }); });
+  for (let k = 0; k < 8; k++) { const an = k * Math.PI / 4; v.tag.push({ x: c.x + Math.cos(an) * 2.7, y: c.y + Math.sin(an) * 2.7 }); }
+  for (let k = 0; k < 4; k++) { const an = k * Math.PI / 2 + Math.PI / 4; v.coin.push({ x: c.x + Math.cos(an) * 1.9, y: c.y + Math.sin(an) * 1.9 }); }
+  for (const [fx, fy] of [[0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // the lawn quarters (the top-left one is the graduates' garden)
+    const x = COURT.x0 + W * fx, y = COURT.y0 + H * fy;
+    v.read.push({ x: x + 0.9, y: y + 1.2 }, { x: x - 0.4, y: y + 1.6 });
+    v.birds.push({ x: x + 2.6, y: y - 1.4 }, { x: x - 2.4, y: y - 0.8 });
+    v.sparks.push({ x: x - 2.2, y: y + 2.4 }, { x: x + 2.2, y: y + 2.6 });
+  }
+  for (const k of Object.keys(v)) v[k] = v[k].filter(ok);
+  courtSpots.ver = bfsVer; courtSpots.v = v; return v;
+}
+function goCourt(a, i, brk = false) {
+  a.goal = { t: 'k', i, brk }; a.c = -1; if (!brk) a.since = a.since || Date.now(); a.bed = -1;
+  if (!courtList.includes(a)) courtList.push(a);
+  if (!brk) popup('⛲', a.x, a.y, '#3a9fd0', 44);
+  courtAct(a);
+}
+function leaveCourt(a) { const k = courtList.indexOf(a); if (k >= 0) courtList.splice(k, 1); a.act = null; }
+function courtAct(a) {   // pick the next activity and walk to its spot
+  const v = courtSpots(); let act = rnd(COURT_ACTS); if (!v[act] || !v[act].length) act = 'tag';
+  const l = v[act] || []; if (!l.length) { a.state = 'court'; a.act = 'idle'; a.t = 0; a.dur = 3; return; }
+  const p = rnd(l); a.act = act; a.laps = act === 'tag' ? 3 + Math.floor(Math.random() * 3) : 0;
+  a.state = 'walk'; walk(a, p.x + (Math.random() - 0.5) * 0.3, p.y + (Math.random() - 0.5) * 0.3, () => courtArrive(a));
+}
+function courtArrive(a) {
+  if (!(a.goal && a.goal.t === 'k')) return;
+  a.state = 'court'; a.t = 0;
+  if (a.act === 'tag') { a.dur = 0.35; return; }   // a short stop, then on round the fountain
+  a.dur = 2.6 + Math.random() * 2.4;
+  if (a.act === 'coin') { const c = courtC(); a.flip = (c.x - c.y) < (a.x - a.y); a.back = (c.x + c.y) < (a.x + a.y); }
+  else a.back = false;
+}
+function courtFx(a, x, y) {   // what each court activity shows (render only; every loop lasts 2.5 s or more)
+  const T = performance.now() / 1000 + a.id * 0.77, u = (T % 3) / 3;
+  if (a.act === 'bench') { if (u < 0.45) emoji(['💬', '💕', '😄', '🎶'][Math.floor(T / 3 + a.id) % 4], x + (a.id % 2 ? 12 : -12), y - 34 - u * 10, 11); }
+  else if (a.act === 'tag') { if (u < 0.3) emoji('😆', x - 12, y - 32, 10); }
+  else if (a.act === 'coin') { const f = Math.min(1, a.t / 1.2), c = courtC(), q = P(c.x, c.y), mx = x + (q.x - x) * f, my = y - 26 + (q.y - 30 - (y - 26)) * f - Math.sin(f * Math.PI) * 26;
+    if (f < 1) emoji('🪙', mx, my, 10); else if (a.t < 2.2) emoji('✨', q.x, q.y - 34 - (a.t - 1.2) * 8, 14); }
+  else if (a.act === 'sparks') { for (let k = 0; k < 3; k++) { const an = T * 2.1 + k * 2.094; emoji('✨', x + (a.flip ? -14 : 14) + Math.cos(an) * 8, y - 24 + Math.sin(an) * 5 - k * 2, 8 + 2 * Math.sin(T * 3 + k)); } }
+  else if (a.act === 'birds') { for (let k = 0; k < 2; k++) { const hop = Math.abs(Math.sin(T * 2.4 + k * 1.7)) * 5; emoji('🐦', x + (k ? 16 : -15), y + 4 - hop, 9); } }
+  else if (a.act === 'read') emoji('📖', x + (a.flip ? -11 : 11), y - 18, 11);
+}
+function stepCourt(a, dt) {
+  a.t += dt; if (a.t < a.dur) return;
+  if (a.act === 'tag' && a.laps-- > 0) { const v = courtSpots().tag, p = rnd(v); a.state = 'walk'; walk(a, p.x, p.y, () => courtArrive(a)); return; }
+  if (a.act === 'coin') { const c = courtC(); popup('🪙✨', c.x, c.y, '#d4a017', 50); }
+  if (a.goal.brk) { leaveCourt(a); route(a, a.goal.i); return; }   // the break is over: on to the next class
+  courtAct(a);
+}
 function goClass(a, i) {
   if (i < 0) { goGraduate(a); return; }
   const [, h] = slotOf(i).door;
@@ -954,7 +1029,9 @@ function leaveDesk(a) {
   deskOcc[i][a.desk] = null; a.desk = -1; a.state = 'walk';
   const n = nextClass(i);
   if (cantOpen() && SLOTS.CANT && n >= 0 && Math.random() < cantChance()) goCanteen(a, n);
-  else if (shopOpen() && n >= 0 && Math.random() < shopChance()) goShop(a, n); else route(a, n);
+  else if (shopOpen() && n >= 0 && Math.random() < shopChance()) goShop(a, n);
+  else if (n >= 0 && courtBreakOk() && Math.random() < COURT_BREAK) goCourt(a, n, true);   // build 259: a break in the court
+  else route(a, n);
   pullWaiting(i);
 }
 function pullWaiting(i) {
@@ -1061,7 +1138,8 @@ function giveUp(a) {   // too sad to keep waiting: frees its place and goes home
 }
 function stepMood(a, dt, live) {
   let d = 0;
-  if (a.state === 'study') d = incOf(a.c) ? -1.5 : 0.8;
+  if (a.goal && a.goal.t === 'k') d = COURT_MOOD;   // build 259: waiting in the court cheers them up
+  else if (a.state === 'study') d = incOf(a.c) ? -1.5 : 0.8;
   else if (a.state === 'read') d = 1.2;
   else if (MOOD_DROP[a.state] !== undefined) d = -MOOD_DROP[a.state] * (a.state === 'sleep' ? 1 - 0.05 * (dormUp().conc - 1) : 1) * careK(dirLvl('care'));   // a better dorm and the director's care keep them calmer
   if (d < 0 && !live) return;
@@ -1089,6 +1167,7 @@ function stepAgents(dt, live = false) {
     }
     if (a.state === 'study') { if (!incOf(a.c)) a.t += dt; if (a.t >= a.dur) finishLesson(a); }   // an incident stops the lesson
     else if (a.state === 'done') leaveDesk(a);
+    else if (a.state === 'court') stepCourt(a, dt);
     else if (a.state === 'read') { a.t += dt; if (a.t >= a.dur) finishReading(a); }
     else if (a.state === 'cantbuy') { a.t += dt; if (a.t >= a.dur) cantServed(a); }
     else if (a.state === 'eat') { a.t += dt; if (a.t >= a.dur) finishEating(a); }
@@ -1579,6 +1658,7 @@ function peoplePanel() {
     ['🛎️', 'в приёмной', n((a) => queue.includes(a))],
     ['📖', 'на уроках', n((a) => a.state === 'study')],
     ['🚪', 'в очереди у классов', n((a) => a.state === 'wait' || a.state === 'walkwait')],
+    ...(courtCap() ? [['⛲', 'ждут места во дворе', n((a) => a.goal && a.goal.t === 'k' && !a.goal.brk)], ['🌳', 'на перемене во дворе', n((a) => a.goal && a.goal.t === 'k' && a.goal.brk)]] : []),
     ['💤', 'в спальне ждут места', n((a) => a.state === 'sleep' || a.state === 'dline' || a.state === 'checkin' || (a.goal && a.goal.t === 'd'))],
     ['📚', 'в библиотеке', n((a) => a.state === 'read' || (a.goal && a.goal.t === 'l'))],
     ...(cantOpen() ? [['🍽️', 'в столовой', n((a) => a.goal && a.goal.t === 'cant')]] : []),
@@ -1641,15 +1721,15 @@ const sprites = {};
 // professors drawn one by one, each approved by Maria (class id -> file in assets/staff)
 const STAFF_ART = { herbs: 'moss', potions: 'bubble', stars: 'lun', charms: 'spark', flight: 'breeze', elements: 'storm', final: 'owl' };
 const STAFF_V = {granite: 2, burav: 2, hammer: 2, iskra: 2 };   // per-name cache version of redrawn staff sprites (world-2 grim style, her pick 2026-11-23)
-const STAFF_ART_W2 = { runes: 'granite', mine: 'burav', forge: 'hammer', gems: 'iskra' };   // world 2 teachers (her pick 2026-11-22: old dwarf rune master «Мастер Гранит»)
+const STAFF_ART_W2 = { runes: 'granite', mine: 'burav', forge: 'hammer', gems: 'iskra', guards: 'grom' };   // world 2 teachers (her pick 2026-11-22: old dwarf rune master «Мастер Гранит»)
 const staffOf = (cid) => (WORLD === 1 ? STAFF_ART : WORLD === 2 ? STAFF_ART_W2 : {})[cid];   // per world: world-2 'final' must not take the owl
-const STAFF_H = { iskra: 50, hammer: 56, burav: 54, granite: 54, moss: 58, bubble: 54, lun: 68, spark: 62, breeze: 56, storm: 68, owl: 60 };   // teachers clearly taller than students (30) — her ruling 2026-11-21
+const STAFF_H = { grom: 56, iskra: 50, hammer: 56, burav: 54, granite: 54, moss: 58, bubble: 54, lun: 68, spark: 62, breeze: 56, storm: 68, owl: 60 };   // teachers clearly taller than students (30) — her ruling 2026-11-21
 // teachers' pose sheets (her ask 2026-11-22: animations for every teacher): walk while strolling, two kinds of stops,
 // proud for a moment right after a student of the class passes; art one teacher at a time (art/staff/<name>_poses.jpg)
-const TEACHER_POSES = { iskra: ['explain', 'loupe', 'polish'], hammer: ['explain', 'strike', 'inspect'], burav: ['explain', 'dig', 'wipe'], granite: ['explain', 'carve', 'read'], moss: ['explain', 'water', 'sniff', 'read'], bubble: ['explain', 'stir', 'pour', 'sniff'], lun: ['map', 'spyglass', 'book', 'sphere'], spark: ['explain', 'star', 'curtsy', 'polish', 'book'], breeze: ['explain', 'map', 'wind', 'goggles', 'owl'], storm: ['explain', 'fire', 'water', 'leaves', 'breeze'], owl: ['announce', 'write', 'hourglass', 'glasses', 'seal'] };
+const TEACHER_POSES = { grom: ['explain', 'block', 'horn'], iskra: ['explain', 'loupe', 'polish'], hammer: ['explain', 'strike', 'inspect'], burav: ['explain', 'dig', 'wipe'], granite: ['explain', 'carve', 'read'], moss: ['explain', 'water', 'sniff', 'read'], bubble: ['explain', 'stir', 'pour', 'sniff'], lun: ['map', 'spyglass', 'book', 'sphere'], spark: ['explain', 'star', 'curtsy', 'polish', 'book'], breeze: ['explain', 'map', 'wind', 'goggles', 'owl'], storm: ['explain', 'fire', 'water', 'leaves', 'breeze'], owl: ['announce', 'write', 'hourglass', 'glasses', 'seal'] };
 const TEACHER_FLY = { moss: true, bubble: true, lun: true, spark: true, breeze: true, storm: true, owl: true };
 const NO_PROUD = { lun: true };
-const WALK_POSE = { granite: ['step1', 'pass1', 'step2', 'pass2'], burav: ['step1', 'pass1', 'step2', 'pass2'], hammer: ['step1', 'pass1', 'step2', 'pass2'], iskra: ['step1', 'pass1', 'step2', 'pass2'] };   // walking frames cycled every 180 ms (her report: one walking picture looked like hopping on one leg)   // dwarves do not fly: their own walking picture while moving
+const WALK_POSE = { granite: ['step1', 'pass1', 'step2', 'pass2'], burav: ['step1', 'pass1', 'step2', 'pass2'], hammer: ['step1', 'pass1', 'step2', 'pass2'], iskra: ['step1', 'pass1', 'step2', 'pass2'], grom: ['step1', 'pass1', 'step2', 'pass2'] };   // walking frames cycled every 180 ms (her report: one walking picture looked like hopping on one leg)   // dwarves do not fly: their own walking picture while moving
 const FLY_LEFT = { breeze: true };   // flight frames drawn heading LEFT (her report 2026-11-22: «Капитан ветерок летает задом наперед»)   // her choice 2026-11-22: Lun has no joy pose, keeps his stop pose   // two flight frames <name>_fly1/fly2 (her ruling: «Парение не похоже на полет ... позу полета рисовать»)
 for (const [n, l] of Object.entries(TEACHER_POSES)) for (const f of [...l, ...(NO_PROUD[n] ? [] : ['proud']), ...(TEACHER_FLY[n] ? ['fly1', 'fly2'] : []), ...(WALK_POSE[n] || [])]) { const im = new Image(); im.onerror = () => {}; im.src = `assets/staff/${n}_${f}.png?v=${STAFF_V[n] || 1}`; sprites[n + '_' + f] = im; }
 const passAt = {};
@@ -2772,9 +2852,9 @@ function drawSign(c, id) {
   if (onScreen(sp.x, sp.y, 160, 40)) c.drawImage(pill.cv, sp.x - pill.w / 2, sp.y - pill.h / 2, pill.w, pill.h);
   signRects.push({ id, x0: sp.x - tw / 2, y0: sp.y - hgt / 2, x1: sp.x + tw / 2, y1: sp.y + hgt / 2 });
   if (ci >= 0) {   // how many wait for this class in the dorm: shows the bottleneck at a glance
-    const z = sleepersFor(ci);
-    if (z > 0) {
-      const t = `💤 ${z} ждут`, pb = signPill(t, '#ffffff', 11, 22, '#5b7fd6', '#3d5fb8'), bw = pb.tw, bx = sp.x + tw / 2 + 4;
+    const z = sleepersFor(ci), k = courtFor(ci);
+    if (z + k > 0) {
+      const t = `${k ? '⛲' + k + ' ' : ''}${z ? '💤' + z + ' ' : ''}ждут`, pb = signPill(t, '#ffffff', 11, 22, '#5b7fd6', '#3d5fb8'), bw = pb.tw, bx = sp.x + tw / 2 + 4;
       if (onScreen(bx + bw / 2, sp.y, 160, 40)) c.drawImage(pb.cv, bx + bw / 2 - pb.w / 2, sp.y - pb.h / 2, pb.w, pb.h);
       signRects.push({ id, x0: bx, y0: sp.y - 11, x1: bx + bw, y1: sp.y + 11 });   // the badge opens the class too
     }
@@ -3100,6 +3180,7 @@ function statusOf0(a) {
   if (a.state === 'study') return `учится: ${cn(a.c)}, до экзамена ${Math.max(0, Math.ceil(a.dur - a.t))} с`;
   if (a.state === 'wait' || a.state === 'walkwait') return `ждёт свободной парты: ${cn(a.c)}`;
   if (a.state === 'read' || g.t === 'l') return `готовится к пересдаче в библиотеке (${cn(g.i)})`;
+  if (g.t === 'k') return `${g.brk ? 'перемена во дворе, потом' : 'ждёт места во дворе:'} ${cn(g.i)} — ${{ bench: 'болтает на скамейке 💬', tag: 'играет в догонялки у фонтана 😆', coin: 'бросает монетку в фонтан 🪙', sparks: 'пробует искры из палочки ✨', birds: 'кормит птичек 🐦', read: 'читает под деревом 📖' }[a.act] || 'гуляет во дворе'}`;
   if (a.state === 'sleep') return `спит в спальне, ждёт места: ${cn(g.i)}`;
   if (a.state === 'dline' || a.state === 'checkin' || g.t === 'd') return 'записывается в спальню у консьержки';
   if (g.t === 'cant') return a.state === 'eat' ? `обедает в столовой ${a.dish || '🍲'}` : a.state === 'cantbuy' || a.state === 'cantwait' ? 'стоит в очереди к повару' : 'идёт в столовую';
@@ -3272,6 +3353,7 @@ function render() {
       if (a.state === 'read') { emoji('📚', x - 12, y - 30, 11); ring(x + 13, y - 32, Math.min(1, a.t / a.dur), '#e0a100'); }
       if (a.state === 'eat' && !a.path.length) { emoji(a.dish || '🍲', x + (a.flip ? -14 : 14), y - 12, 12); ring(x + 13, y - 32, Math.min(1, a.t / a.dur), '#e08a3d'); }
       if (a.state === 'sleep') emoji('💤', x + 12, y - 30 - Math.abs(Math.sin(a.ph * 1.5)) * 4, 11);
+      if (a.state === 'court' && a.goal && a.goal.t === 'k') courtFx(a, x, y);
       if (zoom < 1.2) return;   // mood faces are unreadable from afar
       if (moodOf(a) < 35 && a.state !== 'study') emoji(moodFace(moodOf(a)), x - 13, y - 31, 11);   // sad ones show it
       else if (moodOf(a) >= 65 && a.state !== 'sleep') {   // happy ones show it too, now and then (her wish 2026-11-21)
@@ -4238,7 +4320,7 @@ function relayout() {   // rebuild the map (a class was expanded): creatures kee
   computeBounds(); staticKey = ''; resize();
   if (snap) {
     agents = []; queue = []; processing = null; dormLine = []; checkin = null; shopLine.length = 0; cantLine.length = 0; cantSeats.fill(null);
-    deskOcc.forEach((a) => a.fill(null)); waitList.forEach((l) => (l.length = 0)); dorm.fill(null); lib.fill(null);
+    deskOcc.forEach((a) => a.fill(null)); waitList.forEach((l) => (l.length = 0)); dorm.fill(null); lib.fill(null); courtList.length = 0;
     S.world = snap; restoreWorld(true);
   }
 }   // bump when the map changes: old creature positions are dropped
@@ -4259,6 +4341,7 @@ function restoreWorld(teleport = false) {
       else if (g.t === 'd' && a.bed >= 0 && DORM_SPOTS[a.bed]) at(DORM_SPOTS[a.bed]);
       else if (g.t === 'l' && a.seat >= 0 && LIB_SPOTS[a.seat]) at(LIB_SPOTS[a.seat]);
       else if (g.t === 'g') { const [, h] = SLOTS.EXAM.door; at({ x: h[0] + 0.5, y: h[1] - 1 }); }
+      else if (g.t === 'k' && COURT) { const c = courtC(); at({ x: c.x + 3, y: c.y + 3 }); }
       else if (g.t === 'q' || a.state === 'queue' || a.state === 'process') at(queueSlot(0));
       else at(GATE_TILE);
     }
@@ -4284,6 +4367,7 @@ function restoreWorld(teleport = false) {
     }
     if (g.t === 'l') { const n = (a.seat >= 0 && a.seat < libSeats() && !lib[a.seat]) ? a.seat : libSeat(); if (n >= 0) { goLibrary(a, g.i, n, a.state === 'read' ? a.t : 0); continue; } a.prepared = true; route(a, g.i); continue; }
     if (g.t === 'x') { a.state = 'walk'; walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; }); continue; }
+    if (g.t === 'k') { if (courtRoom() && !g.brk) goCourt(a, g.i); else route(a, g.i); continue; }
     if (g.t === 'tw') continue;   // was walking into the masters' tower: already counted as a resident
     if (g.t === 'shop') { if (shopOpen() && SLOTS.SHOP) goShop(a, g.n); else route(a, g.n); continue; }
     if (g.t === 'cant') { if (cantOpen() && SLOTS.CANT) goCanteen(a, g.n); else route(a, g.n); continue; }
