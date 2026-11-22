@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=184';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=184';
+} from './data.js?v=185';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=185';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 184;   // keep equal to the ?v= number in index.html
+const BUILD = 185;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -38,7 +38,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed })),
+    agents: agents.filter((a) => a.state !== 'fly' && !a.mcls).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -593,8 +593,8 @@ function seat(a, i, d) {
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
-  const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0); a.prepared = false; a.fed = false;   // a meal in the canteen helps one exam
-  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); earn(Math.round(tuition(i) * payMul(a)), p.x, p.y, null, 46); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
+  const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0); a.prepared = false; a.fed = false;   // a meal in the canteen helps one exam
+  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); earn(Math.round(tuition(i) * payMul(a)), p.x, p.y, null, 46); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
@@ -733,6 +733,7 @@ function stepAgents(dt, live = false) {
     else if (a.state === 'read') { a.t += dt; if (a.t >= a.dur) finishReading(a); }
     else if (a.state === 'cantbuy') { a.t += dt; if (a.t >= a.dur) cantServed(a); }
     else if (a.state === 'eat') { a.t += dt; if (a.t >= a.dur) finishEating(a); }
+    else if (a.state === 'mclass') { a.t += dt; if (a.t >= a.dur) mcHome(a); }
     else if (a.state === 'shopping') { if (!(live && foxU > 0.02)) a.t += dt; if (a.t >= a.dur) finishShopping(a); }   // the fox serves only from behind his counter
   }
   agents = agents.filter((a) => !(a.state === 'fly' && a.z > 400) && !a.gone);
@@ -1005,7 +1006,7 @@ function towerPull() { const T = towerUp(); while (T.wait.length && T.res.length
 let towerT = 0;
 let retakeAcc = 0;
 function stepTower(dt) {
-  if (WORLD === 1) { retakeAcc += dt; if (retakeAcc >= 1) { retakeAcc -= 1; stepRetake(1); } }   // helpers retake even without the tower
+  if (WORLD === 1) { retakeAcc += dt; if (retakeAcc >= 1) { retakeAcc -= 1; stepRetake(1); stepMasterClass(1); } }   // helpers retake even without the tower
   if (!towerOpen()) return;
   towerT += dt; if (towerT < 1) return;
   const n = towerRate() * towerT; towerT = 0;
@@ -1035,6 +1036,48 @@ function stepRetake(dt) {
   agents.push(a);
   if (!ffwd) toast(`📜 ${r.name} (Старший маг) пошёл пересдавать экзамен на Мастера`);
   goClass(a, FI);
+}
+// ---- master-classes (her choice 2026-11-22, variant 1): masters do not study any more, so their album cards never grew.
+// Now and then a master (tower resident or master helper) walks to the Elements class, stands at the front beside the teacher
+// and shows magic for MC_DUR s: every lesson passed there meanwhile gives his master card XP and the class +MC_BONUS exam chance.
+// Only while the game is open (no master-classes in the offline catch-up); one at a time.
+const MC_DUR = 90, MC_GAP = 60, MC_BONUS = 0.05, MC_XP = 10;
+let mcGap = 20;
+const mcClass = () => CLASSES.findIndex((c) => c.id === 'elements');
+const mcActive = (i) => agents.some((a) => a.mcls && a.state === 'mclass' && a.mcC === i);
+function mcMasters() {   // [classIndex or -1 for the tower, record] of every master who can go
+  const out = towerOpen() ? towerUp().res.filter((r) => r.rk === 5).map((r) => [-1, r]) : [];
+  for (const [ci, l] of Object.entries(S.helpers || {})) l.forEach((h) => { if (h.rk === 5) out.push([+ci, h]); });
+  return out;
+}
+function stepMasterClass(dt) {
+  if (WORLD !== 1 || ffwd) return;
+  const all = mcMasters();
+  all.forEach(([, r]) => { if (r.mc && !agents.some((a) => a.mcls === r.id)) r.mc = false; });   // lost walker (reload): he is home again
+  if (all.some(([, r]) => r.mc)) return;
+  const i = mcClass(); if (i < 0 || !isOpen(i)) return;
+  mcGap -= dt; if (mcGap > 0) return;
+  const pool = all.filter(([ci, r]) => !r.away && (ci < 0 || isOpen(ci))); if (!pool.length) { mcGap = 10; return; }
+  mcGap = MC_GAP;
+  const [ci, r] = pool[Math.floor(Math.random() * pool.length)];
+  r.id ||= S.nextId++; r.mc = true;
+  const [d] = ci < 0 ? SLOTS.TOWER.door : slotOf(ci).door;
+  const a = { id: S.nextId++, sp: r.sp, rk: 5, el: r.el || 0, name: r.name, x: d[0] + 0.5, y: d[1] + 0.5, z: 0, path: [], speed: 2.5, state: 'walk', onArrive: null, flip: false, t: 0, dur: MC_DUR, c: -1, mcC: i, desk: -1, ph: Math.random() * 6, mood: 100, paid: 0, mcls: r.id, mcHome: ci };
+  agents.push(a);
+  toast(`✨ ${r.name} (${resTitle({ rk: 5, el: r.el || 0 })}) идёт вести мастер-класс в «${CLASSES[i].name}»`);
+  const tp = teacherPos(i), s = slotOf(i);
+  walk(a, Math.max(s.x0 + 0.8, tp.x - 2.2), tp.y + 0.5, () => { a.state = 'mclass'; a.t = 0; faceTeacher(a, i); a.back = false; a.flip = !a.flip; });   // faces the class
+}
+function mcHome(a) {   // the master-class is over: back to the tower (or to the class he helps)
+  a.state = 'walk'; const ci = a.mcHome;
+  const done = () => { a.gone = true; for (const [, r] of mcMasters()) if (r.id === a.mcls) r.mc = false; };
+  if (ci >= 0 && slotOf(ci)) { const [, dh] = slotOf(ci).door; walk(a, dh[0] + 0.5, dh[1] + 0.5, done); return; }
+  const s = SLOTS.TOWER; walk(a, s.x0 + 1.5 + Math.random() * 3, s.y0 + 1.5 + Math.random() * 3, done);
+}
+function mcLesson(i) {   // a lesson passed in class i: the master teaching there learns too
+  const a = agents.find((x) => x.mcls && x.state === 'mclass' && x.mcC === i); if (!a) return 0;
+  formSt(fkey(a.sp, 5, a.el)).xp += MC_XP * (1 + xplLvl(i));
+  return MC_BONUS;
 }
 function retakeHome(a) {   // back from the exam hall: update the resident, walk into the tower (or back to the class he helps)
   const T = towerUp(), r = T.res.find((x) => x.id === a.retake), s = SLOTS.TOWER;
@@ -1069,8 +1112,8 @@ function towerPanel() {
     <p class="muted">Мест сначала ${TOWER_BASE}, потом можно докупить.</p>
     ${isOpen(NCLS - 1) ? `<button class="btn wide" data-cost="${towerCost()}" data-act="towerbuild">Построить <span class="cost">🪙${fmt(towerCost())}</span></button>` : '<p><b>Сначала построй Магию стихий 🔥</b> — там ученики становятся Старшими магами.</p>'}`;
   const pic = (r) => `<div class="fpic${r.rk === 5 ? ' master' : ''}"${r.rk === 5 ? ` style="--ec:rgb(${ELEMS[r.el].col})"` : ''}><img src="${formImg(fkey(r.sp, r.rk, r.el))}">${r.rk === 5 ? `<em>${ELEMS[r.el].emo}</em>` : ''}</div>`;
-  const res = T.res.map((r, k) => `<div class="card up">${pic(r)}<div class="grow"><b>${r.name}</b> <span class="muted">${resTitle(r)}</span><div class="muted">${r.away ? '📜 сейчас пересдаёт экзамен на Мастера' : `🪙 ${fmt(resRate(r))} в секунду`}</div></div>
-    ${r.away ? '' : `<button class="btn ghost" data-act="towerfree" data-k="${k}">Отпустить <span class="cost">🎁 ${fmt(releaseReward(r))}</span></button>`}</div>`).join('');
+  const res = T.res.map((r, k) => `<div class="card up">${pic(r)}<div class="grow"><b>${r.name}</b> <span class="muted">${resTitle(r)}</span><div class="muted">${r.away ? '📜 сейчас пересдаёт экзамен на Мастера' : r.mc ? '✨ сейчас ведёт мастер-класс' : `🪙 ${fmt(resRate(r))} в секунду`}</div></div>
+    ${r.away || r.mc ? '' : `<button class="btn ghost" data-act="towerfree" data-k="${k}">Отпустить <span class="cost">🎁 ${fmt(releaseReward(r))}</span></button>`}</div>`).join('');
   const elders = T.res.filter((r) => r.rk === 4).length, away = T.res.find((r) => r.away);
   const retake = `<h3>Пересдача на Мастера</h3><p class="muted">${!elders ? 'Когда в башне живёт Старший маг, он время от времени ходит в Экзаменационный зал пересдавать экзамен на Мастера стихий.' : away ? `Сейчас <b>${away.name}</b> пересдаёт экзамен.` : `Следующий Старший маг пойдёт на пересдачу через <b>${mmss(Math.max(0, T.rt ?? retakeInterval()))}</b>. Шанс стать Мастером: ${(rankChance(CLASSES.findIndex((c) => c.final)) * 100).toFixed(1)}%.`}</p>
     <div class="card up"><span class="remoji">📜</span><div class="grow"><b>Подготовка мастеров</b> <span class="muted">ур. ${retakeLvl()}/${RETAKE_MAX}</span><div class="muted">пересдача раз в ${mmss(retakeInterval())}</div></div>
@@ -1081,6 +1124,7 @@ function towerPanel() {
     <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Ещё одно место</b> <span class="muted">${towerCap()}/${TOWER_BASE + TOWER_MAXUP}</span><div class="muted">в башне смогут жить больше мастеров</div></div>
       ${T.cap >= TOWER_MAXUP ? '<span class="done">макс.</span>' : costBtn('+1', towerCapCost(), 'towercap')}</div>
     ${T.wait.length ? `<h3>Ждут у двери: ${T.wait.length}</h3>${wait}<p class="muted">Освободи место — и первый ждущий сразу заселится. Если мест нет, а у двери уже ${TOWER_WAIT}, следующие выпускаются как обычно.</p>` : ''}
+    <h3>Мастер-классы ✨</h3><p class="muted">Мастера стихий по очереди ходят в класс «Магия стихий» и показывают ученикам магию (1,5 минуты, только пока игра открыта). Пока идёт мастер-класс, ученики там сдают на 5% лучше, а карточка мастера в альбоме получает опыт за каждый сданный урок.</p>
     ${retake}
     <h3>Жильцы</h3>${res || '<p class="muted">Пока никого. Сюда попадут ученики, которые сдали финальный экзамен Старшим магом или Мастером.</p>'}`;
 }
@@ -2035,6 +2079,7 @@ function statusOf(a) { return statusOf0(a) + ` · настроение ${moodFac
 function statusOf0(a) {
   const cn = (i) => (i >= 0 && CLASSES[i] ? `«${CLASSES[i].name}»` : 'класс');
   const g = a.goal || {};
+  if (a.mcls) return a.state === 'mclass' ? `ведёт мастер-класс: показывает ученикам магию ${ELEMS[a.el || 0].emo}, ещё ${Math.max(0, Math.ceil(a.dur - a.t))} с` : a.t === 0 ? 'идёт вести мастер-класс' : 'возвращается после мастер-класса';
   if (queue.includes(a)) return a === processing ? 'записывается в школу у секретаря' : 'стоит в очереди в приёмной';
   if (a.state === 'study' && incOf(a.c)) return `урок остановлен: ${incInfo(a.c)[1]} — нажми на класс!`;
   if (a.state === 'study') return `учится: ${cn(a.c)}, до экзамена ${Math.max(0, Math.ceil(a.dur - a.t))} с`;
@@ -2133,11 +2178,11 @@ function render() {
   if (WORLD === 1 && SLOTS.LIB) { const lo = librarianPos(), im = sprites['lib_' + lo.pose]; if (im && im.naturalWidth) add(lo.x, lo.y, () => { teacherGlow(lo, 56, 'rgba(255,244,200,0.85)'); drawPose(im, lo.x, lo.y, 56, lo.flip, lo.moving); }); }   // glow: he blended into the dark green room (her report)
   if (WORLD === 1) for (const [ci, list] of Object.entries(helpersAll())) {   // helper mages stroll between their class and the corridor
     const i = +ci; if (!slotOf(i) || !isOpen(i)) continue;
-    list.forEach((h, k) => { if (h.away) return; const p = helperPos(i, k); add(p.x, p.y, () => drawCreature({ sp: h.sp, rk: h.rk || 3, el: h.el || 0, back: p.back, flip: p.flip, path: p.moving ? [1] : [], ph: k + i + performance.now() / 1000 }, p.x, p.y, 30)); });
+    list.forEach((h, k) => { if (h.away || h.mc) return; const p = helperPos(i, k); add(p.x, p.y, () => drawCreature({ sp: h.sp, rk: h.rk || 3, el: h.el || 0, back: p.back, flip: p.flip, path: p.moving ? [1] : [], ph: k + i + performance.now() / 1000 }, p.x, p.y, 30)); });
   }
   if (towerOpen() && SLOTS.TOWER) {   // residents of the masters' tower stroll; those waiting stand at the door outside
     const T = towerUp();
-    T.res.forEach((r, k) => { if (r.away) return; const p = towerPos(k); add(p.x, p.y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: p.flip, path: p.moving ? [1] : [], ph: k * 1.7 + performance.now() / 1000 }, p.x, p.y, 30)); });
+    T.res.forEach((r, k) => { if (r.away || r.mc) return; const p = towerPos(k); add(p.x, p.y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: p.flip, path: p.moving ? [1] : [], ph: k * 1.7 + performance.now() / 1000 }, p.x, p.y, 30)); });
     T.wait.forEach((r, k) => { const s = SLOTS.TOWER, x = s.x0 + 2.4 + k * 0.7, y = s.y0 - 0.5; add(x, y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: true, path: [], ph: k }, x, y, 30, (sx, sy) => emoji('⏳', sx + 12, sy - 34, 12))); });
   }
   if (cantBuilt() && SLOTS.CANT) {   // canteen: counter with pots, tables; the cook stands behind the counter (dragon art comes later)
@@ -2185,6 +2230,9 @@ function render() {
       if (pn) { if (Math.sin(a.ph * 3 + a.id) > 0.2) emoji(a.id % 3 ? '❗' : '😱', x + 2, y - 36, 12); return; }
       if (a.state === 'study' && !a.path.length) ring(x + 13, y - 32, Math.min(1, a.t / a.dur));
       if (a.state === 'fly') emoji('✨', x - 12, y - 6, 10);
+      if (a.state === 'mclass') { const T = performance.now() / 1000 + a.id, e = ELEMS[a.el || 0].emo;   // the master shows magic: his element circles above his paws (one turn 4.5 s)
+        for (let k = 0; k < 3; k++) { const an = T * Math.PI * 2 / 4.5 + k * 2.094, r = 1 + 0.25 * Math.sin(T * 1.3 + k); emoji(e, x + Math.cos(an) * 17 * r, y - 22 + Math.sin(an) * 7 * r, 9 + 2 * Math.sin(an)); }
+        ring(x + 13, y - 36, Math.min(1, a.t / a.dur), `rgb(${ELEMS[a.el || 0].col})`); }
       if (a.state === 'read') { emoji('📚', x - 12, y - 30, 11); ring(x + 13, y - 32, Math.min(1, a.t / a.dur), '#e0a100'); }
       if (a.state === 'eat' && !a.path.length) { emoji(a.dish || '🍲', x + (a.flip ? -14 : 14), y - 12, 12); ring(x + 13, y - 32, Math.min(1, a.t / a.dur), '#e08a3d'); }
       if (a.state === 'sleep') emoji('💤', x + 12, y - 30 - Math.abs(Math.sin(a.ph * 1.5)) * 4, 11);
