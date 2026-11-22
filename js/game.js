@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=182';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=182';
+} from './data.js?v=183';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=183';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 182;   // keep equal to the ?v= number in index.html
+const BUILD = 183;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1936,7 +1936,44 @@ function potionsFx(i, d, p, o) {
       for (let q = 0; q < 4; q++) { const an = q * 1.5708 + 0.6; ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${1 - v})`; ctx.beginPath(); ctx.arc(bx + Math.cos(an) * (3 + v * 4), by + Math.sin(an) * (3 + v * 4) * 0.7, 0.8, 0, Math.PI * 2); ctx.fill(); } }
   }
 }
-const STATION_FX = { potions: potionsFx };
+// Stargazing: three little stars twinkle above the lens of a busy telescope (each fades in and out over 2.8-3.8 s);
+// while anyone studies, a comet crosses the room once every 11 s (the flight takes 3 s)
+function fxStar(x, y, r, al, col = '255,236,150') {
+  ctx.save(); ctx.globalAlpha = al;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.6); g.addColorStop(0, `rgba(${col},0.7)`); g.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 2.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fffbe8'; ctx.strokeStyle = `rgb(${col})`; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(x, y - r * 1.6); ctx.lineTo(x + r * 0.4, y - r * 0.4); ctx.lineTo(x + r * 1.6, y); ctx.lineTo(x + r * 0.4, y + r * 0.4); ctx.lineTo(x, y + r * 1.6); ctx.lineTo(x - r * 0.4, y + r * 0.4); ctx.lineTo(x - r * 1.6, y); ctx.lineTo(x - r * 0.4, y - r * 0.4); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+let fxCometDone = new Set();
+function starsFx(i, d, p, o) {
+  const a = studentAt(i, d); if (!a) return;
+  const im = part(o.th, o.n); if (!im) return;
+  const h = ((THEMES[o.th] && THEMES[o.th].h) || {})[o.n] || PROP_H[o.n] || 30, w = h * im.naturalWidth / im.naturalHeight;
+  const m = P(o.x, o.y), lx = m.x + (o.flip ? -1 : 1) * w * 0.17, ly = m.y + h * 0.08 - h * 0.95;   // the big end of the tube
+  const T = fxNow() + a.id * 0.53, cols = ['255,236,150', '200,220,255', '255,200,235'];
+  fxTop.push(() => { for (let k = 0; k < 3; k++) {
+    const per = 2.8 + k * 0.5, u = ((T + k * 1.1) / per) % 1, al = Math.pow(Math.sin(u * Math.PI), 1.5);
+    const an = -1.9 + k * 0.75 + Math.sin(a.id + k) * 0.3, dist = 9 + k * 4;
+    fxStar(lx + Math.cos(an) * dist, ly + Math.sin(an) * dist * 0.8, 1.4 + 0.9 * al, 0.25 + 0.75 * al, cols[(k + a.id) % 3]);
+  } });
+  if (!fxCometDone.has(i)) {   // one comet per class, at most
+    fxCometDone.add(i);
+    const u = ((fxNow() + i * 4.3) / 11) % 1;
+    if (u < 3 / 11) {
+      const v = u / (3 / 11), s = slotOf(i), A0 = P(s.x0, s.y0 + 3.6), B0 = P(s.x0 + 4.6, s.y0);   // across the back walls, high up: left wall -> right wall
+      const A = { x: A0.x, y: A0.y - 78 }, B = { x: B0.x, y: B0.y - 50 };
+      const x = A.x + (B.x - A.x) * v, y = A.y + (B.y - A.y) * v - Math.sin(v * Math.PI) * 8, al = Math.min(1, Math.sin(v * Math.PI) * 1.6);
+      const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy), tx = x - dx / L * 44, ty = y - dy / L * 44;
+      fxTop.push(() => { ctx.save(); ctx.globalAlpha = al;
+        const g = ctx.createLinearGradient(tx, ty, x, y); g.addColorStop(0, 'rgba(255,240,200,0)'); g.addColorStop(1, 'rgba(255,245,215,0.95)');
+        ctx.strokeStyle = g; ctx.lineWidth = 3.2; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
+        ctx.restore(); fxStar(x, y, 3, al, '255,226,140'); });
+    }
+  }
+}
+const STATION_FX = { potions: potionsFx, stars: starsFx };
 function drawDesk(p) {
   const a = P(p.x - 0.55, p.y - 0.25), b = P(p.x + 0.55, p.y - 0.25), cc = P(p.x + 0.55, p.y + 0.25), d = P(p.x - 0.55, p.y + 0.25);
   const h = 9;
@@ -2033,7 +2070,7 @@ function render() {
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
   const list = [];
-  agentById = new Map(agents.map((a) => [a.id, a])); fxTop = [];
+  agentById = new Map(agents.map((a) => [a.id, a])); fxTop = []; fxCometDone = new Set();
   const zone = (x, y) => { const id = regAt(Math.floor(x), Math.floor(y)); if (id && id !== 'hall' && SLOTS[id]) { const s = SLOTS[id]; return (s.x0 + s.x1 + s.y0 + s.y1) / 2; } return x + y; };
   const add = (x, y, draw, bias = 0) => { const m = P(x, y); if (onScreen(m.x, m.y)) list.push({ k1: zone(x, y), k2: x + y + bias, draw }); };   // off-screen things are skipped
   VIEW = { x0: scroller.scrollLeft / scale, y0: scroller.scrollTop / scale, x1: (scroller.scrollLeft + scroller.clientWidth) / scale, y1: (scroller.scrollTop + scroller.clientHeight) / scale };
@@ -2959,7 +2996,10 @@ function cloudBlock() {
     <div class="cloud-code">${code}</div>
     <p class="muted">Синхронизация включена${cloudState ? ': ' + cloudState : ''}. На другом устройстве открой ⚙️ и введи этот код — там будет этот же прогресс.</p>
     <button class="btn ghost wide" data-cloud-copy>📋 Скопировать код</button>
-    <button class="btn ghost wide" data-cloud-off>Отключить облако на этом устройстве</button>${backupBtn()}`;
+    <button class="btn ghost wide" data-cloud-off>Отключить облако на этом устройстве</button>
+    <p class="muted">Есть другой код (например, старый)? Введи его — загрузится прогресс по тому коду.</p>
+    <input id="cloud-in" class="fb" placeholder="KOT-XXXX-XXXX" autocapitalize="characters" autocomplete="off">
+    <button class="btn ghost wide" data-cloud-load>Загрузить прогресс по коду</button>${backupBtn()}`;   // Ruslan 2026-11-22: the auto code (build 170) hid the field, his old code could not be entered
   return `<h3>☁️ Облачное сохранение</h3>
     <p class="muted">Сохрани прогресс в облако и получи код. По коду прогресс можно открыть на другом телефоне или компьютере.</p>
     <button class="btn wide" data-cloud-new>☁️ Сохранить в облако и получить код</button>
