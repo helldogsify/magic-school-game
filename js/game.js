@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=190';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=190';
+} from './data.js?v=191';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=191';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 190;   // keep equal to the ?v= number in index.html
+const BUILD = 191;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1459,19 +1459,83 @@ const stat = document.createElement('canvas'); const sctx = stat.getContext('2d'
 let staticKey = '';
 const statQ = () => Math.min(scale * dpr, Math.sqrt(12e6 / (SW * SH)));   // px per world unit, capped (iOS canvas limit)
 function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + statQ().toFixed(2); }
+// ======================= territory (roadmap step 2, her wish 2026-11-22: «очень волшебные и красивые с большим количеством деталей») =======================
+// Grass and outdoor paths are iso textures; the lawn around the school is dotted with magic trees, bushes and small things,
+// placed by a fixed hash of the tile so the picture never changes between visits (only where nothing is built or planned).
+const OUT_H = { oak: 92, blossom: 80, willow: 86, goldtree: 76, fir: 82, toadhouse: 58, glowmush: 26, crystals: 28, berrybush: 30, fern: 26, hedge: 28, roses: 28, roses2: 28, boulder: 26, bells: 28,
+  runestone: 30, stump: 22, starflowers: 20, pumpkin: 32, well: 40, beehive: 30, birdbath: 28, chestmush: 24, fairyring: 16 };
+const OUT_TREES = ['oak', 'oak', 'blossom', 'blossom', 'willow', 'goldtree', 'fir', 'fir', 'toadhouse'];
+const OUT_SMALL = ['glowmush', 'glowmush', 'crystals', 'berrybush', 'fern', 'fern', 'hedge', 'roses', 'roses2', 'boulder', 'bells', 'bells', 'runestone', 'stump', 'starflowers', 'starflowers', 'pumpkin', 'well', 'beehive', 'birdbath', 'chestmush', 'fairyring'];
+for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; }; im.src = `assets/parts/outdoor/${n}.webp?v=1`; parts['outdoor/' + n] = im; }
+const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+let OUTDOOR = [], outKey = '';
+function layoutOutdoor() {   // once per layout: free lawn tiles get a tree (two free tiles around) or a small thing (one free tile around)
+  const key = GW + ':' + GH + ':' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0 + ',' + s.x1 + ',' + s.y1).join(';'); if (key === outKey) return; outKey = key;
+  const free = (x, y, r) => { for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) if (regAt(x + dx, y + dy)) return false; return true; };
+  const taken = new Set(), out = [];
+  const inWorld = (x, y) => { const m = P(x + 0.5, y + 0.5); return m.x > 60 && m.x < WW - 60 && m.y > 120 && m.y < WH - 30; };
+  for (let x = -24; x < GW + 24; x++) for (let y = -24; y < GH + 24; y++) {
+    if (!inWorld(x, y) || taken.has(x + ',' + y)) continue;
+    const r = hash2(x, y), jx = 0.2 + 0.6 * hash2(x, y, 1), jy = 0.2 + 0.6 * hash2(x, y, 2);
+    let n = null;
+    if (r < 0.13 && free(x, y, 2)) n = OUT_TREES[Math.floor(hash2(x, y, 3) * OUT_TREES.length)];
+    else if (r > 0.74 && free(x, y, 1)) n = OUT_SMALL[Math.floor(hash2(x, y, 4) * OUT_SMALL.length)];
+    if (!n) continue;
+    out.push({ n, x: x + jx, y: y + jy, th: 'outdoor', flip: hash2(x, y, 5) < 0.5 });
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) taken.add((x + dx) + ',' + (y + dy));
+  }
+  OUTDOOR = out;
+}
+function isoPat(c, n, tiles) {   // a ground texture laid on the iso grid, aligned to the world origin
+  const p = pat(c, 'outdoor', n); if (!p) return null;
+  const T = part('outdoor', n).naturalWidth / tiles, o = P(0, 0);
+  p.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, o.x, o.y])); return p;
+}
+// ambient life on the lawn (code only): fireflies over glowing things, butterflies over flowers, petals from blossom trees
+const OUT_FIREFLY = new Set(['glowmush', 'crystals', 'bells', 'berrybush', 'oak', 'willow', 'fairyring', 'runestone']), OUT_BUTTERFLY = new Set(['roses', 'roses2', 'starflowers', 'bells', 'hedge']);
+function outFx(o, p, h) {
+  const T = fxNow() + (o.x * 7.3 + o.y * 3.1);
+  if (OUT_FIREFLY.has(o.n)) for (let k = 0; k < 2; k++) {   // a firefly drifts on a slow loop (6 s) and glows softly (3 s)
+    const an = T * Math.PI * 2 / 6 + k * Math.PI, x = p.x + Math.cos(an) * h * 0.45, y = p.y - h * 0.6 + Math.sin(an * 2) * h * 0.18 - k * 6, gl = 0.55 + 0.45 * Math.sin(T * Math.PI * 2 / 3 + k * 2);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, 5); g.addColorStop(0, `rgba(255,250,170,${0.9 * gl})`); g.addColorStop(1, 'rgba(255,240,120,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = `rgba(255,255,220,${gl})`; ctx.beginPath(); ctx.arc(x, y, 1.1, 0, Math.PI * 2); ctx.fill();
+  }
+  if (OUT_BUTTERFLY.has(o.n) && hash2(Math.floor(o.x), Math.floor(o.y), 9) < 0.6) {   // a butterfly circles the flowers (8 s), wings open and close smoothly (1.2 s)
+    const an = T * Math.PI * 2 / 8, x = p.x + Math.cos(an) * 14, y = p.y - h - 6 + Math.sin(an * 1.5) * 5, f = 0.35 + 0.65 * Math.abs(Math.sin(T * Math.PI / 1.2));
+    const col = ['#ff9ccf', '#ffd45e', '#a9c8ff', '#c9a2ff'][Math.floor(hash2(Math.floor(o.x), Math.floor(o.y), 8) * 4)];
+    ctx.save(); ctx.translate(x, y); ctx.scale(Math.cos(an) > 0 ? 1 : -1, 1); ctx.fillStyle = col; ctx.strokeStyle = '#6b4a8a'; ctx.lineWidth = 0.5;
+    for (const sd of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sd * 2.4 * f, -1, 2.6 * f + 0.3, 2.2, sd * 0.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.ellipse(sd * 1.8 * f, 1.6, 1.7 * f + 0.2, 1.4, -sd * 0.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    ctx.fillStyle = '#5a3f6e'; ctx.fillRect(-0.4, -2, 0.8, 4.5); ctx.restore();
+  }
+  if (o.n === 'blossom') for (let k = 0; k < 3; k++) {   // petals fall slowly (5 s) swaying
+    const u = ((T + k * 1.7) / 5) % 1, x = p.x + (k - 1) * 12 + Math.sin(u * Math.PI * 3 + k) * 5, y = p.y - h * 0.75 + u * h * 0.75, al = Math.sin(u * Math.PI);
+    ctx.save(); ctx.globalAlpha = al; ctx.fillStyle = '#ffc3dc'; ctx.strokeStyle = '#d98ab0'; ctx.lineWidth = 0.4; ctx.translate(x, y); ctx.rotate(u * 6 + k);
+    ctx.beginPath(); ctx.ellipse(0, 0, 2, 1.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore();
+  }
+}
+function drawOut(o) {
+  const im = part('outdoor', o.n); if (!im) return;
+  const p = P(o.x, o.y), h = OUT_H[o.n] || 28, w = h * im.naturalWidth / im.naturalHeight;
+  { const rx = Math.min(w * 0.4, h * 0.6), cy = p.y; const g = ctx.createRadialGradient(p.x, cy, 0, p.x, cy, rx);
+    g.addColorStop(0, 'rgba(50,70,40,0.22)'); g.addColorStop(1, 'rgba(50,70,40,0)'); ctx.save(); ctx.translate(p.x, cy); ctx.scale(1, 0.42); ctx.translate(-p.x, -cy); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, cy, rx, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+  ctx.save(); ctx.translate(p.x, p.y + h * 0.06); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
+  if (zoom >= 1.3) outFx(o, p, h);   // zoomed out the life is too small to see: save the iPhone's work
+}
 function drawStatic() {
   const k = statKey(); if (k === staticKey || (pinching && stat.width)) return; staticKey = k;
   const q = statQ();
   stat.width = Math.round(SW * q); stat.height = Math.round(SH * q);
   const c = sctx; c.setTransform(q, 0, 0, q, -MARGIN * q, -MARGIN * q);
   c.fillStyle = '#a9d98f'; c.fillRect(0, 0, WW, WH);
-  c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2);
+  { const g = WORLD === 1 && isoPat(c, 'grass', 4); if (g) { c.fillStyle = g; c.fillRect(0, 0, WW, WH); } else { c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2); } }
+  const stone = WORLD === 1 && isoPat(c, 'path', 3);
   // halls
   for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) {
     const rid = regAt(x, y); if (rid !== 'hall' && rid !== 'path') continue;
     const inside = rid === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
     const carpet = inside && x >= 14 && x <= 16 && y > BUILDING.y0;
     const col = carpet ? (y % 2 ? '#d98f97' : '#dd979f') : inside ? (x % 2 ? '#d7a46e' : '#dcab76') : ((x + y) % 2 ? '#e9dcc4' : '#efe4cf');
+    if (!inside && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); continue; }   // outdoor paths: rune flagstones
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
     if (carpet && y % 3 === 0) { const m = P(x + 0.5, y + 0.5); emoji('✦', m.x, m.y, 7, c); }
   }
@@ -2195,6 +2259,7 @@ function render() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#a9d98f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  { const g = WORLD === 1 && isoPat(ctx, 'grass', 4); if (g) { ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr); ctx.fillStyle = g; ctx.fillRect(scroller.scrollLeft / scale - 2, scroller.scrollTop / scale - 2, scroller.clientWidth / scale + 4, scroller.clientHeight / scale + 4); ctx.setTransform(1, 0, 0, 1, 0, 0); } }
   ctx.drawImage(stat, 0, 0, stat.width, stat.height, (MARGIN * scale - scroller.scrollLeft) * dpr, (MARGIN * scale - scroller.scrollTop) * dpr, SW * scale * dpr, SH * scale * dpr);
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
@@ -2206,6 +2271,7 @@ function render() {
   const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: GATE_TILE.x + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
+  if (WORLD === 1) { layoutOutdoor(); for (const o of OUTDOOR) add(o.x, o.y, () => drawOut(o)); }
   for (const e of EDGES) {
     const painted = e.id !== 'hall' && e.tall && WORLD === 1 && !!arts[CLASS_SLOT.indexOf(e.id) >= 0 ? CLASSES[CLASS_SLOT.indexOf(e.id)].id : e.id]?.naturalWidth;   // painted rooms: only the cap on top of their own walls
     if (e.id === 'DORM2' && !dorm2Built()) continue;
