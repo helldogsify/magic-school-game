@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=238';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=238';
+} from './data.js?v=239';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=239';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 238;   // keep equal to the ?v= number in index.html
+const BUILD = 239;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -57,7 +57,8 @@ const kindSum = (i, kind) => CLASSES[i].items.reduce((a, it, k) => a + (it.kind 
 const rawSuccess = (i) => BAL.chance0 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kindSum(i, 'success');
 const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
 const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance above the cap is not wasted: each 1% gives +2% tuition
-const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay);   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
+const W2_PAY = 0.7;   // world 2 pays 30% less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
+const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY : 1));   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time);
 const itemCost = (i, k) => Math.round(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, S.classes[i].items[k]));
 const teacherCost = (i) => Math.round(CLASSES[i].tuition * 6 * Math.pow(BAL.teacher, S.classes[i].teacher - 1));
@@ -825,7 +826,7 @@ const wagonCap = () => 20 + 10 * (trade().wagon - 1);
 const tripTime = () => Math.round(180 * Math.pow(0.9, trade().road - 1));
 const itemPrice = () => Math.round(tuition(1) * 1.4 * (1 + 0.12 * (trade().price - 1)));
 const gemPrice = () => Math.round(tuition(3) * 4 * (1 + 0.12 * (trade().price - 1)));
-const tupCost = (k) => Math.round(TRADE_COST * 0.6 * Math.pow(k === 'wagon' ? 2.1 : 1.9, trade()[k] - 1));
+const tupCost = (k) => Math.round(TRADE_COST * 0.6 * Math.pow(k === 'wagon' ? 2.6 : 2.4, trade()[k] - 1));   // steeper (sim: all 15 levels were bought by day ~4)
 const loadValue = () => trade().load * itemPrice() + trade().gems * gemPrice();
 let tradeAcc = 0;
 function sendCaravan() { const T = trade(); if (T.away || !(T.load + T.gems)) return; T.value = loadValue(); T.away = tripTime(); T.trip = T.away; T.load = 0; T.gems = 0; if (!ffwd) toast(`🐐 Караван ушёл: вернётся через ${mmss(T.away)} с 🪙${fmt(T.value)}`); }
@@ -4091,6 +4092,10 @@ window.__sim = {
       if (!shopOpen()) add('shopbuild', SHOP_COST); else ['seller', 'shelves', 'goods'].forEach((k) => { if (shopUp()[k] < SHOP_MAX) add('shopup', shopCost(k), { k }); });
       if (!towerOpen()) { if (isOpen(NCLS - 1)) add('towerbuild', towerCost()); } else if (towerUp().cap < TOWER_MAXUP) add('towercap', towerCapCost());
       if (!dirBuilt()) add('dirbuild', DIR_COST, { stars: DIR_STARS }); else Object.keys(DIR_UP).forEach((k) => { if (dirLvl(k) < DIR_UP[k].max) add('dir', dirCost(k), { k }); });
+    }
+    if (WORLD === 2) {   // pacing sim: the ore store and the trading yard
+      if (W2().store < MAX_STORE && CLASSES.some((c, i) => c.id === 'mine' && isOpen(i))) add('store', storeCost());
+      if (!trade().built) { const fi = CLASSES.findIndex((c) => c.id === 'forge'); if (fi >= 0 && isOpen(fi)) add('tradebuild', TRADE_COST); } else ['wagon', 'road', 'price'].forEach((k) => { if (trade()[k] < MAX_TUP) add('tup', tupCost(k), { k }); });
     }
     FORM_KEYS.forEach((k) => { if (formReady(k)) add('formlvl', formCost(k), { k }); });
     return o;
