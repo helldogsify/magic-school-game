@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=192';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=192';
+} from './data.js?v=193';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=193';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 192;   // keep equal to the ?v= number in index.html
+const BUILD = 193;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1462,28 +1462,50 @@ function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.cl
 // ======================= territory (roadmap step 2, her wish 2026-11-22: «очень волшебные и красивые с большим количеством деталей») =======================
 // Grass and outdoor paths are iso textures; the lawn around the school is dotted with magic trees, bushes and small things,
 // placed by a fixed hash of the tile so the picture never changes between visits (only where nothing is built or planned).
-const OUT_H = { oak: 92, blossom: 80, willow: 86, goldtree: 76, fir: 82, toadhouse: 58, glowmush: 26, crystals: 28, berrybush: 30, fern: 26, hedge: 28, roses: 28, roses2: 28, boulder: 26, bells: 28,
-  runestone: 30, stump: 22, starflowers: 20, pumpkin: 32, well: 40, beehive: 30, birdbath: 28, chestmush: 24, fairyring: 16 };
-const OUT_TREES = ['oak', 'oak', 'blossom', 'blossom', 'willow', 'goldtree', 'fir', 'fir', 'toadhouse'];
-const OUT_SMALL = ['glowmush', 'glowmush', 'crystals', 'berrybush', 'fern', 'fern', 'hedge', 'roses', 'roses2', 'boulder', 'bells', 'bells', 'runestone', 'stump', 'starflowers', 'starflowers', 'pumpkin', 'well', 'beehive', 'birdbath', 'chestmush', 'fairyring'];
-for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; }; im.src = `assets/parts/outdoor/${n}.webp?v=1`; parts['outdoor/' + n] = im; }
+const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, toadhouse: 96, glowmush: 40, crystals: 44, berrybush: 44, fern: 38, hedge: 42, roses: 40, roses2: 40, boulder: 40, bells: 38,
+  runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46 };   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
+const outLo = {};   // small copies (240 px tall) for the far view: downscaling an 800 px tree every frame is slow
+for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } }; im.src = `assets/parts/outdoor/${n}.webp?v=1`; parts['outdoor/' + n] = im; }
 let GRASS_ON = true, BG_OFF = false;
 const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-let OUTDOOR = [], outKey = '', OUT_ON = false;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
-function layoutOutdoor() {   // once per layout: free lawn tiles get a tree (two free tiles around) or a small thing (one free tile around)
+let OUTDOOR = [], outKey = '', OUT_ON = true;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
+// Composed territory (her ruling: no random scatter; «продумай как оно должно быть, и их размеры»):
+//  - a forest of tree groves in a band 6..24 tiles away from every building (the school stands in a clearing),
+//    each grove 3-5 big trees of one character with undergrowth at its edge;
+//  - the lawn next to the school stays clear;
+//  - a few small scenes tied to buildings: the magic glade, the apiary, the wishing-well corner, the blossom grove by the garden.
+const GROVES = [['oak', 'oak', 'fir', 'fir'], ['fir', 'fir', 'fir', 'oak'], ['blossom', 'blossom', 'goldtree'], ['willow', 'oak', 'fir'], ['goldtree', 'oak', 'blossom', 'oak'], ['oak', 'willow', 'oak']];
+const UNDER = ['fern', 'berrybush', 'boulder', 'glowmush', 'stump', 'hedge', 'fern', 'bells'];
+function layoutOutdoor() {
   const key = GW + ':' + GH + ':' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0 + ',' + s.x1 + ',' + s.y1).join(';'); if (key === outKey) return; outKey = key;
-  const free = (x, y, r) => { for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) if (regAt(x + dx, y + dy)) return false; return true; };
-  const taken = new Set(), out = [];
-  const inWorld = (x, y) => { const m = P(x + 0.5, y + 0.5); return m.x > 60 && m.x < WW - 60 && m.y > 120 && m.y < WH - 30; };
-  for (let x = -24; x < GW + 24; x++) for (let y = -24; y < GH + 24; y++) {
-    if (!inWorld(x, y) || taken.has(x + ',' + y)) continue;
-    const r = hash2(x, y), jx = 0.2 + 0.6 * hash2(x, y, 1), jy = 0.2 + 0.6 * hash2(x, y, 2);
-    let n = null;
-    if (r < 0.13 && free(x, y, 2)) n = OUT_TREES[Math.floor(hash2(x, y, 3) * OUT_TREES.length)];
-    else if (r > 0.74 && free(x, y, 1)) n = OUT_SMALL[Math.floor(hash2(x, y, 4) * OUT_SMALL.length)];
-    if (!n) continue;
-    out.push({ n, x: x + jx, y: y + jy, th: 'outdoor', flip: hash2(x, y, 5) < 0.5 });
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) taken.add((x + dx) + ',' + (y + dy));
+  const X0 = -40, Y0 = -40, X1 = GW + 40, Y1 = GH + 40, NX = X1 - X0, NY = Y1 - Y0, dist = new Int16Array(NX * NY).fill(999), q = [];
+  for (let x = X0; x < X1; x++) for (let y = Y0; y < Y1; y++) if (regAt(x, y)) { dist[(x - X0) * NY + (y - Y0)] = 0; q.push(x, y); }
+  for (let h = 0; h < q.length; h += 2) { const x = q[h], y = q[h + 1], d = dist[(x - X0) * NY + (y - Y0)];   // chessboard distance to the nearest building or path
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const nx = x + dx, ny = y + dy; if (nx < X0 || ny < Y0 || nx >= X1 || ny >= Y1) continue; const k = (nx - X0) * NY + (ny - Y0); if (dist[k] > d + 1) { dist[k] = d + 1; q.push(nx, ny); } } }
+  const D = (x, y) => { x = Math.floor(x); y = Math.floor(y); return x < X0 || y < Y0 || x >= X1 || y >= Y1 ? 999 : dist[(x - X0) * NY + (y - Y0)]; };
+  const inWorld = (x, y) => { const m = P(x, y); return m.x > 80 && m.x < WW - 80 && m.y > 200 && m.y < WH - 20; };
+  const out = [], put = (n, x, y, minD, sc = 1) => { if (D(x, y) < minD || !inWorld(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
+  // scenes, each tied to a building (skipped when that building's slot is missing)
+  const zones = [];
+  const scene = (cx, cy, items) => { zones.push([cx, cy]); for (const [n, dx, dy, sc] of items) put(n, cx + dx, cy + dy, 1, sc || 1); };
+  if (SLOTS.CANT && SLOTS.DORM2) scene(SLOTS.CANT.x0 + 4, (SLOTS.CANT.y1 + SLOTS.DORM2.y0) / 2 + 1, [   // the magic glade: a fairy ring in a circle of rune stones, glowing mushrooms and crystals
+    ['fairyring', 0, 0, 1.2], ['runestone', -2.6, -0.4], ['runestone', 0.4, -2.6], ['runestone', 2.6, 0.5], ['runestone', -0.3, 2.7], ['glowmush', -1.6, -1.8], ['glowmush', 1.9, 1.7], ['crystals', 1.8, -1.6], ['crystals', -1.9, 1.8, 0.9], ['bells', 3.4, -2.2], ['toadhouse', 4.2, 2.6]]);
+  if (SLOTS.TOWER && slotOf(5)) scene((slotOf(5).x1 + SLOTS.TOWER.x0) / 2, SLOTS.TOWER.y0 + 2.2, [   // the apiary between the Elements class and the tower
+    ['beehive', -0.9, -0.8], ['beehive', 0.9, -1.1], ['starflowers', -1.4, 0.8], ['roses', 0.3, 0.9], ['bells', 1.5, 0.5], ['starflowers', 0.2, -2.4], ['roses2', -1.2, 2.6], ['bells', 1.1, 2.7]]);
+  if (slotOf(2)) scene(slotOf(2).x0 - 3.6, (slotOf(2).y0 + slotOf(2).y1) / 2, [   // the wishing-well corner left of the classes
+    ['well', 0, 0], ['birdbath', 1.4, 2.2], ['pumpkin', -1.2, -2.6], ['berrybush', -1.6, 1.4], ['stump', 1.5, -1.6], ['chestmush', -0.4, 2.9], ['roses', 1.6, 3.6]]);
+  if (SLOTS.GARDEN) scene(SLOTS.GARDEN.x1 + 4.5, (SLOTS.GARDEN.y0 + SLOTS.GARDEN.y1) / 2, [   // a blossom grove beside the graduates' garden
+    ['blossom', -1.2, -1.6, 0.95], ['blossom', 1.6, -0.4, 1.05], ['blossom', -0.6, 1.8], ['roses', -2.4, 0.4], ['starflowers', 0.6, 0.4], ['roses2', 2.6, 2.0]]);
+  // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
+  const G = GATE_TILE;
+  for (let gx = X0; gx < X1; gx += 7) for (let gy = Y0; gy < Y1; gy += 7) {
+    const cx = gx + 1.5 + hash2(gx, gy, 11) * 4, cy = gy + 1.5 + hash2(gx, gy, 12) * 4, d = D(cx, cy);
+    if (d < 7 || d > 26 || !inWorld(cx, cy)) continue;
+    if (zones.some(([zx, zy]) => Math.hypot(zx - cx, zy - cy) < 8)) continue;
+    if (Math.abs(cx - G.x) < 8 && cy > G.y - 4 && cy < G.y + 16) continue;   // keep the view of the entrance open
+    const kind = GROVES[Math.floor(hash2(gx, gy, 13) * GROVES.length)];
+    kind.forEach((n, k) => { const an = k * 2.4 + hash2(gx, gy, 20 + k) * 0.8, r = k ? 1.7 + hash2(gx, gy, 30 + k) * 0.6 : 0; put(n, cx + Math.cos(an) * r, cy + Math.sin(an) * r, 6, 0.9 + hash2(gx, gy, 40 + k) * 0.22); });
+    for (let k = 0; k < 2; k++) { const an = 0.6 + k * 1.1 + hash2(gx, gy, 50 + k) * 0.5; put(UNDER[Math.floor(hash2(gx, gy, 60 + k) * UNDER.length)], cx + Math.cos(an) * 3, cy + Math.sin(an) * 3, 4); }   // undergrowth on the side facing the school
   }
   OUTDOOR = out;
 }
@@ -1507,7 +1529,7 @@ function isoPat(c, n, tiles) {   // a ground texture laid on the iso grid, align
   p.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, o.x, o.y])); return p;
 }
 // ambient life on the lawn (code only): fireflies over glowing things, butterflies over flowers, petals from blossom trees
-const OUT_FIREFLY = new Set(['glowmush', 'crystals', 'bells', 'berrybush', 'oak', 'willow', 'fairyring', 'runestone']), OUT_BUTTERFLY = new Set(['roses', 'roses2', 'starflowers', 'bells', 'hedge']);
+const OUT_FIREFLY = new Set(['glowmush', 'crystals', 'bells', 'fairyring', 'runestone']), OUT_BUTTERFLY = new Set(['roses', 'roses2', 'starflowers', 'bells', 'hedge']);
 function outFx(o, p, h) {
   const T = fxNow() + (o.x * 7.3 + o.y * 3.1);
   if (OUT_FIREFLY.has(o.n)) for (let k = 0; k < 2; k++) {   // a firefly drifts on a slow loop (6 s) and glows softly (3 s)
@@ -1529,11 +1551,11 @@ function outFx(o, p, h) {
   }
 }
 function drawOut(o) {
-  const im = part('outdoor', o.n); if (!im) return;
-  const p = P(o.x, o.y), h = OUT_H[o.n] || 28, w = h * im.naturalWidth / im.naturalHeight;
-  { const rx = Math.min(w * 0.4, h * 0.6), cy = p.y; const g = ctx.createRadialGradient(p.x, cy, 0, p.x, cy, rx);
-    g.addColorStop(0, 'rgba(50,70,40,0.22)'); g.addColorStop(1, 'rgba(50,70,40,0)'); ctx.save(); ctx.translate(p.x, cy); ctx.scale(1, 0.42); ctx.translate(-p.x, -cy); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, cy, rx, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
-  ctx.save(); ctx.translate(p.x, p.y + h * 0.06); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
+  let im = part('outdoor', o.n); if (!im) return;
+  const p = P(o.x, o.y), h = (OUT_H[o.n] || 28) * (o.s || 1), w = h * im.naturalWidth / im.naturalHeight;
+  if (outLo[o.n] && h * scale * dpr < 230) im = outLo[o.n];
+  ctx.fillStyle = 'rgba(50,70,40,0.16)'; ctx.beginPath(); ctx.ellipse(p.x, p.y, Math.min(w * 0.42, h * 0.5), Math.min(w * 0.42, h * 0.5) * 0.4, 0, 0, Math.PI * 2); ctx.fill();   // flat contact shadow (no gradient: cheap)
+  ctx.save(); ctx.translate(p.x, p.y + h * 0.05); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
   if (zoom >= 1.3) outFx(o, p, h);   // zoomed out the life is too small to see: save the iPhone's work
 }
 function drawStatic() {
@@ -3424,7 +3446,7 @@ window.__sim = {
   stars: () => schoolStars(),
   inSchool: () => inSchool().length,
 };
-window.__test = { P, SLOTS, focusTile, get renderMs() { return renderMs; }, get staticN() { return staticN; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, reg: (x, y) => regAt(x, y), world: () => ({ WW, WH, GW, GH, MARGIN, SW, SH, HW, HH, GATE: GATE_TILE, GATE_Y, BUILDING }), get renderMs() { return renderMs; }, get staticN() { return staticN; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
