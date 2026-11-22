@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=217';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=217';
+} from './data.js?v=218';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=218';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 217;   // keep equal to the ?v= number in index.html
+const BUILD = 218;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -233,7 +233,7 @@ const PROP_H = { fire_ped: 42, water_ped: 42, earth_ped: 42, air_ped: 42, sofa: 
 const parts = {};
 let partsVer = 0;   // bumped on every part load: themeReady() answers from its cache until then
 for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  if (!n) continue; const im = new Image(); im.onload = () => { partsVer++; }; im.src = `${t.dir}${n}.webp?v=2172`; parts[k + '/' + n] = im;
+  if (!n) continue; const im = new Image(); im.onload = () => { partsVer++; }; im.src = `${t.dir}${n}.webp?v=2182`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
@@ -314,6 +314,10 @@ function buildGrid() {
 // ---- walls: one rule everywhere ----
 // side: 'x0' / 'y0' = back sides (tall walls), 'x1' / 'y1' = front sides (knee walls); door tiles get no wall.
 let EDGES = [];
+function roomNear(x, y, side) {   // a room close behind or beside a would-be tall corridor wall: the wall would rise over it (her screenshot: a wall between the director's office and Flight)
+  for (let dx = -3; dx <= (side === 'y0' ? 1 : -1); dx++) for (let dy = -3; dy <= (side === 'x0' ? 1 : -1); dy++) { const r = regAt(x + dx, y + dy); if (r && r !== 'hall' && r !== 'path') return true; }
+  return false;
+}
 function buildEdges() {
   EDGES = [];
   const doorAt = new Set();
@@ -327,7 +331,7 @@ function buildEdges() {
       if (nb === id) continue;
       if (doorAt.has(`${x},${y},${dx},${dy}`)) continue;
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
-      if (id === 'hall' && WORLD === 1 && !nb && (side === 'x0' || side === 'y0') && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1) { EDGES.push({ x, y, side, id, tall: true, hallWall: true, wallTheme: 'REC' }); continue; }   // corridor back wall with only grass behind it: a real tall wall (her «добавь стены где можно»)
+      if (id === 'hall' && WORLD === 1 && !nb && (side === 'x0' || side === 'y0') && !roomNear(x, y, side) && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1) { EDGES.push({ x, y, side, id, tall: true, hallWall: true, wallTheme: 'REC' }); continue; }   // corridor back wall with only grass behind it: a real tall wall (her «добавь стены где можно»)
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
       const lowSide = ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
       EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
@@ -1314,13 +1318,13 @@ const STAFF_H = { granite: 54, moss: 58, bubble: 54, lun: 68, spark: 62, breeze:
 const TEACHER_POSES = { granite: ['explain', 'carve', 'read', 'think', 'lantern', 'warm'], moss: ['explain', 'water', 'sniff', 'read'], bubble: ['explain', 'stir', 'pour', 'sniff'], lun: ['map', 'spyglass', 'book', 'sphere'], spark: ['explain', 'star', 'curtsy', 'polish', 'book'], breeze: ['explain', 'map', 'wind', 'goggles', 'owl'], storm: ['explain', 'fire', 'water', 'leaves', 'breeze'], owl: ['announce', 'write', 'hourglass', 'glasses', 'seal'] };
 const TEACHER_FLY = { moss: true, bubble: true, lun: true, spark: true, breeze: true, storm: true, owl: true };
 const NO_PROUD = { lun: true };
-const WALK_POSE = { granite: true };   // dwarves do not fly: their own walking picture while moving
+const WALK_POSE = { granite: ['step1', 'pass1', 'pass2', 'pass1'] };   // walking frames cycled every 180 ms (her report: one walking picture looked like hopping on one leg)   // dwarves do not fly: their own walking picture while moving
 const FLY_LEFT = { breeze: true };   // flight frames drawn heading LEFT (her report 2026-11-22: «Капитан ветерок летает задом наперед»)   // her choice 2026-11-22: Lun has no joy pose, keeps his stop pose   // two flight frames <name>_fly1/fly2 (her ruling: «Парение не похоже на полет ... позу полета рисовать»)
-for (const [n, l] of Object.entries(TEACHER_POSES)) for (const f of [...l, ...(NO_PROUD[n] ? [] : ['proud']), ...(TEACHER_FLY[n] ? ['fly1', 'fly2'] : []), ...(WALK_POSE[n] ? ['walk'] : [])]) { const im = new Image(); im.onerror = () => {}; im.src = `assets/staff/${n}_${f}.png?v=1`; sprites[n + '_' + f] = im; }
+for (const [n, l] of Object.entries(TEACHER_POSES)) for (const f of [...l, ...(NO_PROUD[n] ? [] : ['proud']), ...(TEACHER_FLY[n] ? ['fly1', 'fly2'] : []), ...(WALK_POSE[n] || [])]) { const im = new Image(); im.onerror = () => {}; im.src = `assets/staff/${n}_${f}.png?v=1`; sprites[n + '_' + f] = im; }
 const passAt = {};
 function teacherPose(i, tp) {
   const n = staffOf(CLASSES[i].id), l = n && TEACHER_POSES[n]; if (!l) return null;
-  if (tp.moving && WALK_POSE[n]) { const im = sprites[n + '_walk']; if (im && im.complete && im.naturalWidth) return im; }
+  if (tp.moving && WALK_POSE[n]) { const wl = WALK_POSE[n], im = sprites[n + '_' + wl[Math.floor(performance.now() / 180) % wl.length]]; if (im && im.complete && im.naturalWidth) return im; }
   if (tp.moving && tp.left && TEACHER_FLY[n]) { const im = sprites[n + (Math.floor(performance.now() / 170) % 2 ? '_fly2' : '_fly1')]; if (im && im.complete && im.naturalWidth) return im; }   // flying back: wings flap
   if (tp.moving) { const b = sprites['staff_' + CLASSES[i].id]; return b && b.complete && b.naturalWidth ? b : null; }   // the standing picture, rocked or lifted by drawPose
   // her report 2026-11-22 («переливание колбы ... буквально моргание»): in a busy class a pass came every second and the proud
@@ -1339,8 +1343,9 @@ for (const f of SEC_POSES) { const im = new Image(); im.src = `assets/staff/sec_
 // (lifted, slow sway, smaller shadow, a few sparkles under the feet).
 function drawPose(im, x, y, H, flip, moving, style = 'waddle') {
   const q = P(x, y), w = H * im.naturalWidth / im.naturalHeight, t = performance.now() / 1000, hover = moving && style === 'hover';
-  const lift = hover ? 9 + Math.sin(t * 3) * 2 : moving ? Math.abs(Math.sin(t * 6.5)) * 2.6 : 0;
-  const tilt = hover ? Math.sin(t * 2.2) * 0.035 : moving ? Math.sin(t * 6.5) * 0.075 : 0;
+  const step = moving && style === 'step';   // real walking frames: only a small bob in time with the steps, no rocking
+  const lift = hover ? 9 + Math.sin(t * 3) * 2 : step ? Math.abs(Math.sin(t * Math.PI / 0.36)) * 1.2 : moving ? Math.abs(Math.sin(t * 6.5)) * 2.6 : 0;
+  const tilt = hover ? Math.sin(t * 2.2) * 0.035 : step ? 0 : moving ? Math.sin(t * 6.5) * 0.075 : 0;
   const sh = hover ? 0.7 : 1;
   ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(q.x, q.y, H * 0.28 * sh, H * 0.11 * sh, 0, 0, Math.PI * 2); ctx.fill();
   ctx.save(); ctx.translate(q.x, q.y - lift); ctx.rotate(tilt); if (flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -H, w, H); ctx.restore();
@@ -2644,7 +2649,7 @@ function render() {
     const tp = teacherWalk(i);   // the teacher strolls along the front of the class as if explaining (her wish 2026-11-21)
     { const own = staffOf(CLASSES[i].id) && sprites['staff_' + CLASSES[i].id];
       const pim = teacherPose(i, tp);
-      if (pim) { const hh = (STAFF_H[staffOf(CLASSES[i].id)] || 58) * 1.05; add(tp.x, tp.y, () => { teacherGlow(tp, hh, STAFF_GLOW[staffOf(CLASSES[i].id)] || STAFF_GLOW_ALL); drawPose(pim, tp.x, tp.y, hh, tp.moving && tp.left && TEACHER_FLY[staffOf(CLASSES[i].id)] && FLY_LEFT[staffOf(CLASSES[i].id)] ? !tp.left : tp.left, tp.moving, tp.left ? 'hover' : 'waddle'); }); }
+      if (pim) { const hh = (STAFF_H[staffOf(CLASSES[i].id)] || 58) * 1.05; add(tp.x, tp.y, () => { teacherGlow(tp, hh, STAFF_GLOW[staffOf(CLASSES[i].id)] || STAFF_GLOW_ALL); drawPose(pim, tp.x, tp.y, hh, tp.moving && tp.left && TEACHER_FLY[staffOf(CLASSES[i].id)] && FLY_LEFT[staffOf(CLASSES[i].id)] ? !tp.left : tp.left, tp.moving, WALK_POSE[staffOf(CLASSES[i].id)] ? 'step' : tp.left ? 'hover' : 'waddle'); }); }
       else if (own && own.complete && own.naturalWidth) { const t1 = { sp: 'staff_' + CLASSES[i].id, ph: performance.now() / 1000 + i, flip: tp.left, path: tp.moving ? [1] : [] }; add(tp.x, tp.y, () => { const hh = STAFF_H[staffOf(CLASSES[i].id)] || 58;
         { const q = P(tp.x, tp.y), g = ctx.createRadialGradient(q.x, q.y - hh * 0.5, 2, q.x, q.y - hh * 0.5, hh * 0.75); g.addColorStop(0, STAFF_GLOW[staffOf(CLASSES[i].id)] || STAFF_GLOW_ALL); g.addColorStop(1, 'rgba(255,240,200,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.x, q.y - hh * 0.5, hh * 0.75, 0, Math.PI * 2); ctx.fill(); }   // a soft glow so a dark professor stands out in a dark room
         drawCreature(t1, tp.x, tp.y, hh); }); }   // own drawn professor (her approval, one at a time)
