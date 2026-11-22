@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=174';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=174';
+} from './data.js?v=175';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=175';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 174;   // keep equal to the ?v= number in index.html
+const BUILD = 175;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1275,6 +1275,17 @@ function directorPos() {
 // The fox shopkeeper (her choice 2026-11-21: a curiosity shop): hands over the treat while a student is shopping,
 // counts coins after a sale; when the shop is empty he polishes a crystal ball or carries a box of glowing jars to the shelf.
 const FOX_POSES = ['give', 'coins', 'carry', 'polish'];
+const COOK_POSES = ['stir', 'give', 'fire', 'taste'];
+for (const f of COOK_POSES) { const im = new Image(); im.src = `assets/staff/cook_${f}.png?v=1`; sprites['cook_' + f] = im; }
+// The dragon cook (her choice 2026-11-22): hands a tray while someone is served (held at least 2.6 s); when the line is empty
+// he stirs the soup 5 s, breathes a flame at the stove 3 s, tastes from the ladle 3 s (every pose >= 2.5 s, her rule).
+let cookGiveT = 0, cookLast = 0;
+function cookPose() {
+  const now = performance.now() / 1000, dt = Math.min(0.2, cookLast ? now - cookLast : 0); cookLast = now;
+  if (cantLine.some((a) => a.state === 'cantbuy')) cookGiveT = 2.6; else cookGiveT = Math.max(0, cookGiveT - dt);
+  if (cookGiveT > 0) return 'give';
+  const t = now % 11; return t < 5 ? 'stir' : t < 8 ? 'fire' : 'taste';
+}
 for (const f of FOX_POSES) { const im = new Image(); im.src = `assets/staff/fox_${f}.png?v=1`; sprites['fox_' + f] = im; }
 let foxU = 0, foxTrip = 0, foxClock = 0, foxHold = 0, foxLast = 0, foxSold = 0, foxCoinsT = 0;
 function foxPos() {
@@ -1994,7 +2005,9 @@ function render() {
       const ck = CANT_COOK(s), now = performance.now() / 1000, busy = cantLine.some((a) => a.state === 'cantbuy');
       const themed = !!part('CANT', 'counter');
       if (!themed) [3.6, 4.7].forEach((dx, k) => { const q = { x: s.x0 + dx, y: s.y0 + 1.35 }; add(q.x, q.y, () => { drawCounter(q); const m = P(q.x, q.y); emoji(k ? '🍲' : '🥧', m.x, m.y - 14, 13); }); });
-      add(ck.x, ck.y, () => { const m = P(ck.x, ck.y), hop = busy ? Math.abs(Math.sin(now * 5)) * 3 : 0; teacherGlow(ck, 40, 'rgba(255,225,190,0.75)'); emoji('🐲', m.x, m.y - 18 - hop, 30); if (busy) emoji('🔥', m.x + 14, m.y - 4, 10); });
+      const cim = sprites['cook_' + cookPose()];
+      if (cim && cim.naturalWidth) add(ck.x, ck.y, () => { teacherGlow(ck, 52, 'rgba(255,225,190,0.75)'); drawPose(cim, ck.x, ck.y, 52, false, false); });
+      else add(ck.x, ck.y, () => { const m = P(ck.x, ck.y), hop = busy ? Math.abs(Math.sin(now * 5)) * 3 : 0; teacherGlow(ck, 40, 'rgba(255,225,190,0.75)'); emoji('🐲', m.x, m.y - 18 - hop, 30); if (busy) emoji('🔥', m.x + 14, m.y - 4, 10); });
       if (!themed) CANT_TABLES(s).slice(0, cantTables()).forEach((t) => add(t.x, t.y, () => drawCounter(t, '#e9c79a', '#c99a68', 0.45)));
     }
   }
