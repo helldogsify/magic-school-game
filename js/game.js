@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=164';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=164';
+} from './data.js?v=165';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=165';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 164;   // keep equal to the ?v= number in index.html
+const BUILD = 165;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1100,9 +1100,10 @@ const STAFF_ART = { herbs: 'moss', potions: 'bubble', stars: 'lun', charms: 'spa
 const STAFF_H = { moss: 58, bubble: 54, lun: 68, spark: 62, breeze: 56, storm: 68, owl: 60 };   // teachers clearly taller than students (30) — her ruling 2026-11-21
 // teachers' pose sheets (her ask 2026-11-22: animations for every teacher): walk while strolling, two kinds of stops,
 // proud for a moment right after a student of the class passes; art one teacher at a time (art/staff/<name>_poses.jpg)
-const TEACHER_POSES = { moss: ['explain', 'water', 'sniff', 'read'], bubble: ['explain', 'stir', 'pour', 'sniff'] };
-const TEACHER_FLY = { moss: true, bubble: true };   // two flight frames <name>_fly1/fly2 (her ruling: «Парение не похоже на полет ... позу полета рисовать»)
-for (const [n, l] of Object.entries(TEACHER_POSES)) for (const f of [...l, 'proud', ...(TEACHER_FLY[n] ? ['fly1', 'fly2'] : [])]) { const im = new Image(); im.onerror = () => {}; im.src = `assets/staff/${n}_${f}.png?v=1`; sprites[n + '_' + f] = im; }
+const TEACHER_POSES = { moss: ['explain', 'water', 'sniff', 'read'], bubble: ['explain', 'stir', 'pour', 'sniff'], lun: ['map', 'spyglass', 'book', 'sphere'] };
+const TEACHER_FLY = { moss: true, bubble: true, lun: true };
+const NO_PROUD = { lun: true };   // her choice 2026-11-22: Lun has no joy pose, keeps his stop pose   // two flight frames <name>_fly1/fly2 (her ruling: «Парение не похоже на полет ... позу полета рисовать»)
+for (const [n, l] of Object.entries(TEACHER_POSES)) for (const f of [...l, ...(NO_PROUD[n] ? [] : ['proud']), ...(TEACHER_FLY[n] ? ['fly1', 'fly2'] : [])]) { const im = new Image(); im.onerror = () => {}; im.src = `assets/staff/${n}_${f}.png?v=1`; sprites[n + '_' + f] = im; }
 const passAt = {};
 function teacherPose(i, tp) {
   const n = WORLD === 1 && STAFF_ART[CLASSES[i].id], l = n && TEACHER_POSES[n]; if (!l) return null;
@@ -1110,7 +1111,7 @@ function teacherPose(i, tp) {
   if (tp.moving) { const b = sprites['staff_' + CLASSES[i].id]; return b && b.complete && b.naturalWidth ? b : null; }   // the standing picture, rocked or lifted by drawPose
   // her report 2026-11-22 («переливание колбы ... буквально моргание»): in a busy class a pass came every second and the proud
   // pose ate the whole stop. Now a stop pose always shows for its first 3.2 s; proud may only close a stop, once.
-  const f = tp.inStop > 3.2 && performance.now() - (passAt[i] || -1e9) < 4000 ? 'proud' : l[((tp.cyc || 0) * 2 + (tp.stop || 0)) % l.length];
+  const f = !NO_PROUD[n] && tp.inStop > 3.2 && performance.now() - (passAt[i] || -1e9) < 4000 ? 'proud' : l[((tp.cyc || 0) * 2 + (tp.stop || 0)) % l.length];
   const im = sprites[n + '_' + f]; return im && im.complete && im.naturalWidth ? im : null;
 }
 const STAFF_GLOW = { lun: 'rgba(255,240,190,0.95)' }, STAFF_GLOW_ALL = 'rgba(255,244,205,0.6)';   // every teacher glows softly (her wish 2026-11-21), Lun a bit more   // drawn height: Lun is tall, Bubble small and round
