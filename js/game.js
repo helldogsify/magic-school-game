@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=202';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=202';
+} from './data.js?v=203';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=203';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 202;   // keep equal to the ?v= number in index.html
+const BUILD = 203;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1517,8 +1517,8 @@ function layoutOutdoor() {
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
   if (SLOTS.GARDEN) { const g = SLOTS.GARDEN, X = g.x0, Y = g.y0;   // the graduates' garden: arch at the door, fountain plaza, founder statue, gazebo, benches, flowers
-    for (const [n, dx, dy, fl] of [['flowerarch', 0.55, 3.5, true], ['fountain', 3.55, 3.6], ['gazebo', 1.3, 1.2], ['founder', 5.2, 0.9], ['bench_b', 2.6, 5.45], ['bench_a', 5.45, 2.4],
-      ['topiary_ball', 0.7, 5.4], ['topiary_spiral', 5.4, 5.4], ['topiary_ball', 3.6, 0.6], ['peonybed', 4.6, 0.75], ['hydrangea', 0.6, 2.2], ['crystalball', 5.45, 4.3], ['hydrangea', 4.3, 5.5]]) {
+    for (const [n, dx, dy, fl] of [['flowerarch', 0.55, 3.5, true], ['fountain', 3.55, 3.6], ['gazebo', 4.7, 1.25], ['founder', 2.3, 0.75], ['bench_b', 2.6, 5.45], ['bench_a', 5.45, 3.6],   // gazebo moved to the back-right corner: it overlapped the arch (her screenshot)
+      ['topiary_ball', 0.7, 5.4], ['topiary_spiral', 5.4, 5.4], ['peonybed', 3.55, 0.75], ['crystalball', 5.45, 4.7], ['hydrangea', 4.3, 5.5]]) {
       out.push({ n, x: X + dx, y: Y + dy, th: 'outdoor', s: 1, flip: !!fl }); keep.push([X + dx, Y + dy]); } }
   // The clearing around the school (her «на поляне ... мало деталей стало красивых»): small composed vignettes every ~5 tiles
   // in the band 2..6 tiles from the buildings; a vignette gets its tree only where the tree cannot hide a building behind it.

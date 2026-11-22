@@ -15,6 +15,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
 html { background: #ffc8e0; }
 html, body { height: 100vh; }
 @supports (height: 100dvh) { html, body { height: 100dvh; } }
+body { position: fixed; inset: 0; height: auto; }   /* pins the app to the whole screen of the iOS home-screen app (the strip stayed, pink, in her build-201 screenshot) */
 body {
   font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, sans-serif;
   color: var(--ink);
