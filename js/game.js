@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=199';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=199';
+} from './data.js?v=200';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=200';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 199;   // keep equal to the ?v= number in index.html
+const BUILD = 200;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1510,6 +1510,32 @@ function layoutOutdoor() {
     entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + 8.5 }; }
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
+  // The clearing around the school (her «на поляне ... мало деталей стало красивых»): small composed vignettes every ~5 tiles
+  // in the band 2..6 tiles from the buildings; a vignette gets its tree only where the tree cannot hide a building behind it.
+  const VIGN = [
+    [['blossom', 0, 0], ['roses', 1.1, 0.9], ['starflowers', -1.0, 1.1], ['roses2', 0.4, -1.2]],
+    [['willow', 0, 0], ['bells', 1.2, 0.6], ['fern', -1.1, 0.9], ['glowmush', 0.6, 1.4]],
+    [['goldtree', 0, 0], ['berrybush', 1.2, 0.8], ['stump', -1.1, 0.7], ['starflowers', 0.2, 1.4]],
+    [[null, 0, 0], ['boulder', 0, 0], ['crystals', 1.0, 0.6], ['runestone', -0.9, 0.5], ['glowmush', 0.2, 1.2]],
+    [[null, 0, 0], ['flowerbed', 0, 0], ['birdbath', 1.3, 0.4], ['roses', -1.2, 0.8]],
+    [[null, 0, 0], ['pumpkin', 0, 0], ['berrybush', 1.2, 0.5], ['starflowers', -0.9, 1.0], ['fern', 0.6, -1.0]],
+    [['blossom', 0, 0], ['flowerbed', 1.3, 1.0], ['bells', -1.0, 1.0]],
+    [[null, 0, 0], ['chestmush', 0, 0], ['glowmush', 0.9, 0.7], ['fern', -0.9, 0.6], ['bells', 0.3, -1.0]],
+  ];
+  const hidesBuilding = (x, y) => { for (let k = 1; k <= 7; k++) for (let j = -1; j <= 1; j++) if (regAt(Math.floor(x - k + j), Math.floor(y - k - j))) return true; return false; };   // a tall tree covers what is up-screen of it
+  // lanterns along the outdoor stone paths, every ~4 tiles on alternating sides
+  { let k = 0; for (let x = X0; x < X1; x++) for (let y = Y0; y < Y1; y++) { if (regAt(x, y) !== 'path') continue; if ((x * 7 + y * 3) % 4) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (regAt(nx, ny)) continue; if (put(k++ % 2 ? 'lantern_gold' : 'lantern_blue', nx + 0.5 - dx * 0.25, ny + 0.5 - dy * 0.25, 1, 0.85)) break; } } }
+  const vspots = [];
+  for (let gx = X0; gx < X1; gx += 4) for (let gy = Y0; gy < Y1; gy += 4) {
+    const x = gx + 0.5 + hash2(gx, gy, 111) * 3, y = gy + 1 + hash2(gx, gy, 112) * 3, d = D(x, y);
+    if (d < 2 || d > 6 || !inWorld(x, y) || front(x, y) || zones.some(([zx, zy]) => Math.hypot(zx - x, zy - y) < 5.5) || vspots.some(([vx, vy]) => Math.hypot(vx - x, vy - y) < 3.8)) continue;
+    if (hash2(gx, gy, 113) < 0.12) continue;   // leave some lawn open
+    vspots.push([x, y]);
+    const v = VIGN[Math.floor(hash2(gx, gy, 114) * VIGN.length)], tree = v[0][0] && d >= 3 && !hidesBuilding(x, y);
+    v.forEach(([n, dx, dy], k) => { if (!n || (k === 0 && !tree)) return; put(n, x + dx, y + dy, 1, k === 0 ? 0.9 + hash2(gx, gy, 115) * 0.15 : 0.85 + hash2(gx, gy, 116 + k) * 0.3); });
+    if (!tree && v[0][0]) put(['roses', 'starflowers', 'bells'][Math.floor(hash2(gx, gy, 117) * 3)], x, y, 1);   // no room for the tree: flowers in its place
+  }
   // The forest (her «Всё еще некрасиво, думай»): one tree per jittered cell instead of mixed groves.
   //  - an organic edge line ~8-11 tiles from the buildings, with a soft band of bushes in front of it;
   //  - species by area: a dark fir forest behind the school (top of the screen), oaks and willows at the sides,
