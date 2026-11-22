@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=213';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=213';
+} from './data.js?v=214';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=214';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 213;   // keep equal to the ?v= number in index.html
+const BUILD = 214;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -233,7 +233,7 @@ const PROP_H = { fire_ped: 42, water_ped: 42, earth_ped: 42, air_ped: 42, sofa: 
 const parts = {};
 let partsVer = 0;   // bumped on every part load: themeReady() answers from its cache until then
 for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  if (!n) continue; const im = new Image(); im.onload = () => { partsVer++; }; im.src = `${t.dir}${n}.webp?v=2132`; parts[k + '/' + n] = im;
+  if (!n) continue; const im = new Image(); im.onload = () => { partsVer++; }; im.src = `${t.dir}${n}.webp?v=2142`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
@@ -327,6 +327,7 @@ function buildEdges() {
       if (nb === id) continue;
       if (doorAt.has(`${x},${y},${dx},${dy}`)) continue;
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
+      if (id === 'hall' && WORLD === 1 && !nb && (side === 'x0' || side === 'y0') && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1) { EDGES.push({ x, y, side, id, tall: true, hallWall: true, wallTheme: 'REC' }); continue; }   // corridor back wall with only grass behind it: a real tall wall (her «добавь стены где можно»)
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
       const lowSide = ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
       EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
@@ -1521,7 +1522,8 @@ function layoutOutdoor() {
   const D = (x, y) => { x = Math.floor(x); y = Math.floor(y); return x < X0 || y < Y0 || x >= X1 || y >= Y1 ? 999 : dist[(x - X0) * NY + (y - Y0)]; };
   const inWorld = (x, y) => { const m = P(x, y); return m.x > -40 && m.x < WW + 40 && m.y > 40 && m.y < WH + 160; };   // trees may stand right at the map edge (crowns cut by it)
   const G0 = GATE_TILE, front = (x, y) => (Math.abs(x - G0.x - 0.5) < 10 && y > G0.y - 4) || (y > BUILDING.y1 && D(x, y) < 10);   // the view of the entrance and the south front stays open
-  const out = [], put = (n, x, y, minD, sc = 1) => { if (D(x, y) < minD || !inWorld(x, y)) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
+  const behind = new Set(); for (const e of EDGES) if (e.hallWall) for (let k = 1; k <= 5; k++) for (let j = -2; j <= 2; j++) behind.add(e.side === 'y0' ? (e.x + j) + ',' + (e.y - k) : (e.x - k) + ',' + (e.y + j));   // the tall corridor walls hide what stands just behind them
+  const out = [], put = (n, x, y, minD, sc = 1) => { if (D(x, y) < minD || !inWorld(x, y) || behind.has(Math.floor(x) + ',' + Math.floor(y))) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
   // scenes, each tied to a building (skipped when that building's slot is missing)
   const zones = [];
   const keep = [];   // every scene / entrance item: no tree may stand in front of (down-screen of) it
@@ -1747,7 +1749,28 @@ function drawCandles() {   // candles floating over the corridors: each bobs slo
     ctx.fillStyle = '#ffcf5a'; ctx.beginPath(); ctx.ellipse(x, y - 3.2, 1.7, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff8d8'; ctx.beginPath(); ctx.ellipse(x, y - 2.6, 0.8, 1.5, 0, 0, Math.PI * 2); ctx.fill();
   }
 }
+let hallWallsWait = false;   // the reception pictures were not loaded yet: redraw the ground once they are
+function bakeHallWalls(c, q) {   // tall corridor walls (reception wallpaper) and their decor, drawn once into the ground layer
+  const W = EDGES.filter((e) => e.hallWall); hallWallsWait = false; if (!W.length) return; if (!part('REC', 'wall') || !part('REC', 'iso_window')) { hallWallsWait = true; return; }
+  W.sort((p, r) => (p.x + p.y) - (r.x + r.y));
+  for (const e of W) drawEdge(c, e);
+  c._q = q;
+  for (const side of ['y0', 'x0']) {   // decor along each straight run of wall
+    const lines = {};
+    for (const e of W) if (e.side === side) (lines[side === 'y0' ? e.y : e.x] ||= []).push(side === 'y0' ? e.x : e.y);
+    let k = 0;
+    for (const [L, ts] of Object.entries(lines)) {
+      ts.sort((p, r) => p - r); let st = ts[0];
+      for (let i = 1; i <= ts.length; i++) if (i === ts.length || ts[i] !== ts[i - 1] + 1) {
+        const a = st, b = ts[i - 1] + 1; if (b - a >= 2) { const sl = side === 'y0' ? { x0: a, y0: +L } : { x0: +L, y0: a }; k = fillWall(c, 'REC', sl, side, a + 0.2, b - 0.2, ['window', 'lantern', 'notice', 'lantern', 'window', 'clock', 'shelf'], k); }
+        st = ts[i];
+      }
+    }
+  }
+  c._q = undefined;
+}
 function drawStatic() {
+  if (hallWallsWait && part('REC', 'wall') && part('REC', 'iso_window')) staticKey = '';
   const k = statKey(); if (k === staticKey || (pinching && stat.width)) return; staticKey = k; staticN++;
   const q = statQ();
   stat.width = Math.round(SW * q); stat.height = Math.round(SH * q);
@@ -1768,6 +1791,7 @@ function drawStatic() {
     if (carpet && y % 3 === 0) { const m = P(x + 0.5, y + 0.5); emoji('✦', m.x, m.y, 7, c); }
   }
   if (WORLD === 1 && OUT_ON) { layoutOutdoor(); entranceDecal = null; drawEntrancePath(c, true); for (const o of OUTDOOR) { const q = P(o.x, o.y), r = (OUT_H[o.n] || 28) * (o.s || 1) * 1.3; o.baked = q.x - r > MARGIN && q.x + r < MARGIN + SW && q.y - r > MARGIN && q.y + r < MARGIN + SH && outShadow(c, o); } }   // ground shadows go into the cached layer
+  if (WORLD === 1) bakeHallWalls(c, q);
   // gate
   // the gate is drawn in the depth-sorted list (drawGate)
   // rooms from back to front
@@ -1800,8 +1824,8 @@ function drawEdge(c, e, capOnly = false) {
   if (side === 'x1') { a = P(x + 1, y); b = P(x + 1, y + 1); a2 = P(x + 1 + TH, y); b2 = P(x + 1 + TH, y + 1); }
   if (side === 'y1') { a = P(x + 1, y + 1); b = P(x, y + 1); a2 = P(x + 1, y + 1 + TH); b2 = P(x, y + 1 + TH); }
   if (capOnly) { /* the room's picture is the face */ }
-  else if (e.tall && themeOf(e.id) && texWall(c, themeOf(e.id), e, a, b, h)) {   // themed room: its wall texture, baseboard
-    poly(c, [a, b, up(b, 5), up(a, 5)], shade(wallColor(e.id), -55));
+  else if (e.tall && (e.wallTheme || themeOf(e.id)) && texWall(c, e.wallTheme || themeOf(e.id), e, a, b, h)) {   // themed room: its wall texture, baseboard
+    poly(c, [a, b, up(b, 5), up(a, 5)], e.wallTheme ? '#8a6a8f' : shade(wallColor(e.id), -55));
   }
   else if (e.tall) {   // inner face painted in the room colour, darker on the left side
     const col = wallColor(e.id);
@@ -2599,6 +2623,7 @@ function render() {
     const k1 = e.id === 'hall' ? e.x + e.y : (sl.x0 + sl.x1 + sl.y0 + sl.y1) / 2;
     if (painted) { const sl0 = SLOTS[e.id], sq = Math.min(sl0.x1 - sl0.x0, sl0.y1 - sl0.y0); if (e.x < sl0.x0 + sq && e.y < sl0.y0 + sq) continue; }
     if (e.tall && cachedRoom(e.id)) continue;   // already inside the room's cached picture
+    if (e.hallWall) continue;   // corridor walls are baked into the ground layer
     { const m = P(e.x + 0.5, e.y + 0.5); if (!onScreen(m.x, m.y)) continue; }
     list.push({ k1, k2: e.tall ? -1e9 + 1 : 1e9, draw: () => drawEdge(ctx, e) });
   }
