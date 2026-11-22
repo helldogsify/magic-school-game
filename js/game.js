@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=243';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=243';
+} from './data.js?v=244';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=244';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 243;   // keep equal to the ?v= number in index.html
+const BUILD = 244;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -989,6 +989,7 @@ function ratingPanel() {
   const rows = R.last.map((r) => `<div class="card up"><span class="remoji">${r.g ? '🏅' : r.s <= 1 ? '😢' : '🎓'}</span><div class="grow"><b>${r.n}</b> <span style="color:#d49a00">${starRow(r.s)}</span><div class="muted">«${r.t}»</div></div></div>`).join('');
   return `<div class="sh-head"><span class="remoji big">🏅</span><div><h2>Рейтинг школы: ${ratingTxt()} из 5</h2><div class="muted">Главная цель — поднять его как можно выше</div></div><button class="x" data-close>✕</button></div>
     <div class="center big-txt" style="color:#d49a00">${starRow(ratingVal() || 0)}</div>
+    <button class="btn wide" data-top>🏆 Топ школ</button>
     <p>Каждый выпускник оставляет отзыв: чем выше его звание и лучше настроение, тем больше звёзд. Мастера оставляют <b>золотые отзывы</b> 🏅 — они весят втрое больше. Каждый, кто ушёл из школы расстроенным (не нашлось места или загрустил в очереди), ставит 1 звезду.</p>
     <p class="muted">Рейтинг считается по последним ~300 отзывам, так что его всегда можно поднять. Золотых отзывов: ${fmt(R.gold || 0)} · плохих: ${fmt(R.bad || 0)}.</p>
     <p class="muted">Как поднять: больше парт и кроватей, чтобы никто не уходил; сильные учителя и экзамены на звания; хорошее настроение (библиотека, магазин, столовая, забота директора). Если учеников приходит больше, чем школа успевает учить, выбери у директора «Престижный» договор.</p>
@@ -3319,6 +3320,7 @@ function settingsPanel() {
     <p>Экзаменов сдано: ${S.stats.passed} · не сдано: ${S.stats.failed} · выпускников: ${S.stats.graduated}</p>
     <h3>🎵 Музыка</h3><button class="btn ghost wide" data-music="${musicOn() ? 0 : 1}">${musicOn() ? '🔇 Выключить музыку' : '🎵 Включить музыку'}</button>
     <h3>😌 Спокойный режим</h3>${calmBlock()}
+    <h3>🏆 Топ школ</h3><button class="btn ghost wide" data-top>🏆 Топ школ и название твоей школы</button>
     ${cloudBlock()}
     <h3>Отзыв</h3>
     <input id="fb-name" class="fb" placeholder="Твоё имя" value="${(localStorage.getItem('magicschool.name') || '').replace(/"/g, '&quot;')}">
@@ -3752,6 +3754,8 @@ document.addEventListener('click', (e) => {
   if (d.feedback !== undefined) { sendFeedback(); return; }
   if (d.fbDel !== undefined) { fbPics.splice(+d.fbDel, 1); drawFbPics(); return; }
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
+  if (d.top !== undefined) { openTop(); return; }
+  if (d.schoolName !== undefined) { saveSchoolName(); return; }
   if (d.cloudLoad !== undefined) { cloudLoad(); return; }
   if (d.backupRestore !== undefined) { restoreBackup(); return; }
   if (d.cloudCopy !== undefined) { navigator.clipboard?.writeText(cloudCode()).then(() => toast('Код скопирован'), () => window.prompt('Твой код:', cloudCode())); return; }
@@ -3830,6 +3834,82 @@ $('#sheet-bg').addEventListener('click', closePanel);
 
 // ======================= cloud save (transfer code) =======================
 // Firestore REST, collection "saves", document id = transfer code. Rules allow get/create/update of one known code only.
+// ======================= top of schools (build 244, tester Ruslan's idea, Maria's go 2026-11-23 «теперь можно следующий этап») =======================
+// Firestore collection top/{uid}_w{world}: name, w, r (rating), n (reviews), g (graduates), gold, build, updated.
+// Every device signs in anonymously (Firebase Auth REST, no SDK); the rules let a device write only its own entries,
+// anyone may read the list. A school enters the table after TOP_MIN reviews (else a new school with 3 graduates would lead).
+const FB_KEY = 'AIzaSyC2BiopoOBIkkFKf1RkkbKyOSHCgZMZSTg';   // the public web key of the Firebase project (safe to ship: access is decided by the rules)
+const TOP_URL = 'https://firestore.googleapis.com/v1/projects/magic-school-game-2ae0f/databases/(default)/documents/top';
+const TOP_MIN = 300, TOP_EVERY = 60, NAME_KEY = 'magicschool.schoolName', ANON_KEY = 'magicschool.anon';
+const schoolName = () => (localStorage.getItem(NAME_KEY) || '').trim();
+const cleanName = (s) => String(s || '').replace(/[<>"&\n\r\t]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+const escTxt = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+let anonBusy = null;
+async function anonToken() {   // an id token of this device's anonymous account (signs up once, then refreshes)
+  let A = null; try { A = JSON.parse(localStorage.getItem(ANON_KEY)); } catch (e) { /* none */ }
+  if (A && A.tok && A.exp > Date.now() + 60000) return A;
+  if (anonBusy) return anonBusy;
+  anonBusy = (async () => {
+    let r;
+    if (A && A.refresh) {
+      r = await fetch('https://securetoken.googleapis.com/v1/token?key=' + FB_KEY, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(A.refresh) });
+      if (r.ok) { const d = await r.json(); A = { uid: d.user_id, refresh: d.refresh_token, tok: d.id_token, exp: Date.now() + (+d.expires_in || 3600) * 1000 }; localStorage.setItem(ANON_KEY, JSON.stringify(A)); return A; }
+    }
+    r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + FB_KEY, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"returnSecureToken":true}' });
+    if (!r.ok) throw new Error('auth ' + r.status);
+    const d = await r.json(); A = { uid: d.localId, refresh: d.refreshToken, tok: d.idToken, exp: Date.now() + (+d.expiresIn || 3600) * 1000 };
+    localStorage.setItem(ANON_KEY, JSON.stringify(A)); return A;
+  })();
+  try { return await anonBusy; } finally { anonBusy = null; }
+}
+let topSentAt = 0, topSentKey = '';
+async function topPush(force) {   // our line in the table (only with a school name); quietly does nothing offline
+  if (!S || !schoolName() || !(S.rating || S.stats.graduated)) return;
+  const R = rating(), key = [schoolName(), R.v.toFixed(2), R.n, S.stats.graduated].join('|');
+  if (!force && (key === topSentKey || Date.now() - topSentAt < TOP_EVERY * 1000)) return;
+  topSentAt = Date.now();
+  try {
+    const A = await anonToken();
+    const I = (v) => ({ integerValue: String(Math.round(v || 0)) });
+    const body = { fields: { name: { stringValue: schoolName() }, w: I(WORLD), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), build: I(BUILD), updated: I(Date.now()) } };
+    const r = await fetch(`${TOP_URL}/${A.uid}_w${WORLD}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify(body) });
+    if (r.ok) topSentKey = key;
+  } catch (e) { /* offline: next time */ }
+}
+let topList = null, topErr = '', topLoadedAt = 0;
+async function topLoad() {
+  try {
+    const r = await fetch(TOP_URL + '?pageSize=300', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
+    const d = await r.json(), num = (f) => (f ? +(f.integerValue ?? f.doubleValue ?? 0) : 0);
+    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), g: num(x.fields.g), gold: num(x.fields.gold) }));
+    topErr = ''; topLoadedAt = Date.now();
+  } catch (e) { topErr = 'Не получилось загрузить топ — проверь интернет'; }
+  if (panel === topPanel) { const v = document.getElementById('school-name')?.value; refreshPanel(); const e = document.getElementById('school-name'); if (e && v != null) e.value = v; }   // keep what is being typed
+}
+function openTop() { topPush(true).finally(topLoad); openPanel(topPanel); }
+function topPanel() {
+  let me = ''; try { me = (JSON.parse(localStorage.getItem(ANON_KEY)) || {}).uid || ''; } catch (e) { /* none */ }
+  const mine = (x) => me && x.id === me + '_w' + WORLD;
+  const all = (topList || []).filter((x) => x.w === WORLD);
+  const ok = all.filter((x) => x.n >= TOP_MIN).sort((a, b) => b.r - a.r || b.g - a.g), wait = all.filter((x) => x.n < TOP_MIN);
+  const rows = ok.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span><div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${mine(x) ? ' <span class="muted">(ты)</span>' : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)} выпускников · золотых отзывов ${fmt(x.gold)}</div></div></div>`).join('');
+  const myPlace = ok.findIndex(mine);
+  const nameBox = `<h3>Название твоей школы</h3><input id="school-name" class="fb" maxlength="24" placeholder="Например: Звёздная академия" value="${escTxt(schoolName())}"><button class="btn wide" data-school-name>💾 Сохранить название</button>`;
+  return `<div class="sh-head"><span class="remoji big">🏆</span><div><h2>Топ школ</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'} · по рейтингу 🏅</div></div><button class="x" data-close>✕</button></div>
+    ${schoolName() ? `<p>Твоя школа «<b>${escTxt(schoolName())}</b>»: рейтинг 🏅 ${ratingTxt()}${myPlace >= 0 ? `, <b>${myPlace + 1}-е место</b>` : rating().n < TOP_MIN ? ` — в топ попадёт после ${TOP_MIN} отзывов (сейчас ${fmt(rating().n)})` : ''}.</p>` : '<p><b>Придумай название школы</b>, чтобы она появилась в топе. Его увидят все игроки.</p>'}
+    ${nameBox}
+    ${topErr ? `<p class="muted">${topErr}</p>` : !topList ? '<p class="muted">Загружаю топ…</p>' : rows ? '<h3>Лучшие школы</h3>' + rows : '<p class="muted">Пока в топе никого нет — стань первой школой!</p>'}
+    ${wait.length ? `<p class="muted">Ещё набирают отзывы: ${wait.length} ${wait.length === 1 ? 'школа' : 'школ'}.</p>` : ''}
+    <p class="muted">В топ попадают школы, у которых не меньше ${TOP_MIN} отзывов. Рейтинг обновляется раз в минуту, пока игра открыта.</p>`;
+}
+topPanel.still = true;   // has the name field: no automatic re-render while typing
+function saveSchoolName() {
+  const el = document.getElementById('school-name'); if (!el) return;
+  const v = cleanName(el.value);
+  if (!v) { toast('Напиши название школы'); return; }
+  localStorage.setItem(NAME_KEY, v); toast(`🏫 Школа «${v}» записана`);
+  topPush(true).finally(topLoad); refreshPanel();
+}
 const CLOUD = 'https://firestore.googleapis.com/v1/projects/magic-school-game-2ae0f/databases/(default)/documents/saves/';
 const CODE_KEY = 'magicschool.cloud';
 const cloudCode = () => localStorage.getItem(CODE_KEY) || '';
@@ -3983,7 +4063,7 @@ let renderMs = 0;   // average time of one render (test hook __test.renderMs)
 function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
   stepWorld(dt, true);
-  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); cloudHint(); }
+  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
   { const t0 = performance.now(); render(); renderMs = renderMs * 0.95 + (performance.now() - t0) * 0.05; }
