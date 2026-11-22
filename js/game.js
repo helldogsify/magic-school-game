@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=231';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=231';
+} from './data.js?v=232';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=232';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 231;   // keep equal to the ?v= number in index.html
+const BUILD = 232;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -48,8 +48,8 @@ const BAL_NEW = { chance0: 0.45, maxChance: 0.8, item: 1.5, teacher: 1.6, expand
   build: [0, 2000, 50000, 1000000, 60000000, 150000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000, pay: 0.55, lesson: 2 };   // lesson: length multiplier of every lesson (build 184, her «ученики слишком быстро сменяются»: 2.6 s at max level was shorter than the walk)   // pay 0.45 since build 178 (0.5 in 177): the queue fix (build 176) nearly doubled the flow; sim back to Elements ~4.2 d, first master ~5 d
 const BAL_OLD = { pay: 1, chance0: 0.6, maxChance: 0.85, item: 1.25, teacher: 1.35, expand: 120, expandK: 3, desk: 2.3, examDesk: 1.6, time: 1.6, rec: 1.4, ads: 1.45, build: [], buildTime: [], tower: 500000 };
 const BAL = { ...BAL_NEW };   // live since build 153 (tuned with the pacing simulation; BAL_OLD kept for comparison runs)
-const buildCost = (i) => (WORLD === 1 && BAL.build[i] !== undefined ? BAL.build[i] : CLASSES[i].build);
-const buildTime = (i) => (WORLD === 1 && BAL.buildTime[i] !== undefined ? BAL.buildTime[i] : CLASSES[i].buildTime);
+const buildCost = (i) => (WORLD <= 2 && BAL.build[i] !== undefined ? BAL.build[i] : CLASSES[i].build);
+const buildTime = (i) => (WORLD <= 2 && BAL.buildTime[i] !== undefined ? BAL.buildTime[i] : CLASSES[i].buildTime);
 const cls = (id) => S.classes[CLASSES.findIndex((c) => c.id === id)];
 const isOpen = (i) => S.classes[i].built && Date.now() >= S.classes[i].buildEnd;
 const kindSum = (i, kind) => CLASSES[i].items.reduce((a, it, k) => a + (it.kind === kind ? S.classes[i].items[k] : 0), 0);
@@ -114,7 +114,10 @@ const dirBuilt = () => !!(S && S.dirBuilt);
 const dirLvl = (k) => (S && S.dir && S.dir[k]) || 0;
 const dirCost = (k) => Math.round(DIR_UP[k].base * Math.pow(DIR_UP[k].k, dirLvl(k)));
 const refundRateAt = (l) => 3 - 0.25 * l;                 // 300% -> 100%
-const refundRate = () => refundRateAt(dirLvl('refund'));
+const refundRate = () => (WORLD === 2 ? 1 : refundRateAt(dirLvl('refund')));   // world 2 has no director to lower the penalty: just the fee back (her report 2026-11-22: coins drained to 0 by refunds)
+// world 2 (her report 2026-11-22: «прямо перед глазами в 0 ушли деньги»): newcomers kept arriving every 5 s while the
+// 2-desk halls were full and the dorm too, 2 of 3 left and each took 300% of its fee back. Now no one is admitted while full.
+const schoolFull = () => !dormFree();   // the dorm is the school's buffer: when every bed is taken, the school is overloaded
 const careK = (l) => 1 - 0.06 * l;                         // mood drop x1 -> x0.4
 const INC_AUTO_AT = (l) => 600 * (1 - 0.07 * l);           // 10 min -> 3 min
 const G = { // helpers exposed to missions
@@ -1383,7 +1386,7 @@ function stepWorld(dt, live = false) {
   stepIncidents(dt, live);
   stepInspector(dt, live);
   arrivalT -= dt;
-  if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6) spawn(); }
+  if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6 && !(WORLD === 2 && schoolFull())) spawn(); }   // world 2: nobody new comes while every line and every bed is taken
   startNextProcess(live);
   if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime()) finishProcess(); }
   stepConcierge(dt);
@@ -3869,6 +3872,9 @@ preloadEmoji();
 watchEmoji();
 load();
 relayout();   // the map depends on the saved class sizes
+// world 2 compensation, once (her report 2026-11-22): until build 231 every student who left took 300% of the fee back;
+// the fair refund is 100%, so the extra 200% (2/3 of all refunds so far) goes back to the player
+if (WORLD === 2 && !S.w2fix) { S.w2fix = 1; const back = Math.round((S.stats.refunded || 0) * 2 / 3); if (back > 0) { S.coins += back; setTimeout(() => toast(`🪙 +${fmt(back)}: вернули лишнее, что ушло ученикам`), 2500); } }
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
 // pacing simulation hook (tools/sim_run.js drives it in a test browser; not used by the game itself)
 window.__sim = {
