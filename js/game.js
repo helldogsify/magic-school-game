@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=177';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=177';
+} from './data.js?v=178';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=178';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 177;   // keep equal to the ?v= number in index.html
+const BUILD = 178;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -45,7 +45,7 @@ function save() {
 
 // ---- balance (rebalance 2026-11-22, her goal: world 1 in ~1.5 weeks, first master on ~day 5; tuned with tools/sim_driver.js) ----
 const BAL_NEW = { chance0: 0.45, maxChance: 0.8, item: 1.5, teacher: 1.6, expand: 600, expandK: 4, desk: 3.0, examDesk: 1.8, time: 2.0, rec: 1.5, ads: 1.55,
-  build: [0, 2000, 50000, 1000000, 60000000, 150000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000, pay: 0.5 };   // pay 0.5 since build 177: the queue fix (build 176) nearly doubled the flow; sim back to Elements ~4.2 d, first master ~5 d
+  build: [0, 2000, 50000, 1000000, 60000000, 150000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000, pay: 0.45 };   // pay 0.45 since build 178 (0.5 in 177): the queue fix (build 176) nearly doubled the flow; sim back to Elements ~4.2 d, first master ~5 d
 const BAL_OLD = { pay: 1, chance0: 0.6, maxChance: 0.85, item: 1.25, teacher: 1.35, expand: 120, expandK: 3, desk: 2.3, examDesk: 1.6, time: 1.6, rec: 1.4, ads: 1.45, build: [], buildTime: [], tower: 500000 };
 const BAL = { ...BAL_NEW };   // live since build 153 (tuned with the pacing simulation; BAL_OLD kept for comparison runs)
 const buildCost = (i) => (WORLD === 1 && BAL.build[i] !== undefined ? BAL.build[i] : CLASSES[i].build);
@@ -677,8 +677,8 @@ function goGraduate(a) {
   if (a.retake) { retakeHome(a); return; }   // an elder from the tower after his retake: not a new graduate
   walk(a, g.x0 + 1 + Math.random() * 4, g.y0 + 1 + Math.random() * 4, () => {
     S.stats.graduated++;
-    if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower
-    if (helperAdmit(a)) return;                       // mages stay as teachers' helpers (two per class, different kinds)
+    if (helperAdmit(a)) return;                       // mages and elder mages stay as teachers' helpers (elders replace mages)
+    if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower                       // mages stay as teachers' helpers (two per class, different kinds)
     popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
     a.state = 'fly'; a.t = 0; a.vx = (Math.random() < 0.5 ? -1 : 1) * 0.6;
   });
@@ -948,7 +948,7 @@ function formCounts() {   // how many of each form are in the school now: studen
   const c = {}, inc = (k) => { c[k] = (c[k] || 0) + 1; };
   for (const a of inSchool()) if (SPECIES.includes(a.sp)) inc(formOf(a));
   if (S.tower) [...(S.tower.res || []), ...(S.tower.wait || [])].forEach((r) => inc(fkey(r.sp, r.rk, r.el || 0)));
-  for (const l of Object.values(S.helpers || {})) l.forEach((h) => inc(fkey(h.sp, 3)));
+  for (const l of Object.values(S.helpers || {})) l.forEach((h) => inc(fkey(h.sp, h.rk || 3, h.el || 0)));
   return c;
 }
 let FC = {};
@@ -1003,12 +1003,13 @@ function towerAdmit(a) {   // the graduate walks from the garden into the tower 
 }
 function towerPull() { const T = towerUp(); while (T.wait.length && T.res.length < towerCap()) T.res.push(T.wait.shift()); }
 let towerT = 0;
+let retakeAcc = 0;
 function stepTower(dt) {
+  if (WORLD === 1) { retakeAcc += dt; if (retakeAcc >= 1) { retakeAcc -= 1; stepRetake(1); } }   // helpers retake even without the tower
   if (!towerOpen()) return;
   towerT += dt; if (towerT < 1) return;
   const n = towerRate() * towerT; towerT = 0;
   if (n > 0) { S.coins += n; S.stats.earned = (S.stats.earned || 0) + n; S.stats.tower = (S.stats.tower || 0) + n; earnedThisSec += n; }
-  stepRetake(1);
 }
 // ---- master retakes (her choice 2026-11-22): an elder mage living in the tower now and then walks to the exam hall,
 // sits the final exam again and tries the master exam once more; passed -> master; either way he comes back to the tower.
@@ -1018,22 +1019,37 @@ const retakeInterval = () => Math.round(300 * Math.pow(0.85, retakeLvl()));   //
 const retakeCost = () => Math.round(BAL.tower * 0.15 * Math.pow(2.0, retakeLvl()));
 function stepRetake(dt) {
   const T = towerUp(), FI = CLASSES.findIndex((c) => c.final);
-  T.res.forEach((r) => { r.id ||= S.nextId++; if (r.away && !agents.some((a) => a.retake === r.id)) r.away = false; });   // lost walker (reload): he is home again
-  if (T.res.some((r) => r.away)) return;                    // one at a time
-  if (!T.res.some((r) => r.rk === 4) || FI < 0) { T.rt = retakeInterval(); return; }
+  const helpers = []; for (const [ci, l] of Object.entries(S.helpers || {})) l.forEach((h) => { h.id ||= S.nextId++; helpers.push([+ci, h]); });
+  const all = [...(towerOpen() ? T.res.map((r) => [-1, r]) : []), ...helpers];
+  all.forEach(([, r]) => { r.id ||= S.nextId++; if (r.away && !agents.some((a) => a.retake === r.id)) r.away = false; });   // lost walker (reload): he is home again
+  if (all.some(([, r]) => r.away)) return;                  // one at a time
+  const pool = all.filter(([ci, r]) => r.rk === 4 && (ci < 0 || isOpen(ci)));
+  if (!pool.length || FI < 0 || !isOpen(FI)) { T.rt = retakeInterval(); return; }
   T.rt = (T.rt ?? retakeInterval()) - dt;
   if (T.rt > 0) return;
   T.rt = retakeInterval();
-  const pool = T.res.filter((r) => r.rk === 4), r = pool[Math.floor(Math.random() * pool.length)];
+  const [ci, r] = pool[Math.floor(Math.random() * pool.length)];
   r.away = true;
-  const s = SLOTS.TOWER, [d] = s.door;
+  const [d] = ci < 0 ? SLOTS.TOWER.door : slotOf(ci).door;
   const a = { id: S.nextId++, sp: r.sp, rk: 4, el: 0, name: r.name, x: d[0] + 0.5, y: d[1] + 0.5, z: 0, path: [], speed: 2.5, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6, mood: 95, paid: 0, retake: r.id };
   agents.push(a);
   if (!ffwd) toast(`📜 ${r.name} (Старший маг) пошёл пересдавать экзамен на Мастера`);
   goClass(a, FI);
 }
-function retakeHome(a) {   // back from the exam hall: update the resident, walk into the tower
+function retakeHome(a) {   // back from the exam hall: update the resident, walk into the tower (or back to the class he helps)
   const T = towerUp(), r = T.res.find((x) => x.id === a.retake), s = SLOTS.TOWER;
+  if (!r) for (const [ci, l] of Object.entries(S.helpers || {})) {
+    const k = l.findIndex((x) => x.id === a.retake); if (k < 0) continue;
+    const h = l[k]; h.rk = a.rk || 4; h.el = a.el || 0; h.away = false;
+    if (h.rk === 5 && towerOpen() && T.res.length < towerCap()) {   // a new master moves into the tower, his helper place is free again
+      l.splice(k, 1); T.res.push({ sp: h.sp, rk: 5, el: h.el, name: h.name, t: Date.now(), id: h.id });
+      if (!ffwd) toast(`🏰 ${h.name} (${resTitle(h)}) переехал в Башню мастеров`);
+      break;
+    }
+    const [, dh] = slotOf(+ci).door; a.c = -1; a.state = 'walk'; a.goal = { t: 'tw' };
+    walk(a, dh[0] + 0.5, dh[1] + 0.5, () => { a.gone = true; });
+    return;
+  }
   if (r) { r.rk = a.rk || 4; r.el = a.el || 0; r.away = false; }
   a.c = -1; a.state = 'walk'; a.goal = { t: 'tw' };
   walk(a, s.x0 + 1.5 + Math.random() * 3, s.y0 + 1.5 + Math.random() * 3, () => { a.gone = true; });
@@ -1075,7 +1091,8 @@ function towerPanel() {
 const HELP_MAX = 2, HELP_BONUS = 0.03;
 const helpersAll = () => (S.helpers ||= {});
 const helpersOf = (i) => (S && S.helpers && S.helpers[i]) || [];
-const helpBonus = (i) => HELP_BONUS * helpersOf(i).length;
+const HELP_BONUS_ELDER = 0.03;
+const helpBonus = (i) => helpersOf(i).reduce((n, h) => n + (h.away ? 0 : (h.rk || 3) >= 4 ? HELP_BONUS_ELDER : HELP_BONUS), 0);
 const helpersCount = () => Object.values(helpersAll()).reduce((n, l) => n + l.length, 0);
 function helperSlot(sp) {   // the class with the fewest helpers that has no helper of this kind yet
   let best = -1;
@@ -1087,13 +1104,26 @@ function helperSlot(sp) {   // the class with the fewest helpers that has no hel
   }
   return best;
 }
+// Her ruling 2026-11-22 («После того как открываются старшие маги, они заменяют тех кто у преподавателей тусуется.
+// Переодически ходят тоже на повышение»): an elder (rank 4) graduate takes a free helper place or replaces a «Маг»
+// (that one graduates); elder helpers go to master retakes like the tower elders; a new master moves to the tower.
+function elderSlot(sp) {   // [class, index of the mage to replace or -1 for a free place]
+  const free = helperSlot(sp); if (free >= 0) return [free, -1];
+  for (let i = 0; i < NCLS; i++) { if (!isOpen(i)) continue; const h = helpersOf(i), k = h.findIndex((x) => (x.rk || 3) === 3 && x.sp === sp); if (k >= 0) return [i, k]; }   // same kind: the class stays varied
+  for (let i = 0; i < NCLS; i++) { if (!isOpen(i)) continue; const h = helpersOf(i); if (h.some((x) => x.sp === sp)) continue; const k = h.findIndex((x) => (x.rk || 3) === 3); if (k >= 0) return [i, k]; }
+  return [-1, -1];
+}
 function helperAdmit(a) {
-  if (WORLD !== 1 || !SPECIES.includes(a.sp) || (a.rk || 0) !== 3) return false;
-  const i = helperSlot(a.sp); if (i < 0) return false;
-  (helpersAll()[i] ||= []).push({ sp: a.sp, name: a.name });   // taken at once; the walk back to the class is for the eye
+  if (WORLD !== 1 || !SPECIES.includes(a.sp) || ((a.rk || 0) !== 3 && (a.rk || 0) !== 4)) return false;
+  let i, k = -1;
+  if (a.rk === 4) [i, k] = elderSlot(a.sp); else i = helperSlot(a.sp);
+  if (i < 0) return false;
+  const list = (helpersAll()[i] ||= []);
+  if (k >= 0) { const old = list.splice(k, 1)[0]; if (!ffwd) toast(`🎓 ${old.name} (Маг) уступил место Старшему магу и выпустился`); }
+  list.push({ sp: a.sp, name: a.name, rk: a.rk, el: 0, id: S.nextId++ });   // taken at once; the walk back to the class is for the eye
   const [, h] = slotOf(i).door; a.state = 'walk'; a.goal = { t: 'tw' };
   walk(a, h[0] + 0.5, h[1] + 0.5, () => { a.gone = true; });
-  if (!ffwd) toast(`🪄 ${a.name} (Маг) остался помогать: ${CLASSES[i].emoji} ${CLASSES[i].name}`);
+  if (!ffwd) toast(`🪄 ${a.name} (${RANKS[a.rk]}) остался помогать: ${CLASSES[i].emoji} ${CLASSES[i].name}`);
   return true;
 }
 const helpPaths = {};
@@ -1128,7 +1158,7 @@ function helperPos(i, k) {   // render-only: helps inside 16 s, walks out, looks
 function helpersHtml(i) {
   if (WORLD !== 1 || CLASSES[i].final) return '';
   const h = helpersOf(i);
-  return `<div class="card up"><span class="remoji">🪄</span><div class="grow"><b>Помощники-маги: ${h.length}/${HELP_MAX}</b><div class="muted">${h.length ? h.map((x) => `${x.name} (${SP_NAMES[x.sp]})`).join(', ') : 'выпускник со званием «Маг» останется помогать, если здесь нет мага его вида'} · +${HELP_BONUS * 100}% к экзамену на звание за каждого</div></div></div>`;
+  return `<div class="card up"><span class="remoji">🪄</span><div class="grow"><b>Помощники-маги: ${h.length}/${HELP_MAX}</b><div class="muted">${h.length ? h.map((x) => `${x.name} (${RANKS[x.rk || 3]}, ${SP_NAMES[x.sp]})${x.away ? ' — пересдаёт на Мастера' : ''}`).join(', ') : 'выпускник со званием «Маг» останется помогать, если здесь нет мага его вида'} · Маг +${HELP_BONUS * 100}%, Старший маг +${HELP_BONUS_ELDER * 100}% к экзамену на звание. Старший маг сменяет Мага и ходит пересдавать на Мастера</div></div></div>`;
 }
 function peoplePanel() {
   const l = inSchool(), n = (f) => l.filter(f).length;
@@ -1990,7 +2020,7 @@ function render() {
   if (WORLD === 1 && SLOTS.LIB) { const lo = librarianPos(), im = sprites['lib_' + lo.pose]; if (im && im.naturalWidth) add(lo.x, lo.y, () => { teacherGlow(lo, 56, 'rgba(255,244,200,0.85)'); drawPose(im, lo.x, lo.y, 56, lo.flip, lo.moving); }); }   // glow: he blended into the dark green room (her report)
   if (WORLD === 1) for (const [ci, list] of Object.entries(helpersAll())) {   // helper mages stroll between their class and the corridor
     const i = +ci; if (!slotOf(i) || !isOpen(i)) continue;
-    list.forEach((h, k) => { const p = helperPos(i, k); add(p.x, p.y, () => drawCreature({ sp: h.sp, rk: 3, back: p.back, flip: p.flip, path: p.moving ? [1] : [], ph: k + i + performance.now() / 1000 }, p.x, p.y, 30)); });
+    list.forEach((h, k) => { if (h.away) return; const p = helperPos(i, k); add(p.x, p.y, () => drawCreature({ sp: h.sp, rk: h.rk || 3, el: h.el || 0, back: p.back, flip: p.flip, path: p.moving ? [1] : [], ph: k + i + performance.now() / 1000 }, p.x, p.y, 30)); });
   }
   if (towerOpen() && SLOTS.TOWER) {   // residents of the masters' tower stroll; those waiting stand at the door outside
     const T = towerUp();
