@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=208';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=208';
+} from './data.js?v=209';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=209';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 208;   // keep equal to the ?v= number in index.html
+const BUILD = 209;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3370,9 +3370,10 @@ async function cloudPush(force = false) {
     if (rem === undefined) throw new Error('offline');
     if (rem && rem.data && progressOf(rem.data) > progressOf(all)) { cloudBusy = false; if (!noSave) adopt(rem.data); return; }
     const body = { fields: { data: { stringValue: JSON.stringify(all) }, updated: { integerValue: String(S.last) }, build: { integerValue: String(BUILD) } } };
-    const r = await fetch(CLOUD + code, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true });
+    const txt = JSON.stringify(body);   // keepalive bodies are limited to 64 KB: a bigger save threw «Failed to fetch» and showed «нет сети» forever (her save, build 208)
+    const r = await fetch(CLOUD + code, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: txt, keepalive: txt.length < 60000 });
     cloudState = r.ok ? `сохранено в облако в ${new Date().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}` : `облако не ответило (${r.status})`;
-  } catch (e) { cloudState = 'нет сети: сохраню позже'; }
+  } catch (e) { cloudState = 'нет сети: сохраню позже'; console.warn('cloud push', e); }
   cloudBusy = false;
 }
 async function cloudForce() {   // after restoring a backup: write it to the cloud even if the cloud has more
