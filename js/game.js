@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=226';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=226';
+} from './data.js?v=227';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=227';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 226;   // keep equal to the ?v= number in index.html
+const BUILD = 227;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -673,10 +673,36 @@ function seat(a, i, d) {
   deskOcc[i][d] = a.id; a.desk = d; a.c = i; a.state = 'walk'; a.goal = { t: 's', i, d };
   walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1); faceTeacher(a, i); });   // the teacher is at the back wall: the whole class sits with its back to us   // face the teacher
 }
+// ======================= world 2: ore -> goods -> caravans (her «Супер, делай» 2026-11-22) =======================
+// Every passed lesson in the mine (Штольня) brings ore to the store (capacity grows with the store upgrade); every passed
+// lesson in the forge (Кузня) forges 2 ore into 1 item, without ore that lesson pays half; the gem cutters (Гранильня)
+// sometimes cut a gem (4% a lesson). Items and gems go to the caravans (Торговый двор, next step).
+const W2 = () => (S.w2 ||= { ore: 0, items: 0, gems: 0, store: 1 });
+const oreCap = () => Math.round(40 * Math.pow(1.8, W2().store - 1));
+const storeCost = () => Math.round(tuition(2) * 120 * Math.pow(2.0, W2().store - 1));
+const MAX_STORE = 15, ORE_FORGE = 2, GEM_CHANCE = 0.04;
+const w2Id = (i) => (WORLD === 2 ? CLASSES[i].id : '');
+const w2Pay = (i) => (w2Id(i) === 'forge' && W2().ore < ORE_FORGE ? 0.5 : 1);   // a forge lesson without ore pays half
+function w2Lesson(i, p) {
+  const id = w2Id(i); if (!id) return; const w = W2();
+  if (id === 'mine') { if (w.ore < oreCap()) { w.ore++; if (!ffwd) popup('⛏️ +1', p.x + 0.4, p.y - 0.2, '#8a6d3b', 30); } else if (!ffwd) popup('📦 склад полон', p.x + 0.4, p.y - 0.2, '#a05a2c', 30); }
+  else if (id === 'forge') { if (w.ore >= ORE_FORGE) { w.ore -= ORE_FORGE; w.items++; if (!ffwd) popup('⚒️ +1', p.x + 0.4, p.y - 0.2, '#b0602c', 30); } else if (!ffwd) popup('нет руды', p.x + 0.4, p.y - 0.2, '#7a7a7a', 30); }
+  else if (id === 'gems' && Math.random() < GEM_CHANCE) { w.gems++; if (!ffwd) popup('💎 +1', p.x + 0.4, p.y - 0.2, '#7b5cd6', 40); }
+}
+function w2Section(i) {
+  const id = w2Id(i), w = WORLD === 2 ? W2() : null; if (!w) return '';
+  if (id === 'mine') return `<h3>Склад руды</h3><p class="muted">Каждый сданный урок здесь приносит ⛏️ 1 руду. Руду забирает Кузня: из 2 руды выходит 1 изделие ⚒️.</p>
+    <div class="card up"><span class="remoji">📦</span><div class="grow"><b>Склад: ${fmt(w.ore)}/${fmt(oreCap())}</b> <span class="muted">ур. ${w.store}/${MAX_STORE}</span><div class="muted">${w.ore >= oreCap() ? 'склад полон — руда не добывается' : 'больше места для руды'}</div></div>
+      ${w.store >= MAX_STORE ? '<span class="done">макс.</span>' : costBtn('↑', storeCost(), 'store')}</div>`;
+  if (id === 'forge') return `<h3>Руда и изделия</h3><p class="muted">Каждый сданный урок забирает ⛏️ 2 руды из Штольни и даёт ⚒️ 1 изделие. Без руды урок платит вдвое меньше.</p>
+    <div class="stats3"><div><span>⛏️</span><b>${fmt(w.ore)}</b><i>руда</i></div><div><span>⚒️</span><b>${fmt(w.items)}</b><i>изделия</i></div><div><span>💎</span><b>${fmt(w.gems)}</b><i>самоцветы</i></div></div>`;
+  if (id === 'gems') return `<h3>Самоцветы</h3><p class="muted">После каждого сданного урока есть шанс ${Math.round(GEM_CHANCE * 100)}%, что ученик огранит 💎 самоцвет. Сейчас: <b>${fmt(w.gems)}</b>.</p>`;
+  return '';
+}
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
   const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0); a.prepared = false; a.fed = false;   // a meal in the canteen helps one exam
-  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a)), p.x, p.y, null, 46); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
+  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i)), p.x, p.y, null, 46); w2Lesson(i, p); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
@@ -1339,7 +1365,8 @@ function renderInsp() {
     : calm() ? `<button class="ipill" data-insp>😌 ⭐ ${schoolStars()}</button>`
     : `<button class="ipill" data-insp>⭐ ${schoolStars()}</button>`;   // the warning itself is the banner below (iwarn)   // the warning names what will be checked (her report 2026-11-21)
   const warn = !c && !calm() && I.next ? `<button class="iwarn" data-insp>🧐 Через ${mmss(I.t)} придёт инспектор<br><b>Проверит: ${inspNextText(I.next)}</b></button>` : '';   // full text of what will be checked, 40 s ahead (her wish 2026-11-21)
-  const all = html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + warn;
+  const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
+  const all = html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + res + warn;
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }   // in-place update: icons are never re-created (they blinked)
 }
 function stepWorld(dt, live = false) {
@@ -2931,6 +2958,7 @@ function classPanel(i) {
       ${sizeOf(i) >= MAX_SIZE ? '<span class="done">макс.</span>' : costBtn('↑', expandCost(i), 'expand', `data-i="${i}"`)}</div>`}`;
     h += `<div class="card up"><span class="remoji">⏱️</span><div class="grow"><b>Урок короче</b><div class="muted">ур. ${st.time}/${MAX_TIME_LEVEL} · −8% времени</div></div>
       ${st.time >= MAX_TIME_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', timeCost(i), 'time', `data-i="${i}"`)}</div>`;
+    h += w2Section(i);
     h += '<h3>Обстановка класса</h3>';
     C.items.forEach((it, k) => {
       const lv = st.items[k];
@@ -3454,6 +3482,7 @@ document.addEventListener('click', (e) => {
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.people !== undefined) { openPanel(peoplePanel); return; }
+  if (d.w2res !== undefined) { const mi = CLASSES.findIndex((c) => c.id === 'mine'); if (mi >= 0 && isOpen(mi)) openPanel(classPanel(mi)); else toast('⛏️ Руду добывают в Штольне — построй её'); return; }
   if (d.species !== undefined) { openPanel(speciesPanel); return; }
   if (d.alb !== undefined) { albumSp = d.alb; refreshPanel(); return; }
   if (d.music !== undefined) { setMusic(d.music === '1'); if (panel === settingsPanel) { openPanel(settingsPanel); drawFbPics(); } return; }
@@ -3488,6 +3517,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
   else if (d.act === 'formlvl') { const f = formSt(d.k); if (formReady(d.k) && spend(formCost(d.k))) { f.xp -= formNeed(f.lvl); f.lvl++; toast(`✨ ${formName(d.k)}: уровень ${f.lvl}!`); } }
+  else if (d.act === 'store') { if (W2().store < MAX_STORE && spend(storeCost())) { W2().store++; toast('📦 Склад руды больше!'); } }
   else if (d.act === 'exlvl') { if (exLvl(i) < MAX_EX_LVL && spend(exCost(i))) st.ex = exLvl(i) + 1; }
   else if (d.act === 'xpllvl') { if (xplLvl(i) < MAX_XPL_LVL && spend(xplCost(i))) st.xpl = xplLvl(i) + 1; }
   else if (d.act === 'shopbuild') { if (!shopOpen() && spend(SHOP_COST)) { shopUp().built = true; staticKey = ''; toast('🛍️ Лавка открыта!'); panel = shopPanel; } }
