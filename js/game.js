@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=220';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=220';
+} from './data.js?v=221';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=221';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 220;   // keep equal to the ?v= number in index.html
+const BUILD = 221;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -314,8 +314,9 @@ function buildGrid() {
 // ---- walls: one rule everywhere ----
 // side: 'x0' / 'y0' = back sides (tall walls), 'x1' / 'y1' = front sides (knee walls); door tiles get no wall.
 let EDGES = [];
+// behind and 1 beside only: a wall that continues a room's outer wall along the same line is right (her «Исчезли остальные стены коридора» on 220)
 function roomNear(x, y, side) {   // a room close behind, beside or ahead along the line of a would-be tall corridor wall: the wall would rise next to it (her screenshots on 214 and 218)
-  for (let dx = -3; dx <= (side === 'y0' ? 2 : 0); dx++) for (let dy = -3; dy <= (side === 'x0' ? 2 : 0); dy++) { const r = regAt(x + dx, y + dy); if (r && r !== 'hall' && r !== 'path') return true; }
+  for (let dx = -3; dx <= (side === 'y0' ? 1 : -1); dx++) for (let dy = -3; dy <= (side === 'x0' ? 1 : -1); dy++) { const r = regAt(x + dx, y + dy); if (r && r !== 'hall' && r !== 'path') return true; }
   return false;
 }
 function dropShortHallWalls() {   // a tall corridor wall shorter than 3 tiles looks like a stray piece: back to a knee wall
