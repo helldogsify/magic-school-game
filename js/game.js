@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=185';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=185';
+} from './data.js?v=186';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=186';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 185;   // keep equal to the ?v= number in index.html
+const BUILD = 186;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2017,7 +2017,26 @@ function starsFx(i, d, p, o) {
     }
   }
 }
-const STATION_FX = { potions: potionsFx, stars: starsFx };
+// Charms: the spellbook over a busy lectern glows softly and every 4 s a spell bursts from it: little stars drift out
+// and fade over 2.5 s (pink, gold, lilac), drawn above the students
+function charmsFx(i, d, p, o) {
+  const a = studentAt(i, d); if (!a) return;
+  const im = part(o.th, o.n); if (!im) return;
+  const h = ((THEMES[o.th] && THEMES[o.th].h) || {})[o.n] || PROP_H[o.n] || 30;
+  const m = P(o.x, o.y), bx = m.x + (o.flip ? -1 : 1) * h * 0.16, by = m.y + h * 0.08 - h * 0.78;   // the floating book
+  const T = fxNow() + a.id * 1.37, u = (T / 4) % 1, cols = ['255,140,200', '255,214,90', '190,150,255'];
+  fxTop.push(() => {
+    const gl = 0.35 + 0.25 * Math.sin(T * Math.PI * 2 / 3), g = ctx.createRadialGradient(bx, by, 0, bx, by, 13);   // soft glow, 3 s pulse
+    g.addColorStop(0, `rgba(255,220,250,${gl})`); g.addColorStop(1, 'rgba(255,220,250,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, 13, 0, Math.PI * 2); ctx.fill();
+    const v = u / 0.62; if (v > 1) return;   // the burst lasts 2.5 s of the 4 s cycle
+    const ease = 1 - Math.pow(1 - v, 2), al = v < 0.12 ? v / 0.12 : 1 - (v - 0.12) / 0.88;
+    for (let k = 0; k < 6; k++) {
+      const an = k * Math.PI / 3 + a.id * 0.7, dist = 3 + 12 * ease * (0.8 + 0.3 * ((k * 7 + a.id) % 3) / 2);   // a ring of stars spreading from the book, rising a little
+      fxStar(bx + Math.cos(an) * dist, by + Math.sin(an) * dist * 0.6 - v * 7, 1.1 + 0.6 * (1 - v), Math.max(0, al), cols[(k + a.id) % 3]);
+    }
+  });
+}
+const STATION_FX = { potions: potionsFx, stars: starsFx, charms: charmsFx };
 function drawDesk(p) {
   const a = P(p.x - 0.55, p.y - 0.25), b = P(p.x + 0.55, p.y - 0.25), cc = P(p.x + 0.55, p.y + 0.25), d = P(p.x - 0.55, p.y + 0.25);
   const h = 9;
