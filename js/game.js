@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=153';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=153';
+} from './data.js?v=154';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=154';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 153;   // keep equal to the ?v= number in index.html
+const BUILD = 154;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -798,7 +798,7 @@ const inSchool = () => agents.filter((a) => a.state !== 'fly' && !(a.goal && (a.
 const SP_NAMES = { mothfox: 'Лисичка-мотылёк', petalear: 'Ушастик', fernhorn: 'Рогатик', starwhisker: 'Звёздный котик' };
 const RANKS = ['Новичок', 'Ученик', 'Младший маг', 'Маг', 'Старший маг', 'Мастер'];
 const RANKS_TO = ['новичком', 'учеником', 'младшим магом', 'магом', 'старшим магом', 'мастером'];
-const ELEMS = [{ name: 'огня', emo: '🔥', col: '255,106,43' }, { name: 'воды', emo: '💧', col: '63,169,245' }, { name: 'земли', emo: '🌱', col: '90,160,44' }, { name: 'воздуха', emo: '🌪️', col: '120,200,230' }];
+const ELEMS = [{ name: 'огня', emo: '🔥', col: '255,106,43' }, { name: 'воды', emo: '💧', col: '63,169,245' }, { name: 'земли', emo: '🌱', col: '90,160,44' }, { name: 'воздуха', emo: '🌪️', col: '255,120,190' }];
 const RANK_AT = (i) => (CLASSES[i].final ? 5 : [1, 1, 2, 2, 3, 4][i] || 0);   // the rank exam each class holds
 const RANK_BASE = [0, 0.30, 0.20, 0.12, 0.05, 0.025];    // chance at upgrade level 0 (rank 5: all four elements together)
 const RANK_STEP = [0, 0.01, 0.01, 0.01, 0.01, 0.004];   // + per «Шанс экзамена» level
@@ -863,7 +863,7 @@ function rankSection(i) {   // the class panel part about the rank exam held her
     <div class="card up"><span class="remoji">📈</span><div class="grow"><b>Опыт</b> <span class="muted">ур. ${xplLvl(i)}/${MAX_XPL_LVL}</span><div class="muted">за урок здесь карточка ученика получает +${1 + xplLvl(i)} опыта</div></div>
       ${xplLvl(i) >= MAX_XPL_LVL ? '<span class="done">макс.</span>' : costBtn('↑', xplCost(i), 'xpllvl', `data-i="${i}"`)}</div>`;
 }
-const formImg = (k) => { const [sp, rk] = k.split(':'); const t = Math.min(4, +rk); return `assets/creatures/${sp}${t ? '_t' + t : ''}.png${t ? '?v=1' : ''}`; };
+const formImg = (k) => { const [sp, rk, el] = k.split(':'); if (+rk === 5 && sprites[sp + '_m' + el]?.naturalWidth) return `assets/creatures/${sp}_m${el}.png?v=1`; const t = Math.min(4, +rk); return `assets/creatures/${sp}${t ? '_t' + t : ''}.png${t ? '?v=1' : ''}`; };
 let albumSp = SPECIES[0];
 function formCounts() {   // how many of each form are in the school now: students, tower residents, helper mages
   const c = {}, inc = (k) => { c[k] = (c[k] || 0) + 1; };
@@ -1176,6 +1176,7 @@ function drawSecretary(so) {
 for (const f of STAFF_OTHER) { const im = new Image(); im.src = `assets/staff/${f}.png?v=1`; sprites['staff_' + f] = im; }
 const staffSprite = (f) => WORLD === 1 && STAFF_OTHER.includes(f) && sprites['staff_' + f]?.naturalWidth;
 for (const [k, f] of Object.entries(STAFF_ART)) { const im = new Image(); im.src = `assets/staff/${f}.png?v=3`; sprites['staff_' + k] = im; }
+for (const sp of SPECIES) for (let e = 0; e < 4; e++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_m${e}${v}.png?v=1`; sprites[sp + '_m' + e + v] = im; }   // element masters (her «вау», 2026-11-22)
 for (const sp of SPECIES) for (let t = 1; t < 5; t++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_t${t}${v}.png?v=1`; sprites[sp + '_t' + t + v] = im; }   // outfit stages (drawn later; missing ones fall back)
 for (const sp of SPECIES) for (const v of ['', '_back']) { const im = new Image(); im.src = `assets/creatures/${sp}${v}.png`; sprites[sp + v] = im; }   // front and back views
 const arts = {};
@@ -1622,12 +1623,14 @@ function drawPlot(c, s, ci, L, B, R, F, center) {
 function shade(hex, d) { const n = parseInt(hex.slice(1), 16); const f = (v) => Math.max(0, Math.min(255, v + d)); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; }
 
 function drawCreature(a, x, y, h, extra) {
-  const rk = SPECIES.includes(a.sp) ? (a.rk || 0) : 0, tr = Math.min(4, rk), tf = tr && sprites[a.sp + '_t' + tr + (a.back ? '_back' : '')];
+  const rk = SPECIES.includes(a.sp) ? (a.rk || 0) : 0, tr = Math.min(4, rk), mf = rk === 5 && sprites[a.sp + '_m' + (a.el || 0) + (a.back ? '_back' : '')];
+  const tf = mf && mf.complete && mf.naturalWidth ? mf : tr && sprites[a.sp + '_t' + tr + (a.back ? '_back' : '')];
   if (rk === 5) {   // master of an element: a glow in the element's colour (until the masters get their own art)
     const s0 = P(x, y), c = ELEMS[a.el || 0].col, g = ctx.createRadialGradient(s0.x, s0.y - h * 0.5 - (a.z || 0), 2, s0.x, s0.y - h * 0.5 - (a.z || 0), h * 0.85);
     g.addColorStop(0, `rgba(${c},0.55)`); g.addColorStop(1, `rgba(${c},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(s0.x, s0.y - h * 0.5 - (a.z || 0), h * 0.85, 0, Math.PI * 2); ctx.fill();
   }
   if (tf && tf.complete && tf.naturalWidth) a = { ...a, sp: a.sp + '_t' + tr, back: false, _tierImg: tf };
+  if (rk === 5) h *= 1.12;   // masters stand a little taller
   const bk = a.back && sprites[a.sp + '_back'], im = a._tierImg ? a._tierImg : bk && bk.complete && bk.naturalWidth ? bk : sprites[a.sp];
   const s = P(x, y);
   const walking = (a.path && a.path.length > 0) || a._panic;
@@ -1639,6 +1642,14 @@ function drawCreature(a, x, y, h, extra) {
   if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; ctx.drawImage(im, -w / 2, -h, w, h); }
   else { ctx.fillStyle = '#ffd6e8'; ctx.beginPath(); ctx.ellipse(0, -h / 2, h / 2.6, h / 2.2, 0, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
+  if (rk === 5) {   // twinkling sparks of the element orbit a master: rarity you can see from afar
+    const T = performance.now() / 1000 + (a.ph || 0), c = ELEMS[a.el || 0].col;
+    for (let k = 0; k < 3; k++) {
+      const ang = T * 1.4 + k * 2.09, px = s.x + Math.cos(ang) * h * 0.48, py = s.y - z - h * 0.55 + Math.sin(ang) * h * 0.28, tw = 0.5 + 0.5 * Math.sin(T * 5 + k * 1.7), r = 2 + 2.2 * tw;
+      ctx.save(); ctx.globalAlpha = 0.45 + 0.55 * tw; ctx.fillStyle = '#fff'; ctx.strokeStyle = `rgb(${c})`; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(px, py - r * 1.6); ctx.lineTo(px + r * 0.45, py - r * 0.45); ctx.lineTo(px + r * 1.6, py); ctx.lineTo(px + r * 0.45, py + r * 0.45); ctx.lineTo(px, py + r * 1.6); ctx.lineTo(px - r * 0.45, py + r * 0.45); ctx.lineTo(px - r * 1.6, py); ctx.lineTo(px - r * 0.45, py - r * 0.45); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+    }
+  }
   if (extra) extra(s.x, s.y - z);
 }
 function ring(x, y, frac, color = '#3fbf6f') {
