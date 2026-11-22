@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=160';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=160';
+} from './data.js?v=161';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=161';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 160;   // keep equal to the ?v= number in index.html
+const BUILD = 161;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1098,12 +1098,13 @@ const STAFF_ART = { herbs: 'moss', potions: 'bubble', stars: 'lun', charms: 'spa
 const STAFF_H = { moss: 58, bubble: 54, lun: 68, spark: 62, breeze: 56, storm: 68, owl: 60 };   // teachers clearly taller than students (30) — her ruling 2026-11-21
 // teachers' pose sheets (her ask 2026-11-22: animations for every teacher): walk while strolling, two kinds of stops,
 // proud for a moment right after a student of the class passes; art one teacher at a time (art/staff/<name>_poses.jpg)
-const TEACHER_POSES = { moss: ['explain', 'water'] };
+const TEACHER_POSES = { moss: ['explain', 'water'] };   // bubble poses drawn (assets/staff/bubble_*.png), waiting for her yes
 for (const [n, l] of Object.entries(TEACHER_POSES)) for (const f of [...l, 'walk', 'proud']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/staff/${n}_${f}.png?v=1`; sprites[n + '_' + f] = im; }
 const passAt = {};
 function teacherPose(i, tp) {
   const n = WORLD === 1 && STAFF_ART[CLASSES[i].id], l = n && TEACHER_POSES[n]; if (!l) return null;
-  const f = tp.moving ? 'walk' : performance.now() - (passAt[i] || -1e9) < 1800 ? 'proud' : l[tp.stop || 0];
+  if (tp.moving) { const b = sprites['staff_' + CLASSES[i].id]; return b && b.complete && b.naturalWidth ? b : null; }   // the standing picture, rocked or lifted by drawPose
+  const f = performance.now() - (passAt[i] || -1e9) < 1800 ? 'proud' : l[tp.stop || 0];
   const im = sprites[n + '_' + f]; return im && im.complete && im.naturalWidth ? im : null;
 }
 const STAFF_GLOW = { lun: 'rgba(255,240,190,0.95)' }, STAFF_GLOW_ALL = 'rgba(255,244,205,0.6)';   // every teacher glows softly (her wish 2026-11-21), Lun a bit more   // drawn height: Lun is tall, Bubble small and round
@@ -1112,10 +1113,20 @@ const STAFF_OTHER = ['secretary', 'concierge'];
 const SEC_POSES = ['write', 'stamp', 'carry', 'pin'];   // pose sprites of the secretary (her ruling 2026-11-21: real animations, not sliding)
 for (const f of SEC_POSES) { const im = new Image(); im.src = `assets/staff/sec_${f}.png?v=2`; sprites['sec_' + f] = im; }
 // a full-body pose picture standing on the floor (with a soft shadow); a gentle step while walking
-function drawPose(im, x, y, H, flip, moving) {
-  const q = P(x, y), w = H * im.naturalWidth / im.naturalHeight, bob = moving ? Math.abs(Math.sin(performance.now() / 260)) * 1.2 : 0;
-  ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(q.x, q.y, H * 0.28, H * 0.11, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.save(); ctx.translate(q.x, q.y - bob); if (flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -H, w, H); ctx.restore();
+// Moving staff (her choice 2026-11-22, variants 1+2): a frozen mid-step picture slid along the floor looked like flying with
+// a leg up, so a moving figure now WADDLES (rocks side to side with a little hop in step) or HOVERS on its wings
+// (lifted, slow sway, smaller shadow, a few sparkles under the feet).
+function drawPose(im, x, y, H, flip, moving, style = 'waddle') {
+  const q = P(x, y), w = H * im.naturalWidth / im.naturalHeight, t = performance.now() / 1000, hover = moving && style === 'hover';
+  const lift = hover ? 9 + Math.sin(t * 3) * 2 : moving ? Math.abs(Math.sin(t * 6.5)) * 2.6 : 0;
+  const tilt = hover ? Math.sin(t * 2.2) * 0.035 : moving ? Math.sin(t * 6.5) * 0.075 : 0;
+  const sh = hover ? 0.7 : 1;
+  ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(q.x, q.y, H * 0.28 * sh, H * 0.11 * sh, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.translate(q.x, q.y - lift); ctx.rotate(tilt); if (flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -H, w, H); ctx.restore();
+  if (hover) for (let k = 0; k < 3; k++) {   // sparkles drifting down from the feet
+    const u = ((t * 0.9 + k / 3) % 1), px = q.x + Math.sin(t * 4 + k * 2.1) * w * 0.18, py = q.y - lift + 2 + u * (lift - 2);
+    ctx.save(); ctx.globalAlpha = 0.85 * (1 - u); ctx.fillStyle = '#fff6c8'; ctx.beginPath(); ctx.arc(px, py, 1.6 + (1 - u) * 1.2, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
 }
 // The concierge (her ask 2026-11-21: animations): writes the guest into the book, then hands over the key;
 // with nobody to check in she yawns with her candle and now and then walks along the dorm wall to see that all sleep.
@@ -1816,7 +1827,7 @@ function render() {
     const tp = teacherWalk(i);   // the teacher strolls along the front of the class as if explaining (her wish 2026-11-21)
     { const own = WORLD === 1 && STAFF_ART[CLASSES[i].id] && sprites['staff_' + CLASSES[i].id];
       const pim = teacherPose(i, tp);
-      if (pim) { const hh = (STAFF_H[STAFF_ART[CLASSES[i].id]] || 58) * 1.05; add(tp.x, tp.y, () => { teacherGlow(tp, hh, STAFF_GLOW[STAFF_ART[CLASSES[i].id]] || STAFF_GLOW_ALL); drawPose(pim, tp.x, tp.y, hh, tp.left, tp.moving); }); }
+      if (pim) { const hh = (STAFF_H[STAFF_ART[CLASSES[i].id]] || 58) * 1.05; add(tp.x, tp.y, () => { teacherGlow(tp, hh, STAFF_GLOW[STAFF_ART[CLASSES[i].id]] || STAFF_GLOW_ALL); drawPose(pim, tp.x, tp.y, hh, tp.left, tp.moving, tp.left ? 'hover' : 'waddle'); }); }
       else if (own && own.complete && own.naturalWidth) { const t1 = { sp: 'staff_' + CLASSES[i].id, ph: performance.now() / 1000 + i, flip: tp.left, path: tp.moving ? [1] : [] }; add(tp.x, tp.y, () => { const hh = STAFF_H[STAFF_ART[CLASSES[i].id]] || 58;
         { const q = P(tp.x, tp.y), g = ctx.createRadialGradient(q.x, q.y - hh * 0.5, 2, q.x, q.y - hh * 0.5, hh * 0.75); g.addColorStop(0, STAFF_GLOW[STAFF_ART[CLASSES[i].id]] || STAFF_GLOW_ALL); g.addColorStop(1, 'rgba(255,240,200,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.x, q.y - hh * 0.5, hh * 0.75, 0, Math.PI * 2); ctx.fill(); }   // a soft glow so a dark professor stands out in a dark room
         drawCreature(t1, tp.x, tp.y, hh); }); }   // own drawn professor (her approval, one at a time)
@@ -1832,7 +1843,7 @@ function render() {
     });
   }
   // library (themed): an armchair at every open reading place and a few things around
-  if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = sprites['dir_' + dp.pose]; if (WORLD === 1 && im && im.naturalWidth) add(dp.x, dp.y, () => { teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, 64, dp.flip, dp.moving); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
+  if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = sprites['dir_' + (dp.pose === 'walk' ? 'proud' : dp.pose)]; if (WORLD === 1 && im && im.naturalWidth) add(dp.x, dp.y, () => { teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, 64, dp.flip, dp.moving, 'hover'); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
   if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR', 'SHOP', 'TOWER']) {
     const th = themeOf(rid); if (!th || !SLOTS[rid] || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt()) || (rid === 'SHOP' && !shopOpen()) || (rid === 'TOWER' && !towerOpen())) continue;
@@ -1855,7 +1866,7 @@ function render() {
   }
   if (shopOpen() && SLOTS.SHOP) { const fo = foxPos(), im = sprites['fox_' + fo.pose]; if (im && im.naturalWidth) add(fo.x, fo.y, () => { teacherGlow(fo, 56, 'rgba(255,240,200,0.7)'); drawPose(im, fo.x, fo.y, 56, fo.flip, fo.moving); }); }
   const co = conciergePos();
-  if (staffSprite('concierge') && sprites['con_' + co.pose]?.naturalWidth) add(co.x, co.y, () => { drawPose(sprites['con_' + co.pose], co.x, co.y, 62, co.flip, co.moving); if (checkin) { const q = P(co.x, co.y); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } });
+  if (staffSprite('concierge') && sprites['con_' + co.pose]?.naturalWidth) add(co.x, co.y, () => { drawPose(co.pose === 'walk' ? sprites['staff_concierge'] : sprites['con_' + co.pose], co.x, co.y, 62, co.flip, co.moving); if (checkin) { const q = P(co.x, co.y); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } });
   else add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(staffSprite('concierge') ? { ...concierge, sp: 'staff_concierge', flip: false } : concierge, CONCIERGE.x, CONCIERGE.y, staffSprite('concierge') ? 62 : 34, (x, y) => {
     if (!staffSprite('concierge')) drawHat(x, y - 32, '#2f9e7a');
     if (checkin) ring(x + 18, y - 30, Math.min(1, checkinT / checkinTime()), '#2f9e7a');
