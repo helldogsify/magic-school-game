@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=149';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=149';
+} from './data.js?v=150';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=150';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 149;   // keep equal to the ?v= number in index.html
+const BUILD = 150;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -43,28 +43,34 @@ function save() {
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
 
+// ---- balance (rebalance 2026-11-22, her goal: world 1 in ~1.5 weeks, first master on ~day 5; tuned with tools/sim_driver.js) ----
+const BAL_NEW = { chance0: 0.45, maxChance: 0.8, item: 1.45, teacher: 1.6, expand: 600, expandK: 4, desk: 3.0, examDesk: 1.8, time: 2.0, rec: 1.5, ads: 1.55,
+  build: [0, 2000, 50000, 1000000, 20000000, 300000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600] };
+const BAL_OLD = { chance0: 0.6, maxChance: 0.85, item: 1.25, teacher: 1.35, expand: 120, expandK: 3, desk: 2.3, examDesk: 1.6, time: 1.6, rec: 1.4, ads: 1.45, build: [], buildTime: [] };
+const BAL = { ...BAL_OLD };   // the new balance goes live only when tuned (the pacing simulation switches it with __sim.bal)
+const buildCost = (i) => (WORLD === 1 && BAL.build[i] !== undefined ? BAL.build[i] : CLASSES[i].build);
+const buildTime = (i) => (WORLD === 1 && BAL.buildTime[i] !== undefined ? BAL.buildTime[i] : CLASSES[i].buildTime);
 const cls = (id) => S.classes[CLASSES.findIndex((c) => c.id === id)];
 const isOpen = (i) => S.classes[i].built && Date.now() >= S.classes[i].buildEnd;
 const kindSum = (i, kind) => CLASSES[i].items.reduce((a, it, k) => a + (it.kind === kind ? S.classes[i].items[k] : 0), 0);
-const rawSuccess = (i) => 0.6 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kindSum(i, 'success');
-const MAX_CHANCE = 0.85;   // even the best class fails sometimes: the library always has work
-const success = (i) => Math.min(MAX_CHANCE, rawSuccess(i));
-const overflow = (i) => Math.max(0, rawSuccess(i) - MAX_CHANCE);   // chance above the cap is not wasted: each 1% gives +2% tuition
+const rawSuccess = (i) => BAL.chance0 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kindSum(i, 'success');
+const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
+const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance above the cap is not wasted: each 1% gives +2% tuition
 const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()));   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * Math.pow(0.92, S.classes[i].time);
-const itemCost = (i, k) => Math.round(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(1.25, S.classes[i].items[k]));
-const teacherCost = (i) => Math.round(CLASSES[i].tuition * 6 * Math.pow(1.35, S.classes[i].teacher - 1));
-const expandCost = (i) => Math.round(CLASSES[i].tuition * 120 * Math.pow(3, sizeOf(i) - 1));
-const deskCost = (i) => Math.round(CLASSES[i].tuition * 15 * Math.pow(CLASSES[i].final ? 1.6 : 2.3, S.classes[i].desks - 2));   // exam desks grow slower: there are 21 of them
-const timeCost = (i) => Math.round(CLASSES[i].tuition * 10 * Math.pow(1.6, S.classes[i].time));
+const itemCost = (i, k) => Math.round(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, S.classes[i].items[k]));
+const teacherCost = (i) => Math.round(CLASSES[i].tuition * 6 * Math.pow(BAL.teacher, S.classes[i].teacher - 1));
+const expandCost = (i) => Math.round(CLASSES[i].tuition * BAL.expand * Math.pow(BAL.expandK, sizeOf(i) - 1));
+const deskCost = (i) => Math.round(CLASSES[i].tuition * 15 * Math.pow(CLASSES[i].final ? BAL.examDesk : BAL.desk, S.classes[i].desks - 2));   // exam desks grow slower: there are 21 of them
+const timeCost = (i) => Math.round(CLASSES[i].tuition * 10 * Math.pow(BAL.time, S.classes[i].time));
 const MAX_REC_LVL = 40;   // both reception upgrades stop at level 40
 const recLvl = () => Math.min(MAX_REC_LVL, S.reception.level), adsLvl = () => Math.min(MAX_REC_LVL, S.reception.ads);
 const procTime = () => 3.5 * Math.pow(0.92, recLvl() - 1);
 // entry fee: grows with the school (half the lesson price of the most expensive open class); upset leavers get it back x refundRate()
 const fee = () => { let mx = 0; for (let i = 0; i < CLASSES.length; i++) if (!CLASSES[i].final && isOpen(i)) mx = Math.max(mx, tuition(i)); return Math.max(3 + recLvl(), Math.round(mx * 0.5)); };
 const arrivalInterval = () => 5 * Math.pow(0.9, adsLvl() - 1);
-const recCost = () => Math.round(20 * Math.pow(1.4, S.reception.level - 1));
-const adsCost = () => Math.round(30 * Math.pow(1.45, S.reception.ads - 1));
+const recCost = () => Math.round(20 * Math.pow(BAL.rec, S.reception.level - 1));
+const adsCost = () => Math.round(30 * Math.pow(BAL.ads, S.reception.ads - 1));
 
 // ======================= director's office (Ruslan's idea, Maria's choices 2026-11-21) =======================
 const DIR_UP = {
@@ -318,7 +324,7 @@ function deskPos(i, d) {   // 3 columns across the room, rows from the board tow
   const s = slotOf(i), w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3, gap = (w - 2.2) / (cols - 1);
   return { x: s.x0 + 1.1 + (d % cols) * gap, y: s.y0 + (frontFacing(i) ? 1.9 : 2.5) + Math.floor(d / cols) * (CLASSES[i].final ? 1.45 : 1.2) };   // exam rows wider apart: each student clearly sits at his own desk
 }
-const seatPos = (i, d) => { const p = deskPos(i, d); if (sideHall(i)) return { x: p.x + 0.5, y: p.y + 0.05 };   // behind his desk, facing the left wall
+const seatPos = (i, d) => { const p = deskPos(i, d);   // exam hall: desks stay in the sideHall rows, students sit as before (her ruling 2026-11-22)
   if (frontFacing(i)) return { x: p.x - 0.45, y: p.y + 0.4 };   // charms: beside the lectern, on its left on screen (her ruling 2026-11-21)
   return { x: p.x, y: p.y + (sitsOn(i) ? 0.05 : CLASSES[i].final ? 0.32 : 0.45) }; };   // in front of the desk (nearer to us): the desk is between the student and the board
 // render-only stroll: the teacher walks slowly left and right along the board, pauses, turns to the class
@@ -366,11 +372,6 @@ function secretaryPos() {
 }
 let secGoal = 'board';
 function teacherWalk(i) {
-  if (sideHall(i)) {   // the examiner paces along the left wall, in front of the rows
-    const s = slotOf(i), T = performance.now() / 1000 + i * 3.7, ph = (T % 11) / 11;
-    const u = ph < 0.4 ? ph / 0.4 : ph < 0.5 ? 1 : ph < 0.9 ? 1 - (ph - 0.5) / 0.4 : 0, k = 0.5 - 0.5 * Math.cos(u * Math.PI);
-    return { x: s.x0 + 1.35, y: s.y0 + 0.9 + k * (s.y1 - s.y0 - 1.8), moving: ph < 0.4 || (ph >= 0.5 && ph < 0.9), left: ph < 0.4 };
-  }
   const b = teacherPos(i), s = slotOf(i), T = performance.now() / 1000 + i * 3.7;
   const span = Math.max(0.8, Math.min(2.2, (s.x1 - s.x0) / 2 - 1.4));
   const ph = (T % 9) / 9;                                         // 9 s loop: walk, stop, walk back, stop
@@ -379,7 +380,7 @@ function teacherWalk(i) {
   const moving = (ph < 0.35 || (ph >= 0.5 && ph < 0.85));
   return { x, y, moving, left: ph >= 0.5 && ph < 0.85 };
 }
-const teacherPos = (i) => { const s = slotOf(i); if (sideHall(i)) return { x: s.x0 + 1.35, y: (s.y0 + s.y1) / 2 }; return frontFacing(i) ? { x: s.x0 + (s.x1 - s.x0) / 2 + 0.6, y: s.y1 - 0.9 } : { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
+const teacherPos = (i) => { const s = slotOf(i); return frontFacing(i) ? { x: s.x0 + (s.x1 - s.x0) / 2 + 0.6, y: s.y1 - 0.9 } : { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
 let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.75, y: REC.y0 + 3.3 };
 const queueSlot = (k) => ({ x: REC.x0 + 3.0 + k * 0.7, y: REC.y0 + 4.6 });
 function waitSpot(i, k) { const [, h] = slotOf(i).door; return { x: h[0] + 0.5 + (k % 2) * 0.6 - 0.3, y: h[1] + 0.5 + Math.floor(k / 2) * 0.6 }; }
@@ -420,7 +421,9 @@ const classFull = (i) => i >= 0 && waitList[i].length >= MAX_WAIT;   // the line
 // sleepers go first (her rule 2026-11-21: one waited 10 min for a half-empty class while newcomers kept walking in):
 // a waker needs room in the standing line plus the other wakers already on their way; newcomers walking there do not block it
 const wakersFor = (i) => agents.reduce((n, a) => n + (a.woke && a.goal && a.goal.t === 'c' && a.goal.i === i && a.state === 'walk' ? 1 : 0), 0);
-const roomForWaker = (i) => i < 0 || waitList[i].length + wakersFor(i) < MAX_WAIT;
+// room = free desks + free places at the door; everybody already walking there counts (sleepers are woken first each step)
+const freeDesksN = (i) => { let n = 0; for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc[i][d]) n++; return n; };
+const roomForWaker = (i) => i < 0 || lineCount(i) < MAX_WAIT + freeDesksN(i);
 const sleepersFor = (i) => dorm.reduce((n, a) => n + (a && a.goal && a.goal.t === 'd' && a.goal.i === i ? 1 : 0), 0);
 // dorm: upset students sleep here until there is room in the line of their class
 let DS = SLOTS.DORM, DS2 = SLOTS.DORM2;
@@ -479,22 +482,31 @@ function leaveSchool(a) {   // no room anywhere: the student is upset and goes h
   walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; });
 }
 function route(a, i) {   // send a student on to class i, or to the dorm when its line is full
-  // nobody jumps the queue: while students sleep waiting for this class and its line is busy, a newcomer lies down behind them
-  const behind = i >= 0 && sleepersFor(i) > 0 && lineCount(i) + sleepersFor(i) >= MAX_WAIT && dormFree();
-  if (i < 0 || (!classFull(i) && !behind)) { goClass(a, i); return true; }
+  // her rule 2026-11-22: everybody stands at the door first, the dorm only when the door line is full.
+  // Sleepers already woken and walking back keep their places (roomForWaker counts them), so nobody is overtaken.
+  if (i < 0 || roomForWaker(i)) { goClass(a, i); return true; }
   if (!dormFree()) { leaveSchool(a); return false; }
   popup('😢', a.x, a.y, '#5b7fd6', 44);
   goDorm(a, i);
   return true;
 }
-function wakeSleepers() {   // the one who has waited longest wakes first
-  const sl = []; for (let b = 0; b < DORM_CAP; b++) { const a = dorm[b]; if (a && a.state === 'sleep') sl.push(a); }
+function wakeSleepers() {   // the one who has waited longest goes back first
+  // also those still on their way to the dorm or waiting at the concierge: when the door line has room they turn back
+  // at once instead of checking in first (her rule 2026-11-22)
+  const sl = []; for (let b = 0; b < DORM_CAP; b++) { const a = dorm[b]; if (a && a.goal && a.goal.t === 'd' && (a.state === 'sleep' || a.state === 'dline' || a.state === 'checkin' || a.state === 'walk')) sl.push(a); }
+  if (!sl.length) return;
   sl.sort((p, q) => (p.since || 0) - (q.since || 0));
+  let moved = false;
   for (const a of sl) {
     let i = a.goal.i; if (!isOpen(i)) i = nextClass(i - 1);
     if (i >= 0 && !roomForWaker(i)) continue;
+    if (a.state !== 'sleep') {   // not checked in yet (or walking to the bed): leave the concierge line
+      const k = dormLine.indexOf(a); if (k >= 0) { dormLine.splice(k, 1); moved = true; }
+      if (checkin === a) { checkin = null; checkinT = 0; }
+    }
     dorm[a.bed] = null; a.bed = -1; a.woke = true; popup('😊', a.x, a.y, '#2f9e7a', 44); goClass(a, i);
   }
+  if (moved) dormLine.forEach((w) => { if (w.state === 'dline' || w.state === 'walk') goDormLine(w); });   // the line moves up
 }
 function nextClass(i) { for (let k = i + 1; k < CLASSES.length; k++) if (isOpen(k)) return k; return -1; }
 function goClass(a, i) {
@@ -1268,8 +1280,7 @@ function roomProps(i) {
   if (T.front[0]) out.push({ n: T.front[0], x: s.x0 + 0.5, y: s.y1 - 0.45 });
   if (T.front[1]) out.push({ n: T.front[1], x: s.x1 - 0.55, y: s.y1 - 0.5 });
   if (T.front[2] && s.y1 - free >= 2.4) out.push({ n: T.front[2], x: s.x1 - 0.6, y: free + 0.5 });
-  if (T.teacherProp && sideHall(i)) out.push({ n: T.teacherProp, x: s.x0 + 0.9, y: s.y0 + 0.75 });   // the examiners' table in the top corner
-  else if (T.teacherProp) { const tp = teacherPos(i); out.push({ n: T.teacherProp, x: Math.max(s.x0 + 0.9, tp.x - 3.0), y: tp.y + 0.1 }); }   // beside the teacher's walking path, never in front of it
+  if (T.teacherProp) { const tp = teacherPos(i); out.push({ n: T.teacherProp, x: Math.max(s.x0 + 0.9, tp.x - 3.0), y: tp.y + 0.1 }); }   // beside the teacher's walking path, never in front of it
   return out.map((o) => ({ ...o, th }));
 }
 function drawProp(o) {
@@ -1455,7 +1466,7 @@ function drawPlot(c, s, ci, L, B, R, F, center) {
   c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 54, center.y - 26, 108, 48, 10); c.fill();
   c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
   text(C.emoji + ' ' + C.name, center.x, center.y - 11, 9.5, '#5d4a6e', c);
-  text('🪙 ' + fmt(C.build), center.x, center.y + 8, 12, '#7b5cd6', c);
+  text('🪙 ' + fmt(buildCost(ci)), center.x, center.y + 8, 12, '#7b5cd6', c);
 }
 function shade(hex, d) { const n = parseInt(hex.slice(1), 16); const f = (v) => Math.max(0, Math.min(255, v + d)); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; }
 
@@ -1743,7 +1754,7 @@ function classPanel(i) {
     }
     let h = `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">${C.final ? 'Последний шаг: сдал — стал выпускником 🎓, не сдал — в библиотеку' : `Урок ${i + 1} из ${CLASSES.length - 1}`}</div></div><button class="x" data-close>✕</button></div>
       <div class="stats3"><div><span>🪙</span><b>${fmt(tuition(i))}</b><i>плата</i></div><div><span>🎯</span><b>${pct(success(i))}</b><i>сдают экзамен</i></div><div><span>⏱️</span><b>${sec(lessonTime(i))}</b><i>урок</i></div></div>
-      ${overflow(i) > 0 ? `<p class="muted">🎯 Шанс уже максимальный (${Math.round(MAX_CHANCE * 100)}%). Всё, что сверху (+${Math.round(overflow(i) * 100)}%), превращается в плату: <b>+${Math.round(overflow(i) * 200)}%</b>.</p>` : ''}
+      ${overflow(i) > 0 ? `<p class="muted">🎯 Шанс уже максимальный (${Math.round(BAL.maxChance * 100)}%). Всё, что сверху (+${Math.round(overflow(i) * 100)}%), превращается в плату: <b>+${Math.round(overflow(i) * 200)}%</b>.</p>` : ''}
       <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>${rankSection(i)}`;
     h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · +5% платы и +1,5% к экзамену</div></div>
       ${st.teacher >= MAX_TEACHER_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', teacherCost(i), 'teacher', `data-i="${i}"`)}</div>`;
@@ -1757,7 +1768,7 @@ function classPanel(i) {
     C.items.forEach((it, k) => {
       const lv = st.items[k];
       h += `<div class="card up"><span class="remoji">${it.emoji}</span><div class="grow"><b>${it.name}</b> <span class="muted">ур. ${lv}</span>
-        <div class="muted">${it.kind === 'tuition' ? '+8% платы' : rawSuccess(i) >= MAX_CHANCE ? `+2% платы (шанс уже ${Math.round(MAX_CHANCE * 100)}%)` : '+1% к экзамену'} за уровень</div><div class="lvbar"><i style="width:${lv / MAX_ITEM_LEVEL * 100}%"></i></div></div>
+        <div class="muted">${it.kind === 'tuition' ? '+8% платы' : rawSuccess(i) >= BAL.maxChance ? `+2% платы (шанс уже ${Math.round(BAL.maxChance * 100)}%)` : '+1% к экзамену'} за уровень</div><div class="lvbar"><i style="width:${lv / MAX_ITEM_LEVEL * 100}%"></i></div></div>
         ${lv >= MAX_ITEM_LEVEL ? '<span class="done">макс.</span>' : costBtn(lv ? '↑' : 'Купить', itemCost(i, k), 'item', `data-i="${i}" data-k="${k}"`)}</div>`;
     });
     return h;
@@ -1833,9 +1844,9 @@ function buildPanel(i) {
     const C = CLASSES[i];
     return `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">Новый класс</div></div><button class="x" data-close>✕</button></div>
       <p>Ученики будут приходить сюда после предыдущего урока. Плата за урок: <b>🪙${fmt(C.tuition)}</b>.</p>
-      <p class="muted">Стройка займёт ${C.buildTime >= 60 ? Math.round(C.buildTime / 60) + ' мин' : C.buildTime + ' с'}.</p>
+      <p class="muted">Стройка займёт ${buildTime(i) >= 3600 ? +(buildTime(i) / 3600).toFixed(1) + ' ч' : buildTime(i) >= 60 ? Math.round(buildTime(i) / 60) + ' мин' : buildTime(i) + ' с'}.</p>
       ${starsNeed(i) > schoolStars() ? `<p class="muted">Нужно звёзд школы: <b>⭐ ${schoolStars()}/${starsNeed(i)}</b>. Звёзды дают проверки инспектора 🧐${calm() ? ' — выключи спокойный режим в ⚙️, чтобы он приходил' : ''}.</p>` : ''}
-      <button class="btn wide" data-cost="${C.build}" data-act="build" data-i="${i}" ${starsNeed(i) > schoolStars() ? 'disabled' : ''}>Построить <span class="cost">🪙${fmt(C.build)}${starsNeed(i) ? ` ⭐${starsNeed(i)}` : ''}</span></button>`;
+      <button class="btn wide" data-cost="${buildCost(i)}" data-act="build" data-i="${i}" ${starsNeed(i) > schoolStars() ? 'disabled' : ''}>Построить <span class="cost">🪙${fmt(buildCost(i))}${starsNeed(i) ? ` ⭐${starsNeed(i)}` : ''}</span></button>`;
   };
 }
 const starsNeed = (i) => (WORLD === 1 ? [0, 0, 0, 1, 3, 5][i] || 0 : 0);   // stars are needed in calm mode too: the player turns the inspector on when in the mood to earn them (her ruling 2026-11-21)   // charms 1, flight 3, elements 5 stars (classes already built stay)
@@ -1922,14 +1933,14 @@ const nice = (x) => { const e = Math.pow(10, Math.max(0, Math.floor(Math.log10(M
 function missionCost(m) {   // coins still needed from the current state to the target
   const C = CLASSES[m.i], st = m.i >= 0 ? S.classes[m.i] : null; let c = 0;
   switch (m.type) {
-    case 'item': for (let L = st.items[m.k]; L < m.target; L++) c += C.tuition * 2 * (1 + m.k) * Math.pow(1.25, L); return c;
-    case 'teacher': for (let L = st.teacher; L < m.target; L++) c += C.tuition * 6 * Math.pow(1.35, L - 1); return c;
+    case 'item': for (let L = st.items[m.k]; L < m.target; L++) c += C.tuition * 2 * (1 + m.k) * Math.pow(BAL.item, L); return c;
+    case 'teacher': for (let L = st.teacher; L < m.target; L++) c += C.tuition * 6 * Math.pow(BAL.teacher, L - 1); return c;
     case 'desk': return deskCost(m.i);
     case 'time': return timeCost(m.i);
-    case 'rec': for (let L = S.reception.level; L < m.target; L++) c += 20 * Math.pow(1.4, L - 1); return c;
+    case 'rec': for (let L = S.reception.level; L < m.target; L++) c += 20 * Math.pow(BAL.rec, L - 1); return c;
     case 'beds': return bedsCost();
     case 'lib': return libSeatsCost();
-    case 'build': return C.build;
+    case 'build': return buildCost(i);
   }
   return -1;
 }
@@ -2302,7 +2313,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'libspeed') { if (libUp().speed < MAX_LIB_LVL && spend(libSpeedCost())) libUp().speed++; }
   else if (d.act === 'libbonus') { if (libUp().bonus < MAX_LIB_LVL && spend(libBonusCost())) libUp().bonus++; }
   else if (d.act === 'conc') { if (dormUp().conc < MAX_CONC && spend(concCost())) dormUp().conc++; }
-  else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= CLASSES[i].build && spendStars(starsNeed(i)) && spend(CLASSES[i].build)) { st.built = true; st.buildEnd = Date.now() + CLASSES[i].buildTime * 1000; panel = classPanel(i); } }
+  else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= buildCost(i) && spendStars(starsNeed(i)) && spend(buildCost(i))) { st.built = true; st.buildEnd = Date.now() + buildTime(i) * 1000; panel = classPanel(i); } }
   else return;
   refreshPanel(); save();
 });
@@ -2590,6 +2601,46 @@ watchEmoji();
 load();
 relayout();   // the map depends on the saved class sizes
 if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
+// pacing simulation hook (tools/sim_run.js drives it in a test browser; not used by the game itself)
+window.__sim = {
+  step: (dt) => stepWorld(dt),
+  bal: (o) => Object.assign(BAL, BAL_NEW, o || {}),
+  get S() { return S; },
+  addStar: () => { insp().stars = (insp().stars || 0) + 1; },
+  options() {
+    const o = [], add = (act, cost, x = {}) => o.push({ act, cost, ...x });
+    CLASSES.forEach((C, i) => {
+      const st = S.classes[i];
+      if (!st.built) { add('build', buildCost(i), { i, stars: starsNeed(i) }); return; }
+      if (!isOpen(i)) return;
+      if (st.teacher < MAX_TEACHER_LEVEL) add('teacher', teacherCost(i), { i });
+      if (st.desks < maxDesksOf(i)) add('desk', deskCost(i), { i });
+      if (!C.final && sizeOf(i) < MAX_SIZE) add('expand', expandCost(i), { i });
+      if (st.time < MAX_TIME_LEVEL) add('time', timeCost(i), { i });
+      C.items.forEach((it, k) => { if (st.items[k] < MAX_ITEM_LEVEL) add('item', itemCost(i, k), { i, k }); });
+      if (RANK_AT(i) && exLvl(i) < MAX_EX_LVL) add('exlvl', exCost(i), { i });
+      if (RANK_AT(i) && xplLvl(i) < MAX_XPL_LVL) add('xpllvl', xplCost(i), { i });
+    });
+    if (S.reception.level < MAX_REC_LVL) add('rec', recCost());
+    if (S.reception.ads < MAX_REC_LVL) add('ads', adsCost());
+    if (bedCount() < maxBeds()) add('beds', bedsCost());
+    if (!dorm2Built()) add('dorm2', DORM2_COST);
+    [1, 2].forEach((k) => { if ((k === 1 || dorm2Built()) && dormSize(k) < 3) add('dormexp', dormExpandCost(k), { k }); });
+    if (dormUp().conc < MAX_CONC) add('conc', concCost());
+    if (libSeats() < MAX_LIB_SEATS) add('libseats', libSeatsCost());
+    if (libUp().speed < MAX_LIB_LVL) add('libspeed', libSpeedCost());
+    if (libUp().bonus < MAX_LIB_LVL) add('libbonus', libBonusCost());
+    if (WORLD === 1) {
+      if (!shopOpen()) add('shopbuild', SHOP_COST); else ['seller', 'shelves', 'goods'].forEach((k) => { if (shopUp()[k] < SHOP_MAX) add('shopup', shopCost(k), { k }); });
+      if (!dirBuilt()) add('dirbuild', DIR_COST, { stars: DIR_STARS }); else Object.keys(DIR_UP).forEach((k) => { if (dirLvl(k) < DIR_UP[k].max) add('dir', dirCost(k), { k }); });
+    }
+    FORM_KEYS.forEach((k) => { if (formReady(k)) add('formlvl', formCost(k), { k }); });
+    return o;
+  },
+  buy(op) { const b = document.createElement('button'); b.dataset.act = op.act; if (op.i !== undefined) b.dataset.i = op.i; if (op.k !== undefined) b.dataset.k = op.k; b.style.display = 'none'; document.body.appendChild(b); b.click(); b.remove(); },
+  stars: () => schoolStars(),
+  inSchool: () => inSchool().length,
+};
 window.__test = { P, SLOTS, focusTile, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
