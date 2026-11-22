@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=224';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=224';
+} from './data.js?v=225';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=225';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 224;   // keep equal to the ?v= number in index.html
+const BUILD = 225;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -242,8 +242,49 @@ const dormSize = (k) => (S && S.dormUp && S.dormUp['size' + k]) || 1;      // 1.
 const dormDepth = (k) => ROOM + 2 * (dormSize(k) - 1);
 const dormRows = (k) => 4 + 2 * (dormSize(k) - 1);                          // 4 beds per row: 16, 24, 32 per room
 const DORM_STRIDE = 32;                                                     // bed index: room 1 = 0..31, room 2 = 32..63
+// World 2 «Чертоги под горой» (her plan approved 2026-11-22, design/w2_plan_v1.png): one wide pillared great hall (the nave)
+// runs from the gate hall deep into the mountain; class pairs open on both sides of it (left rooms: door in their front-right
+// knee wall, right rooms: their back-left wall toward the nave is low and has the door); rows are 5 tiles of cave apart
+// (more than a tall wall hides); the oath hall closes the nave, the hall of glory (graduates leave) is left of it;
+// the front block (library | gate hall | dorms) keeps world 1's relative geometry, so all queues and staff spots still fit.
+const NAVE_X0 = 13, NAVE_X1 = 20, ROW_GAP = 5;
+function genLayoutW2() {
+  const rows = Math.ceil(NCLS / 2);
+  let y = 0;
+  SLOTS.EXAM = slot(8, y, [[16, y + 5], [16, y + 6]], {}, 17, 6, [[[17, y + 5], [17, y + 6]]]);
+  SLOTS.GARDEN = slot(2, y, [[8, y + 3], [7, y + 3]], {}, 6, 6);
+  y += 6;
+  const naveTop = y; y += ROW_GAP - 1;
+  let firstGap = null;
+  for (let r = rows - 1; r >= 0; r--) {
+    const li = 2 * r, ri = 2 * r + 1;
+    const d = Math.max(depthOf(li), ri < NCLS ? depthOf(ri) : ROOM);
+    const h1 = depthOf(li), y1 = y + d - h1, ym = y1 + Math.floor(h1 / 2);
+    SLOTS['C' + li] = slot(NAVE_X0 - ROOM, y1, [[NAVE_X0 - 1, ym], [NAVE_X0, ym]], {}, ROOM, h1);
+    if (ri < NCLS) { const h2 = depthOf(ri), y2 = y + d - h2, ym2 = y2 + Math.floor(h2 / 2); SLOTS['C' + ri] = slot(NAVE_X1, y2, [[NAVE_X1, ym2], [NAVE_X1 - 1, ym2]], {}, ROOM, h2, [[[NAVE_X1, ym2 + 1], [NAVE_X1 - 1, ym2 + 1]]]); }
+    y += d; if (!firstGap) firstGap = [y, y + ROW_GAP]; y += ROW_GAP;
+  }
+  const recY = y;
+  PATHS = [];
+  SLOTS.LIB = slot(0, recY, [[5, recY + 3], [6, recY + 3]], {}, 6, 8, [[[5, recY + 4], [6, recY + 4]]]);
+  SLOTS.REC = slot(12, recY, [[15, recY], [15, recY - 1]], {}, 9, 9,
+    [[[16, recY], [16, recY - 1]], [[17, recY], [17, recY - 1]], [[16, recY + 8], [16, recY + 9]], [[17, recY + 8], [17, recY + 9]], [[20, recY], [21, recY]]]);
+  SLOTS.DORM = slot(21, recY, [[21, recY], [20, recY]], {}, ROOM, dormDepth(1));
+  SLOTS.DORM2 = slot(27, recY, [[27, recY + 3], [26, recY + 3]], {}, ROOM, dormDepth(2));
+  BUILDING = { x0: 0, y0: naveTop, x1: 33, y1: recY + 8 };
+  HALLS = [
+    { x0: NAVE_X0, y0: naveTop, x1: NAVE_X1, y1: recY },          // the great hall
+    { x0: 6, y0: recY - 2, x1: NAVE_X0, y1: recY },               // passage from the great hall to the reading court
+    { x0: 6, y0: recY, x1: 12, y1: recY + 8 },                     // reading court in front of the library
+    { x0: 15, y0: recY + 9, x1: 19, y1: recY + 14 },              // path from the gate
+  ];
+  GATE_TILE = { x: 16.5, y: recY + 12.5 };
+  GATE_Y = recY + 9;
+  GH = recY + 16; GW = 36;
+}
 function genLayout() {
   for (const k of Object.keys(SLOTS)) delete SLOTS[k];
+  if (WORLD === 2) { for (const k of Object.keys(SLOTS)) delete SLOTS[k]; return genLayoutW2(); }
   const rows = Math.ceil(NCLS / 2), CW = 5;   // corridors are wider than what a tall wall hides                        // CW: depth of a cross corridor
   let y = 0;
   // top: exam hall across the whole width, graduates' garden next to it (outside, no walls)
@@ -360,7 +401,7 @@ function buildEdges() {
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
       if (id === 'hall' && WORLD === 1 && !nb && (side === 'x0' || side === 'y0') && !roomNear(x, y, side) && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1) { EDGES.push({ x, y, side, id, tall: true, hallWall: true, wallTheme: 'REC' }); continue; }   // corridor back wall with only grass behind it: a real tall wall (her «добавь стены где можно»)
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
-      const lowSide = ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
+      const lowSide = (WORLD === 2 && side === 'x0' && nb === 'hall') || ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
       EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
     }
   }
@@ -1751,7 +1792,7 @@ function drawOut(o) {
 // Herringbone parquet with star inlays on every inner corridor tile (the pink runner stays), free-standing furniture along the
 // corridor edges every few tiles (never near a door or a queue), and floating candles drifting over the corridors (code).
 // world 2: dark granite slabs and dwarven things (armour, barrels, crates, anvil, weapon rack, brazier, crystal, candles, bench)
-const CORR_H = WORLD === 2 ? { armor: 56, barrels: 36, crates: 40, anvil: 34, weapon_rack: 46, brazier: 44, crystal_ped: 46, candle_stand: 58, bench: 26 }
+const CORR_H = WORLD === 2 ? { pillar: 74, dwarf_statue: 66, runestone: 46, minecart: 46, armor: 56, barrels: 36, crates: 40, anvil: 34, weapon_rack: 46, brazier: 44, crystal_ped: 46, candle_stand: 58, bench: 26 }
   : { monstera: 44, lavender_pot: 32, bench: 32, armor: 54, globe: 40, bookcase: 44, candelabra: 52, noticeboard: 42, portrait: 44 };
 const CORR_SET = WORLD === 2 ? ['armor', 'barrels', 'brazier', 'crates', 'weapon_rack', 'crystal_ped', 'anvil', 'candle_stand', 'bench']
   : ['monstera', 'bench', 'globe', 'lavender_pot', 'portrait', 'armor', 'bookcase', 'noticeboard', 'candelabra'];
@@ -1760,6 +1801,7 @@ for (const n of ['floor', ...Object.keys(CORR_H)]) { const im = new Image(); im.
 let CORR = [], CANDLES = [], corrKey = '';
 function layoutCorridor() {
   const key = outKey + '|' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0).join(';'); if (key === corrKey) return; corrKey = key;
+  if (WORLD === 2) return layoutNaveW2();
   const inside = (x, y) => regAt(x, y) === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
   const doorTiles = []; for (const d of DOORS) { const [a, b] = d.split('|').map((t) => t.split(',').map(Number)); for (const q of [a, b]) if (regAt(q[0], q[1]) === 'hall') doorTiles.push(q); }
   const nearDoor = (x, y) => doorTiles.some(([dx, dy]) => Math.abs(dx - x) <= 2 && dy - y <= 1 && y - dy <= 3);   // the door and the queue below it stay free
@@ -1783,6 +1825,28 @@ function layoutCorridor() {
   CORR = out;
   CANDLES = []; let c = 0;
   for (let x = BUILDING.x0; x < BUILDING.x1; x += 4) for (let y = BUILDING.y0; y < BUILDING.y1; y += 4) if ([[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [-1, -1], [-2, -2], [-2, 0], [0, -2], [-1, -2], [-2, -1]].every(([dx, dy]) => inside(x + dx, y + dy))) CANDLES.push({ x: x + 0.5 + hash2(x, y, 141) * 0.6, y: y + 0.5 + hash2(x, y, 142) * 0.6, k: c++ });
+}
+// World 2: every thing has its planned place (her ruling «Сразу должна понимать где и какие предметы будут стоять для красоты»):
+// pillars in two rows along the great hall every 4 tiles (none in front of a door), a brazier beside every other pillar,
+// two dwarf-king statues at the door of the oath hall, a rune stone where the great hall meets the gate hall,
+// mine carts outside the mine (Штольня); floating candles over the great hall.
+function layoutNaveW2() {
+  const N = HALLS[0], out = [], doorY = { L: [], R: [] };
+  for (const d of DOORS) { const [a] = d.split('|').map((t) => t.split(',').map(Number)); if (a[0] === NAVE_X0) doorY.L.push(a[1]); if (a[0] === NAVE_X1 - 1) doorY.R.push(a[1]); }
+  let k = 0;
+  for (let y = N.y0 + 2.5; y < N.y1 - 1.5; y += 4) {
+    for (const [x, side, bx] of [[NAVE_X0 + 0.22, 'L', NAVE_X0 + 0.95], [NAVE_X1 - 0.22, 'R', NAVE_X1 - 0.95]]) {
+      if (doorY[side].some((dy) => Math.abs(dy + 0.5 - y) < 2)) continue;   // keep doors and their queues free
+      out.push({ n: 'pillar', x, y, th: 'corridor' });
+      if (k++ % 2 === 0) out.push({ n: 'brazier', x: bx, y: y + 0.6, th: 'corridor' });
+    }
+  }
+  out.push({ n: 'dwarf_statue', x: 14.4, y: N.y0 + 0.7, th: 'corridor' }, { n: 'dwarf_statue', x: 18.6, y: N.y0 + 0.7, th: 'corridor', flip: true });
+  out.push({ n: 'runestone', x: NAVE_X0 + 0.6, y: N.y1 - 0.8, th: 'corridor' });
+  const m = slotOf(2); if (m) for (const [dx, dy] of [[-1.4, 1.5], [-3.2, 2.4], [-5.0, 3.3]]) out.push({ n: 'minecart', x: m.x0 + dx, y: m.y0 + dy, th: 'corridor', flip: true });
+  CORR = out;
+  CANDLES = []; let c = 0;
+  for (let y = N.y0 + 4.5; y < N.y1 - 1; y += 4) CANDLES.push({ x: 16.5 + hash2(c, 7, 141) * 0.8 - 0.4, y, k: c++ });
 }
 function drawCorr(o) {
   const im = part('corridor', o.n); if (!im) return;
@@ -2140,7 +2204,7 @@ function drawSlot(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id);
   const L = P(s.x0, s.y1), B = P(s.x0, s.y0), R = P(s.x1, s.y0), F = P(s.x1, s.y1);
   const center = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2);
-  if (id === 'GARDEN' && WORLD === 1 && part('outdoor', 'path')) {   // the garden floor: grass (from the ground layer), a round flagstone plaza and the path from the arch
+  if (id === 'GARDEN' && WORLD <= 2 && part('outdoor', 'path')) {   // the garden floor: grass (from the ground layer), a round flagstone plaza and the path from the arch
     if (!gardenDecal || gardenDecal.key !== outKey + staticKey) {
       const K = 3, minX = Math.min(L.x, B.x) - 10, maxX = Math.max(R.x, F.x) + 10, minY = B.y - 10, maxY = F.y + 10;
       const cv = document.createElement('canvas'); cv.width = Math.ceil((maxX - minX) * K); cv.height = Math.ceil((maxY - minY) * K); const g = cv.getContext('2d');
