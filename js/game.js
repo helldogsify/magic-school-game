@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=248';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=248';
+} from './data.js?v=249';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=249';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 248;   // keep equal to the ?v= number in index.html
+const BUILD = 249;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3848,6 +3848,8 @@ const FB_KEY = 'AIzaSyC2BiopoOBIkkFKf1RkkbKyOSHCgZMZSTg';   // the public web ke
 const TOP_URL = 'https://firestore.googleapis.com/v1/projects/magic-school-game-2ae0f/databases/(default)/documents/top';
 const TOP_MIN = 300, TOP_EVERY = 60, NAME_KEY = 'magicschool.schoolName', ANON_KEY = 'magicschool.anon';
 const schoolName = () => (localStorage.getItem(NAME_KEY) || '').trim();
+const NICK_KEY = 'magicschool.nick';   // build 249 (her «отдельной графой ... подписывать своё имя (ник)»)
+const playerNick = () => (localStorage.getItem(NICK_KEY) || '').trim();
 const cleanName = (s) => String(s || '').replace(/[<>"&\n\r\t]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
 const escTxt = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 let anonBusy = null;
@@ -3871,13 +3873,13 @@ async function anonToken() {   // an id token of this device's anonymous account
 let topSentAt = 0, topSentKey = '';
 async function topPush(force) {   // our line in the table (only with a school name); quietly does nothing offline
   if (!S || !schoolName() || !(S.rating || S.stats.graduated)) return;
-  const R = rating(), key = [schoolName(), R.v.toFixed(2), R.n, S.stats.graduated].join('|');
+  const R = rating(), key = [schoolName(), playerNick(), R.v.toFixed(2), R.n, S.stats.graduated].join('|');
   if (!force && (key === topSentKey || Date.now() - topSentAt < TOP_EVERY * 1000)) return;
   topSentAt = Date.now();
   try {
     const A = await anonToken();
     const I = (v) => ({ integerValue: String(Math.round(v || 0)) });
-    const body = { fields: { name: { stringValue: schoolName() }, w: I(WORLD), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), build: I(BUILD), updated: I(Date.now()) } };
+    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), w: I(WORLD), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), build: I(BUILD), updated: I(Date.now()) } };
     const r = await fetch(`${TOP_URL}/${A.uid}_w${WORLD}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify(body) });
     if (r.ok) topSentKey = key;
   } catch (e) { /* offline: next time */ }
@@ -3887,10 +3889,10 @@ async function topLoad() {
   try {
     const r = await fetch(TOP_URL + '?pageSize=300', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
     const d = await r.json(), num = (f) => (f ? +(f.integerValue ?? f.doubleValue ?? 0) : 0);
-    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), g: num(x.fields.g), gold: num(x.fields.gold) }));
+    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), g: num(x.fields.g), gold: num(x.fields.gold) }));
     topErr = ''; topLoadedAt = Date.now();
   } catch (e) { topErr = 'Не получилось загрузить топ — проверь интернет'; }
-  if (panel === topPanel) { const v = document.getElementById('school-name')?.value; refreshPanel(); const e = document.getElementById('school-name'); if (e && v != null) e.value = v; }   // keep what is being typed
+  if (panel === topPanel) { const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; }   // keep what is being typed
 }
 function openTop() { topPush(true).finally(topLoad); openPanel(topPanel); }
 function topPanel() {
@@ -3898,11 +3900,11 @@ function topPanel() {
   const mine = (x) => me && x.id === me + '_w' + WORLD;
   const all = (topList || []).filter((x) => x.w === WORLD);
   const ok = all.filter((x) => x.n >= TOP_MIN).sort((a, b) => b.r - a.r || b.g - a.g), wait = all.filter((x) => x.n < TOP_MIN);
-  const rows = ok.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span><div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${mine(x) ? ' <span class="muted">(ты)</span>' : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)} выпускников · золотых отзывов ${fmt(x.gold)}</div></div></div>`).join('');
+  const rows = ok.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span><div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${mine(x) ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)} выпускников · золотых отзывов ${fmt(x.gold)}</div></div></div>`).join('');
   const myPlace = ok.findIndex(mine);
-  const nameBox = `<h3>Название твоей школы</h3><input id="school-name" class="fb" maxlength="24" placeholder="Например: Звёздная академия" value="${escTxt(schoolName())}"><button class="btn wide" data-school-name>💾 Сохранить название</button>`;
+  const nameBox = `<h3>Название твоей школы</h3><input id="school-name" class="fb" maxlength="24" placeholder="Например: Звёздная академия" value="${escTxt(schoolName())}"><h3>Твоё имя (ник)</h3><input id="school-nick" class="fb" maxlength="20" placeholder="Как тебя подписать в топе" value="${escTxt(playerNick() || localStorage.getItem('magicschool.name') || '')}"><button class="btn wide" data-school-name>💾 Сохранить</button>`;
   return `<div class="sh-head"><span class="remoji big">🏆</span><div><h2>Топ школ</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'} · по рейтингу 🏅</div></div><button class="x" data-close>✕</button></div>
-    ${schoolName() ? `<p>Твоя школа «<b>${escTxt(schoolName())}</b>»: рейтинг 🏅 ${ratingTxt()}${myPlace >= 0 ? `, <b>${myPlace + 1}-е место</b>` : rating().n < TOP_MIN ? ` — в топ попадёт после ${TOP_MIN} отзывов (сейчас ${fmt(rating().n)})` : ''}.</p>` : '<p><b>Придумай название школы</b>, чтобы она появилась в топе. Его увидят все игроки.</p>'}
+    ${schoolName() ? `<p>Твоя школа «<b>${escTxt(schoolName())}</b>»${playerNick() ? ` (👤 ${escTxt(playerNick())})` : ''}: рейтинг 🏅 ${ratingTxt()}${myPlace >= 0 ? `, <b>${myPlace + 1}-е место</b>` : rating().n < TOP_MIN ? ` — в топ попадёт после ${TOP_MIN} отзывов (сейчас ${fmt(rating().n)})` : ''}.</p>` : '<p><b>Придумай название школы</b> и впиши своё имя, чтобы школа появилась в топе. Их увидят все игроки.</p>'}
     ${nameBox}
     ${topErr ? `<p class="muted">${topErr}</p>` : !topList ? '<p class="muted">Загружаю топ…</p>' : rows ? '<h3>Лучшие школы</h3>' + rows : '<p class="muted">Пока в топе никого нет — стань первой школой!</p>'}
     ${wait.length ? `<p class="muted">Ещё набирают отзывы: ${wait.length} ${wait.length === 1 ? 'школа' : 'школ'}.</p>` : ''}
@@ -3913,7 +3915,9 @@ function saveSchoolName() {
   const el = document.getElementById('school-name'); if (!el) return;
   const v = cleanName(el.value);
   if (!v) { toast('Напиши название школы'); return; }
-  localStorage.setItem(NAME_KEY, v); toast(`🏫 Школа «${v}» записана`);
+  const nk = cleanName((document.getElementById('school-nick') || {}).value).slice(0, 20);
+  localStorage.setItem(NAME_KEY, v); if (nk) localStorage.setItem(NICK_KEY, nk); else localStorage.removeItem(NICK_KEY);
+  toast(`🏫 Школа «${v}»${nk ? ', директор ' + nk : ''} — записано`);
   topPush(true).finally(topLoad); refreshPanel();
 }
 const CLOUD = 'https://firestore.googleapis.com/v1/projects/magic-school-game-2ae0f/databases/(default)/documents/saves/';
