@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=147';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=147';
+} from './data.js?v=148';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=148';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 147;   // keep equal to the ?v= number in index.html
+const BUILD = 148;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -792,7 +792,11 @@ function peoplePanel() {
   ];
   return `<div class="sh-head"><span class="remoji big">👥</span><div><h2>Ученики в школе: ${l.length}</h2><div class="muted">Настроение ${moodFace(avgMood())} ${Math.round(avgMood())}% · всего выпустилось 🎓 ${fmt(S.stats.graduated)}</div></div><button class="x" data-close>✕</button></div>
     ${rows.map(([e, t, v]) => `<div class="card up"><span class="remoji">${e}</span><div class="grow"><b>${v}</b> ${t}</div></div>`).join('')}
-    ${WORLD === 1 ? `<h3>Уровни учеников</h3><p class="muted">Каждый сданный урок даёт опыт виду зверька. Набрал опыт — повышай уровень: этот вид платит больше, а на 5, 10, 15 и 20 уровне получает новый наряд.</p>${speciesCards()}` : ''}`;
+`;
+}
+function speciesPanel() {   // own button at the bottom (her ruling 2026-11-21: «нужна отдельная кнопка внизу»)
+  return `<div class="sh-head"><span class="remoji big">🎓</span><div><h2>Уровни учеников</h2><div class="muted">Опыт за каждый сданный урок</div></div><button class="x" data-close>✕</button></div>
+    <p class="muted">Набрал вид зверька опыт — повышай уровень: этот вид платит за уроки больше, а на 5, 10, 15 и 20 уровне получает новый наряд.</p>${speciesCards()}`;
 }
 function renderInsp() {
   const el = $('#insp'); if (!el || !S) return;
@@ -2077,6 +2081,7 @@ function updateHud() {
   $('#rate').textContent = fmt(S.ema * 60) + '/м';
   document.querySelectorAll('[data-cost]').forEach((el) => el.classList.toggle('poor', S.coins < +el.dataset.cost));
   renderMission(); renderInsp();
+  const sb = $('#spbtn'); if (sb) { sb.style.display = WORLD === 1 ? '' : 'none'; sb.classList.toggle('ready', WORLD === 1 && SPECIES.some((sp) => { const st = spState(sp); return st.lvl < SP_MAX && st.xp >= spNeed(st.lvl) && S.coins >= spCost(st.lvl); })); }   // glows when a level can be bought
 }
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
 
@@ -2172,6 +2177,7 @@ document.addEventListener('click', (e) => {
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.people !== undefined) { openPanel(peoplePanel); return; }
+  if (d.species !== undefined) { openPanel(speciesPanel); return; }
   if (d.music !== undefined) { setMusic(d.music === '1'); if (panel === settingsPanel) { openPanel(settingsPanel); drawFbPics(); } return; }
   if (d.calm !== undefined) { setCalm(d.calm === '1'); if (panel === settingsPanel) { openPanel(settingsPanel); drawFbPics(); } return; }
   if (d.worlds !== undefined) { openPanel(worldsPanel); return; }
