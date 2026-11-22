@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=158';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=158';
+} from './data.js?v=159';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=159';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 158;   // keep equal to the ?v= number in index.html
+const BUILD = 159;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -324,7 +324,16 @@ function bfs(sx, sy, tx, ty) {
   out.reverse(); out.shift();
   return out;
 }
-function pathTo(a, tx, ty) { const p = bfs(a.x, a.y, tx, ty); p.pop(); p.push({ x: tx, y: ty }); return p; }
+// Ruslan's feedback 2026-11-22 («ходят по очень ровным траекториям ... более рандомные»): every creature keeps its own
+// lane inside the corridors (a personal offset from the tile centres) plus a little jitter per step. A point stays inside
+// its tile, and two neighbouring tiles always share a walkable edge, so a path can never cut through a wall.
+function pathTo(a, tx, ty) {
+  const p = bfs(a.x, a.y, tx, ty); p.pop();
+  if (a.lx === undefined) { a.lx = (Math.random() - 0.5) * 0.56; a.ly = (Math.random() - 0.5) * 0.56; }
+  const cl = (v) => Math.max(-0.38, Math.min(0.38, v));
+  for (const q of p) { q.x = Math.floor(q.x) + 0.5 + cl(a.lx + (Math.random() - 0.5) * 0.22); q.y = Math.floor(q.y) + 0.5 + cl(a.ly + (Math.random() - 0.5) * 0.22); }
+  p.push({ x: tx, y: ty }); return p;
+}
 
 const slotOf = (i) => SLOTS[CLASS_SLOT[i]];
 const clsTheme = (i) => { const th = themeOf(CLASS_SLOT[i]); return th ? THEMES[th] : null; };
@@ -648,7 +657,10 @@ function stepAgents(dt, live = false) {
     if (a.state === 'fly') { a.t += dt; a.z += (40 + a.t * 60) * dt; a.x += a.vx * dt; a.y -= a.vx * dt; continue; }
     if (a.path.length) {
       if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) { a.x = GATE_TILE.x; a.y = GATE_TILE.y; }   // never let a broken position freeze a creature
-      const p = a.path[0], dx = p.x - a.x, dy = p.y - a.y, dist = Math.hypot(dx, dy), stepLen = Math.max(0, a.speed * WALK_K * dt);
+      if (a.pauseT > 0) { a.pauseT -= dt; if (a.pauseT > 0.4 && Math.random() < dt * 1.5) a.flip = !a.flip; continue; }   // stopped to look around
+      if (live && a.path.length > 3 && Math.random() < dt * 0.035 && regAt(Math.floor(a.x), Math.floor(a.y)) === 'hall') a.pauseT = 0.5 + Math.random() * 1.3;
+      const pace = 0.82 + 0.36 * (0.5 + 0.5 * Math.sin(a.ph * 0.6 + a.id * 1.7));   // everyone speeds up and slows down a little on the way
+      const p = a.path[0], dx = p.x - a.x, dy = p.y - a.y, dist = Math.hypot(dx, dy), stepLen = Math.max(0, a.speed * pace * WALK_K * dt);
       const sdx = dx - dy; if (Math.abs(sdx) > 0.01) a.flip = sdx < 0;
       a.back = dx + dy < -0.01;   // walking away from us: we see its back
       if (dist <= stepLen || dist < 1e-6) { a.x = p.x; a.y = p.y; a.path.shift(); if (!a.path.length) a.back = false;
@@ -1640,7 +1652,7 @@ function drawCreature(a, x, y, h, extra) {
   if (rk === 5) h *= 1.12;   // masters stand a little taller
   const bk = a.back && sprites[a.sp + '_back'], im = a._tierImg ? a._tierImg : bk && bk.complete && bk.naturalWidth ? bk : sprites[a.sp];
   const s = P(x, y);
-  const walking = (a.path && a.path.length > 0) || a._panic;
+  const walking = (a.path && a.path.length > 0 && !(a.pauseT > 0)) || a._panic;
   const bob = walking ? Math.abs(Math.sin(a.ph * 9)) * 2 : Math.sin(a.ph * 2) * 0.6;
   const z = a.z || 0;
   ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(s.x, s.y, h * 0.3, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
