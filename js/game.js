@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=221';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=221';
+} from './data.js?v=222';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=222';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 221;   // keep equal to the ?v= number in index.html
+const BUILD = 222;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1521,10 +1521,20 @@ const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, to
   fountain: 100, flowerarch: 118, gazebo: 132, founder: 96, bench_a: 34, bench_b: 34, topiary_ball: 42, topiary_spiral: 48, hedge_long: 26, peonybed: 30, hydrangea: 40, crystalball: 40,
   lantern_gold: 76, lantern_blue: 76, owl_statue: 62, fox_statue: 62, flowerbed: 34, signpost2: 58, urn: 46, flowerbox: 26, gate_big: 170,
   runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46 };   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
+// World 2 (cold mountain kingdom): the same composed territory, drawn with cave things instead of trees and flowers.
+// The world-1 layout names are mapped to cave sprites (null = nothing there); the pictures load into the same 'outdoor/<name>' keys.
+const OUT_H_W2 = { stalag_a: 168, stalag_b: 176, stalag_c: 160, mush_teal: 140, mush_violet: 128, crystal_big: 120, boulder: 40, rubble: 28, glowmush: 38, crystals: 40, ore: 36, minecart: 46, lantern: 76, runestone: 44, dwarf_statue: 64, gate_big: 200 };
+const CAVE_OF = { oak: 'stalag_a', fir: 'stalag_b', willow: 'stalag_c', blossom: 'mush_teal', goldtree: 'mush_violet', toadhouse: 'crystal_big', fern: 'rubble', berrybush: 'glowmush', hedge: 'boulder', roses: 'crystals', roses2: 'crystals',
+  bells: 'glowmush', boulder: 'boulder', stump: 'ore', starflowers: 'glowmush', flowerbed: 'rubble', birdbath: 'ore', chestmush: 'glowmush', pumpkin: 'minecart', well: 'minecart', beehive: 'ore', fairyring: 'crystal_big',
+  runestone: 'runestone', lantern_gold: 'lantern', lantern_blue: 'lantern', owl_statue: null, fox_statue: null, flowerbox: 'rubble', urn: 'lantern', signpost2: 'runestone', founder: 'dwarf_statue',
+  hydrangea: 'glowmush', peonybed: 'crystals', crystalball: 'crystals', flowerarch: 'runestone', fountain: 'crystal_big', gazebo: 'mush_teal', bench_a: 'boulder', bench_b: 'boulder', topiary_ball: 'glowmush', topiary_spiral: 'crystals', gate_big: 'gate_big' };
+const outName = (n) => (WORLD === 2 ? CAVE_OF[n] || null : n);
+if (WORLD === 2) { for (const k of Object.keys(OUT_H)) delete OUT_H[k]; Object.assign(OUT_H, OUT_H_W2); }
+const OUT_DIR = WORLD === 2 ? 'cave' : 'outdoor';
 const outLo = {}, outMid = {}, outSh = {}, outTint = {};   // outTint[n] = { mid: [lvl1, lvl2], lo: [lvl1, lvl2] }: darker, cooler copies for the deep forest
-const OUT_TREE = new Set(['oak', 'fir', 'willow', 'blossom', 'goldtree']);
+const OUT_TREE = new Set(['oak', 'fir', 'willow', 'blossom', 'goldtree', 'stalag_a', 'stalag_b', 'stalag_c', 'mush_teal', 'mush_violet']);
 function tintCopies(src) { return [0.17, 0.32].map((a) => { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const x = c.getContext('2d'); x.drawImage(src, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = `rgba(26,38,70,${a})`; x.fillRect(0, 0, c.width, c.height); return c; }); }   // outSh: a tiny dark silhouette of each sprite; drawn stretched it gives a soft cast shadow   // small copies (240 px tall) for the far view: downscaling an 800 px tree every frame is slow
-for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; if (OUT_H[n]) { const c = document.createElement('canvas'), k = 40 / im.naturalHeight; c.width = Math.max(4, Math.round(im.naturalWidth * k)); c.height = 40; const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(38,48,62)'; x.fillRect(0, 0, c.width, c.height); outSh[n] = c; } if (im.naturalHeight > 560) { const c = document.createElement('canvas'), k = 440 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 440; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outMid[n] = c; } if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } if (OUT_TREE.has(n) && outMid[n] && outLo[n]) outTint[n] = { mid: tintCopies(outMid[n]), lo: tintCopies(outLo[n]) }; }; im.src = `assets/parts/outdoor/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
+for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; if (OUT_H[n]) { const c = document.createElement('canvas'), k = 40 / im.naturalHeight; c.width = Math.max(4, Math.round(im.naturalWidth * k)); c.height = 40; const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(38,48,62)'; x.fillRect(0, 0, c.width, c.height); outSh[n] = c; } if (im.naturalHeight > 560) { const c = document.createElement('canvas'), k = 440 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 440; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outMid[n] = c; } if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } if (OUT_TREE.has(n) && outMid[n] && outLo[n]) outTint[n] = { mid: tintCopies(outMid[n]), lo: tintCopies(outLo[n]) }; }; im.src = `assets/parts/${OUT_DIR}/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
 let GRASS_ON = true, BG_OFF = false;
 const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 let OUTDOOR = [], outKey = '', OUT_ON = true, entrancePath = null, entranceDecal = null, gardenDecal = null;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
@@ -1545,7 +1555,7 @@ function layoutOutdoor() {
   const inWorld = (x, y) => { const m = P(x, y); return m.x > -40 && m.x < WW + 40 && m.y > 40 && m.y < WH + 160; };   // trees may stand right at the map edge (crowns cut by it)
   const G0 = GATE_TILE, front = (x, y) => (Math.abs(x - G0.x - 0.5) < 10 && y > G0.y - 4) || (y > BUILDING.y1 && D(x, y) < 10);   // the view of the entrance and the south front stays open
   const behind = new Set(); for (const e of EDGES) if (e.hallWall) for (let k = 1; k <= 5; k++) for (let j = -2; j <= 2; j++) behind.add(e.side === 'y0' ? (e.x + j) + ',' + (e.y - k) : (e.x - k) + ',' + (e.y + j));   // the tall corridor walls hide what stands just behind them
-  const out = [], put = (n, x, y, minD, sc = 1) => { if (D(x, y) < minD || !inWorld(x, y) || behind.has(Math.floor(x) + ',' + Math.floor(y))) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
+  const out = [], put = (n, x, y, minD, sc = 1) => { n = outName(n); if (!n) return false; if (D(x, y) < minD || !inWorld(x, y) || behind.has(Math.floor(x) + ',' + Math.floor(y))) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
   // scenes, each tied to a building (skipped when that building's slot is missing)
   const zones = [];
   const keep = [];   // every scene / entrance item: no tree may stand in front of (down-screen of) it
@@ -1572,7 +1582,7 @@ function layoutOutdoor() {
   if (SLOTS.GARDEN) { const g = SLOTS.GARDEN, X = g.x0, Y = g.y0;   // the graduates' garden: arch at the door, fountain plaza, founder statue, gazebo, benches, flowers
     for (const [n, dx, dy, fl] of [['flowerarch', 0.55, 3.5, true], ['fountain', 3.55, 3.6], ['gazebo', 4.95, 1.1], ['bench_b', 2.5, 5.5], ['bench_a', 5.5, 3.3],   // calm layout (her «слишком много навалено деталей»): four big things far apart, one bench, two topiaries
       ['topiary_spiral', 0.75, 1.3], ['topiary_ball', 0.8, 5.45]]) {
-      out.push({ n, x: X + dx, y: Y + dy, th: 'outdoor', s: 1, flip: !!fl }); keep.push([X + dx, Y + dy]); } }
+      const nn = outName(n); if (nn) out.push({ n: nn, x: X + dx, y: Y + dy, th: 'outdoor', s: 1, flip: !!fl }); keep.push([X + dx, Y + dy]); } }
   // The clearing around the school (her «на поляне ... мало деталей стало красивых»): small composed vignettes every ~5 tiles
   // in the band 2..6 tiles from the buildings; a vignette gets its tree only where the tree cannot hide a building behind it.
   const VIGN = [
@@ -1800,8 +1810,8 @@ function drawStatic() {
   stat.width = Math.round(SW * q); stat.height = Math.round(SH * q);
   const c = sctx; c.setTransform(q, 0, 0, q, -MARGIN * q, -MARGIN * q);
   c.fillStyle = '#a9d98f'; c.fillRect(0, 0, WW, WH);
-  { const g = WORLD === 1 && GRASS_ON && grassPat(c); if (g) { c.fillStyle = g; c.fillRect(0, 0, WW, WH); } else { c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2); } }
-  const stone = WORLD === 1 && isoPat(c, 'path', 3);
+  { const g = WORLD <= 2 && GRASS_ON && grassPat(c); if (g) { c.fillStyle = g; c.fillRect(0, 0, WW, WH); } else { c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2); } }
+  const stone = WORLD <= 2 && isoPat(c, 'path', 3);
   const corrFloor = WORLD === 1 && (() => { const pt = pat(c, 'corridor', 'floor'); if (!pt) return null; const T = part('corridor', 'floor').naturalWidth / 3, o = P(0, 0); pt.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, o.x, o.y])); return pt; })();
   // halls
   for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) {
@@ -1814,7 +1824,7 @@ function drawStatic() {
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
     if (carpet && y % 3 === 0) { const m = P(x + 0.5, y + 0.5); emoji('✦', m.x, m.y, 7, c); }
   }
-  if (WORLD === 1 && OUT_ON) { layoutOutdoor(); entranceDecal = null; drawEntrancePath(c, true); for (const o of OUTDOOR) { const q = P(o.x, o.y), r = (OUT_H[o.n] || 28) * (o.s || 1) * 1.3; o.baked = q.x - r > MARGIN && q.x + r < MARGIN + SW && q.y - r > MARGIN && q.y + r < MARGIN + SH && outShadow(c, o); } }   // ground shadows go into the cached layer
+  if (WORLD <= 2 && OUT_ON) { layoutOutdoor(); entranceDecal = null; drawEntrancePath(c, true); for (const o of OUTDOOR) { const q = P(o.x, o.y), r = (OUT_H[o.n] || 28) * (o.s || 1) * 1.3; o.baked = q.x - r > MARGIN && q.x + r < MARGIN + SW && q.y - r > MARGIN && q.y + r < MARGIN + SH && outShadow(c, o); } }   // ground shadows go into the cached layer
   if (WORLD === 1) bakeHallWalls(c, q);
   // gate
   // the gate is drawn in the depth-sorted list (drawGate)
@@ -2213,13 +2223,13 @@ function wallSeg([x0, y0, x1, y1, k]) {
   tallWall(ctx, a, b, '#cbb9e2', x0 === x1 ? -14 : 0, true);
 }
 function drawGate(c) {
-  const im = WORLD === 1 && part('outdoor', 'gate_big');
+  const im = WORLD <= 2 && part('outdoor', 'gate_big'), GA = WORLD === 2 ? { ax: 0.495, ay: 0.76, tx: 0.536, ty: 0.172, rot: Math.atan(0.22), fs: 8.5, fill: '#26304a', stroke: 'rgba(236,240,252,0.85)', l1: -4.4, l2: 4.6 } : { ax: 0.49, ay: 0.86, tx: 0.494, ty: 0.342, rot: Math.atan(0.42), fs: 6.6, fill: '#5a3418', stroke: 'rgba(255,240,215,0.8)', l1: -3.6, l2: 3.8 };   // world 2: the rock gate (plaque above the arch)
   if (im) {   // the painted gate over the path, its own shadow, and the school name on its hanging plank
-    const cx = Math.floor(GATE_TILE.x) + 1, p = P(cx, GATE_TILE.y - 1), h = OUT_H.gate_big, w = h * im.naturalWidth / im.naturalHeight, ox = p.x - w * 0.49, oy = p.y - h * 0.86;
-    if (outSh.gate_big) { c.save(); c.globalAlpha = 0.26; c.translate(p.x, p.y); c.transform(1, 0, -0.62, -0.3, 0, 0); c.drawImage(outSh.gate_big, -w * 0.49, -h * 0.86, w, h); c.restore(); }
+    const cx = Math.floor(GATE_TILE.x) + 1, p = P(cx, GATE_TILE.y - 1), h = OUT_H.gate_big, w = h * im.naturalWidth / im.naturalHeight, ox = p.x - w * GA.ax, oy = p.y - h * GA.ay;
+    if (outSh.gate_big) { c.save(); c.globalAlpha = 0.26; c.translate(p.x, p.y); c.transform(1, 0, -0.62, -0.3, 0, 0); c.drawImage(outSh.gate_big, -w * GA.ax, -h * GA.ay, w, h); c.restore(); }
     c.drawImage(im, ox, oy, w, h);
-    c.save(); c.translate(ox + w * 0.494, oy + h * 0.342); c.rotate(Math.atan(0.42)); c.textAlign = 'center';
-    for (const [t, dy] of [['Школа', -3.6], ['магии', 3.8]]) { c.font = `800 6.6px ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",sans-serif`; c.lineWidth = 1.6; c.strokeStyle = 'rgba(255,240,215,0.8)'; c.strokeText(t, 0, dy); c.fillStyle = '#5a3418'; c.fillText(t, 0, dy); }
+    c.save(); c.translate(ox + w * GA.tx, oy + h * GA.ty); c.rotate(GA.rot); c.textAlign = 'center';
+    for (const [t, dy] of [['Школа', GA.l1], ['магии', GA.l2]]) { c.font = `800 ${GA.fs}px ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",sans-serif`; c.lineWidth = 1.6; c.strokeStyle = GA.stroke; c.strokeText(t, 0, dy); c.fillStyle = GA.fill; c.fillText(t, 0, dy); }
     c.restore();
     return;
   }
@@ -2605,7 +2615,7 @@ function render() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#a9d98f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  { const g = WORLD === 1 && GRASS_ON && !BG_OFF && grassPat(ctx); if (g) {   // grass only where the cached static layer (which has it) does not cover the view
+  { const g = WORLD <= 2 && GRASS_ON && !BG_OFF && grassPat(ctx); if (g) {   // grass only where the cached static layer (which has it) does not cover the view
       const vx0 = scroller.scrollLeft / scale - 2, vy0 = scroller.scrollTop / scale - 2, vx1 = vx0 + scroller.clientWidth / scale + 4, vy1 = vy0 + scroller.clientHeight / scale + 4;
       const sx0 = MARGIN, sy0 = MARGIN, sx1 = MARGIN + SW, sy1 = MARGIN + SH, strips = [];
       if (vy0 < sy0) strips.push([vx0, vy0, vx1, Math.min(vy1, sy0)]);
@@ -2630,7 +2640,7 @@ function render() {
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
   if (WORLD === 1) { layoutCorridor(); for (const o of CORR) add(o.x, o.y, () => drawCorr(o)); }
-  if (WORLD === 1 && OUT_ON) { layoutOutdoor(); drawEntrancePath();   // cheap pre-check with the cached screen point before the full add()
+  if (WORLD <= 2 && OUT_ON) { layoutOutdoor(); drawEntrancePath();   // cheap pre-check with the cached screen point before the full add()
     const vx0 = VIEW.x0 - 140, vx1 = VIEW.x1 + 140, vy0 = VIEW.y0 - 20, vy1 = VIEW.y1 + 220;
     const vis = []; for (const o of OUTDOOR) { if (o.px === undefined) { const m = P(o.x, o.y); o.px = m.x; o.py = m.y; } if (o.px < vx0 || o.px > vx1 || o.py < vy0 || o.py > vy1) continue; vis.push(o); }
     for (const o of vis) if (!o.baked) outShadow(ctx, o);   // ground layer first (shadows, forest floor), then the objects depth-sorted
