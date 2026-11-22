@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=206';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=206';
+} from './data.js?v=207';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=207';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 206;   // keep equal to the ?v= number in index.html
+const BUILD = 207;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1447,7 +1447,7 @@ function popup(t, x, y, color, lift = 30) { popups.push({ text: t, x, y, color, 
 
 function resize() {
   const r = scroller.getBoundingClientRect();
-  dpr = Math.min(3, window.devicePixelRatio || 1);
+  dpr = Math.min(window.__dprCap || 3, window.devicePixelRatio || 1);
   viewW = r.width; viewH = r.height;
   viewW = r.width; viewH = r.height; zoom = Math.max(zoom, minZoom());
   scale = (r.width / BASEW) * zoom * ROOMS_K;
@@ -1676,9 +1676,9 @@ function outShadow(c, o) {   // the cast shadow of an outdoor object on the gras
   const im = part('outdoor', o.n), sh = outSh[o.n]; if (!im || !sh) return false;
   const p = P(o.x, o.y), h = (OUT_H[o.n] || 28) * (o.s || 1), w = h * im.naturalWidth / im.naturalHeight;
   if (!(o.depth > 0.2)) {   // under the closed canopy cast shadows are not seen: the forest floor patch is enough there
-    c.save(); c.globalAlpha = 0.3; c.translate(p.x, p.y + h * 0.02); c.transform(1, 0, -0.62, -0.3, 0, 0); if (o.flip) c.scale(-1, 1); c.drawImage(sh, -w / 2, -h, w, h); c.restore();
+    const base = OUT_H[o.n] || 28, e = castShadow(o.n, o.flip, sh, base * im.naturalWidth / im.naturalHeight, base), k = (o.s || 1); c.drawImage(e.cv, p.x + e.ox * k, p.y + h * 0.02 + e.oy * k, e.w * k, e.h * k);
     c.fillStyle = 'rgba(40,52,46,0.12)'; c.beginPath(); c.ellipse(p.x, p.y, w * 0.16, w * 0.06, 0, 0, Math.PI * 2); c.fill(); }
-  if (o.depth !== undefined) { const rx = w * 0.75, ry = rx * 0.45; c.save(); c.globalAlpha = 0.3 + 0.35 * o.depth; c.drawImage(glowSprite('30,58,38'), p.x - rx, p.y - ry * 0.6 - ry, rx * 2, ry * 2); c.restore(); }   // the forest floor: overlapping dark patches under the canopy
+  if (o.depth !== undefined && (c !== ctx || zoom >= 1.2)) {   /* from afar the tinted trees already read as deep forest: skip ~500 floor patches per frame */ const rx = w * 0.75, ry = rx * 0.45, a0 = c.globalAlpha; c.globalAlpha = 0.3 + 0.35 * o.depth; c.drawImage(glowSprite('30,58,38'), p.x - rx, p.y - ry * 0.6 - ry, rx * 2, ry * 2); c.globalAlpha = a0; }   // the forest floor: overlapping dark patches under the canopy
   return true;
 }
 function drawOut(o) {
@@ -1686,7 +1686,7 @@ function drawOut(o) {
   const p = P(o.x, o.y), h = (OUT_H[o.n] || 28) * (o.s || 1), w = h * im.naturalWidth / im.naturalHeight;
   { const dh = h * scale * dpr, lv = o.depth > 0.6 ? 1 : o.depth > 0.25 ? 0 : -1, t = lv >= 0 && outTint[o.n];   // nearest smaller copy (big downscales every frame are slow); deep trees use the tinted copies
     if (outLo[o.n] && dh < 230) im = t ? t.lo[lv] : outLo[o.n]; else if (outMid[o.n] && (dh < 430 || t)) im = t ? t.mid[lv] : outMid[o.n]; }
-  ctx.save(); ctx.translate(p.x, p.y + h * 0.05); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
+  ctx.drawImage(o.flip ? flipped(im) : im, p.x - w / 2, p.y + h * 0.05 - h, w, h);
   if (zoom >= 1.3) outFx(o, p, h);   // zoomed out the life is too small to see: save the iPhone's work
 }
 function drawStatic() {
@@ -1750,7 +1750,7 @@ function drawEdge(c, e, capOnly = false) {
     if (e.deco === 'window') { const m = (t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }); poly(c, [up(m(0.28), h * 0.35), up(m(0.72), h * 0.35), up(m(0.72), h * 0.82), up(m(0.28), h * 0.82)], '#fff7dc', '#a77b4f'); }
     if (e.deco === 'board') poly(c, [up(a, h * 0.32), up(b, h * 0.32), up(b, h * 0.8), up(a, h * 0.8)], '#3f5f4a', '#a77b4f');
   } else {        // front knee wall: we see its outer stone face
-    poly(c, [a2, b2, up(b2, h), up(a2, h)], side === 'x1' ? STONE_D : STONE, '#cfc3b8');
+    poly(c, [a2, b2, up(b2, h), up(a2, h)], side === 'x1' ? STONE_D : STONE, zoom >= 1.2 ? '#cfc3b8' : null);
   }
   poly(c, [up(a, h), up(b, h), up(b2, h), up(a2, h)], CAP, '#7f64ab');   // the cap shows the thickness
 }
@@ -1898,12 +1898,43 @@ function roomProps(i) {
   if (T.teacherProp) { const tp = teacherPos(i); out.push({ n: T.teacherProp, x: Math.max(s.x0 + 0.9, tp.x - 3.0), y: tp.y + 0.1 }); }   // beside the teacher's walking path, never in front of it
   return out.map((o) => ({ ...o, th }));
 }
+// ---- per-frame drawing without save/restore and gradients (build 207, her «Подлагивает»): mirrored copies and shadow pictures are made once
+const flipCache = new WeakMap();
+function flipped(im) {   // a mirrored copy of a picture or canvas
+  let f = flipCache.get(im); if (f) return f;
+  const w = im.naturalWidth || im.width, h = im.naturalHeight || im.height; if (!w) return im;
+  f = document.createElement('canvas'); f.width = w; f.height = h; const x = f.getContext('2d'); x.translate(w, 0); x.scale(-1, 1); x.drawImage(im, 0, 0); flipCache.set(im, f); return f;
+}
+const sizeCache = new WeakMap();
+function sized(im, px) {   // a downscaled copy near the drawn size (128 or 256 px tall): downscaling a big sprite every frame is slow
+  const ih = im.naturalHeight || im.height; if (!ih) return im;
+  const t = px <= 110 ? 128 : px <= 230 ? 256 : 0; if (!t || ih <= t * 1.3) return im;
+  let m = sizeCache.get(im); if (!m) sizeCache.set(im, (m = {}));
+  if (!m[t]) { const c = document.createElement('canvas'), k = t / ih; c.width = Math.max(1, Math.round((im.naturalWidth || im.width) * k)); c.height = t; const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, c.width, c.height); m[t] = c; }
+  return m[t];
+}
+let crShadowCv = null;
+function creatureShadow() { if (crShadowCv) return crShadowCv; const c = document.createElement('canvas'); c.width = 40; c.height = 16; const x = c.getContext('2d'); x.fillStyle = '#00000026'; x.beginPath(); x.ellipse(20, 8, 20, 8, 0, 0, Math.PI * 2); x.fill(); return (crShadowCv = c); }
+let propShadowCv = null;
+function propShadow() {   // the soft contact shadow under room furniture, drawn once (it was a new radial gradient for every prop every frame)
+  if (propShadowCv) return propShadowCv;
+  const c = document.createElement('canvas'); c.width = 64; c.height = 28; const x = c.getContext('2d'), g = x.createRadialGradient(32, 14, 0, 32, 14, 32);
+  g.addColorStop(0, 'rgba(60,40,80,0.20)'); g.addColorStop(1, 'rgba(60,40,80,0)'); x.setTransform(1, 0, 0, 0.42, 0, 14 - 14 * 0.42); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  return (propShadowCv = c);
+}
+const castCache = new Map();
+function castShadow(n, flip, sh, w, h) {   // the cast shadow of an outdoor sprite pre-rendered at its base size; drawn scaled by o.s
+  const key = n + (flip ? 'f' : ''); let e = castCache.get(key); if (e) return e;
+  const K = 2, ext = { x0: -w / 2 - 4, x1: w / 2 + 0.62 * h + 4, y0: -4, y1: h * 0.32 };   // shear: x' = x - 0.62*y (y in -h..0: to the right), y' = -0.3*y (down)
+  const cv = document.createElement('canvas'); cv.width = Math.ceil((ext.x1 - ext.x0) * K); cv.height = Math.ceil((ext.y1 - ext.y0) * K);
+  const c = cv.getContext('2d'); c.setTransform(K, 0, 0, K, -ext.x0 * K, -ext.y0 * K); c.globalAlpha = 0.3; c.transform(1, 0, -0.62, -0.3, 0, 0); if (flip) c.scale(-1, 1); c.drawImage(sh, -w / 2, -h, w, h);
+  e = { cv, ox: ext.x0, oy: ext.y0, w: cv.width / K, h: cv.height / K, bw: w, bh: h }; castCache.set(key, e); return e;
+}
 function drawProp(o) {
   const im = part(o.th, o.n); if (!im) return;
   const p = P(o.x, o.y), h = ((THEMES[o.th] && THEMES[o.th].h) || {})[o.n] || PROP_H[o.n] || 30, w = h * im.naturalWidth / im.naturalHeight;
-  { const rx = Math.min(w * 0.34, h * 0.5), cy = p.y - h * 0.02; const g = ctx.createRadialGradient(p.x, cy, 0, p.x, cy, rx);   // soft contact shadow right under the object's footprint (her report: shadows looked detached)
-    g.addColorStop(0, 'rgba(60,40,80,0.20)'); g.addColorStop(1, 'rgba(60,40,80,0)'); ctx.save(); ctx.translate(p.x, cy); ctx.scale(1, 0.42); ctx.translate(-p.x, -cy); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, cy, rx, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
-  ctx.save(); ctx.translate(p.x, p.y + h * 0.08 - (o.lift || 0)); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
+  if (zoom >= 1.2) { const rx = Math.min(w * 0.34, h * 0.5), cy = p.y - h * 0.02; ctx.drawImage(propShadow(), p.x - rx, cy - rx * 0.42, rx * 2, rx * 0.84); }   // soft contact shadow right under the object's footprint (her report: shadows looked detached)
+  ctx.drawImage(o.flip ? flipped(im) : im, p.x - w / 2, p.y + h * 0.08 - (o.lift || 0) - h, w, h);
 }
 function drawRugAt(c, th, s) {   // rooms without desks (library): a rug in the middle
   const im = THEMES[th].rug && part(th, THEMES[th].rug); if (!im) return;
@@ -2147,12 +2178,9 @@ function drawCreature(a, x, y, h, extra) {
   const walking = (a.path && a.path.length > 0 && !(a.pauseT > 0)) || a._panic;
   const bob = walking ? Math.abs(Math.sin(a.ph * 9)) * 2 : Math.sin(a.ph * 2) * 0.6;
   const z = a.z || 0;
-  ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(s.x, s.y, h * 0.3, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.save(); ctx.translate(s.x, s.y - bob - z);
-  if (a.flip) ctx.scale(-1, 1);
-  if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; ctx.drawImage(im, -w / 2, -h, w, h); }
-  else { ctx.fillStyle = '#ffd6e8'; ctx.beginPath(); ctx.ellipse(0, -h / 2, h / 2.6, h / 2.2, 0, 0, Math.PI * 2); ctx.fill(); }
-  ctx.restore();
+  if (!a._ghost) ctx.drawImage(creatureShadow(), s.x - h * 0.3, s.y - h * 0.12, h * 0.6, h * 0.24);   // cached oval (was a path fill per creature per frame)
+  if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; const sm = sized(im, h * scale * dpr); ctx.drawImage(a.flip ? flipped(sm) : sm, s.x - w / 2, s.y - bob - z - h, w, h); }   // no save/restore per creature, a small copy of the sprite (build 207)
+  else { ctx.fillStyle = '#ffd6e8'; ctx.beginPath(); ctx.ellipse(s.x, s.y - bob - z - h / 2, h / 2.6, h / 2.2, 0, 0, Math.PI * 2); ctx.fill(); }
   if (rk === 5) {   // twinkling sparks of the element orbit a master: rarity you can see from afar
     const T = performance.now() / 1000 + (a.ph || 0), c = ELEMS[a.el || 0].col;
     for (let k = 0; k < 3; k++) {
@@ -2164,6 +2192,7 @@ function drawCreature(a, x, y, h, extra) {
   if (extra) extra(s.x, s.y - z);
 }
 function ring(x, y, frac, color = '#3fbf6f') {
+  if (zoom < 1.2) return;   // too small to read from afar: skip (build 207, speed)
   ctx.fillStyle = '#ffffffe6'; ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 4.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); ctx.stroke();
 }
@@ -2606,6 +2635,7 @@ function render() {
       if (a.state === 'read') { emoji('📚', x - 12, y - 30, 11); ring(x + 13, y - 32, Math.min(1, a.t / a.dur), '#e0a100'); }
       if (a.state === 'eat' && !a.path.length) { emoji(a.dish || '🍲', x + (a.flip ? -14 : 14), y - 12, 12); ring(x + 13, y - 32, Math.min(1, a.t / a.dur), '#e08a3d'); }
       if (a.state === 'sleep') emoji('💤', x + 12, y - 30 - Math.abs(Math.sin(a.ph * 1.5)) * 4, 11);
+      if (zoom < 1.2) return;   // mood faces are unreadable from afar
       if (moodOf(a) < 35 && a.state !== 'study') emoji(moodFace(moodOf(a)), x - 13, y - 31, 11);   // sad ones show it
       else if (moodOf(a) >= 65 && a.state !== 'sleep') {   // happy ones show it too, now and then (her wish 2026-11-21)
         const cyc = (performance.now() / 1000 + a.id * 2.3) % 7;
@@ -2621,7 +2651,7 @@ function render() {
   drawSeals();
   // x-ray: every creature is drawn once more, faintly, on top: the ones hidden behind a wall show through as ghosts
   ctx.globalAlpha = 0.38;
-  for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) drawCreature(a, gx, gy, 30); }
+  for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) (a._ghost = true, drawCreature(a, gx, gy, 30), a._ghost = false); }
   ctx.globalAlpha = 1;
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
