@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=250';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=250';
+} from './data.js?v=251';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=251';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 250;   // keep equal to the ?v= number in index.html
+const BUILD = 251;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1636,17 +1636,18 @@ const ZMIN = 0.9, ZMAX = 3.4;
 const sprites = {};
 // professors drawn one by one, each approved by Maria (class id -> file in assets/staff)
 const STAFF_ART = { herbs: 'moss', potions: 'bubble', stars: 'lun', charms: 'spark', flight: 'breeze', elements: 'storm', final: 'owl' };
+const STAFF_V = { granite: 2 };   // per-name cache version of redrawn staff sprites (world-2 grim style, her pick 2026-11-23)
 const STAFF_ART_W2 = { runes: 'granite', mine: 'burav', forge: 'hammer', gems: 'iskra' };   // world 2 teachers (her pick 2026-11-22: old dwarf rune master «Мастер Гранит»)
 const staffOf = (cid) => (WORLD === 1 ? STAFF_ART : WORLD === 2 ? STAFF_ART_W2 : {})[cid];   // per world: world-2 'final' must not take the owl
 const STAFF_H = { iskra: 50, hammer: 56, burav: 54, granite: 54, moss: 58, bubble: 54, lun: 68, spark: 62, breeze: 56, storm: 68, owl: 60 };   // teachers clearly taller than students (30) — her ruling 2026-11-21
 // teachers' pose sheets (her ask 2026-11-22: animations for every teacher): walk while strolling, two kinds of stops,
 // proud for a moment right after a student of the class passes; art one teacher at a time (art/staff/<name>_poses.jpg)
-const TEACHER_POSES = { iskra: ['explain', 'loupe', 'polish'], hammer: ['explain', 'strike', 'inspect'], burav: ['explain', 'dig', 'wipe'], granite: ['explain', 'carve', 'read', 'think', 'lantern', 'warm'], moss: ['explain', 'water', 'sniff', 'read'], bubble: ['explain', 'stir', 'pour', 'sniff'], lun: ['map', 'spyglass', 'book', 'sphere'], spark: ['explain', 'star', 'curtsy', 'polish', 'book'], breeze: ['explain', 'map', 'wind', 'goggles', 'owl'], storm: ['explain', 'fire', 'water', 'leaves', 'breeze'], owl: ['announce', 'write', 'hourglass', 'glasses', 'seal'] };
+const TEACHER_POSES = { iskra: ['explain', 'loupe', 'polish'], hammer: ['explain', 'strike', 'inspect'], burav: ['explain', 'dig', 'wipe'], granite: ['explain', 'carve', 'read'], moss: ['explain', 'water', 'sniff', 'read'], bubble: ['explain', 'stir', 'pour', 'sniff'], lun: ['map', 'spyglass', 'book', 'sphere'], spark: ['explain', 'star', 'curtsy', 'polish', 'book'], breeze: ['explain', 'map', 'wind', 'goggles', 'owl'], storm: ['explain', 'fire', 'water', 'leaves', 'breeze'], owl: ['announce', 'write', 'hourglass', 'glasses', 'seal'] };
 const TEACHER_FLY = { moss: true, bubble: true, lun: true, spark: true, breeze: true, storm: true, owl: true };
 const NO_PROUD = { lun: true };
-const WALK_POSE = { granite: ['step1', 'pass1', 'pass2', 'pass1'], burav: ['step1', 'pass1', 'step2', 'pass2'], hammer: ['step1', 'pass1', 'pass2', 'pass1'], iskra: ['step1', 'pass1', 'pass2', 'pass1'] };   // walking frames cycled every 180 ms (her report: one walking picture looked like hopping on one leg)   // dwarves do not fly: their own walking picture while moving
+const WALK_POSE = { granite: ['step1', 'pass1', 'step2', 'pass2'], burav: ['step1', 'pass1', 'step2', 'pass2'], hammer: ['step1', 'pass1', 'pass2', 'pass1'], iskra: ['step1', 'pass1', 'pass2', 'pass1'] };   // walking frames cycled every 180 ms (her report: one walking picture looked like hopping on one leg)   // dwarves do not fly: their own walking picture while moving
 const FLY_LEFT = { breeze: true };   // flight frames drawn heading LEFT (her report 2026-11-22: «Капитан ветерок летает задом наперед»)   // her choice 2026-11-22: Lun has no joy pose, keeps his stop pose   // two flight frames <name>_fly1/fly2 (her ruling: «Парение не похоже на полет ... позу полета рисовать»)
-for (const [n, l] of Object.entries(TEACHER_POSES)) for (const f of [...l, ...(NO_PROUD[n] ? [] : ['proud']), ...(TEACHER_FLY[n] ? ['fly1', 'fly2'] : []), ...(WALK_POSE[n] || [])]) { const im = new Image(); im.onerror = () => {}; im.src = `assets/staff/${n}_${f}.png?v=1`; sprites[n + '_' + f] = im; }
+for (const [n, l] of Object.entries(TEACHER_POSES)) for (const f of [...l, ...(NO_PROUD[n] ? [] : ['proud']), ...(TEACHER_FLY[n] ? ['fly1', 'fly2'] : []), ...(WALK_POSE[n] || [])]) { const im = new Image(); im.onerror = () => {}; im.src = `assets/staff/${n}_${f}.png?v=${STAFF_V[n] || 1}`; sprites[n + '_' + f] = im; }
 const passAt = {};
 function teacherPose(i, tp) {
   const n = staffOf(CLASSES[i].id), l = n && TEACHER_POSES[n]; if (!l) return null;
@@ -1779,7 +1780,7 @@ function drawSecretary(so) {
 }
 for (const f of STAFF_OTHER) { const im = new Image(); im.src = `assets/staff/${f}.png?v=1`; sprites['staff_' + f] = im; }
 const staffSprite = (f) => WORLD === 1 && STAFF_OTHER.includes(f) && sprites['staff_' + f]?.naturalWidth;
-for (const [k, f] of Object.entries(WORLD === 2 ? STAFF_ART_W2 : STAFF_ART)) { const im = new Image(); im.src = `assets/staff/${f}.png?v=3`; sprites['staff_' + k] = im; }
+for (const [k, f] of Object.entries(WORLD === 2 ? STAFF_ART_W2 : STAFF_ART)) { const im = new Image(); im.src = `assets/staff/${f}.png?v=${STAFF_V[f] ? 10 + STAFF_V[f] : 3}`; sprites['staff_' + k] = im; }
 if (WORLD === 1) for (const sp of SPECIES) for (let e = 0; e < 4; e++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_m${e}${v}.png?v=1`; sprites[sp + '_m' + e + v] = im; }   // element masters (her «вау», 2026-11-22)
 if (WORLD === 1) for (const sp of SPECIES) for (let t = 1; t < 5; t++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_t${t}${v}.png?v=1`; sprites[sp + '_t' + t + v] = im; }   // outfit stages (drawn later; missing ones fall back)
 for (const sp of SPECIES) for (const v of ['', '_back']) { const im = new Image(); im.src = `assets/creatures/${sp}${v}.png`; sprites[sp + v] = im; }   // front and back views
