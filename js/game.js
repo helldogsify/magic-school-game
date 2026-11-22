@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=252';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=252';
+} from './data.js?v=253';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=253';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 252;   // keep equal to the ?v= number in index.html
+const BUILD = 253;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1602,6 +1602,7 @@ function stepWorld(dt, live = false) {
   stepIncidents(dt, live);
   stepInspector(dt, live);
   stepBoss(dt, live);
+  stepAdvisor(dt, live);
   stepTrade(dt);
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6 && !(WORLD === 2 && schoolFull())) spawn(); }   // world 2: nobody new comes while every line and every bed is taken
@@ -1722,6 +1723,97 @@ function directorPos() {
   else if (dirTrip === -1) pose = 'walk';
   else if (dirClock < 3) pose = 'proud';   // back at his desk: raises the scepter for a moment
   return { x: home.x + (spot.x - home.x) * k, y: home.y + (spot.y - home.y) * k, pose, moving: dirU > 0 && dirU < 1, flip: dirTrip === -1 };
+}
+// ======================= Chronicler Tikhon, the director's advisor (build 251, tester Ruslan's idea; Maria's picks 2026-11-23:
+// a new character «Летописец Тихон», the 📋 button stays but the quests come from him) =======================
+// He stands by the director's desk, reports the school's problems (with a «Показать» button that opens the right room and
+// lights the button that helps), suggests what to improve, and gives the quests with a line of the school's chronicle.
+const TIKHON_POSES = ['read', 'explain', 'lantern', 'staff'];
+for (const f of TIKHON_POSES) { const im = new Image(); im.src = `assets/staff/tikhon_${f}.png?v=1`; sprites['tikhon_' + f] = im; }
+const ADV_NAME = 'Летописец Тихон';
+const tikhonOn = () => WORLD === 1 && bossOn() && !!SLOTS.DIR;
+const tikhonPic = (h = 64) => `<img src="assets/staff/tikhon_explain.png?v=1" alt="" style="height:${h}px;width:auto;flex:none">`;
+const ADV_QUOTES = [
+  'Триста лет я веду летопись этой школы. Хорошие главы пишутся терпением.',
+  'Ученик, которому нашлось место, запомнит школу навсегда. И тот, кому не нашлось, — тоже.',
+  'Мудрый директор смотрит не на монеты, а на лица учеников.',
+  'Очередь — это вопрос, который школа ещё не решила.',
+  'Звёзды над школой светят тем ярче, чем меньше в ней грустных учеников.',
+];
+const MISSION_LORE = {
+  f: 'Так начинается история нашей школы. Я запишу каждый твой шаг.',
+  grad: 'Каждый выпускник — новая страница в летописи школы.',
+  enroll: 'Слава о школе летит быстрее совы — встречай новичков.',
+  earn: 'Казна школы любит терпение, директор.',
+  read: 'Мудрость начинается в библиотеке. Уж я-то знаю.',
+  exams: 'Экзамен — это урок, который пришёл проверить сам себя.',
+  item: 'Хороший инструмент — половина заклинания.',
+  teacher: 'Растёт учитель — растут и ученики.',
+  desk: 'Ещё одна парта — ещё одна судьба в летописи.',
+  time: 'Время — самое дорогое волшебство. Береги его.',
+  rec: 'Приёмная — лицо школы. Пусть оно улыбается быстрее.',
+  beds: 'Усталому ученику нужна кровать, а не очередь.',
+  lib: 'Новый стол в библиотеке — новый читатель.',
+  build: 'Летопись ждёт новую главу: пора строить!',
+};
+// leavers of the last 3 minutes: sampled every 10 s of play
+const advLog = []; let advSampleT = 0;
+function stepAdvisor(dt, live) {
+  if (!live || !tikhonOn()) return;
+  advSampleT -= dt; if (advSampleT > 0) return; advSampleT = 10;
+  advLog.push(leftNow()); if (advLog.length > 19) advLog.shift();
+}
+const pupils = (n) => (n % 10 === 1 && n % 100 !== 11 ? 'ученик' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'ученика' : 'учеников');
+const advLeft = () => (advLog.length > 1 ? advLog[advLog.length - 1] - advLog[0] : 0);
+let advCache = null, advCacheAt = 0;
+function advReport() {   // [{hot, emo, text, go}] — go: [room id, selector] | 'missions' | null
+  if (advCache && performance.now() - advCacheAt < 2000) return advCache;
+  const out = [];
+  let b = -1, bn = 0;
+  for (let i = 0; i < CLASSES.length; i++) if (isOpen(i)) { const n = waitList[i].length + sleepersFor(i); if (n > bn) { bn = n; b = i; } }
+  if (b >= 0 && bn >= 12) {
+    const desk = S.classes[b].desks < maxDesksOf(b), time = S.classes[b].time < MAX_TIME_LEVEL, nm = CLASSES[b].name;
+    if (desk || time) out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}. ${desk ? 'Поставь там ещё парту' : 'Сократи там урок'} — очередь станет короче.`, go: [CLASS_SLOT[b], desk ? '[data-act="desk"]' : '[data-act="time"]'] });
+    else out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}, а он уже улучшен до предела. Учеников приходит больше, чем школа может выучить: «Престижный» договор приведёт меньше учеников, зато они платят больше.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
+  }
+  if (!dormFree()) out.push({ hot: true, emo: '🛏️', text: 'Все кровати в спальне заняты: новичкам негде подождать, и они уходят домой. Добавь кровати.', go: ['DORM', '[data-act="beds"]'] });
+  const lv = advLeft();
+  if (lv >= 5) out.push({ hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. Если учеников приходит больше, чем школа успевает учить, попробуй «Престижный» договор.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
+  const m = avgMood();
+  if (m < 50) out.push({ hot: m < 35, emo: '😟', text: `Ученики грустят: настроение ${Math.round(m)}%. Их радуют библиотека, магазин и столовая, а «Забота об учениках» помогает в очередях.`, go: ['DIR', '[data-act="dir"][data-k="care"]'] });
+  const inc = Object.keys(S.inc || {});
+  if (inc.length) out.push({ hot: true, emo: '💥', text: `В классе «${CLASSES[+inc[0]].name}» происшествие — урок стоит! Нажми на класс, чтобы всё починить.`, go: [CLASS_SLOT[+inc[0]], null] });
+  if (boss().mail.cur) out.push({ hot: true, emo: '✉️', text: 'Пришло письмо от родителей. Оно ниже — ответь, когда будет минутка.', go: null });
+  const ready = missionList().filter((x) => x.ok).length;
+  if (ready) out.push({ hot: false, emo: '🎁', text: `Выполнено заданий: ${ready}. Забери награды!`, go: 'missions' });
+  advCacheAt = performance.now(); advCache = out;
+  return out;
+}
+const advHot = () => tikhonOn() && advReport().some((r) => r.hot);
+function tikhonPos() {   // by the window side of the desk; a pose at least 3 s (her rule: every pose >= 2.5 s)
+  const s = SLOTS.DIR, now = performance.now() / 1000;
+  const pose = advHot() ? (Math.floor(now / 3) % 2 ? 'read' : 'explain') : ['staff', 'read', 'staff', 'explain', 'lantern'][Math.floor(now / 4) % 5];
+  return { x: s.x0 + 1.25, y: s.y0 + 3.7, pose };   // left of the desk, by the bookcase: never over the director's walk to the window
+}
+function drawTikhonBadge(p) {   // a scroll over his head while he has something important to report
+  if (!advHot()) return;
+  const c = P(p.x, p.y), T = performance.now(), k = 1 + 0.1 * Math.sin(T / 220), y = c.y - 82 - 5 * Math.sin(T / 320);
+  ctx.fillStyle = '#fff3c4'; ctx.beginPath(); ctx.arc(c.x, y, 17 * k, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#e0a100'; ctx.lineWidth = 2.5; ctx.stroke();
+  emoji('📜', c.x, y, 22 * k);
+}
+let advTargets = [];
+function advisorBlock() {   // top of the director's panel
+  const rep = advReport(); advTargets = rep.map((r) => r.go);
+  const items = rep.map((r, k) => `<div class="card up"${r.hot ? ' style="border:2px solid #ffb4a8"' : ''}><span class="remoji">${r.emo}</span><div class="grow">${r.text}</div>${r.go ? `<button class="btn small go" data-advgo="${k}">${r.go === 'missions' ? 'Задания' : 'Показать'}</button>` : ''}</div>`).join('');
+  const quote = ADV_QUOTES[Math.floor(Date.now() / 60000) % ADV_QUOTES.length];
+  return `<div class="card up" style="align-items:center">${tikhonPic(70)}<div class="grow"><b>${ADV_NAME}</b><div class="muted">советник директора и летописец школы</div><div>«${rep.length ? 'Директор, вот что я заметил:' : 'В школе всё спокойно, директор. ' + quote}»</div></div></div>
+    ${items}
+    <button class="btn ghost wide" data-missions>📋 Задания от Тихона</button>`;
+}
+function advGo(k) {
+  const g = advTargets[+k]; if (!g) return;
+  if (g === 'missions') { openPanel(missionsPanel); return; }
+  goTarget(g);
 }
 // The fox shopkeeper (her choice 2026-11-21: a curiosity shop): hands over the treat while a student is shopping,
 // counts coins after a sale; when the shop is empty he polishes a crystal ball or carries a box of glowing jars to the shelf.
@@ -3067,6 +3159,7 @@ function render() {
   }
   // library (themed): an armchair at every open reading place and a few things around
   if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = sprites['dir_' + (dp.pose === 'walk' ? 'proud' : dp.pose)]; if (WORLD === 1 && im && im.naturalWidth) add(dp.x, dp.y, () => { teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, 64, dp.flip, dp.moving, 'hover'); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
+  if (tikhonOn()) { const tp = tikhonPos(), im = sprites['tikhon_' + tp.pose]; if (im && im.naturalWidth) add(tp.x, tp.y, () => { teacherGlow(tp, 60); drawPose(im, tp.x, tp.y, 60, false, false, 'hover'); drawTikhonBadge(tp); }); }   // Tikhon, the advisor (build 251)
   if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR', 'SHOP', 'TOWER', 'CANT']) {
     const th = themeOf(rid); if (!th || !SLOTS[rid] || (rid === 'CANT' && !cantOpen()) || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt()) || (rid === 'SHOP' && !shopOpen()) || (rid === 'TOWER' && !towerOpen())) continue;
@@ -3300,6 +3393,7 @@ function dirBuildPanel() {
 }
 function dirPanel() {
   let h = `<div class="sh-head"><span class="remoji big">👑</span><div><h2>Кабинет директора</h2><div class="muted">Решения для всей школы</div></div><button class="x" data-close>✕</button></div>
+    ${tikhonOn() ? advisorBlock() : ''}
     <p class="muted">Взнос новичка сейчас 🪙${fmt(entryFee())}. Кто уходит расстроенным, получает его назад: ${Math.round(refundRate() * 100)}%. Уже вернули: 🪙${fmt(S.stats.refunded || 0)}.</p>` + bossBlock();
   for (const [k, u] of Object.entries(DIR_UP)) {
     const l = dirLvl(k);
@@ -3506,7 +3600,7 @@ function missionList() {   // [{key, text, reward, ok, prog}]
   if (S.dyn && !S.dynList) S.dynList = [S.dyn];   // older saves had one generated mission
   S.dynList ||= [];
   const out = [];
-  if (WORLD === 1 && S.mission < MISSIONS.length) { const m = MISSIONS[S.mission]; out.push({ key: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: null, go: missionGo(null, m.text) }); }
+  if (WORLD === 1 && S.mission < MISSIONS.length) { const m = MISSIONS[S.mission]; out.push({ key: 'f', type: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: null, go: missionGo(null, m.text) }); }
   let made = false;
   const kindKey = (x) => [x.type, x.i ?? '', x.k ?? ''].join(':');   // one mission per kind at a time
   const seen = new Set(); S.dynList = S.dynList.filter((x) => !seen.has(kindKey(x)) && seen.add(kindKey(x)));
@@ -3535,7 +3629,7 @@ function missionList() {   // [{key, text, reward, ok, prog}]
     S.dynList.push(m); made = true;
   }
   if (made) save();
-  S.dynList.forEach((m, k) => out.push({ key: 'd' + k, text: m.text, reward: m.reward, ok: dynDone(m), prog: dynProgress(m), go: missionGo(m) }));
+  S.dynList.forEach((m, k) => out.push({ key: 'd' + k, type: m.type, text: m.text, reward: m.reward, ok: dynDone(m), prog: dynProgress(m), go: missionGo(m) }));
   return out;
 }
 // «Выполнить»: where a mission is done -> [room id, selector of the button to light up in its panel]
@@ -3573,7 +3667,10 @@ function missionGo(m, text) {
 }
 function goMission(key) {
   const list = missionList(), m = list.find((x) => x.key === key); if (!m || !m.go) return;
-  const [id, sel] = m.go, s = SLOTS[id];
+  goTarget(m.go);
+}
+function goTarget(go) {   // open a room and light up the button that helps (missions and Tikhon's reports)
+  const [id, sel] = go, s = SLOTS[id];
   closePanel();
   openRoom(id);
   if (s) setTimeout(() => focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), 60);   // after the panel is up: the room goes above it
@@ -3641,9 +3738,10 @@ function openWorld(w) {
 
 function missionsPanel() {
   const list = missionList();
-  return `<div class="sh-head"><span class="remoji big">📋</span><div><h2>Задания</h2><div class="muted">Выполняй и забирай награды. Новые появляются сразу</div></div><button class="x" data-close>✕</button></div>
+  const tk = WORLD === 1;   // world 1: the quests come from Chronicler Tikhon (build 251, her pick)
+  return `<div class="sh-head">${tk ? tikhonPic(56) : '<span class="remoji big">📋</span>'}<div><h2>${tk ? 'Задания от Тихона' : 'Задания'}</h2><div class="muted">${tk ? '«Летопись школы пишется твоими делами, директор»' : 'Выполняй и забирай награды. Новые появляются сразу'}</div></div><button class="x" data-close>✕</button></div>
     <div class="qbar">${list.map((m) => `<div class="q ${m.ok ? 'ok' : ''}"><span class="qi">${m.ok ? '🎁' : '📋'}</span>
-      <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}</span>
+      <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}${tk && MISSION_LORE[m.type] ? `<span class="muted" style="display:block;font-style:italic;font-size:12px">${MISSION_LORE[m.type]}</span>` : ''}</span>
       ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo"><span class="qr">🪙${fmt(m.reward)}</span>${m.go ? `<button class="btn small go" data-mgo="${m.key}">Выполнить ➜</button>` : ''}</span>`}</div>`).join('')}</div>`;
 }
 function updateHud() {
@@ -3761,6 +3859,7 @@ document.addEventListener('click', (e) => {
   if (d.world !== undefined) { goWorld(+d.world); return; }
   if (d.worldOpen !== undefined) { openWorld(+d.worldOpen); return; }
   if (d.mgo !== undefined) { goMission(d.mgo); return; }
+  if (d.advgo !== undefined) { advGo(d.advgo); return; }
   if (d.mission !== undefined) { claimMission(d.mission); if (panel === missionsPanel) refreshPanel(); return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); drawFbPics(); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
