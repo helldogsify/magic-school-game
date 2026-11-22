@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=187';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=187';
+} from './data.js?v=188';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=188';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 187;   // keep equal to the ?v= number in index.html
+const BUILD = 188;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2047,7 +2047,29 @@ function flightFx(i, d, p, o) {
   const fx = m.x + 9 + Math.sin(u * Math.PI * 3) * 6, fy = m.y - 58 + u * 52;
   fxTop.push(() => { ctx.save(); ctx.globalAlpha = al * 0.95; emoji('🪶', fx, fy, 9); ctx.restore(); });
 }
-const STATION_FX = { potions: potionsFx, stars: starsFx, charms: charmsFx, flight: flightFx };
+// Elements: the crystal of a busy pedestal glows in its colour (3 s pulse) and its element plays above it:
+// fire - embers rise (2.8 s), water - drops circle and fall back (3 s), earth - two leaves circle (5 s), air - a little whirl turns (3 s)
+const EL_ST = { cr_fire: [0, '255,120,40'], cr_water: [1, '70,170,245'], cr_earth: [2, '100,175,60'], cr_air: [3, '235,150,215'] };
+function elementsFx(i, d, p, o) {
+  const a = studentAt(i, d); if (!a) return;
+  const [el, col] = EL_ST[o.n] || [0, '255,200,120'], h = ((THEMES[o.th] && THEMES[o.th].h) || {})[o.n] || PROP_H[o.n] || 30;
+  const m = P(o.x, o.y), cx = m.x, cy = m.y + h * 0.08 - h * 0.8, T = fxNow() + a.id * 0.91;
+  fxTop.push(() => {
+    const gl = 0.3 + 0.2 * Math.sin(T * Math.PI * 2 / 3), g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 14);
+    g.addColorStop(0, `rgba(${col},${gl})`); g.addColorStop(1, `rgba(${col},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI * 2); ctx.fill();
+    if (el === 0) for (let k = 0; k < 3; k++) { const u = ((T + k * 0.93) / 2.8) % 1, x = cx + Math.sin(u * 6 + k * 2) * 4, y = cy - 6 - u * 24, r = 2.8 * (1 - u) + 0.8;
+      ctx.fillStyle = `rgba(255,${200 - u * 120 | 0},60,${Math.sin(u * Math.PI)})`; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(255,250,200,${0.8 * Math.sin(u * Math.PI)})`; ctx.beginPath(); ctx.arc(x, y, r * 0.45, 0, Math.PI * 2); ctx.fill(); }
+    else if (el === 1) for (let k = 0; k < 3; k++) { const an = T * Math.PI * 2 / 3 + k * 2.094, x = cx + Math.cos(an) * 11, y = cy - 9 + Math.sin(an) * 4, r = 2.5 + 0.5 * Math.sin(an);
+      ctx.fillStyle = 'rgba(120,200,255,0.9)'; ctx.strokeStyle = 'rgba(40,110,190,0.9)'; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(x, y - r * 1.8); ctx.quadraticCurveTo(x + r, y - r * 0.2, x, y + r); ctx.quadraticCurveTo(x - r, y - r * 0.2, x, y - r * 1.8); ctx.fill(); ctx.stroke(); }
+    else if (el === 2) for (let k = 0; k < 2; k++) { const an = T * Math.PI * 2 / 5 + k * Math.PI; fxLeaf(cx + Math.cos(an) * 12, cy - 9 + Math.sin(an) * 4.5, 3.6, an * 1.3, '#8fd66a', '#3f7a3a'); }
+    else { ctx.save(); ctx.translate(cx, cy - 10); ctx.rotate(T * Math.PI * 2 / 3); ctx.lineCap = 'round';   // the whirl: three arcs turning
+      for (let k = 0; k < 3; k++) { ctx.strokeStyle = `rgba(${col},${0.8 - k * 0.2})`; ctx.lineWidth = 1.8 - k * 0.35; ctx.beginPath(); ctx.arc(0, 0, 5 + k * 4, k * 2.1, k * 2.1 + 2.4); ctx.stroke(); }
+      ctx.restore(); }
+  });
+}
+const STATION_FX = { potions: potionsFx, stars: starsFx, charms: charmsFx, flight: flightFx, elements: elementsFx };
 function drawDesk(p) {
   const a = P(p.x - 0.55, p.y - 0.25), b = P(p.x + 0.55, p.y - 0.25), cc = P(p.x + 0.55, p.y + 0.25), d = P(p.x - 0.55, p.y + 0.25);
   const h = 9;
