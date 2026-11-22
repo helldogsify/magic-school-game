@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=189';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=189';
+} from './data.js?v=190';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=190';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 189;   // keep equal to the ?v= number in index.html
+const BUILD = 190;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -986,7 +986,7 @@ const towerRate = () => (towerOpen() ? towerUp().res.reduce((n, r) => n + resRat
 const mastersLiving = () => (towerOpen() ? towerUp().res.filter((r) => r.rk === 5).length : 0);
 const resTitle = (r) => (r.rk === 5 ? 'Мастер ' + ELEMS[r.el || 0].name : RANKS[r.rk]);
 const releaseReward = (r) => Math.round(resRate(r) * 3600);   // one hour of what it brings
-function towerCandidate(a) { return towerOpen() && SPECIES.includes(a.sp) && (a.rk || 0) >= 4; }
+function towerCandidate(a) { return towerOpen() && SPECIES.includes(a.sp) && (a.rk || 0) >= (towerUp().onlyM ? 5 : 4); }   // onlyM (her request 2026-11-22): elder mages are refused automatically and graduate as usual
 function towerAdmit(a) {   // the graduate walks from the garden into the tower (or waits at its door)
   const T = towerUp(), r = { sp: a.sp, rk: a.rk, el: a.el || 0, name: a.name, t: Date.now() };
   const s = SLOTS.TOWER;
@@ -1126,6 +1126,8 @@ function towerPanel() {
   return `<div class="sh-head"><span class="remoji big">🏰</span><div><h2>Башня мастеров</h2><div class="muted">Живут ${T.res.length} из ${towerCap()} · 🪙 ${fmt(towerRate() * 60)} в минуту</div></div><button class="x" data-close>✕</button></div>
     <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Ещё одно место</b> <span class="muted">${towerCap()}/${TOWER_BASE + TOWER_MAXUP}</span><div class="muted">в башне смогут жить больше мастеров</div></div>
       ${T.cap >= TOWER_MAXUP ? '<span class="done">макс.</span>' : costBtn('+1', towerCapCost(), 'towercap')}</div>
+    <div class="card up"><span class="remoji">🚪</span><div class="grow"><b>Принимать только Мастеров</b><div class="muted">${T.onlyM ? 'включено: Старшим магам башня отказывает сама, они просто выпускаются' : 'выключено: в башню просятся и Старшие маги'}</div></div>
+      <button class="btn${T.onlyM ? '' : ' ghost'}" data-act="toweronly">${T.onlyM ? 'Вкл' : 'Выкл'}</button></div>
     ${T.wait.length ? `<h3>Ждут у двери: ${T.wait.length}</h3>${wait}<p class="muted">Освободи место — и первый ждущий сразу заселится. Если мест нет, а у двери уже ${TOWER_WAIT}, следующие выпускаются как обычно.</p>` : ''}
     <h3>Мастер-классы ✨</h3><p class="muted">Мастера стихий по очереди ходят в класс «Магия стихий» и показывают ученикам магию (1,5 минуты, только пока игра открыта). Пока идёт мастер-класс, ученики там сдают на 5% лучше, а карточка мастера в альбоме получает опыт за каждый сданный урок.</p>
     ${retake}
@@ -2967,6 +2969,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'towercap') { if (towerUp().cap < TOWER_MAXUP && spend(towerCapCost())) { towerUp().cap++; towerPull(); } }
   else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && !r.away && confirm(`Отпустить ${r.name} (${resTitle(r)})? Школа получит 🎁 ${fmt(releaseReward(r))}.`)) { earn(releaseReward(r)); T.res.splice(+d.k, 1); towerPull(); toast(`🎁 ${r.name} отправился в большое путешествие`); } }
   else if (d.act === 'towerno') { towerUp().wait.splice(+d.k, 1); }
+  else if (d.act === 'toweronly') { const T = towerUp(); T.onlyM = !T.onlyM; if (T.onlyM) { const n = T.wait.length; T.wait = T.wait.filter((r) => r.rk === 5); if (n > T.wait.length) toast(`🏰 Отказано Старшим магам у двери: ${n - T.wait.length}`); } }
   else if (d.act === 'cantbuild') { if (!cantBuilt() && isOpen(CANT_NEED) && spend(CANT_COST)) { const u = cantUp(); u.built = true; u.end = Date.now() + CANT_TIME * 1000; staticKey = ''; toast('🏗️ Столовая строится!'); panel = cantPanel; } }
   else if (d.act === 'cantup') { const k = d.k; if (cantUp()[k] < CANT_MAX[k] && spend(cantCost(k))) cantUp()[k]++; }
   else if (d.act === 'shopup') { const k = d.k; if (shopUp()[k] < SHOP_MAX && spend(shopCost(k))) shopUp()[k]++; }
