@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=260';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=260';
+} from './data.js?v=261';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=261';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 260;   // keep equal to the ?v= number in index.html
+const BUILD = 261;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1851,7 +1851,7 @@ function advReport() {   // [{hot, emo, text, go}] — go: [room id, selector] |
   if (advCache && performance.now() - advCacheAt < 2000) return advCache;
   const out = [];
   let b = -1, bn = 0;
-  for (let i = 0; i < CLASSES.length; i++) if (isOpen(i)) { const n = waitList[i].length + sleepersFor(i); if (n > bn) { bn = n; b = i; } }
+  for (let i = 0; i < CLASSES.length; i++) if (isOpen(i)) { const n = waitList[i].length + sleepersFor(i) + agents.reduce((m, a) => m + (a.goal && a.goal.t === 'k' && a.goal.i === i && !a.goal.brk ? 1 : 0), 0); /* court waiters too (build 259) */ if (n > bn) { bn = n; b = i; } }
   if (b >= 0 && bn >= 12) {
     const desk = S.classes[b].desks < maxDesksOf(b), time = S.classes[b].time < MAX_TIME_LEVEL, nm = CLASSES[b].name;
     if (desk || time) out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}. ${desk ? 'Поставь там ещё парту' : 'Сократи там урок'} — очередь станет короче.`, go: [CLASS_SLOT[b], desk ? '[data-act="desk"]' : '[data-act="time"]'] });
@@ -4426,22 +4426,28 @@ function hiss(t0, dur, v, type, f0, f1, q = 1, a = 0.03) {   // filtered noise
   env(g, t0, a, dur, v); s.connect(f); f.connect(g); g.connect(BUS || AOUT); s.start(t0, Math.random()); s.stop(t0 + a + dur + 0.05);
 }
 // loudness per sound (dB), measured on rendered copies: every peak near -14 dB, the chime of a fix a little quieter (-18)
-const SFX_DB = { potions: 8, charms: 12.5, elements: 14, flight: 15, herbs: 13.5, stars: 17, final: 16.5, sneeze: 13.5, fixed: 12.5 };
+const SFX_DB = { potions: 3.5, charms: 10.5, elements: 12, flight: 15, herbs: 12.5, stars: 16.5, final: 16.5, sneeze: 12, fixed: 10 };
 const PENTA = [523, 587, 659, 784, 880, 1047, 1175, 1319, 1568];
-const SFX = {
-  potions(t) { tone(t, 150, 55, 0.35, 0.5, 'sine', 0.01); hiss(t, 0.55, 0.35, 'lowpass', 1200, 180, 0.7, 0.01);   // a soft «poof» of the cauldron
-    for (let k = 0; k < 4; k++) tone(t + 0.35 + k * 0.11 + Math.random() * 0.04, 320 + Math.random() * 260, 700 + Math.random() * 300, 0.06, 0.12); },   // and a few bubbles
-  charms(t) { for (let k = 0; k < 7; k++) { const f = PENTA[2 + Math.floor(Math.random() * 7)]; tone(t + k * 0.07, f, f * 1.01, 0.45, 0.09, 'triangle', 0.005); }   // sparkles
-    tone(t, 700, 330, 0.8, 0.08, 'sine', 0.05); },   // and a magic «wooo» sliding down
-  elements(t) { hiss(t, 0.7, 0.25, 'bandpass', 300, 1100, 0.8, 0.15);   // a whoosh of flame
-    for (let k = 0; k < 9; k++) hiss(t + 0.1 + Math.random() * 0.8, 0.025, 0.12, 'highpass', 1800, 1800, 0.7, 0.003); },   // crackles
-  flight(t) { hiss(t, 0.8, 0.22, 'bandpass', 400, 1800, 1.2, 0.2); tone(t + 0.05, 330, 880, 0.7, 0.07, 'sine', 0.1); },   // an airy whoosh upwards
-  herbs(t) { hiss(t, 0.9, 0.16, 'bandpass', 2400, 1600, 1.5, 0.12);   // leaves rustling
-    tone(t + 0.15, 196, 247, 0.35, 0.1, 'triangle', 0.03); tone(t + 0.45, 247, 294, 0.4, 0.09, 'triangle', 0.03); },   // something growing
-  stars(t) { hiss(t, 1.2, 0.3, 'lowpass', 650, 160, 0.8, 0.3); hiss(t + 0.25, 0.9, 0.2, 'bandpass', 380, 200, 0.9, 0.25); },   // a far, soft thunder (above 150 Hz: phone speakers play nothing lower)
-  final(t) { for (let k = 0; k < 7; k++) hiss(t + k * 0.09 + Math.random() * 0.04, 0.07, 0.14, 'bandpass', 3200, 2600, 1.2, 0.01); },   // papers fluttering
-  sneeze(t) { tone(t, 280, 420, 0.35, 0.07, 'sine', 0.12); hiss(t + 0.45, 0.22, 0.22, 'bandpass', 2200, 1200, 1, 0.01); },   // «ah… choo»
-  fixed(t) { [784, 988, 1175].forEach((f, k) => tone(t + k * 0.09, f, f, 0.35, 0.07, 'triangle', 0.005)); },   // a small chime: all is well again
+const SFX = {   // build 259 (her «Звуки слишком короткие»): every sound 2-3 s with a soft tail
+  potions(t) { tone(t, 150, 55, 0.5, 0.5, 'sine', 0.01); hiss(t, 0.9, 0.35, 'lowpass', 1400, 160, 0.7, 0.01);   // a soft «poof» of the cauldron
+    for (let k = 0; k < 12; k++) { const u = k / 12; tone(t + 0.35 + u * 1.9 + Math.random() * 0.06, 300 + Math.random() * 280, 650 + Math.random() * 350, 0.07, 0.13 * (1 - 0.6 * u)); } },   // then bubbling that calms down
+  charms(t) { for (let k = 0; k < 16; k++) { const u = k / 16, f = PENTA[1 + Math.floor(Math.random() * 8)]; tone(t + u * 1.7 + Math.random() * 0.05, f, f * 1.01, 0.7, 0.09 * (1 - 0.5 * u), 'triangle', 0.005); }   // sparkles scattering
+    tone(t, 760, 300, 1.6, 0.08, 'sine', 0.08); tone(t + 0.4, 520, 260, 1.4, 0.05, 'sine', 0.1); },   // a magic «wooo» sliding down twice
+  elements(t) { hiss(t, 1.4, 0.25, 'bandpass', 300, 1200, 0.8, 0.25); hiss(t + 0.9, 1.4, 0.18, 'bandpass', 700, 300, 0.8, 0.3);   // the flame flares up and dies down
+    for (let k = 0; k < 22; k++) hiss(t + 0.1 + Math.random() * 2.2, 0.025, 0.12, 'highpass', 1800, 1800, 0.7, 0.003); },   // crackles
+  flight(t) { hiss(t, 1.5, 0.22, 'bandpass', 400, 2000, 1.2, 0.35); tone(t + 0.05, 330, 990, 1.4, 0.07, 'sine', 0.2);   // an airy whoosh upwards
+    for (let k = 0; k < 6; k++) hiss(t + 1.2 + k * 0.17, 0.09, 0.12, 'bandpass', 1500, 1300, 2, 0.02); },   // and wings fluttering under the ceiling
+  herbs(t) { hiss(t, 1.0, 0.16, 'bandpass', 2400, 1600, 1.5, 0.2); hiss(t + 0.9, 1.2, 0.14, 'bandpass', 2000, 1400, 1.5, 0.25);   // leaves rustling in two waves
+    [196, 247, 294, 330].forEach((f, k) => tone(t + 0.2 + k * 0.42, f, f * 1.12, 0.6, 0.1, 'triangle', 0.04)); },   // something growing, note by note
+  stars(t) { hiss(t, 1.6, 0.3, 'lowpass', 650, 160, 0.8, 0.35); hiss(t + 0.3, 1.2, 0.2, 'bandpass', 380, 200, 0.9, 0.3);   // a far, soft thunder (above 150 Hz: phone speakers play nothing lower)
+    hiss(t + 1.4, 1.3, 0.22, 'lowpass', 500, 150, 0.8, 0.3); },   // and a second roll
+  final(t) { for (let k = 0; k < 18; k++) { const u = k / 18; hiss(t + u * 2.0 + Math.random() * 0.05, 0.08, 0.14 * (1 - 0.5 * u), 'bandpass', 3200, 2600, 1.2, 0.01); }   // papers fluttering down
+    hiss(t, 1.6, 0.06, 'bandpass', 900, 1500, 0.7, 0.4); },   // and the air they stir
+  sneeze(t) { tone(t, 260, 360, 0.45, 0.06, 'sine', 0.15); tone(t + 0.55, 300, 440, 0.45, 0.07, 'sine', 0.15);   // «ah… ah…»
+    hiss(t + 1.1, 0.3, 0.24, 'bandpass', 2200, 1200, 1, 0.01);   // «choo!»
+    hiss(t + 1.9, 0.18, 0.08, 'bandpass', 1400, 1800, 1.5, 0.05); hiss(t + 2.2, 0.18, 0.07, 'bandpass', 1400, 1800, 1.5, 0.05); },   // a little sniff-sniff
+  fixed(t) { [784, 988, 1175, 1568].forEach((f, k) => tone(t + k * 0.12, f, f, 0.9, 0.07, 'triangle', 0.005));   // a chime: all is well again
+    for (let k = 0; k < 6; k++) { const f = PENTA[4 + Math.floor(Math.random() * 5)]; tone(t + 0.6 + k * 0.15, f, f, 0.6, 0.03, 'sine', 0.01); } },   // with a soft shimmer
 };
 function sfx(name) {
   if (!sfxOn() || document.hidden || ffwd || !SFX[name]) return;
