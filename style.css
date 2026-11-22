@@ -244,6 +244,7 @@ img.em { height: 1.15em; width: 1.15em; vertical-align: -0.2em; margin: 0 .03em;
 @keyframes pulse { 50% { box-shadow: 0 0 0 4px #ffd23f, 0 2px 0 #0002; background: #fff6d0; } }
 #insp { position: absolute; left: 10px; top: 10px; z-index: 4; display: flex; gap: 6px; }
 .ipill { background: #fffaffee; border: 2px solid #c9b8ee; border-radius: 16px; padding: 5px 11px; font: 800 13px ui-rounded, "Nunito", sans-serif; color: #4a3a6b; box-shadow: 0 3px 0 #a993dd55; }
+.ipill.rate { border-color: #e8b923; background: #fff8dc; color: #8a5a00; }
 .ipill.live { border-color: #ff8a3d; background: #fff4e6; animation: mpulse 1.2s ease-in-out infinite; }
 .btn[disabled] { opacity: .5; }
 .ipill.warn { border-color: #ffd23f; background: #fff8d6; animation: mpulse 1.2s ease-in-out infinite; }

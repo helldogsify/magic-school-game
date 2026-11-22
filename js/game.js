@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=240';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=240';
+} from './data.js?v=241';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=241';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 240;   // keep equal to the ?v= number in index.html
+const BUILD = 241;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -743,7 +743,7 @@ function stepConcierge(dt) {
 }
 function leaveSchool(a) {   // no room anywhere: the student is upset and goes home — and the school pays its fee back with a penalty
   if (a.retake) { retakeHome(a); return; }   // an elder on a retake never leaves the school: he just goes back to the tower
-  S.stats.left = (S.stats.left || 0) + 1;
+  S.stats.left = (S.stats.left || 0) + 1; review(a, 1);
   const back = Math.min(S.coins, Math.round((a.paid || fee()) * refundRate()));
   if (back > 0) { S.coins -= back; S.stats.refunded = (S.stats.refunded || 0) + back; popup(`−${fmt(back)}`, a.x, a.y, '#e0245e', 60); }
   popup('😢💔', a.x, a.y, '#c0436b', 44);
@@ -941,13 +941,58 @@ function pullWaiting(i) {
   while (waitList[i].length) { const d = freeDesk(i); if (d < 0) break; seat(waitList[i].shift(), i, d); }
   waitList[i].forEach((w, k) => { const p = waitSpot(i, k); w.state = 'walkwait'; walk(w, p.x, p.y, () => { w.state = 'wait'; }); });
 }
+// ======================= school rating (build 241, tester Ruslan's idea, Maria's pick 2026-11-22: «Рейтинг сейчас, топ потом») =======================
+// Every graduate leaves a review of 1..5 stars: the higher the rank and the better the mood, the better; a master's review is
+// golden and weighs x3. Everyone who leaves the school upset leaves 1 star. The rating is a moving average over ~300 recent
+// reviews, so a school can climb back. Pure goal for now (no economy effect); a leaderboard of schools comes later.
+const RATE_N = 300, RATE_GOLD_W = 3;
+const RANK_STARS = [3, 3.5, 4, 4.5, 5, 5];
+const REVIEW_TXT = {
+  1: ['Не нашлось места, ушёл домой 😢', 'Очереди огромные, больше не приду', 'Ждал-ждал и ушёл ни с чем'],
+  2: ['Учили так себе', 'Было скучновато'],
+  3: ['Нормальная школа', 'Неплохо, но можно лучше'],
+  4: ['Хорошая школа, мне понравилось!', 'Учителя толковые 👍'],
+  5: ['Лучшая школа магии! ✨', 'Всем советую, чудесно!', 'Спасибо учителям! 💖'],
+};
+function rating() {   // old saves: start from their whole history (graduates ~3.5 stars, everyone who left 1 star)
+  if (S.rating) return S.rating;
+  const g = S.stats.graduated || 0, l = S.stats.left || 0;
+  return (S.rating = { v: g + l ? (g * 3.5 + l) / (g + l) : 0, n: g + l, gold: (S.stats.ranks || [])[5] || 0, bad: l, last: [] });
+}
+const ratingVal = () => (S && (S.rating || (S.stats.graduated || S.stats.left)) ? rating().v : 0);
+const ratingTxt = () => (ratingVal() ? ratingVal().toFixed(1).replace('.', ',') : '—');
+function review(a, stars, gold) {
+  const R = rating(), w = gold ? RATE_GOLD_W : 1;
+  stars = Math.max(1, Math.min(5, stars));
+  R.v = R.n ? R.v + (stars - R.v) * Math.min(1, w / Math.min(RATE_N, R.n + w)) : stars; R.n += w;
+  if (gold) R.gold = (R.gold || 0) + 1; if (stars <= 1) R.bad = (R.bad || 0) + 1;
+  const txt = rnd(REVIEW_TXT[Math.round(stars)]);
+  R.last.unshift({ n: a.name || '', s: stars, g: gold ? 1 : 0, t: txt }); if (R.last.length > 8) R.last.length = 8;
+}
+function reviewGraduate(a) {
+  const rk = a.rk || 0, m = moodOf(a);
+  review(a, RANK_STARS[rk] + (m >= 70 ? 0.5 : m < 40 ? -0.5 : 0), rk === 5);
+  if (rk === 5 && !ffwd) popup('🏅 золотой отзыв!', a.x, a.y - 0.4, '#b8860b', 70);
+  if (!ffwd && !document.hidden) hintOnce('rating', '🏅', 'Рейтинг школы', 'Теперь у школы есть рейтинг — он слева вверху 🏅. Каждый выпускник оставляет отзыв: чем выше звание и лучше настроение, тем больше звёзд, а Мастера оставляют золотые отзывы. Кто уходит из школы расстроенным, ставит 1 звезду. Поднять рейтинг как можно выше — главная цель школы. Нажми на 🏅, чтобы почитать отзывы.');
+}
+const starRow = (s) => '★'.repeat(Math.round(s)) + '☆'.repeat(5 - Math.round(s));
+function ratingPanel() {
+  const R = rating();
+  const rows = R.last.map((r) => `<div class="card up"><span class="remoji">${r.g ? '🏅' : r.s <= 1 ? '😢' : '🎓'}</span><div class="grow"><b>${r.n}</b> <span style="color:#d49a00">${starRow(r.s)}</span><div class="muted">«${r.t}»</div></div></div>`).join('');
+  return `<div class="sh-head"><span class="remoji big">🏅</span><div><h2>Рейтинг школы: ${ratingTxt()} из 5</h2><div class="muted">Главная цель — поднять его как можно выше</div></div><button class="x" data-close>✕</button></div>
+    <div class="center big-txt" style="color:#d49a00">${starRow(ratingVal() || 0)}</div>
+    <p>Каждый выпускник оставляет отзыв: чем выше его звание и лучше настроение, тем больше звёзд. Мастера оставляют <b>золотые отзывы</b> 🏅 — они весят втрое больше. Каждый, кто ушёл из школы расстроенным (не нашлось места или загрустил в очереди), ставит 1 звезду.</p>
+    <p class="muted">Рейтинг считается по последним ~300 отзывам, так что его всегда можно поднять. Золотых отзывов: ${fmt(R.gold || 0)} · плохих: ${fmt(R.bad || 0)}.</p>
+    <p class="muted">Как поднять: больше парт и кроватей, чтобы никто не уходил; сильные учителя и экзамены на звания; хорошее настроение (библиотека, магазин, столовая, забота директора). Если учеников приходит больше, чем школа успевает учить, выбери у директора «Престижный» договор.</p>
+    ${rows ? '<h3>Последние отзывы</h3>' + rows : ''}`;
+}
 function goGraduate(a) {
   const g = SLOTS.GARDEN;
   a.c = -1; a.state = 'walk'; a.goal = { t: 'g' };
   if (a.retake) { retakeHome(a); return; }   // an elder from the tower after his retake: not a new graduate
   const tx = WORLD === 1 ? g.x0 + 4.85 + (Math.random() - 0.5) * 0.3 : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 1.35 + (Math.random() - 0.5) * 0.2 : g.y0 + 1 + Math.random() * 4;   // into the gazebo (her wish: they vanish there, like through a magic fireplace)
   walk(a, tx, ty, () => {
-    S.stats.graduated++;
+    S.stats.graduated++; reviewGraduate(a);
     if (helperAdmit(a)) return;                       // mages and elder mages stay as teachers' helpers (elders replace mages)
     if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower                       // mages stay as teachers' helpers (two per class, different kinds)
     popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
@@ -1529,7 +1574,7 @@ function renderInsp() {
     : `<button class="ipill" data-insp>⭐ ${schoolStars()}</button>`;   // the warning itself is the banner below (iwarn)   // the warning names what will be checked (her report 2026-11-21)
   const warn = !c && !calm() && I.next ? `<button class="iwarn" data-insp>🧐 Через ${mmss(I.t)} придёт инспектор<br><b>Проверит: ${inspNextText(I.next)}</b></button>` : '';   // full text of what will be checked, 40 s ahead (her wish 2026-11-21)
   const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
-  const all = html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + res + warn;
+  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button>` + html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + res + warn;
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }   // in-place update: icons are never re-created (they blinked)
 }
 function stepWorld(dt, live = false) {
@@ -3318,7 +3363,7 @@ ${msg}
 
 — версия ${VERSION} (сборка ${BUILD})
 — ${deviceName()}
-— монет ${fmt(S.coins)}, классов ${built}, выпускников ${S.stats.graduated}, ушли ${S.stats.left || 0}`;
+— монет ${fmt(S.coins)}, классов ${built}, выпускников ${S.stats.graduated}, ушли ${S.stats.left || 0}, рейтинг ${ratingTxt()}`;
   const btn = document.querySelector('[data-feedback]'); if (btn) { btn.disabled = true; btn.textContent = 'Отправляю…'; }
   try {
     const r = await fetch(FEEDBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, images: fbPics }) });
@@ -3683,6 +3728,7 @@ document.addEventListener('click', (e) => {
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.people !== undefined) { openPanel(peoplePanel); return; }
+  if (d.rating !== undefined) { openPanel(ratingPanel); return; }
   if (d.w2res !== undefined) { const mi = CLASSES.findIndex((c) => c.id === 'mine'); if (mi >= 0 && isOpen(mi)) openPanel(classPanel(mi)); else toast('⛏️ Руду добывают в Штольне — построй её'); return; }
   if (d.species !== undefined) { openPanel(speciesPanel); return; }
   if (d.alb !== undefined) { albumSp = d.alb; refreshPanel(); return; }
