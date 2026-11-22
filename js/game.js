@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=195';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=195';
+} from './data.js?v=196';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=196';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 195;   // keep equal to the ?v= number in index.html
+const BUILD = 196;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1463,12 +1463,13 @@ function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.cl
 // Grass and outdoor paths are iso textures; the lawn around the school is dotted with magic trees, bushes and small things,
 // placed by a fixed hash of the tile so the picture never changes between visits (only where nothing is built or planned).
 const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, toadhouse: 96, glowmush: 40, crystals: 44, berrybush: 44, fern: 38, hedge: 42, roses: 40, roses2: 40, boulder: 40, bells: 38,
+  lantern_gold: 76, lantern_blue: 76, owl_statue: 62, fox_statue: 62, flowerbed: 34, signpost2: 58, urn: 46, flowerbox: 26, gate_big: 170,
   runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46 };   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
 const outLo = {}, outSh = {};   // outSh: a tiny dark silhouette of each sprite; drawn stretched it gives a soft cast shadow   // small copies (240 px tall) for the far view: downscaling an 800 px tree every frame is slow
 for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; if (OUT_H[n]) { const c = document.createElement('canvas'), k = 40 / im.naturalHeight; c.width = Math.max(4, Math.round(im.naturalWidth * k)); c.height = 40; const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(38,48,62)'; x.fillRect(0, 0, c.width, c.height); outSh[n] = c; } if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } }; im.src = `assets/parts/outdoor/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
 let GRASS_ON = true, BG_OFF = false;
 const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-let OUTDOOR = [], outKey = '', OUT_ON = true;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
+let OUTDOOR = [], outKey = '', OUT_ON = true, entrancePath = null, entranceDecal = null;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
 // Composed territory (her ruling: no random scatter; «продумай как оно должно быть, и их размеры»):
 //  - a forest of tree groves in a band 6..24 tiles away from every building (the school stands in a clearing),
 //    each grove 3-5 big trees of one character with undergrowth at its edge;
@@ -1484,7 +1485,8 @@ function layoutOutdoor() {
     for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const nx = x + dx, ny = y + dy; if (nx < X0 || ny < Y0 || nx >= X1 || ny >= Y1) continue; const k = (nx - X0) * NY + (ny - Y0); if (dist[k] > d + 1) { dist[k] = d + 1; q.push(nx, ny); } } }
   const D = (x, y) => { x = Math.floor(x); y = Math.floor(y); return x < X0 || y < Y0 || x >= X1 || y >= Y1 ? 999 : dist[(x - X0) * NY + (y - Y0)]; };
   const inWorld = (x, y) => { const m = P(x, y); return m.x > 80 && m.x < WW - 80 && m.y > 200 && m.y < WH - 20; };
-  const out = [], put = (n, x, y, minD, sc = 1) => { if (D(x, y) < minD || !inWorld(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
+  const G0 = GATE_TILE, front = (x, y) => (Math.abs(x - G0.x - 0.5) < 10 && y > G0.y - 4) || (y > BUILDING.y1 && D(x, y) < 10);   // the view of the entrance and the south front stays open
+  const out = [], put = (n, x, y, minD, sc = 1) => { if (D(x, y) < minD || !inWorld(x, y)) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
   // scenes, each tied to a building (skipped when that building's slot is missing)
   const zones = [];
   const scene = (cx, cy, items) => { zones.push([cx, cy]); for (const [n, dx, dy, sc] of items) put(n, cx + dx, cy + dy, 1, sc || 1); };
@@ -1496,6 +1498,13 @@ function layoutOutdoor() {
     ['well', 0, 0], ['birdbath', 1.4, 2.2], ['pumpkin', -1.2, -2.6], ['berrybush', -1.6, 1.4], ['stump', 1.5, -1.6], ['chestmush', -0.4, 2.9], ['roses', 1.6, 3.6]]);
   if (SLOTS.GARDEN) scene(SLOTS.GARDEN.x1 + 4.5, (SLOTS.GARDEN.y0 + SLOTS.GARDEN.y1) / 2, [   // a blossom grove beside the graduates' garden
     ['blossom', -1.2, -1.6, 0.95], ['blossom', 1.6, -0.4, 1.05], ['blossom', -0.6, 1.8], ['roses', -2.4, 0.4], ['starflowers', 0.6, 0.4], ['roses2', 2.6, 2.0]]);
+  { const g = GATE_TILE, cx = Math.floor(g.x) + 0.5, gy = g.y - 1;   // the entrance (path tiles x cx-1.5..cx+2.5): lanterns along the path, guardians at the gate, flowers
+    const L = cx - 2.1, R = cx + 3.1;
+    for (const [n, x, y, sc] of [['lantern_gold', L, gy - 2, 1], ['lantern_blue', R, gy - 2, 1], ['lantern_blue', L - 0.4, gy + 3.4, 1], ['lantern_gold', R + 0.6, gy + 3.4, 1],
+      ['owl_statue', L - 1, gy + 0.6, 1], ['fox_statue', R + 1, gy + 0.6, 1], ['flowerbed', L - 3, gy - 0.7, 1.1], ['flowerbed', R + 3, gy + 1.6, 1.1],
+      ['flowerbox', L - 1.6, gy - 2.3, 1], ['urn', L - 0.5, gy + 6.4, 1], ['urn', R + 0.9, gy + 6.4, 1], ['signpost2', R + 2.6, gy + 5.2, 1], ['roses', L - 2.6, gy + 2.6, 0.9], ['roses2', R + 2.8, gy - 1.6, 0.9]])
+      put(n, x, y, 1, sc);
+    entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + 8.5 }; }
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
   for (let gx = X0; gx < X1; gx += 7) for (let gy = Y0; gy < Y1; gy += 7) {
@@ -1530,12 +1539,25 @@ function isoPat(c, n, tiles) {   // a ground texture laid on the iso grid, align
 }
 // ambient life on the lawn (code only): fireflies over glowing things, butterflies over flowers, petals from blossom trees
 const OUT_FIREFLY = new Set(['glowmush', 'crystals', 'bells', 'fairyring', 'runestone']), OUT_BUTTERFLY = new Set(['roses', 'roses2', 'starflowers', 'bells', 'hedge']);
+const glowCache = {};
+function glowSprite(rgb) {   // a soft round glow, rendered once per colour (drawImage is far cheaper than a gradient every frame)
+  if (glowCache[rgb]) return glowCache[rgb];
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, `rgba(${rgb},1)`); g.addColorStop(0.35, `rgba(${rgb},0.45)`); g.addColorStop(1, `rgba(${rgb},0)`); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  return (glowCache[rgb] = c);
+}
 function outFx(o, p, h) {
   const T = fxNow() + (o.x * 7.3 + o.y * 3.1);
+  if (o.n === 'lantern_gold' || o.n === 'lantern_blue') {   // the crystal flame glows softly (3 s), two motes drift around it (6 s)
+    const rgb = o.n === 'lantern_gold' ? '255,214,120' : '150,200,255', gx = p.x, gy = p.y - h * 0.42, gl = 0.55 + 0.25 * Math.sin(T * Math.PI * 2 / 3), r = h * 0.38;
+    ctx.save(); ctx.globalAlpha = gl; ctx.drawImage(glowSprite(rgb), gx - r, gy - r, r * 2, r * 2);
+    for (let k = 0; k < 2; k++) { const an = T * Math.PI * 2 / 6 + k * Math.PI, mx = gx + Math.cos(an) * h * 0.22, my = gy - 4 + Math.sin(an * 1.5) * h * 0.12; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(T * 2.1 + k); ctx.drawImage(glowSprite(rgb), mx - 4, my - 4, 8, 8); }
+    ctx.restore();
+  }
+
   if (OUT_FIREFLY.has(o.n)) for (let k = 0; k < 2; k++) {   // a firefly drifts on a slow loop (6 s) and glows softly (3 s)
     const an = T * Math.PI * 2 / 6 + k * Math.PI, x = p.x + Math.cos(an) * h * 0.45, y = p.y - h * 0.6 + Math.sin(an * 2) * h * 0.18 - k * 6, gl = 0.55 + 0.45 * Math.sin(T * Math.PI * 2 / 3 + k * 2);
-    const g = ctx.createRadialGradient(x, y, 0, x, y, 5); g.addColorStop(0, `rgba(255,250,170,${0.9 * gl})`); g.addColorStop(1, 'rgba(255,240,120,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = `rgba(255,255,220,${gl})`; ctx.beginPath(); ctx.arc(x, y, 1.1, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.globalAlpha = 0.9 * gl; ctx.drawImage(glowSprite('255,245,150'), x - 5, y - 5, 10, 10); ctx.restore();
   }
   if (OUT_BUTTERFLY.has(o.n) && hash2(Math.floor(o.x), Math.floor(o.y), 9) < 0.6) {   // a butterfly circles the flowers (8 s), wings open and close smoothly (1.2 s)
     const an = T * Math.PI * 2 / 8, x = p.x + Math.cos(an) * 14, y = p.y - h - 6 + Math.sin(an * 1.5) * 5, f = 0.35 + 0.65 * Math.abs(Math.sin(T * Math.PI / 1.2));
@@ -1550,13 +1572,32 @@ function outFx(o, p, h) {
     ctx.beginPath(); ctx.ellipse(0, 0, 2, 1.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore();
   }
 }
+function drawEntrancePath(c0 = ctx, baking = false) {   // the flagstone path continues outside the gate: pre-rendered once, then one drawImage per frame
+  const e = entrancePath; if (!e) return;
+  if (!entranceDecal || entranceDecal.key !== outKey) { const st = part('outdoor', 'path'); if (!st) return;
+    const pts = [P(e.x0, e.y0), P(e.x1, e.y0), P(e.x1, e.y1), P(e.x0, e.y1)], minX = Math.min(...pts.map((q) => q.x)), minY = Math.min(...pts.map((q) => q.y)), maxX = Math.max(...pts.map((q) => q.x)), maxY = Math.max(...pts.map((q) => q.y)), K = 3;
+    const cv = document.createElement('canvas'); cv.width = Math.ceil((maxX - minX) * K); cv.height = Math.ceil((maxY - minY) * K); const c = cv.getContext('2d');
+    c.setTransform(K, 0, 0, K, -minX * K, -minY * K); const pt = isoPat(c, 'path', 3); if (!pt) return;
+    const g = c.createLinearGradient(0, pts[0].y, 0, pts[2].y); poly(c, pts); c.fillStyle = pt; c.fill();
+    c.globalCompositeOperation = 'destination-out'; g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.65, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)'); c.fillStyle = g; c.fillRect(minX, minY, maxX - minX, maxY - minY);   // fades into the grass
+    entranceDecal = { key: outKey, cv, x: minX, y: minY, w: maxX - minX, h: maxY - minY }; }
+  const d = entranceDecal;
+  if (baking) { d.baked = d.x > MARGIN && d.y > MARGIN && d.x + d.w < MARGIN + SW && d.y + d.h < MARGIN + SH; if (d.baked) c0.drawImage(d.cv, d.x, d.y, d.w, d.h); return; }
+  if (d.baked || d.x + d.w < VIEW.x0 || d.x > VIEW.x1 || d.y + d.h < VIEW.y0 || d.y > VIEW.y1) return;
+  ctx.drawImage(d.cv, d.x, d.y, d.w, d.h);
+}
+function outShadow(c, o) {   // the cast shadow of an outdoor object on the grass (baked into the static layer when it lies inside it)
+  const im = part('outdoor', o.n), sh = outSh[o.n]; if (!im || !sh) return false;
+  const p = P(o.x, o.y), h = (OUT_H[o.n] || 28) * (o.s || 1), w = h * im.naturalWidth / im.naturalHeight;
+  c.save(); c.globalAlpha = 0.3; c.translate(p.x, p.y + h * 0.02); c.transform(1, 0, -0.62, -0.3, 0, 0); if (o.flip) c.scale(-1, 1); c.drawImage(sh, -w / 2, -h, w, h); c.restore();
+  c.fillStyle = 'rgba(40,52,46,0.12)'; c.beginPath(); c.ellipse(p.x, p.y, w * 0.16, w * 0.06, 0, 0, Math.PI * 2); c.fill();
+  return true;
+}
 function drawOut(o) {
   let im = part('outdoor', o.n); if (!im) return;
   const p = P(o.x, o.y), h = (OUT_H[o.n] || 28) * (o.s || 1), w = h * im.naturalWidth / im.naturalHeight;
   if (outLo[o.n] && h * scale * dpr < 230) im = outLo[o.n];
-  if (outSh[o.n]) {   // cast shadow: the silhouette laid on the grass, falling to the front-right from the sun at the back-left (her «надо нормальные тени»)
-    ctx.save(); ctx.globalAlpha = 0.3; ctx.translate(p.x, p.y + h * 0.02); ctx.transform(1, 0, -0.62, -0.3, 0, 0); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(outSh[o.n], -w / 2, -h, w, h); ctx.restore();
-    ctx.fillStyle = 'rgba(40,52,46,0.12)'; ctx.beginPath(); ctx.ellipse(p.x, p.y, w * 0.16, w * 0.06, 0, 0, Math.PI * 2); ctx.fill(); }   // a faint dark spot where it touches the ground
+  if (!o.baked) outShadow(ctx, o);
   ctx.save(); ctx.translate(p.x, p.y + h * 0.05); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
   if (zoom >= 1.3) outFx(o, p, h);   // zoomed out the life is too small to see: save the iPhone's work
 }
@@ -1578,6 +1619,7 @@ function drawStatic() {
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
     if (carpet && y % 3 === 0) { const m = P(x + 0.5, y + 0.5); emoji('✦', m.x, m.y, 7, c); }
   }
+  if (WORLD === 1 && OUT_ON) { layoutOutdoor(); entranceDecal = null; drawEntrancePath(c, true); for (const o of OUTDOOR) { const q = P(o.x, o.y), r = (OUT_H[o.n] || 28) * (o.s || 1) * 1.3; o.baked = q.x - r > MARGIN && q.x + r < MARGIN + SW && q.y - r > MARGIN && q.y + r < MARGIN + SH && outShadow(c, o); } }   // ground shadows go into the cached layer
   // gate
   // the gate is drawn in the depth-sorted list (drawGate)
   // rooms from back to front
@@ -1924,6 +1966,16 @@ function wallSeg([x0, y0, x1, y1, k]) {
   tallWall(ctx, a, b, '#cbb9e2', x0 === x1 ? -14 : 0, true);
 }
 function drawGate(c) {
+  const im = WORLD === 1 && part('outdoor', 'gate_big');
+  if (im) {   // the painted gate over the path, its own shadow, and the school name on its hanging plank
+    const cx = Math.floor(GATE_TILE.x) + 1, p = P(cx, GATE_TILE.y - 1), h = OUT_H.gate_big, w = h * im.naturalWidth / im.naturalHeight, ox = p.x - w * 0.49, oy = p.y - h * 0.86;
+    if (outSh.gate_big) { c.save(); c.globalAlpha = 0.26; c.translate(p.x, p.y); c.transform(1, 0, -0.62, -0.3, 0, 0); c.drawImage(outSh.gate_big, -w * 0.49, -h * 0.86, w, h); c.restore(); }
+    c.drawImage(im, ox, oy, w, h);
+    c.save(); c.translate(ox + w * 0.494, oy + h * 0.342); c.rotate(Math.atan(0.42)); c.textAlign = 'center';
+    for (const [t, dy] of [['Школа', -3.6], ['магии', 3.8]]) { c.font = `800 6.6px ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",sans-serif`; c.lineWidth = 1.6; c.strokeStyle = 'rgba(255,240,215,0.8)'; c.strokeText(t, 0, dy); c.fillStyle = '#5a3418'; c.fillText(t, 0, dy); }
+    c.restore();
+    return;
+  }
   const g = P(15, GATE_TILE.y - 1), g2 = P(18, GATE_TILE.y - 1);
   c.strokeStyle = '#6c4fd1'; c.lineWidth = 5; c.beginPath(); c.moveTo(g.x, g.y); c.lineTo(g.x, g.y - 34); c.lineTo(g2.x, g2.y - 34); c.lineTo(g2.x, g2.y); c.stroke();
   text('ВОРОТА', (g.x + g2.x) / 2, (g.y + g2.y) / 2 - 40, 9, '#5a3fb0', c);
@@ -2321,8 +2373,8 @@ function render() {
   VIEW = { x0: scroller.scrollLeft / scale, y0: scroller.scrollTop / scale, x1: (scroller.scrollLeft + scroller.clientWidth) / scale, y1: (scroller.scrollTop + scroller.clientHeight) / scale };
   const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
-  list.push({ k1: GATE_TILE.x + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
-  if (WORLD === 1 && OUT_ON) { layoutOutdoor(); for (const o of OUTDOOR) add(o.x, o.y, () => drawOut(o)); }
+  list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
+  if (WORLD === 1 && OUT_ON) { layoutOutdoor(); drawEntrancePath(); for (const o of OUTDOOR) add(o.x, o.y, () => drawOut(o)); }
   for (const e of EDGES) {
     const painted = e.id !== 'hall' && e.tall && WORLD === 1 && !!arts[CLASS_SLOT.indexOf(e.id) >= 0 ? CLASSES[CLASS_SLOT.indexOf(e.id)].id : e.id]?.naturalWidth;   // painted rooms: only the cap on top of their own walls
     if (e.id === 'DORM2' && !dorm2Built()) continue;
