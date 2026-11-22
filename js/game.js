@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=196';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=196';
+} from './data.js?v=197';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=197';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 196;   // keep equal to the ?v= number in index.html
+const BUILD = 197;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -227,8 +227,9 @@ const DECOR = { menu: { w: 0.8, lo: 0.3, deep: 0.8 }, plates: { w: 1.1, lo: 0.35
 // floor props: height in world px (a creature is 30)
 const PROP_H = { fire_ped: 42, water_ped: 42, earth_ped: 42, air_ped: 42, sofa: 22, gold_chair: 30, lectern: 32, moon_plant: 40, toy_table: 34, quill_barrel: 34, candy_stand: 32, book_crate: 26, floss_cauldron: 30, desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
+let partsVer = 0;   // bumped on every part load: themeReady() answers from its cache until then
 for (const [k, t] of Object.entries(THEMES)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  if (!n) continue; const im = new Image(); im.src = `${t.dir}${n}.webp?v=2112`; parts[k + '/' + n] = im;
+  if (!n) continue; const im = new Image(); im.onload = () => { partsVer++; }; im.src = `${t.dir}${n}.webp?v=2112`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
@@ -1263,7 +1264,7 @@ function computeBounds() {
   SW = WW - 2 * MARGIN; SH = WH - 2 * MARGIN;   // the static layer covers the school only, not the grass margin
 }
 // MARGIN = grass around the school, so the camera can put any place (gate, garden) in the middle of the screen
-const MARGIN = 900;
+const MARGIN = 520;   // 900 until build 197 (her «Очень большая карта, много лишнего»): enough to centre any place at the usual zoom
 const BASEW = 54 * HW + 20;                                  // fixed zoom base (the first map's width): a bigger school does not shrink the view
 computeBounds();
 const P = (x, y) => ({ x: OX + (x - y) * HW, y: OY + (x + y) * HH });
@@ -1465,8 +1466,8 @@ function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.cl
 const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, toadhouse: 96, glowmush: 40, crystals: 44, berrybush: 44, fern: 38, hedge: 42, roses: 40, roses2: 40, boulder: 40, bells: 38,
   lantern_gold: 76, lantern_blue: 76, owl_statue: 62, fox_statue: 62, flowerbed: 34, signpost2: 58, urn: 46, flowerbox: 26, gate_big: 170,
   runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46 };   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
-const outLo = {}, outSh = {};   // outSh: a tiny dark silhouette of each sprite; drawn stretched it gives a soft cast shadow   // small copies (240 px tall) for the far view: downscaling an 800 px tree every frame is slow
-for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; if (OUT_H[n]) { const c = document.createElement('canvas'), k = 40 / im.naturalHeight; c.width = Math.max(4, Math.round(im.naturalWidth * k)); c.height = 40; const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(38,48,62)'; x.fillRect(0, 0, c.width, c.height); outSh[n] = c; } if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } }; im.src = `assets/parts/outdoor/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
+const outLo = {}, outMid = {}, outSh = {};   // outSh: a tiny dark silhouette of each sprite; drawn stretched it gives a soft cast shadow   // small copies (240 px tall) for the far view: downscaling an 800 px tree every frame is slow
+for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; if (OUT_H[n]) { const c = document.createElement('canvas'), k = 40 / im.naturalHeight; c.width = Math.max(4, Math.round(im.naturalWidth * k)); c.height = 40; const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(38,48,62)'; x.fillRect(0, 0, c.width, c.height); outSh[n] = c; } if (im.naturalHeight > 560) { const c = document.createElement('canvas'), k = 440 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 440; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outMid[n] = c; } if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } }; im.src = `assets/parts/outdoor/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
 let GRASS_ON = true, BG_OFF = false;
 const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 let OUTDOOR = [], outKey = '', OUT_ON = true, entrancePath = null, entranceDecal = null;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
@@ -1507,9 +1508,9 @@ function layoutOutdoor() {
     entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + 8.5 }; }
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
-  for (let gx = X0; gx < X1; gx += 7) for (let gy = Y0; gy < Y1; gy += 7) {
-    const cx = gx + 1.5 + hash2(gx, gy, 11) * 4, cy = gy + 1.5 + hash2(gx, gy, 12) * 4, d = D(cx, cy);
-    if (d < 7 || d > 26 || !inWorld(cx, cy)) continue;
+  for (let gx = X0; gx < X1; gx += 9) for (let gy = Y0; gy < Y1; gy += 9) {
+    const cx = gx + 2 + hash2(gx, gy, 11) * 5, cy = gy + 2 + hash2(gx, gy, 12) * 5, d = D(cx, cy);
+    if (d < 7 || d > 18 || !inWorld(cx, cy)) continue;
     if (zones.some(([zx, zy]) => Math.hypot(zx - cx, zy - cy) < 8)) continue;
     if (Math.abs(cx - G.x) < 8 && cy > G.y - 4 && cy < G.y + 16) continue;   // keep the view of the entrance open
     const kind = GROVES[Math.floor(hash2(gx, gy, 13) * GROVES.length)];
@@ -1596,7 +1597,7 @@ function outShadow(c, o) {   // the cast shadow of an outdoor object on the gras
 function drawOut(o) {
   let im = part('outdoor', o.n); if (!im) return;
   const p = P(o.x, o.y), h = (OUT_H[o.n] || 28) * (o.s || 1), w = h * im.naturalWidth / im.naturalHeight;
-  if (outLo[o.n] && h * scale * dpr < 230) im = outLo[o.n];
+  { const dh = h * scale * dpr; if (outLo[o.n] && dh < 230) im = outLo[o.n]; else if (outMid[o.n] && dh < 430) im = outMid[o.n]; }   // nearest smaller copy: big downscales every frame are slow
   if (!o.baked) outShadow(ctx, o);
   ctx.save(); ctx.translate(p.x, p.y + h * 0.05); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
   if (zoom >= 1.3) outFx(o, p, h);   // zoomed out the life is too small to see: save the iPhone's work
@@ -1839,7 +1840,12 @@ function drawRug(c, th, s, i) {
 // drawn with a single drawImage per frame. It is rebuilt only when the room, its desks, the map or the zoom level change.
 const roomCache = {};
 const roomQ = () => Math.min(3, scale * dpr);
-function themeReady(th) { let n = 0; for (const k in parts) if (k.startsWith(th + '/') && parts[k].complete && parts[k].naturalWidth) n++; return n; }
+const themeReadyMemo = {}; let themeReadyVer = -1;
+function themeReady(th) {   // it scanned every loaded picture for every room every frame (the profile's top line after the outdoor art came in)
+  if (themeReadyVer !== partsVer) { for (const k in themeReadyMemo) delete themeReadyMemo[k]; themeReadyVer = partsVer; }
+  if (themeReadyMemo[th] !== undefined) return themeReadyMemo[th];
+  let n = 0; for (const k in parts) if (k.startsWith(th + '/') && parts[k].complete && parts[k].naturalWidth) n++; return (themeReadyMemo[th] = n);
+}
 function roomKey(id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), th = themeOf(id);
   return [s.x0, s.y0, s.x1, s.y1, ci >= 0 ? S.classes[ci].desks : 0, OX, OY, roomQ().toFixed(1), themeReady(th)].join(',');
@@ -1980,27 +1986,32 @@ function drawGate(c) {
   c.strokeStyle = '#6c4fd1'; c.lineWidth = 5; c.beginPath(); c.moveTo(g.x, g.y); c.lineTo(g.x, g.y - 34); c.lineTo(g2.x, g2.y - 34); c.lineTo(g2.x, g2.y); c.stroke();
   text('ВОРОТА', (g.x + g2.x) / 2, (g.y + g2.y) / 2 - 40, 9, '#5a3fb0', c);
 }
+const signCache = new Map();
+function signPill(label, bg, fs, hgt, border, ink) {   // a rounded name plate rendered once per text, colour and resolution
+  const res = Math.max(1, Math.round(scale * dpr * 4) / 4), key = label + '|' + bg + '|' + fs + '|' + res;
+  let e = signCache.get(key); if (e) return e;
+  const m = document.createElement('canvas').getContext('2d'); m.font = `800 ${fs}px ui-rounded,"Nunito","Segoe UI",sans-serif`;
+  const tw = m.measureText(label).width + 22, pad = 8, w = tw + pad * 2, h = hgt + pad * 2;
+  const cv = document.createElement('canvas'); cv.width = Math.ceil(w * res); cv.height = Math.ceil(h * res); const c = cv.getContext('2d'); c.scale(res, res);
+  c.save(); c.shadowColor = '#3a2f4a55'; c.shadowBlur = 6; c.shadowOffsetY = 2; c.fillStyle = bg; c.beginPath(); c.roundRect(pad, pad, tw, hgt, 11); c.fill(); c.restore();
+  c.strokeStyle = border; c.lineWidth = 2; c.beginPath(); c.roundRect(pad, pad, tw, hgt, 11); c.stroke();
+  text(label, w / 2, h / 2 + 0.5, fs, ink, c);
+  e = { cv, w, h, tw }; if (signCache.size > 120) signCache.clear(); signCache.set(key, e); return e;
+}
 function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
   if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
   const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
-  const fs = 12, hgt = 22;
-  c.font = `800 ${fs}px ui-rounded,"Nunito","Segoe UI",sans-serif`; const tw = c.measureText(name).width + 22;
-  const bg = ci >= 0 ? CLASSES[ci].wall : SIGN_BG[id] || '#ffffff';
-  c.save(); c.shadowColor = '#3a2f4a55'; c.shadowBlur = 6; c.shadowOffsetY = 2;
-  c.fillStyle = bg; c.beginPath(); c.roundRect(sp.x - tw / 2, sp.y - hgt / 2, tw, hgt, 11); c.fill(); c.restore();
-  c.strokeStyle = '#ffffff'; c.lineWidth = 2; c.beginPath(); c.roundRect(sp.x - tw / 2, sp.y - hgt / 2, tw, hgt, 11); c.stroke();
-  text(name, sp.x, sp.y + 0.5, fs, '#2e2340', c);
+  const fs = 12, hgt = 22, bg = ci >= 0 ? CLASSES[ci].wall : SIGN_BG[id] || '#ffffff';
+  const pill = signPill(name, bg, fs, hgt, '#ffffff', '#2e2340'), tw = pill.tw;   // cached bitmap: the shadow blur and the text were redrawn for every sign every frame
+  if (onScreen(sp.x, sp.y, 160, 40)) c.drawImage(pill.cv, sp.x - pill.w / 2, sp.y - pill.h / 2, pill.w, pill.h);
   signRects.push({ id, x0: sp.x - tw / 2, y0: sp.y - hgt / 2, x1: sp.x + tw / 2, y1: sp.y + hgt / 2 });
   if (ci >= 0) {   // how many wait for this class in the dorm: shows the bottleneck at a glance
     const z = sleepersFor(ci);
     if (z > 0) {
-      const bx = sp.x + tw / 2 + 4, t = `💤 ${z} ждут`; c.font = '800 11px ui-rounded,"Nunito","Segoe UI",sans-serif';
-      const bw = c.measureText(`${z} ждут`).width + 30;
-      c.save(); c.shadowColor = '#3a2f4a44'; c.shadowBlur = 5; c.fillStyle = '#ffffff'; c.beginPath(); c.roundRect(bx, sp.y - 11, bw, 22, 11); c.fill(); c.restore();
-      c.strokeStyle = '#5b7fd6'; c.lineWidth = 2; c.beginPath(); c.roundRect(bx, sp.y - 11, bw, 22, 11); c.stroke();
-      text(t, bx + bw / 2, sp.y + 0.5, 11, '#3d5fb8', c);
+      const t = `💤 ${z} ждут`, pb = signPill(t, '#ffffff', 11, 22, '#5b7fd6', '#3d5fb8'), bw = pb.tw, bx = sp.x + tw / 2 + 4;
+      if (onScreen(bx + bw / 2, sp.y, 160, 40)) c.drawImage(pb.cv, bx + bw / 2 - pb.w / 2, sp.y - pb.h / 2, pb.w, pb.h);
       signRects.push({ id, x0: bx, y0: sp.y - 11, x1: bx + bw, y1: sp.y + 11 });   // the badge opens the class too
     }
   }
@@ -2374,7 +2385,9 @@ function render() {
   const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
-  if (WORLD === 1 && OUT_ON) { layoutOutdoor(); drawEntrancePath(); for (const o of OUTDOOR) add(o.x, o.y, () => drawOut(o)); }
+  if (WORLD === 1 && OUT_ON) { layoutOutdoor(); drawEntrancePath();   // cheap pre-check with the cached screen point before the full add()
+    const vx0 = VIEW.x0 - 140, vx1 = VIEW.x1 + 140, vy0 = VIEW.y0 - 20, vy1 = VIEW.y1 + 220;
+    for (const o of OUTDOOR) { if (o.px === undefined) { const m = P(o.x, o.y); o.px = m.x; o.py = m.y; } if (o.px < vx0 || o.px > vx1 || o.py < vy0 || o.py > vy1) continue; add(o.x, o.y, () => drawOut(o)); } }
   for (const e of EDGES) {
     const painted = e.id !== 'hall' && e.tall && WORLD === 1 && !!arts[CLASS_SLOT.indexOf(e.id) >= 0 ? CLASSES[CLASS_SLOT.indexOf(e.id)].id : e.id]?.naturalWidth;   // painted rooms: only the cap on top of their own walls
     if (e.id === 'DORM2' && !dorm2Built()) continue;
