@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png?v=2">
 <link rel="icon" href="icons/icon-192.png?v=2">
-<link rel="stylesheet" href="style.css?v=233">
+<link rel="stylesheet" href="style.css?v=234">
 <script>/* iOS home-screen app: innerHeight / 100% / 100dvh are short by the status bar, a strip stayed at the bottom (her screenshots, builds 200-203); use the real screen height */
 (function(){function fit(){if(!(navigator.standalone||matchMedia('(display-mode: standalone)').matches))return;var h=Math.max(window.innerHeight,(Math.abs(window.orientation||0)===90?screen.width:screen.height));var r=document.documentElement;r.style.height=h+'px';if(document.body){document.body.style.height=h+'px';document.body.style.bottom='auto';}}fit();addEventListener('DOMContentLoaded',fit);addEventListener('resize',fit);addEventListener('orientationchange',function(){setTimeout(fit,300);});})();</script>
 </head>
@@ -34,8 +34,13 @@
 function showErr(m){var d=document.getElementById('err')||document.body.appendChild(Object.assign(document.createElement('pre'),{id:'err'}));d.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#fff;color:#b00;font:12px monospace;white-space:pre-wrap;padding:8px;border-radius:8px';d.textContent+='Ошибка: '+m+String.fromCharCode(10);}
 window.addEventListener('error',function(e){showErr(e.message+' @'+(e.filename||'').split('/').pop()+':'+e.lineno);});
 window.addEventListener('unhandledrejection',function(e){showErr(String(e.reason));});
+// Boot watchdog (her blank screen 2026-11-22): if the game has not started in 12 s (a script failed to load on a slow network),
+// say so and offer a reload instead of a silent empty field. Nothing is deleted: the save stays in the phone and in the cloud.
+setTimeout(function(){ if (window.__booted) return; var d=document.createElement('div'); d.style.cssText='position:fixed;left:16px;right:16px;top:40%;z-index:100;background:#fff;border-radius:18px;padding:16px;text-align:center;font:600 15px ui-rounded,system-ui,sans-serif;color:#3a2f4a;box-shadow:0 6px 24px #0004';
+  d.innerHTML='Игра не загрузилась до конца (похоже, интернет подвёл).<br>Ваш прогресс на месте.<br><br><button style="font:700 16px inherit;padding:10px 22px;border-radius:14px;border:0;background:#7b5cd6;color:#fff">Загрузить ещё раз</button>';
+  d.querySelector('button').onclick=function(){ location.reload(); }; document.body.appendChild(d); }, 12000);
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h){this.rect(x,y,w,h);};}
 </script>
-<script type="module" src="js/game.js?v=233"></script>
+<script type="module" src="js/game.js?v=234"></script>
 </body>
 </html>

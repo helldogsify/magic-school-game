@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=233';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=233';
+} from './data.js?v=234';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=234';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 233;   // keep equal to the ?v= number in index.html
+const BUILD = 234;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -286,6 +286,8 @@ function genLayoutW2() {
     { x0: 6, y0: recY, x1: 12, y1: recY + 8 },                     // reading court in front of the library
     { x0: 15, y0: recY + 9, x1: 19, y1: recY + 14 },              // path from the gate
   ];
+  SLOTS.TRADE = slot(8, recY + 9, [[13, recY + 11], [14, recY + 11]], {}, 6, 5);   // the trading yard: an open cobbled yard left of the gate road
+  HALLS.push({ x0: 14, y0: recY + 10, x1: 15, y1: recY + 13 });   // a short way from the gate road into the yard
   GATE_TILE = { x: 16.5, y: recY + 12.5 };
   GATE_Y = recY + 9;
   GH = recY + 16; GW = 36;
@@ -406,7 +408,7 @@ function buildEdges() {
   Object.values(SLOTS).forEach((sl) => [sl.door, ...sl.extra].forEach(([a, b]) => { doorAt.add(`${a[0]},${a[1]},${b[0] - a[0]},${b[1] - a[1]}`); doorAt.add(`${b[0]},${b[1]},${a[0] - b[0]},${a[1] - b[1]}`); }));
   const sides = [['x0', -1, 0], ['y0', 0, -1], ['x1', 1, 0], ['y1', 0, 1]];
   for (let x = 0; x < GW; x++) for (let y = 0; y < GH; y++) {
-    const id = regAt(x, y); if (!id || id === 'GARDEN' || id === 'path') continue;
+    const id = regAt(x, y); if (!id || id === 'GARDEN' || id === 'TRADE' || id === 'path') continue;
     if (id === 'hall' && y >= GATE_Y) continue;                    // the gate path is open
     for (const [side, dx, dy] of sides) {
       const nb = regAt(x + dx, y + dy);
@@ -703,6 +705,40 @@ function w2Lesson(i, p) {
   if (id === 'mine') { if (w.ore < oreCap()) { w.ore++; if (!ffwd) popup('⛏️ +1', p.x + 0.4, p.y - 0.2, '#8a6d3b', 30); } else if (!ffwd) popup('📦 склад полон', p.x + 0.4, p.y - 0.2, '#a05a2c', 30); }
   else if (id === 'forge') { if (w.ore >= ORE_FORGE) { w.ore -= ORE_FORGE; w.items++; if (!ffwd) popup('⚒️ +1', p.x + 0.4, p.y - 0.2, '#b0602c', 30); } else if (!ffwd) popup('нет руды', p.x + 0.4, p.y - 0.2, '#7a7a7a', 30); }
   else if (id === 'gems' && Math.random() < GEM_CHANCE) { w.gems++; if (!ffwd) popup('💎 +1', p.x + 0.4, p.y - 0.2, '#7b5cd6', 40); }
+}
+// ---- caravans (Торговый двор): items and gems are loaded into the wagon; a full wagon leaves by itself (or by the button)
+// and comes back after the trip with coins. Works offline (stepWorld). Her plan 2026-11-22: about a third of world-2 income.
+const TRADE_COST = 20000, MAX_TUP = 15;
+const trade = () => { const w = W2(); return (w.trade ||= { built: false, wagon: 1, road: 1, price: 1, load: 0, gems: 0, away: 0, value: 0 }); };
+const tradeOpen = () => WORLD === 2 && !!(S && S.w2 && S.w2.trade && S.w2.trade.built);
+const wagonCap = () => 20 + 10 * (trade().wagon - 1);
+const tripTime = () => Math.round(180 * Math.pow(0.9, trade().road - 1));
+const itemPrice = () => Math.round(tuition(1) * 1.4 * (1 + 0.12 * (trade().price - 1)));
+const gemPrice = () => Math.round(tuition(3) * 4 * (1 + 0.12 * (trade().price - 1)));
+const tupCost = (k) => Math.round(TRADE_COST * 0.6 * Math.pow(k === 'wagon' ? 2.1 : 1.9, trade()[k] - 1));
+const loadValue = () => trade().load * itemPrice() + trade().gems * gemPrice();
+let tradeAcc = 0;
+function sendCaravan() { const T = trade(); if (T.away || !(T.load + T.gems)) return; T.value = loadValue(); T.away = tripTime(); T.trip = T.away; T.load = 0; T.gems = 0; if (!ffwd) toast(`🐐 Караван ушёл: вернётся через ${mmss(T.away)} с 🪙${fmt(T.value)}`); }
+function stepTrade(dt) {
+  if (!tradeOpen()) return; const T = trade(), w = W2();
+  if (T.away) { T.away = Math.max(0, T.away - dt); if (!T.away) { const s = SLOTS.TRADE; earn(T.value, s.x0 + 3, s.y0 + 2, '#c98a00', 60); S.stats.caravans = (S.stats.caravans || 0) + 1; if (!ffwd) toast(`🐐 Караван вернулся: 🪙 +${fmt(T.value)}`); T.value = 0; } return; }
+  tradeAcc += dt; if (tradeAcc < 1) return; tradeAcc = 0;
+  const room = wagonCap() - T.load - T.gems; if (room > 0) { const g = Math.min(room, w.gems); T.gems += g; w.gems -= g; const it = Math.min(room - g, w.items); T.load += it; w.items -= it; }
+  if (T.load + T.gems >= wagonCap()) sendCaravan();
+}
+function tradePanel() {
+  const T = trade(), w = W2();
+  if (!T.built) { const fi = CLASSES.findIndex((c) => c.id === 'forge'), ok = fi >= 0 && isOpen(fi);
+    return `<div class="sh-head"><span class="remoji big">🐐</span><div><h2>Торговый двор</h2><div class="muted">Караваны везут изделия наверх, к людям</div></div><button class="x" data-close>✕</button></div>
+    <p>Изделия из Кузни ⚒️ и самоцветы 💎 грузятся в повозку. Полная повозка сама уходит с караваном и возвращается с монетами.</p>
+    ${ok ? `<button class="btn wide" data-cost="${TRADE_COST}" data-act="tradebuild">Построить <span class="cost">🪙${fmt(TRADE_COST)}</span></button>` : '<p><b>Сначала построй Кузню ⚒️</b> — там делают изделия.</p>'}`; }
+  const up = (k, emo, name, txt, mx) => `<div class="card up"><span class="remoji">${emo}</span><div class="grow"><b>${name}</b> <span class="muted">ур. ${T[k]}/${mx}</span><div class="muted">${txt}</div></div>
+      ${T[k] >= mx ? '<span class="done">макс.</span>' : costBtn('↑', tupCost(k), 'tup', `data-k="${k}"`)}</div>`;
+  return `<div class="sh-head"><span class="remoji big">🐐</span><div><h2>Торговый двор</h2><div class="muted">${T.away ? `Караван в пути: вернётся через ${mmss(T.away)}` : 'Повозка грузится'}</div></div><button class="x" data-close>✕</button></div>
+    <div class="stats3"><div><span>📦</span><b>${T.load + T.gems}/${wagonCap()}</b><i>в повозке</i></div><div><span>⚒️</span><b>${fmt(w.items)}</b><i>на складе</i></div><div><span>💰</span><b>${fmt(T.away ? T.value : loadValue())}</b><i>${T.away ? 'везут' : 'стоит груз'}</i></div></div>
+    <p class="muted">Изделие ⚒️ стоит 🪙${fmt(itemPrice())}, самоцвет 💎 — 🪙${fmt(gemPrice())}. Дорога: ${mmss(tripTime())}. Полная повозка уходит сама.</p>
+    ${T.away ? '' : `<button class="btn wide" data-act="caravan" ${T.load + T.gems ? '' : 'disabled'}>Отправить сейчас <span class="cost">🪙${fmt(loadValue())}</span></button>`}
+    ${up('wagon', '🛒', 'Повозка больше', '+10 мест для груза', MAX_TUP)}${up('road', '🛤️', 'Дорога короче', '−10% времени пути', MAX_TUP)}${up('price', '⚖️', 'Цена выше', '+12% за изделие и самоцвет', MAX_TUP)}`;
 }
 function w2Section(i) {
   const id = w2Id(i), w = WORLD === 2 ? W2() : null; if (!w) return '';
@@ -1388,6 +1424,7 @@ function renderInsp() {
 function stepWorld(dt, live = false) {
   stepIncidents(dt, live);
   stepInspector(dt, live);
+  stepTrade(dt);
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6 && !(WORLD === 2 && schoolFull())) spawn(); }   // world 2: nobody new comes while every line and every bed is taken
   startNextProcess(live);
@@ -1845,12 +1882,12 @@ function drawOut(o) {
 // Herringbone parquet with star inlays on every inner corridor tile (the pink runner stays), free-standing furniture along the
 // corridor edges every few tiles (never near a door or a queue), and floating candles drifting over the corridors (code).
 // world 2: dark granite slabs and dwarven things (armour, barrels, crates, anvil, weapon rack, brazier, crystal, candles, bench)
-const CORR_H = WORLD === 2 ? { pillar: 74, dwarf_statue: 66, runestone: 46, minecart: 46, armor: 56, barrels: 36, crates: 40, anvil: 34, weapon_rack: 46, brazier: 44, crystal_ped: 46, candle_stand: 58, bench: 26 }
+const CORR_H = WORLD === 2 ? { t_wagon: 50, t_wagon_full: 50, t_goat: 34, t_stall_pots: 50, t_stall_tools: 50, t_crates_tall: 48, t_crane: 56, t_crates: 36, t_scales: 30, pillar: 74, dwarf_statue: 66, runestone: 46, minecart: 46, armor: 56, barrels: 36, crates: 40, anvil: 34, weapon_rack: 46, brazier: 44, crystal_ped: 46, candle_stand: 58, bench: 26 }
   : { monstera: 44, lavender_pot: 32, bench: 32, armor: 54, globe: 40, bookcase: 44, candelabra: 52, noticeboard: 42, portrait: 44, flowerbox: 30, chestbench: 32, rug_round: 20, fernpot: 36, books: 28, scrolls: 28, catbed: 22 };
 const CORR_SET = WORLD === 2 ? ['armor', 'barrels', 'brazier', 'crates', 'weapon_rack', 'crystal_ped', 'anvil', 'candle_stand', 'bench']
   : ['monstera', 'bench', 'globe', 'lavender_pot', 'portrait', 'armor', 'bookcase', 'noticeboard', 'candelabra'];
 const CORR_DIR = WORLD === 2 ? 'corridor_w2' : 'corridor';
-for (const n of ['floor', ...Object.keys(CORR_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/${CORR_DIR}/${n}.webp?v=${WORLD === 2 ? 2 : 1}`; parts['corridor/' + n] = im; }
+for (const n of ['floor', ...(WORLD === 2 ? ['t_floor'] : []), ...Object.keys(CORR_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/${CORR_DIR}/${n}.webp?v=${WORLD === 2 ? 2 : 1}`; parts['corridor/' + n] = im; }
 let CORR = [], CANDLES = [], corrKey = '';
 function layoutCorridor() {
   const key = outKey + '|' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0).join(';'); if (key === corrKey) return; corrKey = key;
@@ -1897,11 +1934,25 @@ function layoutNaveW2() {
   out.push({ n: 'dwarf_statue', x: 14.4, y: N.y0 + 0.7, th: 'corridor' }, { n: 'dwarf_statue', x: 18.6, y: N.y0 + 0.7, th: 'corridor', flip: true });
   out.push({ n: 'runestone', x: NAVE_X0 + 0.6, y: N.y1 - 0.8, th: 'corridor' });
   const m = slotOf(2); if (m) for (const [dx, dy] of [[-1.4, 1.5], [-3.2, 2.4], [-5.0, 3.3]]) out.push({ n: 'minecart', x: m.x0 + dx, y: m.y0 + dy, th: 'corridor', flip: true });
+  const t = SLOTS.TRADE; if (t && tradeOpen()) {   // the yard: stalls along the back, crane and crates at the sides, the wagon + goat in front (the caravan)
+    for (const [n, dx, dy, fl] of [['t_stall_pots', 1.0, 0.6], ['t_stall_tools', 3.2, 0.6], ['t_crane', 5.3, 0.9, true], ['t_crates_tall', 0.6, 2.4], ['t_scales', 2.2, 2.0], ['t_crates', 5.2, 3.9]]) out.push({ n, x: t.x0 + dx, y: t.y0 + dy, th: 'corridor', flip: !!fl });
+    out.push({ n: 'caravan', x: t.x0 + 3.2, y: t.y0 + 3.6, th: 'corridor' });
+  }
   CORR = out;
   CANDLES = []; let c = 0;
   for (let y = N.y0 + 4.5; y < N.y1 - 1; y += 4) CANDLES.push({ x: 16.5 + hash2(c, 7, 141) * 0.8 - 0.4, y, k: c++ });
 }
+function drawCaravan(o) {   // home: wagon (empty or loaded) with the goat; leaving / coming back: they ride along the road out of the cave (12 s)
+  const T = trade(), wg = part('corridor', T.load + T.gems > 0 || T.away ? 't_wagon_full' : 't_wagon'), gt = part('corridor', 't_goat'); if (!wg || !gt) return;
+  let x = o.x, y = o.y; const out = T.away ? (T.trip || T.away) - T.away : 0, back = T.away;
+  if (T.away) { const u = out < 12 ? out / 12 : back < 12 ? back / 12 : 1; if (u >= 1) return; x = o.x - u * 16; y = o.y + u * 2; }   // further than the map: not drawn
+  const p = P(x, y), hw = CORR_H.t_wagon, ww = hw * wg.naturalWidth / wg.naturalHeight, hg = CORR_H.t_goat, gw = hg * gt.naturalWidth / gt.naturalHeight, bob = T.away ? Math.abs(Math.sin(performance.now() / 160)) * 1.5 : 0;
+  ctx.drawImage(propShadow(), p.x - ww * 0.45, p.y - ww * 0.16, ww * 0.9, ww * 0.32);
+  ctx.drawImage(sized(wg, hw * scale * dpr), p.x - ww / 2 + ww * 0.12, p.y - hw * 0.94, ww, hw);
+  const g = P(x - 1.1, y + 0.1); ctx.drawImage(flipped(sized(gt, hg * scale * dpr)), g.x - gw / 2, g.y - hg * 0.96 - bob, gw, hg);   // the goat faces left, toward the road out
+}
 function drawCorr(o) {
+  if (o.n === 'caravan') return drawCaravan(o);
   const im = part('corridor', o.n); if (!im) return;
   const p = P(o.x, o.y), h = CORR_H[o.n] || 36, w = h * im.naturalWidth / im.naturalHeight;
   if (zoom >= 1.2) { const rx = Math.min(w * 0.4, h * 0.55); ctx.drawImage(propShadow(), p.x - rx, p.y - rx * 0.42, rx * 2, rx * 0.84); }
@@ -2302,6 +2353,14 @@ function drawSlot(c, id) {
     poly(c, [L, B, R, F], '#ecd2a8'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
     c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 62, center.y - 30, 124, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
     text('👑 Кабинет директора', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(DIR_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('⭐ ' + DIR_STARS, center.x, center.y + 19, 11, '#c98a00', c);
+    return;
+  }
+  if (id === 'TRADE') {   // cobbled yard; before it is built, a dashed plot with the price
+    const fl = tradeOpen() && pat(c, 'corridor', 't_floor');
+    if (fl) { const T0 = part('corridor', 't_floor').naturalWidth / 3, o = P(0, 0); fl.setTransform(new DOMMatrix([HW / T0, HH / T0, -HW / T0, HH / T0, o.x, o.y])); poly(c, [L, B, R, F]); c.fillStyle = fl; c.fill(); return; }
+    poly(c, [L, B, R, F], '#6d6a66'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffaa'); c.setLineDash([]);
+    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 60, center.y - 26, 120, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    text('🐐 Торговый двор', center.x, center.y - 11, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(TRADE_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
   if (id === 'DORM2' && !dorm2Built()) {
@@ -3499,6 +3558,7 @@ function openRoom(id) {
     if (id === 'SHOP') { openPanel(shopPanel); return; }
     if (id === 'CANT') { openPanel(cantPanel); return; }
     if (id === 'TOWER') { openPanel(towerPanel); return; }
+    if (id === 'TRADE') { openPanel(tradePanel); return; }
     if (id === 'DORM' || id === 'DORM2') { openPanel(dormPanel); return; }
   }
 }
@@ -3545,6 +3605,9 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
   else if (d.act === 'formlvl') { const f = formSt(d.k); if (formReady(d.k) && spend(formCost(d.k))) { f.xp -= formNeed(f.lvl); f.lvl++; toast(`✨ ${formName(d.k)}: уровень ${f.lvl}!`); } }
+  else if (d.act === 'tradebuild') { const fi = CLASSES.findIndex((c) => c.id === 'forge'); if (!trade().built && fi >= 0 && isOpen(fi) && spend(TRADE_COST)) { trade().built = true; corrKey = ''; staticKey = ''; toast('🐐 Торговый двор построен!'); } }
+  else if (d.act === 'caravan') sendCaravan();
+  else if (d.act === 'tup') { const k = d.k; if (trade()[k] < MAX_TUP && spend(tupCost(k))) trade()[k]++; }
   else if (d.act === 'store') { if (W2().store < MAX_STORE && spend(storeCost())) { W2().store++; toast('📦 Склад руды больше!'); } }
   else if (d.act === 'exlvl') { if (exLvl(i) < MAX_EX_LVL && spend(exCost(i))) st.ex = exLvl(i) + 1; }
   else if (d.act === 'xpllvl') { if (xplLvl(i) < MAX_XPL_LVL && spend(xplCost(i))) st.xpl = xplLvl(i) + 1; }
@@ -3928,5 +3991,6 @@ resize();
 updateHud();
 if (!S.tourDone && WORLD === 1) setTimeout(() => { closePanel(); showTour(0); }, 600);
 requestAnimationFrame(frame);
+window.__booted = true;   // the boot watchdog in index.html stays quiet
 if (localStorage.getItem('magicschool.forcePush')) { localStorage.removeItem('magicschool.forcePush'); cloudForce(); } else if (cloudCode()) cloudPull(); else cloudAuto();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});   // always look for a new service worker
