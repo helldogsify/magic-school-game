@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=237';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=237';
+} from './data.js?v=238';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=238';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 237;   // keep equal to the ?v= number in index.html
+const BUILD = 238;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -66,10 +66,10 @@ const deskCost = (i) => Math.round(CLASSES[i].tuition * 15 * Math.pow(CLASSES[i]
 const timeCost = (i) => Math.round(CLASSES[i].tuition * 10 * Math.pow(BAL.time, S.classes[i].time));
 const MAX_REC_LVL = 40;   // both reception upgrades stop at level 40
 const recLvl = () => Math.min(MAX_REC_LVL, S.reception.level), adsLvl = () => Math.min(MAX_REC_LVL, S.reception.ads);
-const procTime = () => 3.5 * Math.pow(0.92, recLvl() - 1);
+const procTime = () => 3.5 * Math.pow(0.92, recLvl() - 1) / bossProcK();   // bossProcK: an ad campaign brings a helper to the reception (build 238)
 // entry fee: grows with the school (half the lesson price of the most expensive open class); upset leavers get it back x refundRate()
 const fee = () => { let mx = 0; for (let i = 0; i < CLASSES.length; i++) if (!CLASSES[i].final && isOpen(i)) mx = Math.max(mx, tuition(i)); return Math.max(3 + recLvl(), Math.round(mx * 0.5)); };
-const arrivalInterval = () => 5 * Math.pow(0.9, adsLvl() - 1);
+const arrivalInterval = () => 5 * Math.pow(0.9, adsLvl() - 1) / bossArrK();   // bossArrK: the director's contract tariff and ad campaigns (build 238, tester Ruslan's idea)
 const recCost = () => Math.round(20 * Math.pow(BAL.rec, S.reception.level - 1));
 const adsCost = () => Math.round(30 * Math.pow(BAL.ads, S.reception.ads - 1));
 
@@ -121,6 +121,105 @@ const refundRate = () => (WORLD === 2 ? 1 : refundRateAt(dirLvl('refund')));   /
 const schoolFull = () => !dormFree();   // the dorm is the school's buffer: when every bed is taken, the school is overloaded
 const careK = (l) => 1 - 0.06 * l;                         // mood drop x1 -> x0.4
 const INC_AUTO_AT = (l) => 600 * (1 - 0.07 * l);           // 10 min -> 3 min
+// ---- director's routine (build 238, tester Ruslan's wish, Maria's pick 2026-11-22: contract tariff, ad campaigns, parents' letters) ----
+// World 1 only, after the office is built. State in S.boss = { plan, camp: { k, end, cd }, mail: { t, cur }, rep }.
+const boss = () => (S.boss ||= { plan: 'normal', camp: null, mail: { t: MAIL_FIRST, cur: null }, rep: 0 });
+const bossOn = () => WORLD === 1 && dirBuilt();
+const PLANS = {   // the contract a newcomer signs: fee, how many come, the mood they come with
+  cheap: { emo: '🤝', name: 'Доступный', fee: 0.7, arr: 1.3, proc: 1.3, mood: 80, desc: 'взнос ×0.7, ученики приходят и оформляются на 30% быстрее' },
+  normal: { emo: '📄', name: 'Обычный', fee: 1, arr: 1, proc: 1, mood: 80, desc: 'обычный взнос, обычный поток учеников' },
+  prestige: { emo: '🎩', name: 'Престижный', fee: 1.6, arr: 1 / 1.3, proc: 1, mood: 92, desc: 'взнос ×1.6, приходят на 30% реже, но в хорошем настроении' },
+};
+const planOf = () => (bossOn() && PLANS[boss().plan]) || PLANS.normal;
+const CAMPS = {   // ad campaigns: 5 minutes each, then a 15-minute pause before the next one; cost = that many entry fees (a maxed reception enrols ~0.5/s, so ~150 newcomers per campaign)
+  flyers: { emo: '📰', name: 'Листовки в городе', arr: 1.5, proc: 1.2, fee: 1.1, cost: 10, desc: 'ученики приходят в 1.5 раза чаще, оформление на 20% быстрее, взнос +10%' },
+  open: { emo: '🎪', name: 'День открытых дверей', arr: 2, proc: 1.5, fee: 1.2, cost: 25, desc: 'приходят вдвое чаще, в приёмной помогает волонтёр (оформляют в 1.5 раза быстрее), взнос +20%' },
+  fair: { emo: '🎡', name: 'Волшебная ярмарка', arr: 2, proc: 1.5, fee: 1.5, cost: 50, desc: 'как день открытых дверей, но взнос +50%' },
+};
+const CAMP_LEN = 300, CAMP_PAUSE = 900;
+const campCost = (k) => Math.max(300, Math.round(fee() * planOf().fee * CAMPS[k].cost / 10) * 10);
+const campNow = () => { if (!bossOn()) return null; const c = boss().camp; return c && c.k && Date.now() < c.end ? CAMPS[c.k] : null; };
+const campWait = () => { const c = bossOn() && boss().camp; return c ? Math.max(0, (c.cd - Date.now()) / 1000) : 0; };   // seconds until a new campaign may start
+const bossArrK = () => planOf().arr * ((campNow() || {}).arr || 1);
+const bossProcK = () => planOf().proc * ((campNow() || {}).proc || 1);
+const entryFee = () => Math.max(1, Math.round(fee() * planOf().fee * ((campNow() || {}).fee || 1)));   // what a newcomer pays at the reception
+function startCamp(k) {
+  if (!bossOn() || !CAMPS[k] || campNow() || campWait() > 0) return;
+  if (!spend(campCost(k))) return;
+  const now = Date.now(); boss().camp = { k, end: now + CAMP_LEN * 1000, cd: now + (CAMP_LEN + CAMP_PAUSE) * 1000 };
+  arrivalT = Math.min(arrivalT, arrivalInterval());
+  toast(`${CAMPS[k].emo} Акция «${CAMPS[k].name}» началась на 5 минут!`); save();
+}
+// parents' letters: every 8-15 minutes of play one complaint; three answers; 10 minutes without an answer = a refusal
+const MAIL_FIRST = 300, MAIL_MIN = 480, MAIL_MAX = 900, MAIL_AUTO = 600, REP_MAX = 5;
+const MAILS = [
+  ['⏳', 'Мой ребёнок целый час простоял в очереди у класса и так и не попал на урок!'],
+  ['🛏️', 'Нам написали, что пришлось ночевать в общежитии, потому что в классе не было места. Мы платили не за это!'],
+  ['📉', 'Почему мой ребёнок провалил экзамен? Может, учителя плохо объясняют?'],
+  ['💰', 'Взнос за поступление слишком большой. Соседняя школа берёт меньше!'],
+  ['💥', 'Мне рассказали, что у вас на уроке что-то взорвалось. Это вообще безопасно?'],
+  ['😢', 'Мой ребёнок приходит грустный. Ему у вас скучно.'],
+  ['🍽️', 'Чем вы кормите детей? Жалуются, что всё время голодные.'],
+];
+const mailPayCost = () => Math.max(200, Math.round((S.ema || 1) * 20 / 10) * 10);
+const repK = () => 1 + 0.05 * (bossOn() ? boss().rep || 0 : 0);   // the school's name among parents: inspection reward ±5% per point
+function cheerAll(d, icon) {   // every student in school gets mood d
+  for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && a.goal.t === 'x')) { a.mood = Math.max(0, Math.min(100, moodOf(a) + d)); if (icon && Math.random() < 0.35) popup(icon, a.x, a.y, d > 0 ? '#ff6fa3' : '#5b7fd6', 44); }
+}
+function stepBoss(dt, live) {
+  if (!bossOn()) return;
+  const B = boss();
+  if (B.camp && B.camp.k && Date.now() >= B.camp.end) { if (live) toast(`${CAMPS[B.camp.k].emo} Рекламная акция закончилась`); B.camp.k = null; dirtyPanel = true; }
+  const M = B.mail;
+  if (M.cur) { if (live) { M.cur.t = (M.cur.t || 0) + dt; if (M.cur.t >= MAIL_AUTO) answerMail('no', true); } return; }   // the letter waits while the game is closed
+  if (!live || calm() || S.stats.graduated < 20 || tourStep >= 0) return;   // only while playing; the calm mode has no complaints either
+  M.t -= dt; if (M.t > 0) return;
+  M.t = MAIL_MIN + Math.random() * (MAIL_MAX - MAIL_MIN);
+  M.cur = { m: Math.floor(Math.random() * MAILS.length), name: rnd(NAMES), t: 0 };
+  toast('✉️ Письмо от родителей! Загляни в кабинет директора'); try { navigator.vibrate?.(60); } catch (e) { /* no vibration */ }
+  hintOnce('mail', '✉️', 'Письмо от родителей', 'Родители учеников иногда жалуются директору. Над кабинетом директора 👑 появляется конверт ✉️: нажми на кабинет и ответь. Можно вернуть деньги, пригласить на открытый урок или отказать. От ответа зависят настроение учеников и репутация школы (она меняет награду инспектора). Если не ответить за 10 минут, это считается отказом.');
+  dirtyPanel = true;
+}
+let mailResult = '';
+function answerMail(how, auto) {
+  const B = boss(), M = B.mail; if (!M.cur) return;
+  if (how === 'pay') { if (!spend(mailPayCost())) return; B.rep = Math.min(REP_MAX, (B.rep || 0) + 1); cheerAll(10, '💖'); mailResult = '💐 Родители довольны: деньги вернули, извинения приняты. Репутация школы выросла, ученики повеселели.'; }
+  else if (how === 'lesson') {
+    if (Math.random() < 0.6) { cheerAll(8, '😊'); mailResult = '🎓 Открытый урок понравился! Родители успокоились, ученики гордятся школой.'; }
+    else { B.rep = Math.max(-REP_MAX, (B.rep || 0) - 1); cheerAll(-5); mailResult = '😕 Открытый урок не убедил родителей. Репутация школы немного упала.'; }
+  } else { B.rep = Math.max(-REP_MAX, (B.rep || 0) - 1); cheerAll(-12, '😟'); mailResult = auto ? '📭 На письмо никто не ответил. Родители обиделись: репутация упала, ученики загрустили.' : '😤 Родители обиделись на отказ: репутация упала, ученики загрустили.'; }
+  M.cur = null; dirtyPanel = true; save();
+  toast(auto ? '📭 Письмо родителей осталось без ответа' : mailResult.split(':')[0].split('!')[0]);
+}
+function drawMail() {   // a bobbing envelope over the director's office while a letter waits
+  if (!bossOn() || !S.boss || !S.boss.mail || !S.boss.mail.cur || !SLOTS.DIR) return;
+  const s = SLOTS.DIR, c = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), T = performance.now();
+  const k = 1 + 0.1 * Math.sin(T / 200), y = c.y - 30 - 6 * Math.sin(T / 300);   // same look as the incident badge, so it is seen on the dark office wall
+  ctx.fillStyle = '#fff3c4'; ctx.beginPath(); ctx.arc(c.x, y, 30 * k, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#e0a100'; ctx.lineWidth = 3; ctx.stroke();
+  emoji('✉️', c.x, y, 36 * k);
+  ctx.fillStyle = '#ff4d6d'; rr(c.x - 40, y + 30, 80, 22, 11); ctx.fill(); text('Письмо!', c.x, y + 41, 11, '#ffffff');
+}
+function bossBlock() {   // the routine part of the director's panel
+  const B = boss(), M = B.mail, cn = campNow(), w = campWait();
+  let h = '';
+  if (M.cur) { const [e, t] = MAILS[M.cur.m] || MAILS[0];
+    h += `<div class="card up"><span class="remoji">✉️</span><div class="grow"><b>Письмо от родителей ученика ${M.cur.name}</b><div>${e} «${t}»</div><div class="muted">Ответить надо за ${mmss(MAIL_AUTO - M.cur.t)}</div></div></div>
+      <button class="btn wide" data-cost="${mailPayCost()}" data-act="mail" data-k="pay">💐 Извиниться и вернуть деньги <span class="cost">🪙${fmt(mailPayCost())}</span></button>
+      <button class="btn ghost wide" data-act="mail" data-k="lesson">🎓 Пригласить на открытый урок <span class="cost">60%</span></button>
+      <button class="btn ghost wide" data-act="mail" data-k="no">🙅 Отказать</button>`; }
+  else if (mailResult) h += `<p class="muted">${mailResult}</p>`;
+  const rep = B.rep || 0;
+  h += `<p class="muted">Репутация у родителей: <b>${rep > 0 ? '+' : ''}${rep}</b> (от −${REP_MAX} до +${REP_MAX}), награда инспектора ${rep >= 0 ? '+' : '−'}${Math.abs(rep * 5)}%. Письма приходят раз в 8–15 минут игры.</p>`;
+  h += `<h3>📜 Договор с учениками</h3><p class="muted">Взнос новичка сейчас 🪙${fmt(entryFee())}, новый ученик каждые ${sec(arrivalInterval())}. Ушедшие расстроенными получают назад свой взнос × правила возврата.</p>`;
+  for (const [k, p] of Object.entries(PLANS)) h += `<div class="card up"><span class="remoji">${p.emo}</span><div class="grow"><b>${p.name}</b><div class="muted">${p.desc}</div></div>${B.plan === k ? '<span class="done">выбран</span>' : `<button class="btn ghost" data-act="plan" data-k="${k}">Выбрать</button>`}</div>`;
+  h += `<h3>📣 Рекламные акции</h3>`;
+  if (cn) h += `<p>${cn.emo} Идёт акция «${cn.name}»: ещё ${mmss((B.camp.end - Date.now()) / 1000)}.</p>`;
+  else if (w > 0) h += `<p class="muted">Следующую акцию можно запустить через ${mmss(w)}.</p>`;
+  else h += `<p class="muted">Акция идёт 5 минут, потом перерыв 15 минут. Больше учеников — больше взносов, но следи за очередями: кто не найдёт места, уйдёт и заберёт взнос назад.</p>`;
+  for (const [k, c] of Object.entries(CAMPS)) h += `<div class="card up"><span class="remoji">${c.emo}</span><div class="grow"><b>${c.name}</b><div class="muted">${c.desc}</div></div>${cn || w > 0 ? '' : costBtn('▶', campCost(k), 'camp', `data-k="${k}"`)}</div>`;
+  h += `<h3>🏛️ Улучшения кабинета</h3>`;
+  return h;
+}
 const G = { // helpers exposed to missions
   get S() { return S; }, cls, built: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return isOpen(i); },
   item: (cid, iid) => { const i = CLASSES.findIndex((c) => c.id === cid); return S.classes[i].items[CLASSES[i].items.findIndex((x) => x.id === iid)]; },
@@ -563,7 +662,7 @@ let arrivalT = 1;
 function walk(a, tx, ty, then) { a.path = pathTo(a, tx, ty); a.onArrive = then; if (!a.path.length && then) { a.onArrive = null; then(); } }
 function spawn() {
   const a = { id: S.nextId++, sp: rnd(SPECIES), name: rnd(NAMES), x: GATE_TILE.x, y: GATE_TILE.y, z: 0,
-    path: [], speed: 2.3 + Math.random() * 0.4, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6, mood: 80 };
+    path: [], speed: 2.3 + Math.random() * 0.4, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6, mood: planOf().mood };
   agents.push(a); queue.push(a); goQueue(a);
 }
 function goQueue(a) { const p = queueSlot(queue.indexOf(a)); a.goal = { t: 'q' }; a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'queue'; }); }
@@ -577,7 +676,7 @@ function finishProcess() {
   const a = processing; processing = null;
   queue.shift(); queue.forEach(goQueue);
   S.stats.enrolled++; secForms++;
-  a.paid = fee(); earn(a.paid, OFFICER.x + 1, OFFICER.y, '#c98a00');
+  a.paid = entryFee(); earn(a.paid, OFFICER.x + 1, OFFICER.y, '#c98a00');
   a.state = 'walk';
   route(a, nextClass(-1));
 }
@@ -1034,7 +1133,7 @@ function finishInspection() {
   const ok = !c.failed && (K.check ? K.check(c) : true);
   const income = Math.max(200, Math.round((S.ema || 1) * 180 / 10) * 10), ties = dirLvl('ties');
   I.cur = null; I.t = INSP_EVERY;
-  if (ok) { const rw = Math.round(income * (1 + 0.1 * ties)); I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; S.coins += rw; S.stats.earned = (S.stats.earned || 0) + rw; inspResult = { ok, income: rw }; }
+  if (ok) { const rw = Math.round(income * (1 + 0.1 * ties) * repK()); I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; S.coins += rw; S.stats.earned = (S.stats.earned || 0) + rw; inspResult = { ok, income: rw }; }
   else { const fine = Math.min(S.coins, Math.round(income / 2 * (1 - 0.07 * ties))); S.coins -= fine; I.failed = (I.failed || 0) + 1; inspResult = { ok, fine, text: inspText(c) }; }
   openPanel(inspResultPanel); updateHud(); save();
 }
@@ -1435,6 +1534,7 @@ function renderInsp() {
 function stepWorld(dt, live = false) {
   stepIncidents(dt, live);
   stepInspector(dt, live);
+  stepBoss(dt, live);
   stepTrade(dt);
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6 && !(WORLD === 2 && schoolFull())) spawn(); }   // world 2: nobody new comes while every line and every bed is taken
@@ -2991,6 +3091,7 @@ function render() {
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
   drawIncidents();
+  drawMail();
   if (tourStep >= 0 && tourAt(TOUR[tourStep])) { const ta = tourAt(TOUR[tourStep]), f = P(ta[0], ta[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
   for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
 }
@@ -3124,13 +3225,13 @@ function shopPanel() {
 function dirBuildPanel() {
   const st = schoolStars(), ok = st >= DIR_STARS;
   return `<div class="sh-head"><span class="remoji big">👑</span><div><h2>Кабинет директора</h2><div class="muted">Решения для всей школы</div></div><button class="x" data-close>✕</button></div>
-    <p>Здесь ты будешь принимать решения для всей школы: правила возврата взноса ушедшим, забота об учениках, дежурный завхоз и связи с инспекцией.</p>
+    <p>Здесь ты будешь принимать решения для всей школы: договор с учениками и взнос, рекламные акции, письма родителей, правила возврата взноса ушедшим, забота об учениках, дежурный завхоз и связи с инспекцией.</p>
     <p class="muted">Нужно: 🪙${fmt(DIR_COST)} и звёзды школы <b>⭐ ${st}/${DIR_STARS}</b>${ok ? '' : ' — звёзды дают проверки инспектора 🧐'}.</p>
     <button class="btn wide" data-cost="${DIR_COST}" data-act="dirbuild" ${ok ? '' : 'disabled'}>Построить <span class="cost">🪙${fmt(DIR_COST)} ⭐${DIR_STARS}</span></button>`;
 }
 function dirPanel() {
   let h = `<div class="sh-head"><span class="remoji big">👑</span><div><h2>Кабинет директора</h2><div class="muted">Решения для всей школы</div></div><button class="x" data-close>✕</button></div>
-    <p class="muted">Взнос новичка сейчас 🪙${fmt(fee())}. Кто уходит расстроенным, получает его назад: ${Math.round(refundRate() * 100)}%. Уже вернули: 🪙${fmt(S.stats.refunded || 0)}.</p>`;
+    <p class="muted">Взнос новичка сейчас 🪙${fmt(entryFee())}. Кто уходит расстроенным, получает его назад: ${Math.round(refundRate() * 100)}%. Уже вернули: 🪙${fmt(S.stats.refunded || 0)}.</p>` + bossBlock();
   for (const [k, u] of Object.entries(DIR_UP)) {
     const l = dirLvl(k);
     h += `<div class="card up"><span class="remoji">${u.emo}</span><div class="grow"><b>${u.name}</b> <span class="muted">ур. ${l}/${u.max}</span><div class="muted">${u.desc(l)}</div></div>
@@ -3140,7 +3241,7 @@ function dirPanel() {
 }
 function receptionPanel() {
   return `<div class="sh-head"><span class="remoji big">🛎️</span><div><h2>Приёмная</h2><div class="muted">Здесь новые ученики поступают в школу</div></div><button class="x" data-close>✕</button></div>
-    <div class="stats3"><div><span>🪙</span><b>${fee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${sec(procTime())}</b><i>оформление</i></div><div><span>🚶</span><b>${sec(arrivalInterval())}</b><i>новый ученик</i></div></div>
+    <div class="stats3"><div><span>🪙</span><b>${entryFee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${sec(procTime())}</b><i>оформление</i></div><div><span>🚶</span><b>${sec(arrivalInterval())}</b><i>новый ученик</i></div></div>
     <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${recLvl()}/${MAX_REC_LVL}</span><div class="muted">быстрее оформляет, взнос больше</div></div>${S.reception.level >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', recCost(), 'rec')}</div>
     <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${adsLvl()}/${MAX_REC_LVL}</span><div class="muted">ученики приходят чаще</div></div>${S.reception.ads >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', adsCost(), 'ads')}</div>
     <p class="muted">Настроение учеников: <b>${moodFace(avgMood())} ${Math.round(avgMood())}%</b>. Долгие очереди огорчают, уроки и библиотека радуют. Весёлые сдают экзамен лучше, а совсем грустные уходят домой (ушли от тоски: ${S.stats.gaveUp || 0}).</p>
@@ -3633,6 +3734,9 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'cantup') { const k = d.k; if (cantUp()[k] < CANT_MAX[k] && spend(cantCost(k))) cantUp()[k]++; }
   else if (d.act === 'shopup') { const k = d.k; if (shopUp()[k] < SHOP_MAX && spend(shopCost(k))) shopUp()[k]++; }
   else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!dirBuilt() && S.coins >= DIR_COST && spendStars(DIR_STARS) && spend(DIR_COST)) { S.dirBuilt = true; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
+  else if (d.act === 'plan') { if (PLANS[d.k]) { boss().plan = d.k; toast(`${PLANS[d.k].emo} Договор: ${PLANS[d.k].name}`); } }
+  else if (d.act === 'camp') startCamp(d.k);
+  else if (d.act === 'mail') answerMail(d.k);
   else if (d.act === 'dir') { const k = d.k; if (dirLvl(k) < DIR_UP[k].max && spend(dirCost(k))) { S.dir ||= {}; S.dir[k] = dirLvl(k) + 1; } }
   else if (d.act === 'libseats') { if (libSeats() < MAX_LIB_SEATS && spend(libSeatsCost())) libUp().seats++; }
   else if (d.act === 'libspeed') { if (libUp().speed < MAX_LIB_LVL && spend(libSpeedCost())) libUp().speed++; }
