@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=230';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=230';
+} from './data.js?v=231';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=231';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 230;   // keep equal to the ?v= number in index.html
+const BUILD = 231;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -292,19 +292,24 @@ function genLayoutW2() {
 // (fountain, benches, trees) ringed by the corridor; the front block (library, reception, dorms, shop) faces it with low walls.
 //   back row (y = 0): exam hall x0..17, Charms, Flight, Elements, the director's office; the graduates' garden beyond, by a path
 //   left column (x = 0): Herbs, Potions, Stars stacked; classes grow deeper into the court
-let COURT = null; const COURT_LAYOUT = true;
+let COURT = null, LAWNS = []; const COURT_LAYOUT = true;
 const inCourt = (x, y) => WORLD === 1 && COURT && x >= COURT.x0 && x < COURT.x1 && y >= COURT.y0 && y < COURT.y1;
 const courtC = () => ({ x: (COURT.x0 + COURT.x1) / 2, y: (COURT.y0 + COURT.y1) / 2 });
 const courtBlocked = (x, y) => { if (!inCourt(x, y)) return false; const c = courtC(); return Math.abs(x + 0.5 - c.x) < 1.6 && Math.abs(y + 0.5 - c.y) < 1.6; };   // the fountain   // the open court rectangle (decor and the courtyard life use it)
 function genLayoutCourt() {
   const C = (i, ...a) => (SLOTS['C' + i] = slot(...a));
+  // GAP: a strip of lawn between neighbouring rooms, as wide as what a tall wall hides behind it, so every room keeps its tall
+  // decorated walls and none of them hides the next room (her «так стирается много красивых стен» on 230)
+  const GAP = 4; LAWNS = [];
   SLOTS.EXAM = slot(0, 0, [[8, 5], [8, 6]], {}, 17, 6, [[[9, 5], [9, 6]], [[10, 5], [10, 6]], [[11, 5], [11, 6]], [[12, 5], [12, 6]]]);
-  let x = 17;
-  for (const i of [3, 4, 5]) { const d = depthOf(i); C(i, x, 0, [[x + 2, d - 1], [x + 2, d]], {}, ROOM, d, [[[x + 3, d - 1], [x + 3, d]]]); x += ROOM; }   // doors down into the court
-  SLOTS.DIR = slot(x, 0, [[x + 2, 5], [x + 2, 6]], {}, 6, 6); x += 6;   // x = 41: the right end of the back row
-  const XR = x, dRow = Math.max(6, ...[3, 4, 5].map(depthOf));
-  let y = 6;
-  for (const i of [0, 1, 2]) { const d = depthOf(i), ym = y + Math.floor(d / 2); C(i, 0, y, [[5, ym], [6, ym]], {}, ROOM, d, [[[5, ym + 1], [6, ym + 1]]]); y += d; }   // doors right into the court
+  const dRow = Math.max(6, ...[3, 4, 5].map(depthOf));
+  let x = 17 + GAP; LAWNS.push({ x0: 17, y0: 6, x1: 17 + GAP, y1: dRow });
+  for (const i of [3, 4, 5]) { const d = depthOf(i); C(i, x, 0, [[x + 2, d - 1], [x + 2, d]], {}, ROOM, d, [[[x + 3, d - 1], [x + 3, d]]]); x += ROOM; LAWNS.push({ x0: x, y0: 6, x1: x + GAP, y1: dRow }); x += GAP; }   // doors down into the court
+  SLOTS.DIR = slot(x, 0, [[x + 2, 5], [x + 2, 6]], {}, 6, 6); x += 6;   // the right end of the back row
+  const XR = x;
+  let y = 6 + GAP;
+  for (const i of [0, 1, 2]) { const d = depthOf(i), ym = y + Math.floor(d / 2); C(i, 0, y, [[5, ym], [6, ym]], {}, ROOM, d, [[[5, ym + 1], [6, ym + 1]]]); y += d + GAP; }   // doors right into the court
+  y -= GAP;
   const colEnd = y, recY = Math.max(colEnd + 4, dRow + 20);
   COURT = { x0: 11, y0: dRow + 4, x1: XR - 5, y1: recY - 4 };
   PATHS = [];
@@ -349,6 +354,7 @@ const DOORS = new Set();
 function buildGrid() {
   REG = Array.from({ length: GW }, () => Array(GH + YOFF + 2).fill(null));
   HALLS.forEach((h) => fillRect(h, 'hall'));
+  LAWNS.forEach((h) => fillRect(h, null));   // lawn gaps between rooms (courtyard school)
   PATHS.forEach((h) => fillRect(h, 'path'));
   Object.entries(SLOTS).forEach(([id, r]) => fillRect(r, id));
   DOORS.clear();
@@ -403,7 +409,7 @@ function buildEdges() {
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
       if (id === 'hall' && WORLD === 1 && !nb && (side === 'x0' || side === 'y0') && !roomNear(x, y, side) && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1) { EDGES.push({ x, y, side, id, tall: true, hallWall: true, wallTheme: 'REC' }); continue; }   // corridor back wall with only grass behind it: a real tall wall (her «добавь стены где можно»)
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
-      const lowSide = (WORLD === 2 && side === 'x0' && nb === 'hall') || (WORLD === 1 && side === 'y0' && nb === 'hall' && ['LIB', 'REC', 'DORM', 'DORM2', 'SHOP'].includes(id)) || (WORLD === 1 && nb && nb !== 'hall' && nb !== 'path' && nb !== 'GARDEN') ||   /* a wall between two neighbouring rooms stays low: in the courtyard school it hid the next class (her screenshot on 229) */ ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
+      const lowSide = (WORLD === 2 && side === 'x0' && nb === 'hall') || (WORLD === 1 && side === 'y0' && nb === 'hall' && ['LIB', 'REC', 'DORM', 'DORM2', 'SHOP'].includes(id)) || ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
       EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
     }
   }
