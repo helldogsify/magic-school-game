@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=257';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=257';
+} from './data.js?v=258';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=258';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 257;   // keep equal to the ?v= number in index.html
+const BUILD = 258;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2752,7 +2752,12 @@ function signPill(label, bg, fs, hgt, border, ink) {   // a rounded name plate r
   c.save(); c.shadowColor = '#3a2f4a55'; c.shadowBlur = 6; c.shadowOffsetY = 2; c.fillStyle = bg; c.beginPath(); c.roundRect(pad, pad, tw, hgt, 11); c.fill(); c.restore();
   c.strokeStyle = border; c.lineWidth = 2; c.beginPath(); c.roundRect(pad, pad, tw, hgt, 11); c.stroke();
   text(label, w / 2, h / 2 + 0.5, fs, ink, c);
-  e = { cv, w, h, tw }; if (signCache.size > 120) signCache.clear(); signCache.set(key, e); return e;
+  e = { cv, w, h, tw };
+  // build 258: remember the plate only once its emoji pictures and the font are loaded; a plate cached too early kept a missing icon
+  // and a fallback font for good (seen on «Библиотека», «Травология»)
+  EMOJI_RE.lastIndex = 0; const ems = label.match(EMOJI_RE) || [], ready = ems.every((x) => emojiImage(x)) && (!document.fonts || document.fonts.status === 'loaded');
+  if (ready) { if (signCache.size > 120) signCache.clear(); signCache.set(key, e); }
+  return e;
 }
 function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
@@ -2760,7 +2765,8 @@ function drawSign(c, id) {
     const pl = signPill('🎓 Сад выпускников', '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - 150 - pl.h / 2, pl.w, pl.h); return; }
   if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
   const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
-  const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
+  const midBack = WORLD === 1 && ['DORM', 'DORM2', 'DIR', 'SHOP'].includes(id);   // build 258: front-row rooms put their sign over the middle of their tall back wall (on the corner it hung over the gallery)
+  const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : midBack ? up(P((s.x0 + s.x1) / 2, s.y0), WALLH * 0.72 + 12) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   const fs = 12, hgt = 22, bg = ci >= 0 ? CLASSES[ci].wall : SIGN_BG[id] || '#ffffff';
   const pill = signPill(name, bg, fs, hgt, '#ffffff', '#2e2340'), tw = pill.tw;   // cached bitmap: the shadow blur and the text were redrawn for every sign every frame
   if (onScreen(sp.x, sp.y, 160, 40)) c.drawImage(pill.cv, sp.x - pill.w / 2, sp.y - pill.h / 2, pill.w, pill.h);
