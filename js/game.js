@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=175';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=175';
+} from './data.js?v=176';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=176';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 175;   // keep equal to the ?v= number in index.html
+const BUILD = 176;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -480,7 +480,7 @@ const classFull = (i) => i >= 0 && waitList[i].length >= MAX_WAIT;   // the line
 const wakersFor = (i) => agents.reduce((n, a) => n + (a.woke && a.goal && a.goal.t === 'c' && a.goal.i === i && a.state === 'walk' ? 1 : 0), 0);
 // room = free desks + free places at the door; everybody already walking there counts (sleepers are woken first each step)
 const freeDesksN = (i) => { let n = 0; for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc[i][d]) n++; return n; };
-const roomForWaker = (i) => i < 0 || lineCount(i) < MAX_WAIT + freeDesksN(i);
+const roomForWaker = (i) => i < 0 || waitList[i].length + wakersFor(i) < MAX_WAIT + freeDesksN(i);   // newcomers walking there do not block a sleeper (Sonya's report 2026-11-22)
 const sleepersFor = (i) => dorm.reduce((n, a) => n + (a && a.goal && a.goal.t === 'd' && a.goal.i === i ? 1 : 0), 0);
 // dorm: upset students sleep here until there is room in the line of their class
 let DS = SLOTS.DORM, DS2 = SLOTS.DORM2;
@@ -543,7 +543,7 @@ function leaveSchool(a) {   // no room anywhere: the student is upset and goes h
 function route(a, i) {   // send a student on to class i, or to the dorm when its line is full
   // her rule 2026-11-22: everybody stands at the door first, the dorm only when the door line is full.
   // Sleepers already woken and walking back keep their places (roomForWaker counts them), so nobody is overtaken.
-  if (i < 0 || roomForWaker(i)) { goClass(a, i); return true; }
+  if (i < 0 || waitList[i].length < MAX_WAIT) { goClass(a, i); return true; }   // the door line decides, not the walkers (Sonya's report 2026-11-22: dorm full, lines empty)
   if (!dormFree()) { leaveSchool(a); return false; }
   popup('😢', a.x, a.y, '#5b7fd6', 44);
   goDorm(a, i);
@@ -2356,7 +2356,8 @@ function makeMission() {
   if (bedCount() < maxBeds()) kinds.push(() => ({ type: 'beds', target: bedCount() + 1, text: 'Купи ещё одну кровать в спальне 🛏️' }));
   if (libSeats() < MAX_LIB_SEATS) kinds.push(() => ({ type: 'lib', target: libSeats() + 1, text: 'Поставь ещё один стол в библиотеке 📚' }));
   const nextPlot = S.classes.findIndex((c) => !c.built);
-  if (nextPlot >= 0) kinds.push(() => ({ type: 'build', i: nextPlot, target: 1, text: `Построй класс «${CLASSES[nextPlot].name}»` }));
+  const storyBuild = WORLD === 1 && S.mission < MISSIONS.length && MISSIONS[S.mission].text.startsWith('Построй класс');   // Sonya's report 2026-11-22: the same class twice in the list
+  if (nextPlot >= 0 && !storyBuild) kinds.push(() => ({ type: 'build', i: nextPlot, target: 1, text: `Построй класс «${CLASSES[nextPlot].name}»` }));
   const m = kinds[Math.floor(Math.random() * kinds.length)]();
   if (m.type === 'rec') m.text = `Улучши секретаря в приёмной до ур. ${m.target}`;
   const statNow = { grad: S.stats.graduated, enroll: S.stats.enrolled, earn: S.stats.earned || 0, read: S.stats.read || 0, exams: S.stats.passed }[m.type];
@@ -2421,7 +2422,8 @@ function missionList() {   // [{key, text, reward, ok, prog}]
       default: return true;
     }
   };
-  S.dynList = S.dynList.filter((m) => dynDone(m) || possible(m));
+  const storyBuild = WORLD === 1 && S.mission < MISSIONS.length && MISSIONS[S.mission].text.startsWith('Построй класс');
+  S.dynList = S.dynList.filter((m) => dynDone(m) || (possible(m) && !(storyBuild && m.type === 'build')));   // the story already asks to build it
   for (const m of S.dynList) if (m.rv !== 2 && !dynDone(m)) {   // missions made before the fair rewards: priced again from what is left to do
     const pr = dynProgress(m); if (pr && ['grad', 'enroll', 'earn', 'read', 'exams'].includes(m.type)) m.n = pr[1] - pr[0];
     m.reward = rewardFor(m); m.rv = 2;
