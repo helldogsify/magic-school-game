@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=242';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=242';
+} from './data.js?v=243';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=243';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 242;   // keep equal to the ?v= number in index.html
+const BUILD = 243;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -408,48 +408,51 @@ const inCourt = (x, y) => WORLD === 1 && COURT && x >= COURT.x0 && x < COURT.x1 
 const courtC = () => ({ x: (COURT.x0 + COURT.x1) / 2, y: (COURT.y0 + COURT.y1) / 2 });
 const courtBlocked = (x, y) => { if (!inCourt(x, y)) return false; const c = courtC(); return Math.abs(x + 0.5 - c.x) < 1.6 && Math.abs(y + 0.5 - c.y) < 1.6; };   // the fountain   // the open court rectangle (decor and the courtyard life use it)
 function genLayoutCourt() {
+  // Build 241 (her pick «1» of design/layout2_v1.png after the designer review): study goes round the court, 1-2-3 up the left
+  // column from the entrance, 4-5-6 along the back row; the exam hall at the back corner between them; the court is smaller and
+  // closed on every side: the front row (shop, director, reception, dorms) and a right column (canteen, masters' tower).
+  // The exam hall stays a long hall (its desks stand in rows along the left wall, her earlier ruling), so it is not a square.
   const C = (i, ...a) => (SLOTS['C' + i] = slot(...a));
-  // GAP: a strip of lawn between neighbouring rooms, as wide as what a tall wall hides behind it, so every room keeps its tall
-  // decorated walls and none of them hides the next room (her «так стирается много красивых стен» on 230)
-  // court classes are 8 tiles wide (bigger next to the court, her «комнаты малюсенькие»); the court is kept compact (her «слишком большой двор»)
-  const GAP = 3, CWD = 8; LAWNS = [];
+  const GAP = 3, CWD = 8, BAND = 3, CW = 26, CH = 20; LAWNS = [];   // court 26x20 (was ~34x31): a third smaller, closed by buildings
   SLOTS.EXAM = slot(0, 0, [[8, 5], [8, 6]], {}, 17, 6, [[[9, 5], [9, 6]], [[10, 5], [10, 6]], [[11, 5], [11, 6]], [[12, 5], [12, 6]]]);
   const dRow = Math.max(6, ...[3, 4, 5].map(depthOf));
   let x = 17 + GAP; LAWNS.push({ x0: 17, y0: 6, x1: 17 + GAP, y1: dRow });
   for (const i of [3, 4, 5]) { const d = depthOf(i); C(i, x, 0, [[x + 3, d - 1], [x + 3, d]], {}, CWD, d, [[[x + 4, d - 1], [x + 4, d]]]); x += CWD; if (i !== 5) { LAWNS.push({ x0: x, y0: 6, x1: x + GAP, y1: dRow }); x += GAP; } }   // doors down into the court
   const XR = x;
   let y = 6 + GAP;
-  for (const i of [0, 1, 2]) { const d = depthOf(i), ym = y + Math.floor(d / 2); C(i, 0, y, [[CWD - 1, ym], [CWD, ym]], {}, CWD, d, [[[CWD - 1, ym + 1], [CWD, ym + 1]]]); y += d + GAP; }   // doors right into the court
+  for (const i of [2, 1, 0]) { const d = depthOf(i), ym = y + Math.floor(d / 2); C(i, 0, y, [[CWD - 1, ym], [CWD, ym]], {}, CWD, d, [[[CWD - 1, ym + 1], [CWD, ym + 1]]]); y += d + GAP; }   // class 1 nearest the entrance, doors right into the gallery
   y -= GAP;
-  const colEnd = y, recY = Math.max(colEnd + 4, dRow + 14);
-  COURT = { x0: CWD + 4, y0: dRow + 4, x1: XR - 4, y1: recY - 4 };
+  const colEnd = y;
+  const cx0 = CWD + BAND, cy0 = dRow + BAND, cx1 = cx0 + CW, cy1 = cy0 + CH, Yf = cy1 + BAND, Xr = cx1 + BAND;   // court, then the front row at Yf and the right column at Xr
+  COURT = { x0: cx0, y0: cy0, x1: cx1, y1: cy1 };
   PATHS = [];
   SLOTS.GARDEN = slot(XR + 2, 0, [[XR + 3, 6], [XR + 3, 5]], {}, 6, 6);   // the graduates' garden on the lawn right of the back row, a path leads there
   PATHS.push({ x0: XR, y0: 6, x1: XR + 5, y1: 9 });
-  SLOTS.TOWER = slot(XR + 3, dRow + 6, [[XR + 4, dRow + 6], [XR + 4, dRow + 5]], {}, 6, 6, [[[XR + 5, dRow + 6], [XR + 5, dRow + 5]]]);
-  PATHS.push({ x0: XR, y0: dRow + 2, x1: XR + 6, y1: dRow + 4 }, { x0: XR + 3, y0: dRow + 4, x1: XR + 6, y1: dRow + 6 });
-  // front block: library | reading court | reception | dorm | dorm 2 | shop (their walls toward the court are low, see buildEdges)
-  SLOTS.LIB = slot(0, recY, [[2, recY], [2, recY - 1]], {}, 6, 8, [[[3, recY], [3, recY - 1]], [[5, recY + 3], [6, recY + 3]], [[5, recY + 4], [6, recY + 4]]]);
-  SLOTS.REC = slot(12, recY, [[15, recY], [15, recY - 1]], {}, 9, 9,
-    [[[16, recY], [16, recY - 1]], [[17, recY], [17, recY - 1]], [[16, recY + 8], [16, recY + 9]], [[17, recY + 8], [17, recY + 9]], [[20, recY], [21, recY]]]);
-  SLOTS.DORM = slot(21, recY, [[21, recY], [20, recY]], {}, ROOM, dormDepth(1));
-  SLOTS.DORM2 = slot(27, recY, [[27, recY + 3], [26, recY + 3]], {}, ROOM, dormDepth(2));
-  // pavilions in the court (her «слишком большой двор. Огромный кусок ничего»): the shop, the canteen and the director's office
-  // stand on the lawn around the fountain plaza, each in a quarter of the court, doors on their usual sides
-  { const cx = (COURT.x0 + COURT.x1) / 2, cy = (COURT.y0 + COURT.y1) / 2, qx0 = Math.round(cx - 12), qx1 = Math.round(cx + 6), qy0 = Math.round(cy - 11), qy1 = Math.round(cy + 5);
-    SLOTS.SHOP = slot(qx0, qy0, [[qx0 + 2, qy0 + 5], [qx0 + 2, qy0 + 6]], {}, 6, 6, [[[qx0 + 3, qy0 + 5], [qx0 + 3, qy0 + 6]]]);
-    SLOTS.CANT = slot(qx1, qy0, [[qx1 + 1, qy0], [qx1 + 1, qy0 - 1]], {}, 6, 6, [[[qx1 + 2, qy0], [qx1 + 2, qy0 - 1]]]);
-    SLOTS.DIR = slot(qx0, qy1, [[qx0 + 5, qy1 + 3], [qx0 + 6, qy1 + 3]], {}, 6, 6); }
-  BUILDING = { x0: 0, y0: 6, x1: Math.max(XR, 45), y1: recY + 8 };
+  // right column: canteen and the masters' tower, doors on their left side into the gallery
+  SLOTS.CANT = slot(Xr, cy0 + 2, [[Xr, cy0 + 4], [Xr - 1, cy0 + 4]], {}, 6, 6, [[[Xr, cy0 + 5], [Xr - 1, cy0 + 5]]]);
+  SLOTS.TOWER = slot(Xr, cy0 + 12, [[Xr, cy0 + 14], [Xr - 1, cy0 + 14]], {}, 6, 6, [[[Xr, cy0 + 15], [Xr - 1, cy0 + 15]]]);
+  // front row facing the court: shop | director | reception (opposite the fountain) | dorm | dorm 2; doors up into the gallery
+  const rx = cx0 + 12;   // shop and director fit between the left gallery and the reception; the reception looks up the court at the fountain
+  SLOTS.REC = slot(rx, Yf, [[rx + 3, Yf], [rx + 3, Yf - 1]], {}, 9, 9,
+    [[[rx + 4, Yf], [rx + 4, Yf - 1]], [[rx + 5, Yf], [rx + 5, Yf - 1]], [[rx + 4, Yf + 8], [rx + 4, Yf + 9]], [[rx + 5, Yf + 8], [rx + 5, Yf + 9]], [[rx + 8, Yf], [rx + 9, Yf]]]);
+  SLOTS.DIR = slot(rx - 6, Yf, [[rx - 3, Yf], [rx - 3, Yf - 1]], {}, 6, 6);
+  SLOTS.SHOP = slot(rx - 12, Yf, [[rx - 10, Yf], [rx - 10, Yf - 1]], {}, 6, 6, [[[rx - 9, Yf], [rx - 9, Yf - 1]]]);
+  SLOTS.DORM = slot(rx + 9, Yf, [[rx + 9, Yf], [rx + 8, Yf]], {}, ROOM, dormDepth(1));
+  SLOTS.DORM2 = slot(rx + 15, Yf, [[rx + 15, Yf + 3], [rx + 14, Yf + 3]], {}, ROOM, dormDepth(2));
+  // library under the left column with its reading corner, reached down the left gallery
+  const ly = Math.max(colEnd + GAP, Yf);
+  SLOTS.LIB = slot(0, ly, [[2, ly], [2, ly - 1]], {}, 6, 8, [[[3, ly], [3, ly - 1]], [[5, ly + 3], [6, ly + 3]], [[5, ly + 4], [6, ly + 4]]]);
+  BUILDING = { x0: 0, y0: 6, x1: Math.max(XR, Xr + 6), y1: Math.max(Yf + 9, ly + 8) };
   HALLS = [
-    { x0: CWD, y0: 6, x1: Math.max(XR, 45), y1: recY },              // the court and the corridor around it (rooms are cut out of it)
-    { x0: 0, y0: colEnd, x1: CWD, y1: recY },                          // under the left column, toward the library
-    { x0: 6, y0: recY, x1: 12, y1: recY + 8 },                       // reading court
-    { x0: 15, y0: recY + 9, x1: 19, y1: recY + 14 },                // path from the gate
+    { x0: CWD, y0: 6, x1: XR, y1: cy0 },                               // gallery under the back row
+    { x0: CWD, y0: cy0, x1: Math.max(Xr, rx + 21), y1: Yf },         // the court and the gallery round it (rooms are cut out of it); wide enough for the second dorm's front
+    { x0: 0, y0: colEnd, x1: CWD, y1: ly },                            // under the left column, toward the library
+    { x0: 6, y0: Yf, x1: CWD + BAND, y1: ly + 8 },                     // the left gallery runs down to the library's reading corner
+    { x0: rx + 3, y0: Yf + 9, x1: rx + 7, y1: Yf + 14 },               // path from the gate
   ];
-  GATE_TILE = { x: 16.5, y: recY + 12.5 };
-  GATE_Y = recY + 9;
-  GH = recY + 16; GW = XR + 12;
+  GATE_TILE = { x: rx + 4.5, y: Yf + 12.5 };
+  GATE_Y = Yf + 9;
+  GH = Math.max(Yf + 16, ly + 10); GW = Math.max(XR, Xr + 6) + 12;
 }
 function genLayout() {
   for (const k of Object.keys(SLOTS)) delete SLOTS[k];
@@ -524,7 +527,7 @@ function buildEdges() {
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
       if (id === 'hall' && WORLD === 1 && !nb && (side === 'x0' || side === 'y0') && !roomNear(x, y, side) && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1) { EDGES.push({ x, y, side, id, tall: true, hallWall: true, wallTheme: 'REC' }); continue; }   // corridor back wall with only grass behind it: a real tall wall (her «добавь стены где можно»)
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
-      const lowSide = (WORLD === 2 && side === 'x0' && nb === 'hall') || (WORLD === 1 && side === 'y0' && nb === 'hall' && ['LIB', 'REC', 'DORM', 'DORM2', 'SHOP'].includes(id)) || ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
+      const lowSide = (WORLD === 2 && side === 'x0' && nb === 'hall') || (WORLD === 1 && side === 'y0' && nb === 'hall' && ['LIB', 'REC', 'DORM', 'DORM2', 'SHOP', 'DIR'].includes(id)) || (WORLD === 1 && side === 'x0' && nb === 'hall' && ['CANT', 'TOWER'].includes(id)) || (WORLD === 1 && side === 'x0' && ['SHOP', 'DIR', 'REC', 'DORM', 'DORM2'].includes(id) && ['SHOP', 'DIR', 'REC', 'DORM', 'DORM2'].includes(nb)) || ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
       EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
     }
   }
@@ -2170,6 +2173,7 @@ function drawStatic() {
     const inside = rid === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
     const carpet = WORLD > 2 && inside && x >= 14 && x <= 16 && y > BUILDING.y0;   // world 1: no pink runner any more, parquet everywhere (her «Зачем розовая полоса плитки по коридору»)
     if (inCourt(x, y) && courtGrass) { const cc = courtC(), r = Math.hypot(x + 0.5 - cc.x, (y + 0.5 - cc.y)); poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = r < 4.6 || Math.abs(x + 0.5 - cc.x) < 1.2 || Math.abs(y + 0.5 - cc.y) < 1.2 ? stone : courtGrass; c.fill(); continue; }   // the court: grass, a round flagstone plaza and paths in a cross
+    if (inside && WORLD === 1 && COURT && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); continue; }   // build 241: the gallery round the court is stone, not the classrooms' parquet (designer review)
     if (inside && !carpet && WORLD <= 2 && corrFloor) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = corrFloor; c.fill(); continue; }   // parquet with star inlays
     const col = carpet ? (y % 2 ? '#d98f97' : '#dd979f') : inside ? (x % 2 ? '#d7a46e' : '#dcab76') : ((x + y) % 2 ? '#e9dcc4' : '#efe4cf');
     if (!inside && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); continue; }   // outdoor paths: rune flagstones
@@ -2898,17 +2902,17 @@ const director = { sp: 'starwhisker', ph: 0.9, flip: true, path: [] };
 // ======================= guided tour =======================
 // Each step: camera focus in tile coords (null = stay), title and text (Russian UI).
 const TOUR = [
-  { at: () => [14.5, SLOTS.REC.y0 + 4], title: 'Привет, директор! 👋', text: 'Это твоя Школа магии. Сюда приходят маленькие волшебные зверьки, чтобы учиться. Школа работает сама, даже когда игра закрыта. Давай покажу, как тут всё устроено.' },
+  { at: () => [(SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 + 4], title: 'Привет, директор! 👋', text: 'Это твоя Школа магии. Сюда приходят маленькие волшебные зверьки, чтобы учиться. Школа работает сама, даже когда игра закрыта. Давай покажу, как тут всё устроено.' },
   { at: () => [GATE_TILE.x, GATE_TILE.y - 1], title: 'Ворота', text: 'Новые ученики приходят через ворота. Чем лучше «Объявления о школе» (улучшаются в приёмной), тем чаще они приходят.' },
   { at: () => [OFFICER.x + 0.3, OFFICER.y], title: 'Приёмная и секретарь', text: 'Секретарь в розовой шляпе записывает новичков. Они стоят к ней в очереди, оранжевый кружок над ней — запись идёт. За каждого записанного ты получаешь взнос 🪙. Нажми на приёмную, чтобы сделать секретаря быстрее.' },
-  { at: () => [14.5, SLOTS.REC.y0 - 4], title: 'Общий коридор', text: 'Записавшись, ученик идёт по коридору в свой класс. Все классы соединены этим коридором: ученики проходят их по порядку, один за другим.' },
+  { at: () => [(SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 - 4], title: 'Общий коридор', text: 'Записавшись, ученик идёт по коридору в свой класс. Все классы соединены этим коридором: ученики проходят их по порядку, один за другим.' },
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Класс и урок', text: 'В классе ученик садится за парту. Учитель в фиолетовой шляпе ведёт урок. Зелёный кружок над учеником — сколько осталось до конца урока.' },
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Экзамен', text: 'После урока экзамен. Сдал — платит за обучение 🪙 и идёт в следующий класс. Шанс сдать зависит от учителя и обстановки. Нажми на класс: там можно улучшить учителя, добавить парты, сократить урок и купить предметы.' },
   { at: () => [(SLOTS.LIB.x0 + SLOTS.LIB.x1) / 2, (SLOTS.LIB.y0 + SLOTS.LIB.y1) / 2], title: 'Библиотека 📚', text: 'Не сдал экзамен — идёт в библиотеку готовиться (жёлтый кружок). Потом возвращается в класс и пересдаёт. После подготовки урок у него короче, а шанс сдать выше.' },
   { at: () => { const [, h] = slotOf(1).door; return [h[0] + 0.5, h[1] + 1]; }, title: 'Очередь у класса', text: 'У двери каждого класса может ждать до 6 учеников. Если все места за партами заняты и очередь полная, ученик расстраивается 😢 и идёт в спальню.' },
-  { at: () => [22, SLOTS.DORM.y0 + 3], title: 'Спальня и консьержка 🛏️', text: 'В спальне консьержка в зелёной шляпе записывает гостя, и он спит 💤, пока в его классе не освободится место. Если и кроватей нет — ученик уходит из школы 💔. Нажми на спальню, чтобы купить кровати.' },
+  { at: () => [(SLOTS.DORM.x0 + SLOTS.DORM.x1) / 2, SLOTS.DORM.y0 + 3], title: 'Спальня и консьержка 🛏️', text: 'В спальне консьержка в зелёной шляпе записывает гостя, и он спит 💤, пока в его классе не освободится место. Если и кроватей нет — ученик уходит из школы 💔. Нажми на спальню, чтобы купить кровати.' },
   { at: () => [14.5, SLOTS.EXAM.y0 + 3], title: 'Финальный экзамен 📜', text: 'Кто прошёл все открытые классы, идёт в Экзаменационный зал в самом конце коридора и сдаёт финальный экзамен. Не сдал — готовится в библиотеке и пересдаёт. Нажми на зал, чтобы улучшить экзаменатора и обстановку.' },
-  { at: () => [22, SLOTS.GARDEN.y0 + 3], title: 'Выпускники 🎓', text: 'Сдал финальный экзамен — выпускник! Он идёт в сад и улетает на своих крылышках. Число выпускников видно вверху экрана.' },
+  { at: () => [(SLOTS.GARDEN.x0 + SLOTS.GARDEN.x1) / 2, SLOTS.GARDEN.y0 + 3], title: 'Выпускники 🎓', text: 'Сдал финальный экзамен — выпускник! Он идёт в сад и улетает на своих крылышках. Число выпускников видно вверху экрана.' },
   { at: () => [(slotOf(2).x0 + slotOf(2).x1) / 2, (slotOf(2).y0 + slotOf(2).y1) / 2], title: 'Новые классы', text: 'На пустых местах можно построить новые классы — нажми на табличку с ценой. Чем больше классов, тем больше ученики платят за обучение.' },
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Происшествия 💥', text: 'Иногда в классе что-то случается: взорвался котёл, растения опутали парты, учитель простыл. Ученики носятся по классу, урок стоит, над классом горит «Нажми!». Нажми на класс — и всё снова в порядке. Если не трогать, через 10 минут пройдёт само, но школа потеряет монеты.' },
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Настроение 😊', text: 'Долгие очереди и ожидание в спальне огорчают учеников 😟, уроки и библиотека радуют 😄. Весёлые сдают экзамены лучше. Совсем грустный ученик 😭 может уйти домой. Добавляй парты и сокращай уроки, чтобы никто долго не ждал.' },
@@ -3986,7 +3990,7 @@ function frame(now) {
   warmRooms();
   requestAnimationFrame(frame);
 }
-const LAYOUT = 10;   // 10: world 1 courtyard layout (build 229)
+const LAYOUT = 11;   // 10: world 1 courtyard layout (build 229); 11: world 1 «круг к экзамену» (build 241)
 function relayout() {   // rebuild the map (a class was expanded): creatures keep their task, seats move with the rooms
   const snap = agents.length ? (save(), S.world) : null;
   genLayout(); buildGrid(); buildEdges(); decorateEdges();
@@ -4157,7 +4161,7 @@ window.__sim = {
 };
 window.__test = { P, SLOTS, focusTile, edges: (x0, y0, x1, y1) => EDGES.filter((e) => e.x >= x0 && e.x <= x1 && e.y >= y0 && e.y <= y1).map((e) => `${e.x},${e.y},${e.side},${e.id},${e.tall ? 'T' : 'k'}${e.hallWall ? 'H' : ''}`), vanishDemo: (t) => { const g = SLOTS.GARDEN, src = agents.find((a) => SPECIES.includes(a.sp)); if (!src) return 0; agents.push({ ...src, id: S.nextId++, x: g.x0 + 4.85, y: g.y0 + 1.35, path: [], state: 'vanish', t: t || 0, goal: { t: 'g' }, c: -1, desk: -1 }); return 1; }, reg: (x, y) => regAt(x, y), world: () => ({ WW, WH, GW, GH, MARGIN, SW, SH, HW, HH, GATE: GATE_TILE, GATE_Y, BUILDING }), get renderMs() { return renderMs; }, get staticN() { return staticN; }, get roomBuilds() { return roomBuilds; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outShN: () => Object.keys(outSh).length + '/' + Object.keys(outLo).length, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
-{ const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
+{ const h = P((SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
 updateHud();
 if (!S.tourDone && WORLD === 1) setTimeout(() => { closePanel(); showTour(0); }, 600);
