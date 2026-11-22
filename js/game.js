@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=205';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=205';
+} from './data.js?v=206';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=206';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 205;   // keep equal to the ?v= number in index.html
+const BUILD = 206;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -38,7 +38,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly' && !a.mcls).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed })),
+    agents: agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !a.mcls).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -678,13 +678,34 @@ function goGraduate(a) {
   const g = SLOTS.GARDEN;
   a.c = -1; a.state = 'walk'; a.goal = { t: 'g' };
   if (a.retake) { retakeHome(a); return; }   // an elder from the tower after his retake: not a new graduate
-  const an = Math.random() * Math.PI * 2, rr = 2.0 + Math.random() * 0.5, tx = WORLD === 1 ? g.x0 + 3 + Math.cos(an) * rr : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 3 + Math.sin(an) * rr : g.y0 + 1 + Math.random() * 4;   // around the fountain
+  const tx = WORLD === 1 ? g.x0 + 4.85 + (Math.random() - 0.5) * 0.3 : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 1.35 + (Math.random() - 0.5) * 0.2 : g.y0 + 1 + Math.random() * 4;   // into the gazebo (her wish: they vanish there, like through a magic fireplace)
   walk(a, tx, ty, () => {
     S.stats.graduated++;
     if (helperAdmit(a)) return;                       // mages and elder mages stay as teachers' helpers (elders replace mages)
     if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower                       // mages stay as teachers' helpers (two per class, different kinds)
     popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
+    if (WORLD === 1) { a.state = 'vanish'; a.t = 0; return; }   // a swirl of magic light in the gazebo and the graduate is gone
     a.state = 'fly'; a.t = 0; a.vx = (Math.random() < 0.5 ? -1 : 1) * 0.6;
+  });
+}
+const VANISH_T = 2.8;
+function drawVanish(a, x, y) {   // magic-fireplace style (her wish): violet-gold flames burst up around the graduate, he spins, shrinks, fades, a last flash (2.8 s)
+  const u = Math.min(1, a.t / VANISH_T), s0 = P(x, y), T = a.t;
+  const col = u < 0.15 ? u / 0.15 : u > 0.82 ? (1 - u) / 0.18 : 1;
+  const fade = u < 0.4 ? 1 : Math.max(0, 1 - (u - 0.4) / 0.35), sc = 1 - 0.6 * Math.max(0, (u - 0.35) / 0.45);
+  if (fade > 0) { ctx.save(); ctx.globalAlpha = fade; drawCreature({ ...a, path: [], flip: Math.sin(T * (4 + T * 6)) > 0 }, x, y, 30 * Math.max(0.3, sc)); ctx.restore(); }
+  fxTop.push(() => {
+    ctx.save();
+    ctx.globalAlpha = 0.3 * col; ctx.drawImage(glowSprite('170,110,255'), s0.x - 30, s0.y - 90, 60, 110);   // the light column (soft: the graduate must stay visible)
+    ctx.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 9; k++) {   // flame tongues licking up from the floor, each 0.9 s
+      const v = ((T * 1.1 + k * 0.37) % 1), fx = s0.x + (k % 2 ? 1 : -1) * (9 + Math.sin(k * 2.3) * 5) * (1 - v * 0.5), fy = s0.y - 4 - v * 62 * (0.6 + 0.4 * col), r = (9 - v * 7) * (0.6 + 0.4 * col);
+      ctx.globalAlpha = col * (1 - v) * 0.4; ctx.drawImage(glowSprite(k % 3 === 0 ? '255,200,110' : k % 3 === 1 ? '200,130,255' : '150,220,255'), fx - r, fy - r * 1.6, r * 2, r * 3.2);
+    }
+    ctx.restore();
+    for (let k = 0; k < 12; k++) { const an = T * (3 + k * 0.25) + k * 0.52, r = 16 * (1 - u * 0.4), hy = ((T * 0.8 + k * 0.083) % 1) * 75;   // sparks spiral up
+      fxStar(s0.x + Math.cos(an) * r, s0.y - 6 - hy + Math.sin(an) * r * 0.35, 1.6, col * (1 - hy / 90), k % 2 ? '255,214,120' : '210,170,255'); }
+    if (u > 0.72 && u < 0.97) { const v = (u - 0.72) / 0.25; ctx.save(); ctx.globalAlpha = (1 - v) * 0.6; ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glowSprite('255,245,220'), s0.x - 30 - v * 30, s0.y - 50 - v * 30, 60 + v * 60, 60 + v * 60); ctx.restore(); }   // the last flash: he is gone
   });
 }
 const WALK_K = 0.8;   // walking a bit slower: the rooms got bigger on screen
@@ -695,7 +716,7 @@ const MOOD_DROP = { queue: 0.5, process: 0, wait: 1.0, walkwait: 1.0, sleep: 0.4
 const moodOf = (a) => (a.mood ?? 80);
 const moodBonus = (a) => (moodOf(a) - 60) / 400;   // mood 100: +10%, mood 20: -10%
 const moodFace = (m) => (m >= 70 ? '😊' : m >= 40 ? '🙂' : m >= 20 ? '😟' : '😭');
-function avgMood() { const l = agents.filter((a) => a.state !== 'fly' && !(a.goal && a.goal.t === 'x')); return l.length ? l.reduce((n, a) => n + moodOf(a), 0) / l.length : 80; }
+function avgMood() { const l = agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && a.goal.t === 'x')); return l.length ? l.reduce((n, a) => n + moodOf(a), 0) / l.length : 80; }
 function giveUp(a) {   // too sad to keep waiting: frees its place and goes home
   if (a.state === 'wait' || a.state === 'walkwait') { const l = waitList[a.c]; const k = l ? l.indexOf(a) : -1; if (k >= 0) { l.splice(k, 1); pullWaiting(a.c); } }
   else if (a.state === 'sleep') { if (a.bed >= 0 && dorm[a.bed] === a) dorm[a.bed] = null; a.bed = -1; }
@@ -717,7 +738,8 @@ function stepMood(a, dt, live) {
 function stepAgents(dt, live = false) {
   for (const a of agents) {
     a.ph += dt;
-    if (a.state !== 'fly') stepMood(a, dt, live);
+    if (a.state !== 'fly' && a.state !== 'vanish') stepMood(a, dt, live);
+    if (a.state === 'vanish') { a.t += dt; if (a.t >= VANISH_T) a.gone = true; continue; }
     if (a.state === 'fly') { a.t += dt; a.z += (40 + a.t * 60) * dt; a.x += a.vx * dt; a.y -= a.vx * dt; continue; }
     if (a.path.length) {
       if (!Number.isFinite(a.x) || !Number.isFinite(a.y)) { a.x = GATE_TILE.x; a.y = GATE_TILE.y; }   // never let a broken position freeze a creature
@@ -872,7 +894,7 @@ function inspPanel() {
     <p class="muted">Прошла — звезда школы (+3% к плате за все уроки) и награда. Не прошла — штраф. Звёзды тратятся на постройку новых классов, кабинета директора и открытие новых миров. Пока игра закрыта, инспектор не приходит.</p>`;
 }
 // how many students are in the school right now (her wish 2026-11-21)
-const inSchool = () => agents.filter((a) => a.state !== 'fly' && !(a.goal && (a.goal.t === 'x' || a.goal.t === 'g')));
+const inSchool = () => agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && (a.goal.t === 'x' || a.goal.t === 'g')));
 // ======================= ranks and the album (her design 2026-11-22) =======================
 // Every student enters as a novice. After a passed lesson in a class that holds the exam for its NEXT rank, the student
 // tries that exam (low chance): passed -> the student itself gets the new outfit on the spot (her ruling: «наряд получает
@@ -2419,7 +2441,7 @@ function statusOf0(a) {
   if (a.state === 'dline' || a.state === 'checkin' || g.t === 'd') return 'записывается в спальню у консьержки';
   if (g.t === 'cant') return a.state === 'eat' ? `обедает в столовой ${a.dish || '🍲'}` : a.state === 'cantbuy' || a.state === 'cantwait' ? 'стоит в очереди к повару' : 'идёт в столовую';
   if (g.t === 'shop') return a.state === 'shopping' ? 'покупает вкусняшку в лавке 🍭' : 'идёт в лавку';
-  if (g.t === 'g' || a.state === 'fly') return 'выпускник! 🎓 идёт в сад';
+  if (g.t === 'g' || a.state === 'fly' || a.state === 'vanish') return 'выпускник! 🎓 идёт в сад';
   if (g.t === 'x') return 'расстроился и уходит из школы 💔';
   if (g.t === 's' || g.t === 'c') return `идёт на урок: ${cn(g.i)}`;
   return 'гуляет по школе';
@@ -2590,6 +2612,7 @@ function render() {
         if (cyc < 1.6) { const f = moodOf(a) >= 90 ? ['🥰', '😄', '💖'][a.id % 3] : moodOf(a) >= 78 ? ['😄', '😊'][a.id % 2] : '🙂'; emoji(f, x - 13, y - 31 - Math.sin(cyc / 1.6 * Math.PI) * 4, 11); }
       }
     });
+    if (a.state === 'vanish') { add(ax, ay, () => drawVanish(a, ax, ay), 0.3); continue; }
     if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else add(ax, ay, draw);
   }
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
@@ -2598,7 +2621,7 @@ function render() {
   drawSeals();
   // x-ray: every creature is drawn once more, faintly, on top: the ones hidden behind a wall show through as ghosts
   ctx.globalAlpha = 0.38;
-  for (const a of agents) if (a.state !== 'fly') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) drawCreature(a, gx, gy, 30); }
+  for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) drawCreature(a, gx, gy, 30); }
   ctx.globalAlpha = 1;
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
@@ -3595,7 +3618,7 @@ window.__sim = {
   stars: () => schoolStars(),
   inSchool: () => inSchool().length,
 };
-window.__test = { P, SLOTS, focusTile, reg: (x, y) => regAt(x, y), world: () => ({ WW, WH, GW, GH, MARGIN, SW, SH, HW, HH, GATE: GATE_TILE, GATE_Y, BUILDING }), get renderMs() { return renderMs; }, get staticN() { return staticN; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outShN: () => Object.keys(outSh).length + '/' + Object.keys(outLo).length, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, vanishDemo: (t) => { const g = SLOTS.GARDEN, src = agents.find((a) => SPECIES.includes(a.sp)); if (!src) return 0; agents.push({ ...src, id: S.nextId++, x: g.x0 + 4.85, y: g.y0 + 1.35, path: [], state: 'vanish', t: t || 0, goal: { t: 'g' }, c: -1, desk: -1 }); return 1; }, reg: (x, y) => regAt(x, y), world: () => ({ WW, WH, GW, GH, MARGIN, SW, SH, HW, HH, GATE: GATE_TILE, GATE_Y, BUILDING }), get renderMs() { return renderMs; }, get staticN() { return staticN; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outShN: () => Object.keys(outSh).length + '/' + Object.keys(outLo).length, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
