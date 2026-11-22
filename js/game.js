@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=152';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=152';
+} from './data.js?v=153';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=153';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 152;   // keep equal to the ?v= number in index.html
+const BUILD = 153;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -45,9 +45,9 @@ function save() {
 
 // ---- balance (rebalance 2026-11-22, her goal: world 1 in ~1.5 weeks, first master on ~day 5; tuned with tools/sim_driver.js) ----
 const BAL_NEW = { chance0: 0.45, maxChance: 0.8, item: 1.5, teacher: 1.6, expand: 600, expandK: 4, desk: 3.0, examDesk: 1.8, time: 2.0, rec: 1.5, ads: 1.55,
-  build: [0, 2000, 50000, 1000000, 60000000, 1500000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000 };
+  build: [0, 2000, 50000, 1000000, 60000000, 150000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000 };
 const BAL_OLD = { chance0: 0.6, maxChance: 0.85, item: 1.25, teacher: 1.35, expand: 120, expandK: 3, desk: 2.3, examDesk: 1.6, time: 1.6, rec: 1.4, ads: 1.45, build: [], buildTime: [], tower: 500000 };
-const BAL = { ...BAL_OLD };   // the new balance goes live only when tuned (the pacing simulation switches it with __sim.bal)
+const BAL = { ...BAL_NEW };   // live since build 153 (tuned with the pacing simulation; BAL_OLD kept for comparison runs)
 const buildCost = (i) => (WORLD === 1 && BAL.build[i] !== undefined ? BAL.build[i] : CLASSES[i].build);
 const buildTime = (i) => (WORLD === 1 && BAL.buildTime[i] !== undefined ? BAL.buildTime[i] : CLASSES[i].buildTime);
 const cls = (id) => S.classes[CLASSES.findIndex((c) => c.id === id)];
@@ -604,6 +604,7 @@ function goGraduate(a) {
   walk(a, g.x0 + 1 + Math.random() * 4, g.y0 + 1 + Math.random() * 4, () => {
     S.stats.graduated++;
     if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower
+    if (helperAdmit(a)) return;                       // mages stay as teachers' helpers (two per class, different kinds)
     popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
     a.state = 'fly'; a.t = 0; a.vx = (Math.random() < 0.5 ? -1 : 1) * 0.6;
   });
@@ -800,13 +801,13 @@ const RANKS_TO = ['новичком', 'учеником', 'младшим маг
 const ELEMS = [{ name: 'огня', emo: '🔥', col: '255,106,43' }, { name: 'воды', emo: '💧', col: '63,169,245' }, { name: 'земли', emo: '🌱', col: '90,160,44' }, { name: 'воздуха', emo: '🌪️', col: '120,200,230' }];
 const RANK_AT = (i) => (CLASSES[i].final ? 5 : [1, 1, 2, 2, 3, 4][i] || 0);   // the rank exam each class holds
 const RANK_BASE = [0, 0.30, 0.20, 0.12, 0.05, 0.025];    // chance at upgrade level 0 (rank 5: all four elements together)
-const RANK_STEP = [0, 0.01, 0.01, 0.01, 0.01, 0.005];   // + per «Шанс экзамена» level
+const RANK_STEP = [0, 0.01, 0.01, 0.01, 0.01, 0.004];   // + per «Шанс экзамена» level
 const RANK_MUL = [1, 1.3, 1.7, 2.2, 3, 5];              // a student in that rank pays this much more for every lesson
-const FORM_BASE = [4000, 15000, 80000, 400000, 2000000, 10000000];   // first card level price per rank
+const FORM_BASE = [10000, 40000, 250000, 1200000, 6000000, 30000000];   // first card level price per rank
 const MAX_EX_LVL = 20, MAX_XPL_LVL = 10, FORM_MAX = 20;
 const exLvl = (i) => S.classes[i].ex || 0, xplLvl = (i) => S.classes[i].xpl || 0;
-const rankChance = (i) => RANK_BASE[RANK_AT(i)] + RANK_STEP[RANK_AT(i)] * exLvl(i);
-const exCost = (i) => Math.round(CLASSES[i].tuition * 300 * Math.pow(1.7, exLvl(i)));
+const rankChance = (i) => RANK_BASE[RANK_AT(i)] + RANK_STEP[RANK_AT(i)] * exLvl(i) + helpBonus(i);
+const exCost = (i) => Math.round(CLASSES[i].tuition * 300 * Math.pow(2.0, exLvl(i)));
 const xplCost = (i) => Math.round(CLASSES[i].tuition * 200 * Math.pow(1.8, xplLvl(i)));
 const fkey = (sp, rk, el) => sp + ':' + rk + (rk === 5 ? ':' + el : '');
 const FORM_KEYS = SPECIES.flatMap((sp) => [0, 1, 2, 3, 4].map((rk) => fkey(sp, rk)).concat([0, 1, 2, 3].map((el) => fkey(sp, 5, el))));
@@ -815,8 +816,8 @@ const formOf = (a) => fkey(a.sp, a.rk || 0, a.el || 0);
 const formRank = (k) => +k.split(':')[1];
 const formTitle = (k) => { const [, rk, el] = k.split(':'); return +rk === 5 ? 'Мастер ' + ELEMS[el].name : RANKS[rk]; };
 const formName = (k) => `${SP_NAMES[k.split(':')[0]]} — ${formTitle(k)}`;
-const formNeed = (l) => Math.round(25 * Math.pow(1.5, l - 1));
-const formCost = (k) => Math.round(FORM_BASE[formRank(k)] * Math.pow(1.9, formSt(k).lvl - 1));
+const formNeed = (l) => Math.round(25 * Math.pow(1.6, l - 1));
+const formCost = (k) => Math.round(FORM_BASE[formRank(k)] * Math.pow(2.1, formSt(k).lvl - 1));
 const payMul = (a) => (SPECIES.includes(a.sp) ? RANK_MUL[a.rk || 0] * (1 + 0.05 * (formSt(formOf(a)).lvl - 1)) : 1);
 const formReady = (k) => { const f = formSt(k); return f.seen && f.lvl < FORM_MAX && f.xp >= formNeed(f.lvl); };
 function migrateForms() {   // build 149: the old per-species levels (builds 143-148) move into the album, nothing is lost
@@ -864,17 +865,25 @@ function rankSection(i) {   // the class panel part about the rank exam held her
 }
 const formImg = (k) => { const [sp, rk] = k.split(':'); const t = Math.min(4, +rk); return `assets/creatures/${sp}${t ? '_t' + t : ''}.png${t ? '?v=1' : ''}`; };
 let albumSp = SPECIES[0];
+function formCounts() {   // how many of each form are in the school now: students, tower residents, helper mages
+  const c = {}, inc = (k) => { c[k] = (c[k] || 0) + 1; };
+  for (const a of inSchool()) if (SPECIES.includes(a.sp)) inc(formOf(a));
+  if (S.tower) [...(S.tower.res || []), ...(S.tower.wait || [])].forEach((r) => inc(fkey(r.sp, r.rk, r.el || 0)));
+  for (const l of Object.values(S.helpers || {})) l.forEach((h) => inc(fkey(h.sp, 3)));
+  return c;
+}
+let FC = {};
 function formCard(k) {
   const f = formSt(k), rk = formRank(k), el = +(k.split(':')[2] || 0), need = formNeed(f.lvl);
   const pic = `<div class="fpic${f.seen ? '' : ' sil'}${rk === 5 ? ' master' : ''}"${rk === 5 ? ` style="--ec:rgb(${ELEMS[el].col})"` : ''}><img src="${formImg(k)}">${rk === 5 && f.seen ? `<em>${ELEMS[el].emo}</em>` : ''}</div>`;
   if (!f.seen) return `<div class="card up locked">${pic}<div class="grow"><b>${formTitle(k)}</b><div class="muted">${rk === 5 ? 'сдай экзамен на Мастера в Экзаменационном зале' : `ещё никто не стал ${RANKS_TO[rk]}`}</div></div><span class="muted">❔</span></div>`;
   return `<div class="card up">${pic}<div class="grow"><b>${formTitle(k)}</b> <span class="muted">ур. ${f.lvl}/${FORM_MAX}</span>
-    <div class="muted">плата за урок ×${+(RANK_MUL[rk] * (1 + 0.05 * (f.lvl - 1))).toFixed(2)}</div>
+    <div class="muted">плата за урок ×${+(RANK_MUL[rk] * (1 + 0.05 * (f.lvl - 1))).toFixed(2)} · в школе сейчас: <b>${FC[k] || 0}</b></div>
     ${f.lvl < FORM_MAX ? `<div class="lvbar"><i style="width:${Math.min(100, f.xp / need * 100)}%"></i></div><div class="muted">опыт ${fmt(Math.min(f.xp, need))}/${fmt(need)}</div>` : ''}</div>
     ${f.lvl >= FORM_MAX ? '<span class="done">макс.</span>' : f.xp >= need ? costBtn('↑', formCost(k), 'formlvl', `data-k="${k}"`) : '<span class="muted">копит опыт</span>'}</div>`;
 }
 function speciesPanel() {   // 🎓 album (own button at the bottom; her ruling 2026-11-22: it levels the student IN THAT OUTFIT)
-  const seen = FORM_KEYS.filter((k) => formSt(k).seen).length;
+  const seen = FORM_KEYS.filter((k) => formSt(k).seen).length; FC = formCounts();
   const tabs = SPECIES.map((sp) => `<button class="chip${sp === albumSp ? ' on' : ''}${FORM_KEYS.some((k) => k.startsWith(sp + ':') && formReady(k)) ? ' dot' : ''}" data-alb="${sp}"><img src="assets/creatures/${sp}.png"></button>`).join('');
   return `<div class="sh-head"><span class="remoji big">🎓</span><div><h2>Альбом учеников</h2><div class="muted">Открыто карточек: ${seen} из ${FORM_KEYS.length}</div></div><button class="x" data-close>✕</button></div>
     <div class="chips">${tabs}</div><h3>${SP_NAMES[albumSp]}</h3>
@@ -890,8 +899,8 @@ const towerUp = () => (S.tower ||= { built: false, cap: 0, res: [], wait: [] });
 const towerOpen = () => WORLD === 1 && !!(S && S.tower && S.tower.built);
 const towerCap = () => TOWER_BASE + towerUp().cap;
 const towerCost = () => BAL.tower;
-const towerCapCost = () => Math.round(BAL.tower * 0.4 * Math.pow(2.0, towerUp().cap));
-const RES_K = { 4: 0.02, 5: 0.08 };   // coins per second = tuition of the last class x this
+const towerCapCost = () => Math.round(BAL.tower * 0.4 * Math.pow(2.3, towerUp().cap));
+const RES_K = { 4: 0.015, 5: 0.05 };   // coins per second = tuition of the last class x this
 const resRate = (r) => { const li = NCLS - 1; return isOpen(li) ? tuition(li) * (RES_K[r.rk] || 0) : 0; };
 const towerRate = () => (towerOpen() ? towerUp().res.reduce((n, r) => n + resRate(r), 0) : 0);
 const mastersLiving = () => (towerOpen() ? towerUp().res.filter((r) => r.rk === 5).length : 0);
@@ -943,6 +952,68 @@ function towerPanel() {
       ${T.cap >= TOWER_MAXUP ? '<span class="done">макс.</span>' : costBtn('+1', towerCapCost(), 'towercap')}</div>
     ${T.wait.length ? `<h3>Ждут у двери: ${T.wait.length}</h3>${wait}<p class="muted">Освободи место — и первый ждущий сразу заселится. Если мест нет, а у двери уже ${TOWER_WAIT}, следующие выпускаются как обычно.</p>` : ''}
     <h3>Жильцы</h3>${res || '<p class="muted">Пока никого. Сюда попадут ученики, которые сдали финальный экзамен Старшим магом или Мастером.</p>'}`;
+}
+// ======================= helper mages (her ruling 2026-11-22) =======================
+// A student who passes the final exam as a «Маг» (rank 3) stays and helps a teacher: at most two helpers per class and
+// never two of the same kind in one class; when no class can take him, he graduates as usual. Helpers stroll between
+// their class and the corridor in front of it, and each one raises the rank exam chance of that class.
+const HELP_MAX = 2, HELP_BONUS = 0.03;
+const helpersAll = () => (S.helpers ||= {});
+const helpersOf = (i) => (S && S.helpers && S.helpers[i]) || [];
+const helpBonus = (i) => HELP_BONUS * helpersOf(i).length;
+const helpersCount = () => Object.values(helpersAll()).reduce((n, l) => n + l.length, 0);
+function helperSlot(sp) {   // the class with the fewest helpers that has no helper of this kind yet
+  let best = -1;
+  for (let i = 0; i < NCLS; i++) {
+    if (!isOpen(i)) continue;
+    const h = helpersOf(i);
+    if (h.length >= HELP_MAX || h.some((x) => x.sp === sp)) continue;
+    if (best < 0 || h.length < helpersOf(best).length) best = i;
+  }
+  return best;
+}
+function helperAdmit(a) {
+  if (WORLD !== 1 || !SPECIES.includes(a.sp) || (a.rk || 0) !== 3) return false;
+  const i = helperSlot(a.sp); if (i < 0) return false;
+  (helpersAll()[i] ||= []).push({ sp: a.sp, name: a.name });   // taken at once; the walk back to the class is for the eye
+  const [, h] = slotOf(i).door; a.state = 'walk'; a.goal = { t: 'tw' };
+  walk(a, h[0] + 0.5, h[1] + 0.5, () => { a.gone = true; });
+  if (!ffwd) toast(`🪄 ${a.name} (Маг) остался помогать: ${CLASSES[i].emoji} ${CLASSES[i].name}`);
+  return true;
+}
+const helpPaths = {};
+function helperRoute(i, k) {   // inside spot -> door -> a little way into the corridor (cached per layout)
+  const s = slotOf(i), key = [s.x0, s.y0, s.x1, s.y1, k].join(',');
+  let r = helpPaths[i + ':' + k];
+  if (r && r.key === key) return r;
+  const inside = { x: k ? s.x1 - 1.3 : s.x0 + 1.3, y: s.y0 + 1.9 };
+  const [d0, h] = s.door, dx = h[0] - d0[0], dy = h[1] - d0[1];
+  let out = { x: h[0] + 0.5 + dx * 1.5 + (k ? 0.8 : -0.8) * Math.abs(dy), y: h[1] + 0.5 + dy * 1.5 + (k ? 0.8 : -0.8) * Math.abs(dx) };
+  if (!regAt(Math.floor(out.x), Math.floor(out.y))) out = { x: h[0] + 0.5, y: h[1] + 0.5 };
+  const pts = [inside, ...bfs(inside.x, inside.y, h[0] + 0.5, h[1] + 0.5), out];
+  const cum = [0]; for (let n = 1; n < pts.length; n++) cum.push(cum[n - 1] + Math.hypot(pts[n].x - pts[n - 1].x, pts[n].y - pts[n - 1].y));
+  r = helpPaths[i + ':' + k] = { key, pts, cum, len: cum[cum.length - 1] };
+  return r;
+}
+function helperPos(i, k) {   // render-only: helps inside 16 s, walks out, looks around the corridor 5 s, walks back
+  const r = helperRoute(i, k), walkT = Math.max(1, r.len / 1.1), inT = 16, outT = 5, cyc = inT + outT + 2 * walkT;
+  const T = (performance.now() / 1000 + i * 7.3 + k * (cyc / 2)) % cyc;
+  let d, moving = false, back = false;
+  if (T < inT) d = 0;
+  else if (T < inT + walkT) { d = (T - inT) / walkT * r.len; moving = true; }
+  else if (T < inT + walkT + outT) d = r.len;
+  else { d = (1 - (T - inT - walkT - outT) / walkT) * r.len; moving = true; back = true; }
+  let n = 1; while (n < r.cum.length - 1 && r.cum[n] < d) n++;
+  const a = r.pts[n - 1], b = r.pts[n] || a, seg = Math.max(1e-6, r.cum[n] - r.cum[n - 1]), u = Math.min(1, Math.max(0, (d - r.cum[n - 1]) / seg));
+  const x = a.x + (b.x - a.x) * u, y = a.y + (b.y - a.y) * u;
+  const dir = back ? { x: a.x - b.x, y: a.y - b.y } : { x: b.x - a.x, y: b.y - a.y };
+  const sway = moving ? 0 : Math.sin(performance.now() / 900 + k) * 0.15;
+  return { x: x + sway, y, moving, flip: moving ? (dir.x - dir.y) < 0 : k === 1, back: moving && (dir.x + dir.y) < 0 };
+}
+function helpersHtml(i) {
+  if (WORLD !== 1 || CLASSES[i].final) return '';
+  const h = helpersOf(i);
+  return `<div class="card up"><span class="remoji">🪄</span><div class="grow"><b>Помощники-маги: ${h.length}/${HELP_MAX}</b><div class="muted">${h.length ? h.map((x) => `${x.name} (${SP_NAMES[x.sp]})`).join(', ') : 'выпускник со званием «Маг» останется помогать, если здесь нет мага его вида'} · +${HELP_BONUS * 100}% к экзамену на звание за каждого</div></div></div>`;
 }
 function peoplePanel() {
   const l = inSchool(), n = (f) => l.filter(f).length;
@@ -1731,6 +1802,10 @@ function render() {
   }
   // reception desk + officer
   if (WORLD === 1 && SLOTS.LIB) { const lo = librarianPos(), im = sprites['lib_' + lo.pose]; if (im && im.naturalWidth) add(lo.x, lo.y, () => { teacherGlow(lo, 56, 'rgba(255,244,200,0.85)'); drawPose(im, lo.x, lo.y, 56, lo.flip, lo.moving); }); }   // glow: he blended into the dark green room (her report)
+  if (WORLD === 1) for (const [ci, list] of Object.entries(helpersAll())) {   // helper mages stroll between their class and the corridor
+    const i = +ci; if (!slotOf(i) || !isOpen(i)) continue;
+    list.forEach((h, k) => { const p = helperPos(i, k); add(p.x, p.y, () => drawCreature({ sp: h.sp, rk: 3, back: p.back, flip: p.flip, path: p.moving ? [1] : [], ph: k + i + performance.now() / 1000 }, p.x, p.y, 30)); });
+  }
   if (towerOpen() && SLOTS.TOWER) {   // residents of the masters' tower stroll; those waiting stand at the door outside
     const T = towerUp();
     T.res.forEach((r, k) => { const p = towerPos(k); add(p.x, p.y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: p.flip, path: p.moving ? [1] : [], ph: k * 1.7 + performance.now() / 1000 }, p.x, p.y, 30)); });
@@ -1841,7 +1916,7 @@ function classPanel(i) {
     let h = `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">${C.final ? 'Последний шаг: сдал — стал выпускником 🎓, не сдал — в библиотеку' : `Урок ${i + 1} из ${CLASSES.length - 1}`}</div></div><button class="x" data-close>✕</button></div>
       <div class="stats3"><div><span>🪙</span><b>${fmt(tuition(i))}</b><i>плата</i></div><div><span>🎯</span><b>${pct(success(i))}</b><i>сдают экзамен</i></div><div><span>⏱️</span><b>${sec(lessonTime(i))}</b><i>урок</i></div></div>
       ${overflow(i) > 0 ? `<p class="muted">🎯 Шанс уже максимальный (${Math.round(BAL.maxChance * 100)}%). Всё, что сверху (+${Math.round(overflow(i) * 100)}%), превращается в плату: <b>+${Math.round(overflow(i) * 200)}%</b>.</p>` : ''}
-      <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>${rankSection(i)}`;
+      <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>${rankSection(i)}${helpersHtml(i)}`;
     h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · +5% платы и +1,5% к экзамену</div></div>
       ${st.teacher >= MAX_TEACHER_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', teacherCost(i), 'teacher', `data-i="${i}"`)}</div>`;
     h += `<div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Парты: ${st.desks}/${maxDesksOf(i)}</b><div class="muted">больше учеников за раз</div></div>
@@ -2211,8 +2286,8 @@ function renderMission() {
 // ======================= world map =======================
 function readMetaLocal() { try { return JSON.parse(localStorage.getItem('magicschool.meta')) || {}; } catch (e) { return {}; } }
 function worldStats(w) {   // {grads, coins} of a world's save
-  if (w === WORLD) return { grads: S.stats.graduated, coins: S.coins, stars: schoolStars() };
-  try { const o = JSON.parse(localStorage.getItem(saveKeyOf(w))); return o ? { grads: o.stats.graduated, coins: o.coins, stars: (o.insp && o.insp.stars) || 0 } : null; } catch (e) { return null; }
+  if (w === WORLD) return { grads: S.stats.graduated, coins: S.coins, stars: schoolStars(), masters: (S.stats.ranks || [])[5] || 0 };
+  try { const o = JSON.parse(localStorage.getItem(saveKeyOf(w))); return o ? { grads: o.stats.graduated, coins: o.coins, stars: (o.insp && o.insp.stars) || 0, masters: (o.stats.ranks || [])[5] || 0 } : null; } catch (e) { return null; }
 }
 const worldOpen = (w) => w === 1 || (readMetaLocal().unlocked || []).includes(w);
 function worldsPanel() {
@@ -2224,9 +2299,9 @@ function worldsPanel() {
     else if (open) right = `<button class="btn" data-world="${w.id}">Перейти</button>`;
     else {
       const src = worldStats(WORLD === 1 ? 1 : 1) || { grads: 0, coins: 0 }, n = w.need;
-      const ok = src.grads >= n.grads && src.coins >= n.coins && (src.stars || 0) >= (n.stars || 0);
+      const ok = src.grads >= n.grads && src.coins >= n.coins && (src.stars || 0) >= (n.stars || 0) && (src.masters || 0) >= (n.masters || 0);
       right = ok ? `<button class="btn hot" data-world-open="${w.id}">Открыть 🪙${fmt(n.coins)}${n.stars ? ` ⭐${n.stars}` : ''}</button>` : '<span class="lock">🔒</span>';
-      w._need = `🎓 ${fmt(Math.min(src.grads, n.grads))}/${fmt(n.grads)} выпускников · 🪙 ${fmt(Math.min(src.coins, n.coins))}/${fmt(n.coins)}${n.stars ? ` · ⭐ ${Math.min(src.stars || 0, n.stars)}/${n.stars}` : ''} в Школе магии`;
+      w._need = `🎓 ${fmt(Math.min(src.grads, n.grads))}/${fmt(n.grads)} выпускников · 🪙 ${fmt(Math.min(src.coins, n.coins))}/${fmt(n.coins)}${n.stars ? ` · ⭐ ${Math.min(src.stars || 0, n.stars)}/${n.stars}` : ''}${n.masters ? ` · 🌟 Мастер стихии ${Math.min(src.masters || 0, n.masters)}/${n.masters}` : ''} в Школе магии`;
     }
     return `<div class="card up world ${cur ? 'cur' : ''}"><span class="remoji big">${w.emoji}</span><div class="grow"><b>${w.name}</b><div class="muted">${w.desc}</div>${w._need && !open ? `<div class="muted">${w._need}</div>` : ''}</div>${right}</div>`;
   }).join('');
@@ -2239,7 +2314,7 @@ function goWorld(w) {
 }
 function openWorld(w) {
   const n = WORLDS.find((x) => x.id === w).need, src = worldStats(1);
-  if (WORLD !== 1 || !src || src.grads < n.grads || src.coins < n.coins || (src.stars || 0) < (n.stars || 0)) return;
+  if (WORLD !== 1 || !src || src.grads < n.grads || src.coins < n.coins || (src.stars || 0) < (n.stars || 0) || (src.masters || 0) < (n.masters || 0)) return;
   if (!confirm(`Открыть новый мир за 🪙${fmt(n.coins)}${n.stars ? ` и ⭐ ${n.stars}` : ''}? Они спишутся в Школе магии.`)) return;
   S.coins -= n.coins; if (n.stars) insp().stars -= n.stars; save();
   const m = readMetaLocal(); m.unlocked = [...new Set([...(m.unlocked || []), w])]; localStorage.setItem('magicschool.meta', JSON.stringify(m));
