@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=256';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=256';
+} from './data.js?v=257';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=257';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 256;   // keep equal to the ?v= number in index.html
+const BUILD = 257;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1117,12 +1117,13 @@ function stepIncidents(dt, live) {
   incT = (INC_MIN + Math.random() * (INC_MAX - INC_MIN)) * (1 + 0.1 * dirLvl('keeper'));
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !S.inc[i]);
   if (Object.keys(S.inc).length >= INC_MAXN || !open.length) return;
-  const i = rnd(open); S.inc[i] = { k: Math.random() < 0.3 ? 'g' : 'c', t: 0 };
+  const i = rnd(open); S.inc[i] = { k: Math.random() < 0.3 ? 'g' : 'c', t: 0 }; sfx(incSound(i));
   const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`); try { navigator.vibrate?.(80); } catch (er) { /* no vibration */ }
   hintOnce('inc', '💥', 'Происшествие!', `В классе «${CLASSES[i].name}» ${txt}. Урок остановился, ученики носятся по классу. Закрой подсказку и нажми на этот класс — всё починится. Если не трогать, через 10 минут пройдёт само, но школа потеряет монеты.`);
   dirtyPanel = true;
 }
 function fixIncident(i) {
+  sfx('fixed');
   delete S.inc[i];
   for (const a of agents) if (a.c === i && a.state === 'study') { a.mood = Math.min(100, moodOf(a) + 10); popup(rnd(['😄', '🥰', '💖']), a.x, a.y, '#ff6fa3', 44); }   // everyone is relieved S.stats.fixed = (S.stats.fixed || 0) + 1;
   const s = slotOf(i); popup('✨ Починено!', (s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, '#2f9e7a', 50);
@@ -1167,7 +1168,7 @@ const INSP_KINDS = {
 };
 function forceIncident() {
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !(S.inc && S.inc[i])); if (!open.length) return;
-  const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'c', t: 0 }; const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`);
+  const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'c', t: 0 }; sfx(incSound(i)); const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`);
 }
 const inspText = (c) => (c.kind === 'earn' ? `${INSP_KINDS.earn.text} ${fmt(c.goal)} 🪙` : INSP_KINDS[c.kind].text);
 const INSP_SHORT = { mood: 'настроение 60%+', noleave: 'уйдут не больше 7', inc: 'чинить за 20 с', pass: 'экзамены 70%+', earn: 'заработок' };
@@ -3460,6 +3461,7 @@ function settingsPanel() {
     <p class="muted">Версия ${VERSION} (сборка ${BUILD}). Это тестовая версия, картинки пока не все. Значки: Twemoji (CC-BY 4.0).</p>
     <p>Экзаменов сдано: ${S.stats.passed} · не сдано: ${S.stats.failed} · выпускников: ${S.stats.graduated}</p>
     <h3>🎵 Музыка</h3><button class="btn ghost wide" data-music="${musicOn() ? 0 : 1}">${musicOn() ? '🔇 Выключить музыку' : '🎵 Включить музыку'}</button>
+    <h3>🔔 Звуки</h3><button class="btn ghost wide" data-sfx="${sfxOn() ? 0 : 1}">${sfxOn() ? '🔕 Выключить звуки происшествий' : '🔔 Включить звуки происшествий'}</button>
     <h3>😌 Спокойный режим</h3>${calmBlock()}
     ${cloudBlock()}
     <h3>Отзыв</h3>
@@ -3887,6 +3889,7 @@ document.addEventListener('click', (e) => {
   if (d.w2res !== undefined) { const mi = CLASSES.findIndex((c) => c.id === 'mine'); if (mi >= 0 && isOpen(mi)) openPanel(classPanel(mi)); else toast('⛏️ Руду добывают в Штольне — построй её'); return; }
   if (d.species !== undefined) { openPanel(speciesPanel); return; }
   if (d.alb !== undefined) { albumSp = d.alb; refreshPanel(); return; }
+  if (d.sfx !== undefined) { setSfx(d.sfx === '1'); if (panel === settingsPanel) { openPanel(settingsPanel); drawFbPics(); } return; }
   if (d.music !== undefined) { setMusic(d.music === '1'); if (panel === settingsPanel) { openPanel(settingsPanel); drawFbPics(); } return; }
   if (d.calm !== undefined) { setCalm(d.calm === '1'); if (panel === settingsPanel) { openPanel(settingsPanel); drawFbPics(); } return; }
   if (d.worlds !== undefined) { openPanel(worldsPanel); return; }
@@ -4302,6 +4305,62 @@ function welcomeBack(sec, gain) {
     <p class="center">Пока тебя не было ${mins >= 60 ? Math.floor(mins / 60) + ' ч ' : ''}${mins % 60} мин, школа жила своей жизнью.</p>
     <div class="center big-txt">🪙 +${fmt(gain)}</div><button class="btn wide" data-close>Ура!</button>`);
 }
+// ======================= incident sounds (build 256, her wish «во время происшествий проигрывать звуковой эффект ... тематический,
+// нераздражающий») =======================
+// Made by the browser itself (Web Audio), no files: short (under 1.5 s), soft (quiet master, low-pass at 4.5 kHz, slow attacks),
+// one sound per kind of incident. On/off in settings (localStorage magicschool.sfx); only while the game is on screen.
+const SFX_KEY = 'magicschool.sfx';
+const sfxOn = () => localStorage.getItem(SFX_KEY) !== '0';
+let AC = null, AOUT = null, NOISE = null, BUS = null;
+function audio() {   // created on the first touch (phones allow sound only after one)
+  if (!AC) {
+    try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+    const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4500;
+    const comp = AC.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4;
+    AOUT = AC.createGain(); AOUT.gain.value = 0.32; AOUT.connect(lp); lp.connect(comp); comp.connect(AC.destination);
+    NOISE = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate); const d = NOISE.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  if (AC.state === 'suspended') AC.resume().catch(() => {});
+  return AC;
+}
+document.addEventListener('pointerdown', () => { if (sfxOn()) audio(); }, { passive: true });
+function env(g, t0, a, d, v) { g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + a); g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d); }
+function tone(t0, f0, f1, dur, v, type = 'sine', a = 0.02) {
+  const o = AC.createOscillator(), g = AC.createGain(); o.type = type;
+  o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+  env(g, t0, a, dur, v); o.connect(g); g.connect(BUS || AOUT); o.start(t0); o.stop(t0 + a + dur + 0.05);
+}
+function hiss(t0, dur, v, type, f0, f1, q = 1, a = 0.03) {   // filtered noise
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); s.buffer = NOISE;
+  f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t0); f.frequency.exponentialRampToValueAtTime(f1, t0 + a + dur);
+  env(g, t0, a, dur, v); s.connect(f); f.connect(g); g.connect(BUS || AOUT); s.start(t0, Math.random()); s.stop(t0 + a + dur + 0.05);
+}
+// loudness per sound (dB), measured on rendered copies: every peak near -14 dB, the chime of a fix a little quieter (-18)
+const SFX_DB = { potions: 8, charms: 12.5, elements: 14, flight: 15, herbs: 13.5, stars: 17, final: 16.5, sneeze: 13.5, fixed: 12.5 };
+const PENTA = [523, 587, 659, 784, 880, 1047, 1175, 1319, 1568];
+const SFX = {
+  potions(t) { tone(t, 150, 55, 0.35, 0.5, 'sine', 0.01); hiss(t, 0.55, 0.35, 'lowpass', 1200, 180, 0.7, 0.01);   // a soft «poof» of the cauldron
+    for (let k = 0; k < 4; k++) tone(t + 0.35 + k * 0.11 + Math.random() * 0.04, 320 + Math.random() * 260, 700 + Math.random() * 300, 0.06, 0.12); },   // and a few bubbles
+  charms(t) { for (let k = 0; k < 7; k++) { const f = PENTA[2 + Math.floor(Math.random() * 7)]; tone(t + k * 0.07, f, f * 1.01, 0.45, 0.09, 'triangle', 0.005); }   // sparkles
+    tone(t, 700, 330, 0.8, 0.08, 'sine', 0.05); },   // and a magic «wooo» sliding down
+  elements(t) { hiss(t, 0.7, 0.25, 'bandpass', 300, 1100, 0.8, 0.15);   // a whoosh of flame
+    for (let k = 0; k < 9; k++) hiss(t + 0.1 + Math.random() * 0.8, 0.025, 0.12, 'highpass', 1800, 1800, 0.7, 0.003); },   // crackles
+  flight(t) { hiss(t, 0.8, 0.22, 'bandpass', 400, 1800, 1.2, 0.2); tone(t + 0.05, 330, 880, 0.7, 0.07, 'sine', 0.1); },   // an airy whoosh upwards
+  herbs(t) { hiss(t, 0.9, 0.16, 'bandpass', 2400, 1600, 1.5, 0.12);   // leaves rustling
+    tone(t + 0.15, 196, 247, 0.35, 0.1, 'triangle', 0.03); tone(t + 0.45, 247, 294, 0.4, 0.09, 'triangle', 0.03); },   // something growing
+  stars(t) { hiss(t, 1.2, 0.3, 'lowpass', 650, 160, 0.8, 0.3); hiss(t + 0.25, 0.9, 0.2, 'bandpass', 380, 200, 0.9, 0.25); },   // a far, soft thunder (above 150 Hz: phone speakers play nothing lower)
+  final(t) { for (let k = 0; k < 7; k++) hiss(t + k * 0.09 + Math.random() * 0.04, 0.07, 0.14, 'bandpass', 3200, 2600, 1.2, 0.01); },   // papers fluttering
+  sneeze(t) { tone(t, 280, 420, 0.35, 0.07, 'sine', 0.12); hiss(t + 0.45, 0.22, 0.22, 'bandpass', 2200, 1200, 1, 0.01); },   // «ah… choo»
+  fixed(t) { [784, 988, 1175].forEach((f, k) => tone(t + k * 0.09, f, f, 0.35, 0.07, 'triangle', 0.005)); },   // a small chime: all is well again
+};
+function sfx(name) {
+  if (!sfxOn() || document.hidden || ffwd || !SFX[name]) return;
+  const c = audio(); if (!c || c.state !== 'running') return;
+  try { BUS = c.createGain(); BUS.gain.value = Math.pow(10, (SFX_DB[name] || 0) / 20); BUS.connect(AOUT); SFX[name](c.currentTime + 0.02); } catch (e) { /* never break the game for a sound */ } finally { BUS = null; }
+}
+const incSound = (i) => (S.inc && S.inc[i] && S.inc[i].k === 'g' ? 'sneeze' : SFX[CLASSES[i].id] ? CLASSES[i].id : 'charms');
+function setSfx(on) { localStorage.setItem(SFX_KEY, on ? '1' : '0'); if (on) { audio(); setTimeout(() => sfx('fixed'), 60); } toast(on ? '🔔 Звуки включены' : '🔕 Звуки выключены'); }
+window.__sfx = sfx;   // test hook
 // ======================= background music (her wish 2026-11-21; Suno via SYNTX) =======================
 // Plays quietly in a loop over the playlist; starts on the first tap (phones allow sound only after a touch),
 // pauses while the game is in the background; on/off in settings (localStorage magicschool.music).
