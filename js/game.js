@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=207';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=207';
+} from './data.js?v=208';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=208';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 207;   // keep equal to the ?v= number in index.html
+const BUILD = 208;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1578,8 +1578,10 @@ function layoutOutdoor() {
   const vnoise = (x, y, f, k) => { const X = Math.floor(x / f), Y = Math.floor(y / f), u = x / f - X, v = y / f - Y, sm = (t) => t * t * (3 - 2 * t);
     const a = hash2(X, Y, k), b2 = hash2(X + 1, Y, k), c = hash2(X, Y + 1, k), d2 = hash2(X + 1, Y + 1, k); return a + (b2 - a) * sm(u) + (c - a) * sm(v) + (a - b2 - c + d2) * sm(u) * sm(v); };
   const edgeAt = (x, y) => 8 + 3 * vnoise(x, y, 9, 81);
-  for (let gx = X0; gx < X1; gx += 2) for (let gy = Y0; gy < Y1; gy += 2) {
-    const x = gx + 0.3 + hash2(gx, gy, 91) * 1.4, y = gy + 0.3 + hash2(gx, gy, 92) * 1.4, d = D(x, y), e = edgeAt(x, y);
+  const DEEP = 4;   // beyond edge + DEEP tiles the forest is made of fewer, bigger trees on a 3-tile grid (her «Издалека делай»: ~half the trees to draw)
+  for (const step of [2, 3]) for (let gx = X0; gx < X1; gx += step) for (let gy = Y0; gy < Y1; gy += step) {
+    const x = gx + 0.3 + hash2(gx, gy, 91 + step) * (step - 0.6), y = gy + 0.3 + hash2(gx, gy, 92 + step) * (step - 0.6), d = D(x, y), e = edgeAt(x, y);
+    if ((step === 2) !== (d < e + DEEP)) continue;
     if (!inWorld(x, y) || zones.some(([zx, zy]) => Math.hypot(zx - x, zy - y) < 7) || (Math.abs(x - G.x) < 8 && y > G.y - 4 && y < G.y + 16)) continue;
     if (d >= e - 1.6 && d < e) { if (hash2(gx, gy, 93) < 0.55) put(['fern', 'hedge', 'berrybush', 'fern', 'roses', 'bells', 'boulder'][Math.floor(hash2(gx, gy, 94) * 7)], x, y, 4, 0.9 + hash2(gx, gy, 95) * 0.3); continue; }   // the soft edge
     if (d < e) continue;
@@ -1591,7 +1593,7 @@ function layoutOutdoor() {
     if (d - e < 2.5 && r < 0.12) n = r < 0.06 ? 'blossom' : 'goldtree';   // accents only on the edge
     else if (firZone) n = r < 0.82 ? 'fir' : 'oak';
     else n = r < 0.55 ? 'oak' : r < 0.78 ? 'willow' : 'fir';
-    const sc = (n === 'fir' ? 0.95 : 0.88) + hash2(gx, gy, 99) * 0.3;
+    const sc = ((n === 'fir' ? 0.95 : 0.88) + hash2(gx, gy, 99) * 0.3) * (step === 3 ? 1.35 : 1);
     if (coversKept(x, y)) continue;
     if (put(n, x, y, 6, sc)) out[out.length - 1].depth = depth;
   }
@@ -2651,7 +2653,7 @@ function render() {
   drawSeals();
   // x-ray: every creature is drawn once more, faintly, on top: the ones hidden behind a wall show through as ghosts
   ctx.globalAlpha = 0.38;
-  for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) (a._ghost = true, drawCreature(a, gx, gy, 30), a._ghost = false); }
+  if (zoom >= 1.1) for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) (a._ghost = true, drawCreature(a, gx, gy, 30), a._ghost = false); }
   ctx.globalAlpha = 1;
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
