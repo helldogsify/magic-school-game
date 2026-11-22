@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=228';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=228';
+} from './data.js?v=229';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=229';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 228;   // keep equal to the ?v= number in index.html
+const BUILD = 229;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -287,59 +287,56 @@ function genLayoutW2() {
   GATE_Y = recY + 9;
   GH = recY + 16; GW = 36;
 }
-function genLayout() {
-  for (const k of Object.keys(SLOTS)) delete SLOTS[k];
-  if (WORLD === 2) { for (const k of Object.keys(SLOTS)) delete SLOTS[k]; return genLayoutW2(); }
-  const rows = Math.ceil(NCLS / 2), CW = 5;   // corridors are wider than what a tall wall hides                        // CW: depth of a cross corridor
-  let y = 0;
-  // top: exam hall across the whole width, graduates' garden next to it (outside, no walls)
-  SLOTS.EXAM = slot(7, y, [[13, y + 5], [13, y + 6]], {}, 17, 6, [[[14, y + 5], [14, y + 6]], [[15, y + 5], [15, y + 6]], [[16, y + 5], [16, y + 6]], [[17, y + 5], [17, y + 6]], [[23, y + 3], [24, y + 3]]]);
-  SLOTS.GARDEN = slot(24, y, [[24, y + 3], [23, y + 3]], {}, 6, 6);
-  if (WORLD === 1) SLOTS.DIR = slot(1, y, [[6, y + 3], [7, y + 3]], {}, 6, 6);   // director's office on the top row left of the exam hall: nothing tall stands in front of it (her report 2026-11-21: behind a class it was half hidden)
-  y += 6;
-  const hallTop = y; y += CW;
-  let lastGap = null, firstGap = null;
-  for (let r = rows - 1; r >= 0; r--) {
-    const li = 2 * r, ri = 2 * r + 1;
-    const d = Math.max(depthOf(li), ri < NCLS ? depthOf(ri) : ROOM);
-    const h1 = depthOf(li), y1 = y + d - h1, ym = y1 + Math.floor(h1 / 2);
-    SLOTS['C' + li] = slot(7, y1, [[12, ym], [13, ym]], {}, ROOM, h1);                       // door to the main corridor (front side)
-    if (ri < NCLS) { const h2 = depthOf(ri), y2 = y + d - h2; SLOTS['C' + ri] = slot(18, y2, [[20, y2 + h2 - 1], [20, y2 + h2]], {}, ROOM, h2, [[[21, y2 + h2 - 1], [21, y2 + h2]]]); }   // door to the cross corridor below
-    y += d;
-    lastGap = [y, y + CW]; if (!firstGap) firstGap = lastGap; y += CW;
-  }
-  const recY = y;
+// World 1 layout «двор с фонтаном» (her pick 2026-11-22, design/layout_C_court.png): the rooms stand along the two far edges of the
+// school with their tall walls toward the forest, so nothing tall stands in front of the corridors; in the middle a big open court
+// (fountain, benches, trees) ringed by the corridor; the front block (library, reception, dorms, shop) faces it with low walls.
+//   back row (y = 0): exam hall x0..17, Charms, Flight, Elements, the director's office; the graduates' garden beyond, by a path
+//   left column (x = 0): Herbs, Potions, Stars stacked; classes grow deeper into the court
+let COURT = null; const COURT_LAYOUT = true;
+const inCourt = (x, y) => WORLD === 1 && COURT && x >= COURT.x0 && x < COURT.x1 && y >= COURT.y0 && y < COURT.y1;
+const courtC = () => ({ x: (COURT.x0 + COURT.x1) / 2, y: (COURT.y0 + COURT.y1) / 2 });
+const courtBlocked = (x, y) => { if (!inCourt(x, y)) return false; const c = courtC(); return Math.abs(x + 0.5 - c.x) < 1.6 && Math.abs(y + 0.5 - c.y) < 1.6; };   // the fountain   // the open court rectangle (decor and the courtyard life use it)
+function genLayoutCourt() {
+  const C = (i, ...a) => (SLOTS['C' + i] = slot(...a));
+  SLOTS.EXAM = slot(0, 0, [[8, 5], [8, 6]], {}, 17, 6, [[[9, 5], [9, 6]], [[10, 5], [10, 6]], [[11, 5], [11, 6]], [[12, 5], [12, 6]]]);
+  let x = 17;
+  for (const i of [3, 4, 5]) { const d = depthOf(i); C(i, x, 0, [[x + 2, d - 1], [x + 2, d]], {}, ROOM, d, [[[x + 3, d - 1], [x + 3, d]]]); x += ROOM; }   // doors down into the court
+  SLOTS.DIR = slot(x, 0, [[x + 2, 5], [x + 2, 6]], {}, 6, 6); x += 6;   // x = 41: the right end of the back row
+  const XR = x, dRow = Math.max(6, ...[3, 4, 5].map(depthOf));
+  let y = 6;
+  for (const i of [0, 1, 2]) { const d = depthOf(i), ym = y + Math.floor(d / 2); C(i, 0, y, [[5, ym], [6, ym]], {}, ROOM, d, [[[5, ym + 1], [6, ym + 1]]]); y += d; }   // doors right into the court
+  const colEnd = y, recY = Math.max(colEnd + 4, dRow + 20);
+  COURT = { x0: 11, y0: dRow + 4, x1: XR - 5, y1: recY - 4 };
   PATHS = [];
-  if (WORLD === 1) {   // masters' tower: a separate building on the grass right of the school, a garden path leads there (her pick 2026-11-22)
-    PATHS.push({ x0: 24, y0: 9, x1: 35, y1: 11 });
-    PATHS.push({ x0: 33, y0: 11, x1: 35, y1: 15 });
-    SLOTS.TOWER = slot(31, 15, [[33, 15], [33, 14]], {}, 6, 6, [[[34, 15], [34, 14]]]);
-  }
-  if (WORLD === 1) {   // the canteen: a house on the lawn right of Charms, a path from the corridor between Elements and Charms (her pick 2026-11-22)
-    const g = firstGap[0];
-    PATHS.push({ x0: 24, y0: g + 2, x1: 31, y1: g + 4 });
-    PATHS.push({ x0: 29, y0: g + 4, x1: 31, y1: g + 6 });
-    SLOTS.CANT = slot(28, g + 6, [[29, g + 6], [29, g + 5]], {}, 6, 6, [[[30, g + 6], [30, g + 5]]]);
-  }
-  if (WORLD === 1) { const sy = lastGap[0] - 6; SLOTS.SHOP = slot(1, sy, [[3, sy + 5], [3, sy + 6]], {}, 6, 6, [[[4, sy + 5], [4, sy + 6]]]); }   // the school shop, door to the wide corridor
-  // front block: library | reception | dorms
-  SLOTS.LIB = slot(0, recY, [[2, recY], [2, recY - 1]], {}, 6, 8, [[[3, recY], [3, recY - 1]], [[5, recY + 3], [6, recY + 3]], [[5, recY + 4], [6, recY + 4]]]);   // own space: the reception's tall wall must not hide it
-  // doors where the reception picture has its openings (her report 2026-11-21: students walked over the desk and through the railings):
-  // back passage between the two newel posts (x15..17), street entrance where the pink carpet starts (x16..17), dorm through the open arch (row 0)
+  SLOTS.GARDEN = slot(XR + 2, 0, [[XR + 3, 6], [XR + 3, 5]], {}, 6, 6);   // the graduates' garden on the lawn right of the back row, a path leads there
+  PATHS.push({ x0: XR, y0: 6, x1: XR + 5, y1: 9 });
+  SLOTS.TOWER = slot(XR + 3, dRow + 6, [[XR + 4, dRow + 6], [XR + 4, dRow + 5]], {}, 6, 6, [[[XR + 5, dRow + 6], [XR + 5, dRow + 5]]]);
+  PATHS.push({ x0: XR, y0: dRow + 2, x1: XR + 6, y1: dRow + 4 }, { x0: XR + 3, y0: dRow + 4, x1: XR + 6, y1: dRow + 6 });
+  SLOTS.CANT = slot(XR + 3, dRow + 15, [[XR + 4, dRow + 15], [XR + 4, dRow + 14]], {}, 6, 6, [[[XR + 5, dRow + 15], [XR + 5, dRow + 14]]]);
+  PATHS.push({ x0: XR, y0: dRow + 11, x1: XR + 6, y1: dRow + 13 }, { x0: XR + 3, y0: dRow + 13, x1: XR + 6, y1: dRow + 15 });
+  // front block: library | reading court | reception | dorm | dorm 2 | shop (their walls toward the court are low, see buildEdges)
+  SLOTS.LIB = slot(0, recY, [[2, recY], [2, recY - 1]], {}, 6, 8, [[[3, recY], [3, recY - 1]], [[5, recY + 3], [6, recY + 3]], [[5, recY + 4], [6, recY + 4]]]);
   SLOTS.REC = slot(12, recY, [[15, recY], [15, recY - 1]], {}, 9, 9,
     [[[16, recY], [16, recY - 1]], [[17, recY], [17, recY - 1]], [[16, recY + 8], [16, recY + 9]], [[17, recY + 8], [17, recY + 9]], [[20, recY], [21, recY]]]);
   SLOTS.DORM = slot(21, recY, [[21, recY], [20, recY]], {}, ROOM, dormDepth(1));
   SLOTS.DORM2 = slot(27, recY, [[27, recY + 3], [26, recY + 3]], {}, ROOM, dormDepth(2));
-  BUILDING = { x0: 0, y0: hallTop, x1: 33, y1: recY + 8 };
+  SLOTS.SHOP = slot(33, recY, [[35, recY], [35, recY - 1]], {}, 6, 6, [[[36, recY], [36, recY - 1]]]);
+  BUILDING = { x0: 0, y0: 6, x1: XR, y1: recY + 8 };
   HALLS = [
-    { x0: 7, y0: hallTop, x1: 24, y1: recY },                       // rows + corridors (rooms are cut out of it)
-    { x0: 0, y0: lastGap[0], x1: 33, y1: recY },                     // the wide corridor along the front block
-    { x0: 6, y0: recY, x1: 12, y1: recY + 8 },                       // reading court: as wide as what the reception's wall hides
-    { x0: 15, y0: recY + 9, x1: 19, y1: recY + 14 },                // path from the gate (to the carpet of the reception)
+    { x0: 6, y0: 6, x1: XR, y1: recY },                             // the court and the corridor around it (rooms are cut out of it)
+    { x0: 0, y0: colEnd, x1: 6, y1: recY },                          // under the left column, toward the library
+    { x0: 6, y0: recY, x1: 12, y1: recY + 8 },                       // reading court
+    { x0: 15, y0: recY + 9, x1: 19, y1: recY + 14 },                // path from the gate
   ];
   GATE_TILE = { x: 16.5, y: recY + 12.5 };
   GATE_Y = recY + 9;
-  GH = recY + 16; GW = WORLD === 1 ? 40 : 36;
+  GH = recY + 16; GW = XR + 12;
+}
+function genLayout() {
+  for (const k of Object.keys(SLOTS)) delete SLOTS[k];
+  if (WORLD === 2) { for (const k of Object.keys(SLOTS)) delete SLOTS[k]; return genLayoutW2(); }
+  return genLayoutCourt();
+
 }
 let GATE_Y = 0;
 // region grid (rebuilt with the layout)
@@ -406,7 +403,7 @@ function buildEdges() {
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
       if (id === 'hall' && WORLD === 1 && !nb && (side === 'x0' || side === 'y0') && !roomNear(x, y, side) && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1) { EDGES.push({ x, y, side, id, tall: true, hallWall: true, wallTheme: 'REC' }); continue; }   // corridor back wall with only grass behind it: a real tall wall (her «добавь стены где можно»)
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
-      const lowSide = (WORLD === 2 && side === 'x0' && nb === 'hall') || ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
+      const lowSide = (WORLD === 2 && side === 'x0' && nb === 'hall') || (WORLD === 1 && side === 'y0' && nb === 'hall' && ['LIB', 'REC', 'DORM', 'DORM2', 'SHOP'].includes(id)) || ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
       EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
     }
   }
@@ -419,11 +416,12 @@ const recBlocked = (x, y) => { const s = SLOTS.REC; return x - s.x0 <= 1 && y - 
 function canStep(ax, ay, bx, by) {
   const ra = regAt(ax, ay), rb = regAt(bx, by);
   if (!ra || !rb) return false;
-  if (ra === rb) return rb !== 'GARDEN' || !gardenBlocked(bx, by);
+  if (ra === rb) return rb === 'GARDEN' ? !gardenBlocked(bx, by) : rb === 'hall' ? !courtBlocked(bx, by) : true;
   if ((ra === 'path' && rb === 'hall') || (ra === 'hall' && rb === 'path')) return true;   // the garden path leaves the building through an opening
   if ((ra === 'DORM2' || rb === 'DORM2') && !dorm2Built()) return false;
   if (rb === 'REC' && recBlocked(bx, by)) return false;   // the reception desk is not a floor
   if (rb === 'GARDEN' && gardenBlocked(bx, by)) return false;
+  if (rb === 'hall' && courtBlocked(bx, by)) return false;
   return DOORS.has(`${ax},${ay}|${bx},${by}`);
 }
 function bfs(sx, sy, tx, ty) {
@@ -1413,15 +1411,15 @@ const ZMIN = 0.9, ZMAX = 3.4;
 const sprites = {};
 // professors drawn one by one, each approved by Maria (class id -> file in assets/staff)
 const STAFF_ART = { herbs: 'moss', potions: 'bubble', stars: 'lun', charms: 'spark', flight: 'breeze', elements: 'storm', final: 'owl' };
-const STAFF_ART_W2 = { runes: 'granite' };   // world 2 teachers (her pick 2026-11-22: old dwarf rune master «Мастер Гранит»)
+const STAFF_ART_W2 = { runes: 'granite', mine: 'burav' };   // world 2 teachers (her pick 2026-11-22: old dwarf rune master «Мастер Гранит»)
 const staffOf = (cid) => (WORLD === 1 ? STAFF_ART : WORLD === 2 ? STAFF_ART_W2 : {})[cid];   // per world: world-2 'final' must not take the owl
-const STAFF_H = { granite: 54, moss: 58, bubble: 54, lun: 68, spark: 62, breeze: 56, storm: 68, owl: 60 };   // teachers clearly taller than students (30) — her ruling 2026-11-21
+const STAFF_H = { burav: 54, granite: 54, moss: 58, bubble: 54, lun: 68, spark: 62, breeze: 56, storm: 68, owl: 60 };   // teachers clearly taller than students (30) — her ruling 2026-11-21
 // teachers' pose sheets (her ask 2026-11-22: animations for every teacher): walk while strolling, two kinds of stops,
 // proud for a moment right after a student of the class passes; art one teacher at a time (art/staff/<name>_poses.jpg)
-const TEACHER_POSES = { granite: ['explain', 'carve', 'read', 'think', 'lantern', 'warm'], moss: ['explain', 'water', 'sniff', 'read'], bubble: ['explain', 'stir', 'pour', 'sniff'], lun: ['map', 'spyglass', 'book', 'sphere'], spark: ['explain', 'star', 'curtsy', 'polish', 'book'], breeze: ['explain', 'map', 'wind', 'goggles', 'owl'], storm: ['explain', 'fire', 'water', 'leaves', 'breeze'], owl: ['announce', 'write', 'hourglass', 'glasses', 'seal'] };
+const TEACHER_POSES = { burav: ['explain', 'dig', 'wipe'], granite: ['explain', 'carve', 'read', 'think', 'lantern', 'warm'], moss: ['explain', 'water', 'sniff', 'read'], bubble: ['explain', 'stir', 'pour', 'sniff'], lun: ['map', 'spyglass', 'book', 'sphere'], spark: ['explain', 'star', 'curtsy', 'polish', 'book'], breeze: ['explain', 'map', 'wind', 'goggles', 'owl'], storm: ['explain', 'fire', 'water', 'leaves', 'breeze'], owl: ['announce', 'write', 'hourglass', 'glasses', 'seal'] };
 const TEACHER_FLY = { moss: true, bubble: true, lun: true, spark: true, breeze: true, storm: true, owl: true };
 const NO_PROUD = { lun: true };
-const WALK_POSE = { granite: ['step1', 'pass1', 'pass2', 'pass1'] };   // walking frames cycled every 180 ms (her report: one walking picture looked like hopping on one leg)   // dwarves do not fly: their own walking picture while moving
+const WALK_POSE = { granite: ['step1', 'pass1', 'pass2', 'pass1'], burav: ['step1', 'pass1', 'step2', 'pass2'] };   // walking frames cycled every 180 ms (her report: one walking picture looked like hopping on one leg)   // dwarves do not fly: their own walking picture while moving
 const FLY_LEFT = { breeze: true };   // flight frames drawn heading LEFT (her report 2026-11-22: «Капитан ветерок летает задом наперед»)   // her choice 2026-11-22: Lun has no joy pose, keeps his stop pose   // two flight frames <name>_fly1/fly2 (her ruling: «Парение не похоже на полет ... позу полета рисовать»)
 for (const [n, l] of Object.entries(TEACHER_POSES)) for (const f of [...l, ...(NO_PROUD[n] ? [] : ['proud']), ...(TEACHER_FLY[n] ? ['fly1', 'fly2'] : []), ...(WALK_POSE[n] || [])]) { const im = new Image(); im.onerror = () => {}; im.src = `assets/staff/${n}_${f}.png?v=1`; sprites[n + '_' + f] = im; }
 const passAt = {};
@@ -1669,6 +1667,16 @@ function layoutOutdoor() {
     entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + 8.5 }; }
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
+  if (WORLD === 1 && COURT) {   // the magic court (her «место игровое с фонтаном, тусовкой учеников»): fountain in the middle, benches round the plaza, trees and flowers in the lawn corners, lanterns on the paths
+    const c = courtC(), R = 3.6, W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, add = (n, x, y, sc = 1, fl = false) => { out.push({ n, x, y, th: 'outdoor', s: sc, flip: fl }); keep.push([x, y]); };
+    add('fountain', c.x + 0.5, c.y + 0.6, 1.45);
+    [[0.75, 1], [2.36, 0], [3.93, 1], [5.5, 0]].forEach(([an, f]) => add(f ? 'bench_a' : 'bench_b', c.x + Math.cos(an) * R, c.y + Math.sin(an) * R, 1.1));
+    for (const [fx, fy] of [[0.22, 0.22], [0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // a corner garden in each quarter of the lawn
+      const x = COURT.x0 + W * fx, y = COURT.y0 + H * fy;
+      add(fx < 0.5 === fy < 0.5 ? 'blossom' : 'goldtree', x, y, 0.95); add('peonybed', x + 1.6, y + 0.6); add('hydrangea', x - 1.2, y + 1.4); add('topiary_ball', x + 0.4, y + 2.0);
+    }
+    for (const [dx, dy] of [[-5.2, 0], [5.2, 0], [0, -5.2], [0, 5.2]]) add('lantern_gold', c.x + dx + (dx ? 0 : 1.4), c.y + dy + (dy ? 0 : 1.4), 0.9);
+  }
   if (SLOTS.GARDEN) { const g = SLOTS.GARDEN, X = g.x0, Y = g.y0;   // the graduates' garden: arch at the door, fountain plaza, founder statue, gazebo, benches, flowers
     for (const [n, dx, dy, fl] of [['flowerarch', 0.55, 3.5, true], ['fountain', 3.55, 3.6], ['gazebo', 4.95, 1.1], ['bench_b', 2.5, 5.5], ['bench_a', 5.5, 3.3],   // calm layout (her «слишком много навалено деталей»): four big things far apart, one bench, two topiaries
       ['topiary_spiral', 0.75, 1.3], ['topiary_ball', 0.8, 5.45]]) {
@@ -1839,7 +1847,7 @@ function layoutCorridor() {
   // students walk or queue (tools/corridor_plan.png): A = the strip in front of a class's knee wall, low things only (anything taller
   // would hide the students); B = the quiet spot of the main corridor before each crossing, one big thing; C = the far edge of the wide
   // front corridor with only grass behind it, a row of tall things; D = the reading court by the library, low things.
-  const out = [], put = (n, x, y, flip = false) => { if (regAt(Math.floor(x), Math.floor(y)) === 'hall') out.push({ n, x, y, th: 'corridor', flip }); };
+  const out = [], put = (n, x, y, flip = false) => { if (COURT_LAYOUT) return; if (regAt(Math.floor(x), Math.floor(y)) === 'hall') out.push({ n, x, y, th: 'corridor', flip }); };   // the courtyard layout gets its own decor (next step)
   const front = SLOTS.REC.y0 - 5, LOW = ['flowerbox', 'chestbench', 'fernpot', 'books', 'scrolls', 'catbed', 'lavender_pot', 'bench', 'rug_round'], LONG = new Set(['flowerbox', 'chestbench', 'bench']);
   let k = 0; const low = () => LOW[k++ % LOW.length];
   const rowA = (y, xs) => xs.forEach((x) => { const n = low(); put(n, x, y + 0.35, LONG.has(n)); });
@@ -1857,7 +1865,7 @@ function layoutCorridor() {
   const inside = (x, y) => regAt(x, y) === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
   CORR = out;
   CANDLES = []; let c = 0;
-  for (let x = BUILDING.x0; x < BUILDING.x1; x += 4) for (let y = BUILDING.y0; y < BUILDING.y1; y += 4) if ([[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [-1, -1], [-2, -2], [-2, 0], [0, -2], [-1, -2], [-2, -1]].every(([dx, dy]) => inside(x + dx, y + dy))) CANDLES.push({ x: x + 0.5 + hash2(x, y, 141) * 0.6, y: y + 0.5 + hash2(x, y, 142) * 0.6, k: c++ });
+  for (let x = BUILDING.x0; x < BUILDING.x1; x += 4) for (let y = BUILDING.y0; y < BUILDING.y1; y += 4) if ([[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [-1, -1], [-2, -2], [-2, 0], [0, -2], [-1, -2], [-2, -1]].every(([dx, dy]) => inside(x + dx, y + dy)) && !inCourt(x, y) && !inCourt(x - 2, y - 2)) CANDLES.push({ x: x + 0.5 + hash2(x, y, 141) * 0.6, y: y + 0.5 + hash2(x, y, 142) * 0.6, k: c++ });
 }
 // World 2: every thing has its planned place (her ruling «Сразу должна понимать где и какие предметы будут стоять для красоты»):
 // pillars in two rows along the great hall every 4 tiles (none in front of a door), a brazier beside every other pillar,
@@ -1929,12 +1937,14 @@ function drawStatic() {
   c.fillStyle = '#a9d98f'; c.fillRect(0, 0, WW, WH);
   { const g = WORLD <= 2 && GRASS_ON && grassPat(c); if (g) { c.fillStyle = g; c.fillRect(0, 0, WW, WH); } else { c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2); } }
   const stone = WORLD <= 2 && isoPat(c, 'path', 3);
+  const courtGrass = WORLD === 1 && COURT && isoPat(c, 'grass', 4);
   const corrFloor = WORLD <= 2 && (() => { const pt = pat(c, 'corridor', 'floor'); if (!pt) return null; const T = part('corridor', 'floor').naturalWidth / 3, o = P(0, 0); pt.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, o.x, o.y])); return pt; })();
   // halls
   for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) {
     const rid = regAt(x, y); if (rid !== 'hall' && rid !== 'path') continue;
     const inside = rid === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
     const carpet = WORLD > 2 && inside && x >= 14 && x <= 16 && y > BUILDING.y0;   // world 1: no pink runner any more, parquet everywhere (her «Зачем розовая полоса плитки по коридору»)
+    if (inCourt(x, y) && courtGrass) { const cc = courtC(), r = Math.hypot(x + 0.5 - cc.x, (y + 0.5 - cc.y)); poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = r < 4.6 || Math.abs(x + 0.5 - cc.x) < 1.2 || Math.abs(y + 0.5 - cc.y) < 1.2 ? stone : courtGrass; c.fill(); continue; }   // the court: grass, a round flagstone plaza and paths in a cross
     if (inside && !carpet && WORLD <= 2 && corrFloor) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = corrFloor; c.fill(); continue; }   // parquet with star inlays
     const col = carpet ? (y % 2 ? '#d98f97' : '#dd979f') : inside ? (x % 2 ? '#d7a46e' : '#dcab76') : ((x + y) % 2 ? '#e9dcc4' : '#efe4cf');
     if (!inside && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); continue; }   // outdoor paths: rune flagstones
@@ -3734,7 +3744,7 @@ function frame(now) {
   warmRooms();
   requestAnimationFrame(frame);
 }
-const LAYOUT = 9;
+const LAYOUT = 10;   // 10: world 1 courtyard layout (build 229)
 function relayout() {   // rebuild the map (a class was expanded): creatures keep their task, seats move with the rooms
   const snap = agents.length ? (save(), S.world) : null;
   genLayout(); buildGrid(); buildEdges(); decorateEdges();
