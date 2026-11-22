@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=223';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=223';
+} from './data.js?v=224';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=224';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 223;   // keep equal to the ?v= number in index.html
+const BUILD = 224;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1756,7 +1756,7 @@ const CORR_H = WORLD === 2 ? { armor: 56, barrels: 36, crates: 40, anvil: 34, we
 const CORR_SET = WORLD === 2 ? ['armor', 'barrels', 'brazier', 'crates', 'weapon_rack', 'crystal_ped', 'anvil', 'candle_stand', 'bench']
   : ['monstera', 'bench', 'globe', 'lavender_pot', 'portrait', 'armor', 'bookcase', 'noticeboard', 'candelabra'];
 const CORR_DIR = WORLD === 2 ? 'corridor_w2' : 'corridor';
-for (const n of ['floor', ...Object.keys(CORR_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/${CORR_DIR}/${n}.webp?v=1`; parts['corridor/' + n] = im; }
+for (const n of ['floor', ...Object.keys(CORR_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/${CORR_DIR}/${n}.webp?v=${WORLD === 2 ? 2 : 1}`; parts['corridor/' + n] = im; }
 let CORR = [], CANDLES = [], corrKey = '';
 function layoutCorridor() {
   const key = outKey + '|' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0).join(';'); if (key === corrKey) return; corrKey = key;
