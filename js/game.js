@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=188';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=188';
+} from './data.js?v=189';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=189';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 188;   // keep equal to the ?v= number in index.html
+const BUILD = 189;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -594,7 +594,7 @@ function seat(a, i, d) {
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
   const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0); a.prepared = false; a.fed = false;   // a meal in the canteen helps one exam
-  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); earn(Math.round(tuition(i) * payMul(a)), p.x, p.y, null, 46); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
+  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a)), p.x, p.y, null, 46); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
@@ -2069,7 +2069,37 @@ function elementsFx(i, d, p, o) {
       ctx.restore(); }
   });
 }
-const STATION_FX = { potions: potionsFx, stars: starsFx, charms: charmsFx, flight: flightFx, elements: elementsFx };
+// Exam: a quill writes on the scroll of a busy exam desk (glides along the line for 3 s, then the next line) and the written
+// lines grow with the exam; a passed exam stamps a red wax seal with a gold star over the desk (2.6 s)
+let fxSeals = [];
+function examFx(i, d, p, o) {
+  const a = studentAt(i, d); if (!a) return;
+  const h = ((THEMES[o.th] && THEMES[o.th].h) || {})[o.n] || PROP_H[o.n] || 30, m = P(o.x, o.y), sgn = o.flip ? -1 : 1;
+  const sx = m.x + sgn * h * 0.08, sy = m.y + h * 0.08 - h * 0.66, T = fxNow() + a.id * 0.7, g = Math.max(0, Math.min(1, a.t / a.dur));
+  const lines = Math.min(3, Math.floor(g * 3.2));
+  fxTop.push(() => {
+    ctx.strokeStyle = 'rgba(70,50,110,0.75)'; ctx.lineWidth = 0.7; ctx.lineCap = 'round';
+    for (let k = 0; k <= lines && k < 3; k++) { const len = k < lines ? 1 : ((T / 3) % 1), y = sy - 2 + k * 2.2; ctx.beginPath(); ctx.moveTo(sx - 5, y); ctx.lineTo(sx - 5 + 10 * len, y + 0.6 * len); ctx.stroke(); }
+    const u = (T / 3) % 1, qx = sx - 5 + 10 * u, qy = sy - 2 + Math.min(2, lines) * 2.2 - 6 + Math.sin(u * Math.PI * 6) * 0.8;
+    emoji('🪶', qx + 3, qy, 10);
+  });
+}
+function examSeal(i, d) { const p = deskPos(i, d); fxSeals.push({ x: p.x, y: p.y, t: fxNow() }); if (fxSeals.length > 30) fxSeals.shift(); }
+function drawSeals() {
+  const now = fxNow(); fxSeals = fxSeals.filter((q) => now - q.t < 2.6);
+  for (const q of fxSeals) {
+    const v = (now - q.t) / 2.6, m = P(q.x, q.y); if (!onScreen(m.x, m.y)) continue;
+    const sc = v < 0.15 ? 1.4 - 0.4 * (v / 0.15) : 1, al = v > 0.7 ? 1 - (v - 0.7) / 0.3 : 1, x = m.x, y = m.y - 30 - v * 6, r = 7 * sc;
+    ctx.save(); ctx.globalAlpha = al;
+    if (v < 0.3) { const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.6); g.addColorStop(0, `rgba(255,230,150,${0.7 * (1 - v / 0.3)})`); g.addColorStop(1, 'rgba(255,230,150,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 2.6, 0, Math.PI * 2); ctx.fill(); }   // the flash
+    ctx.fillStyle = '#c8323c'; ctx.strokeStyle = '#7a1424'; ctx.lineWidth = 0.9; ctx.beginPath();
+    for (let k = 0; k <= 24; k++) { const an = k / 24 * Math.PI * 2, rr2 = r * (1 + 0.08 * Math.sin(an * 5)); k ? ctx.lineTo(x + Math.cos(an) * rr2, y + Math.sin(an) * rr2) : ctx.moveTo(x + rr2, y); }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,160,160,0.6)'; ctx.beginPath(); ctx.arc(x, y, r * 0.68, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore(); fxStar(x, y, r * 0.38, al, '255,214,90');
+  }
+}
+const STATION_FX = { potions: potionsFx, stars: starsFx, charms: charmsFx, flight: flightFx, elements: elementsFx, final: examFx };
 function drawDesk(p) {
   const a = P(p.x - 0.55, p.y - 0.25), b = P(p.x + 0.55, p.y - 0.25), cc = P(p.x + 0.55, p.y + 0.25), d = P(p.x - 0.55, p.y + 0.25);
   const h = 9;
@@ -2299,6 +2329,7 @@ function render() {
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
   for (const f of fxTop) f();
   fxTop = [];
+  drawSeals();
   // x-ray: every creature is drawn once more, faintly, on top: the ones hidden behind a wall show through as ghosts
   ctx.globalAlpha = 0.38;
   for (const a of agents) if (a.state !== 'fly') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) drawCreature(a, gx, gy, 30); }
@@ -3296,7 +3327,7 @@ window.__sim = {
   stars: () => schoolStars(),
   inSchool: () => inSchool().length,
 };
-window.__test = { P, SLOTS, focusTile, fxDemo: (v) => { FX_DEMO = !!v; }, zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
