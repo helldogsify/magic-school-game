@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=225';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=225';
+} from './data.js?v=226';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=226';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 225;   // keep equal to the ?v= number in index.html
+const BUILD = 226;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1793,7 +1793,7 @@ function drawOut(o) {
 // corridor edges every few tiles (never near a door or a queue), and floating candles drifting over the corridors (code).
 // world 2: dark granite slabs and dwarven things (armour, barrels, crates, anvil, weapon rack, brazier, crystal, candles, bench)
 const CORR_H = WORLD === 2 ? { pillar: 74, dwarf_statue: 66, runestone: 46, minecart: 46, armor: 56, barrels: 36, crates: 40, anvil: 34, weapon_rack: 46, brazier: 44, crystal_ped: 46, candle_stand: 58, bench: 26 }
-  : { monstera: 44, lavender_pot: 32, bench: 32, armor: 54, globe: 40, bookcase: 44, candelabra: 52, noticeboard: 42, portrait: 44 };
+  : { monstera: 44, lavender_pot: 32, bench: 32, armor: 54, globe: 40, bookcase: 44, candelabra: 52, noticeboard: 42, portrait: 44, flowerbox: 30, chestbench: 32, rug_round: 20, fernpot: 36, books: 28, scrolls: 28, catbed: 22 };
 const CORR_SET = WORLD === 2 ? ['armor', 'barrels', 'brazier', 'crates', 'weapon_rack', 'crystal_ped', 'anvil', 'candle_stand', 'bench']
   : ['monstera', 'bench', 'globe', 'lavender_pot', 'portrait', 'armor', 'bookcase', 'noticeboard', 'candelabra'];
 const CORR_DIR = WORLD === 2 ? 'corridor_w2' : 'corridor';
@@ -1802,26 +1802,26 @@ let CORR = [], CANDLES = [], corrKey = '';
 function layoutCorridor() {
   const key = outKey + '|' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0).join(';'); if (key === corrKey) return; corrKey = key;
   if (WORLD === 2) return layoutNaveW2();
+  // World 1 (her «подумай как и главное ГДЕ будут стоять украшения»): places chosen from a map of what the camera sees and where
+  // students walk or queue (tools/corridor_plan.png): A = the strip in front of a class's knee wall, low things only (anything taller
+  // would hide the students); B = the quiet spot of the main corridor before each crossing, one big thing; C = the far edge of the wide
+  // front corridor with only grass behind it, a row of tall things; D = the reading court by the library, low things.
+  const out = [], put = (n, x, y, flip = false) => { if (regAt(Math.floor(x), Math.floor(y)) === 'hall') out.push({ n, x, y, th: 'corridor', flip }); };
+  const front = SLOTS.REC.y0 - 5, LOW = ['flowerbox', 'chestbench', 'fernpot', 'books', 'scrolls', 'catbed', 'lavender_pot', 'bench', 'rug_round'], LONG = new Set(['flowerbox', 'chestbench', 'bench']);
+  let k = 0; const low = () => LOW[k++ % LOW.length];
+  const rowA = (y, xs) => xs.forEach((x) => { const n = low(); put(n, x, y + 0.35, LONG.has(n)); });
+  for (const s of Object.values(SLOTS)) {   // A: under every class row (left column, right column) and under the exam hall, not in the busy front corridor
+    if (s.y1 >= front) continue;
+    if (s.x0 === 7 && s.x1 - s.x0 === 6) rowA(s.y1, [7.7, 9.7, 11.5]);
+    else if (s.x0 === 18) rowA(s.y1, [18.6, 22.9]);   // the right class's door is at x 20-21
+    else if (s === SLOTS.EXAM) { rowA(s.y1, [7.7, 9.7, 11.5]); rowA(s.y1, [18.7, 20.7, 22.7]); }
+  }
+  const BIG = ['globe', 'armor', 'monstera']; let b = 0;
+  for (const s of Object.values(SLOTS)) if (s.x0 === 7 && s.x1 - s.x0 === 6 && s.y1 <= front) put(BIG[b++ % BIG.length], 14.55, s.y1 - 1.45);   // B
+  const TALL = ['bookcase', 'portrait', 'candelabra', 'noticeboard', 'monstera', 'globe']; let t = 0;
+  for (let x = 24.6; x < BUILDING.x1 - 0.5; x += 2.6) if (!regAt(Math.floor(x), front - 1)) put(TALL[t++ % TALL.length], x, front + 0.38);   // C
+  if (SLOTS.LIB) { put('books', SLOTS.LIB.x1 + 0.45, SLOTS.LIB.y0 + 1.3); put('scrolls', SLOTS.LIB.x1 + 0.45, SLOTS.LIB.y0 + 6.4); put('fernpot', SLOTS.LIB.x1 + 0.45, SLOTS.LIB.y0 + 4.0); }   // D
   const inside = (x, y) => regAt(x, y) === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
-  const doorTiles = []; for (const d of DOORS) { const [a, b] = d.split('|').map((t) => t.split(',').map(Number)); for (const q of [a, b]) if (regAt(q[0], q[1]) === 'hall') doorTiles.push(q); }
-  const nearDoor = (x, y) => doorTiles.some(([dx, dy]) => Math.abs(dx - x) <= 2 && dy - y <= 1 && y - dy <= 3);   // the door and the queue below it stay free
-  // only in front of the tall corridor walls (her report: props on the knee walls of the classes looked put anyhow):
-  // a tile whose far side is such a wall and whose near sides are open corridor, so nothing stands over a wall
-  const tall = new Set(EDGES.filter((e) => e.hallWall).map((e) => e.x + ',' + e.y + ',' + e.side));
-  const cand = [];
-  for (let x = BUILDING.x0; x < BUILDING.x1; x++) for (let y = BUILDING.y0; y < BUILDING.y1; y++) {
-    if (!inside(x, y) || (x >= 14 && x <= 16) || nearDoor(x, y)) continue;
-    const wy = WORLD === 2 ? !inside(x, y - 1) && regAt(x, y - 1) !== null : tall.has(x + ',' + y + ',y0'), wx = WORLD === 2 ? !inside(x - 1, y) && regAt(x - 1, y) !== null : tall.has(x + ',' + y + ',x0'); if (!wy && !wx) continue;   // world 2: no tall corridor walls, things stand by the room walls
-    if (!inside(x + 1, y) || !inside(x, y + 1) || (wy && !wx && !inside(x - 1, y)) || (wx && !wy && !inside(x, y - 1))) continue;   // open on the near sides
-    cand.push([x, y, wy, wx]);
-  }
-  const out = [], k0 = []; let k = 0;
-  cand.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]) || a[0] - b[0]);
-  for (const [x, y, wy, wx] of cand) {
-    if (k0.some(([px, py]) => Math.abs(px - x) + Math.abs(py - y) < 3)) continue;
-    k0.push([x, y]);
-    out.push({ n: CORR_SET[k++ % CORR_SET.length], x: x + (wx ? 0.42 : 0.5), y: y + (wy ? 0.42 : 0.5), th: 'corridor', flip: wx && !wy });   // a little off the wall, facing into the corridor
-  }
   CORR = out;
   CANDLES = []; let c = 0;
   for (let x = BUILDING.x0; x < BUILDING.x1; x += 4) for (let y = BUILDING.y0; y < BUILDING.y1; y += 4) if ([[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [-1, -1], [-2, -2], [-2, 0], [0, -2], [-1, -2], [-2, -1]].every(([dx, dy]) => inside(x + dx, y + dy))) CANDLES.push({ x: x + 0.5 + hash2(x, y, 141) * 0.6, y: y + 0.5 + hash2(x, y, 142) * 0.6, k: c++ });
