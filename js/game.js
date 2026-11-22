@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=180';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=180';
+} from './data.js?v=181';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=181';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 180;   // keep equal to the ?v= number in index.html
+const BUILD = 181;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1862,6 +1862,52 @@ function drawCounter(p, top = '#d9a36e', side = '#a8713f', hw = 0.55) {   // a p
   poly(ctx, [cc, b, up(b, h), up(cc, h)], side);
   poly(ctx, [up(a, h), up(b, h), up(cc, h), up(d, h)], top, '#8a5f3a');
 }
+// ======================= living classes =======================
+// Effects of a lesson over the students who are really studying (state 'study', seated, no incident), one theme per class
+// (her plan 2026-11-22). Drawn in code, no new art; every looping phase lasts at least ~2.5 s (her rule: nothing may blink).
+const fxNow = () => performance.now() / 1000;
+function studentAt(i, d) {   // the student studying at desk d of class i right now, or null
+  const id = deskOcc[i][d]; if (!id) return null;
+  const a = agentById.get(id);
+  return a && a.state === 'study' && !(a.path && a.path.length) && !incOf(i) ? a : null;
+}
+let agentById = new Map();
+function fxLeaf(x, y, r, ang, col = '#7cc36a', line = '#3f7a3a') {   // a small leaf: pointed ellipse with a midrib
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.fillStyle = col; ctx.strokeStyle = line; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(-r, 0); ctx.quadraticCurveTo(0, -r * 0.62, r, 0); ctx.quadraticCurveTo(0, r * 0.62, -r, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-r * 0.8, 0); ctx.lineTo(r * 0.8, 0); ctx.stroke();
+  ctx.restore();
+}
+// Herbology: a clay pot on every desk; while a student studies, a sprout grows in it over the lesson (bud at the end),
+// sways slowly, and a leaf circles around it (one turn = 7 s)
+function herbsDeskFx(i, d, p) {
+  const a = studentAt(i, d), m = P(p.x + 0.34, p.y - 0.06), bx = m.x, by = m.y - 9;   // the desk top is 9 px high
+  if (a) {
+    const g = Math.max(0, Math.min(1, a.t / a.dur)), T = fxNow() + a.id * 0.77, sway = Math.sin(T * Math.PI * 2 / 4.2) * (0.6 + g);
+    const h = 4 + 13 * g, tx = bx + sway * 1.6, ty = by - 5.5 - h;
+    ctx.strokeStyle = '#4f9a45'; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(bx, by - 5.5); ctx.quadraticCurveTo(bx - sway * 0.6, by - 5.5 - h * 0.55, tx, ty); ctx.stroke();
+    const pairs = 1 + Math.floor(g * 2.99);
+    for (let k = 0; k < pairs; k++) {
+      const f = (k + 1) / (pairs + 0.6), lx = bx + (tx - bx) * f, ly = by - 5.5 - h * f, r = 2 + 2.2 * Math.min(1, g * 1.5) * (1 - k * 0.18);
+      fxLeaf(lx - r * 0.85, ly, r, -0.5 + sway * 0.08); fxLeaf(lx + r * 0.85, ly, r, Math.PI + 0.5 + sway * 0.08);
+    }
+    if (g > 0.75) { const b = (g - 0.75) / 0.25, col = ['#ff8fc0', '#c79bff', '#ffd25a', '#8fd0ff'][a.id % 4];   // a bud opens at the end of the lesson
+      ctx.fillStyle = col; ctx.strokeStyle = '#7a4a9a'; ctx.lineWidth = 0.6;
+      for (let k = 0; k < 5; k++) { const an = k * 1.2566 + sway * 0.1; ctx.beginPath(); ctx.ellipse(tx + Math.cos(an) * 1.9 * b, ty + Math.sin(an) * 1.9 * b, 1.6 * b + 0.3, 1.1 * b + 0.3, an, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+      ctx.fillStyle = '#fff3a8'; ctx.beginPath(); ctx.arc(tx, ty, 1.1 * b + 0.2, 0, Math.PI * 2); ctx.fill(); }
+  }
+  // the pot (in front of the stem's base)
+  ctx.fillStyle = '#c9744c'; ctx.strokeStyle = '#6b4a7a'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(bx - 3.4, by - 5); ctx.lineTo(bx + 3.4, by - 5); ctx.lineTo(bx + 2.4, by + 0.5); ctx.lineTo(bx - 2.4, by + 0.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#dd8d62'; rr(bx - 4, by - 6.6, 8, 2.2, 1); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#5a3a2a'; ctx.beginPath(); ctx.ellipse(bx, by - 6.5, 3, 0.8, 0, 0, Math.PI * 2); ctx.fill();
+  if (a) {   // a leaf drifts around the pot: slow circle, rising and falling
+    const T = fxNow() + a.id * 1.31, ang = T * Math.PI * 2 / 7, lx = bx + Math.cos(ang) * 12, ly = by - 15 + Math.sin(ang) * 4.5 - Math.sin(T * Math.PI * 2 / 5) * 3;
+    fxLeaf(lx, ly, 3.4, ang * 1.5, '#8fd66a', '#3f7a3a');
+  }
+}
 function drawDesk(p) {
   const a = P(p.x - 0.55, p.y - 0.25), b = P(p.x + 0.55, p.y - 0.25), cc = P(p.x + 0.55, p.y + 0.25), d = P(p.x - 0.55, p.y + 0.25);
   const h = 9;
@@ -1958,6 +2004,7 @@ function render() {
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
   const list = [];
+  agentById = new Map(agents.map((a) => [a.id, a]));
   const zone = (x, y) => { const id = regAt(Math.floor(x), Math.floor(y)); if (id && id !== 'hall' && SLOTS[id]) { const s = SLOTS[id]; return (s.x0 + s.x1 + s.y0 + s.y1) / 2; } return x + y; };
   const add = (x, y, draw, bias = 0) => { const m = P(x, y); if (onScreen(m.x, m.y)) list.push({ k1: zone(x, y), k2: x + y + bias, draw }); };   // off-screen things are skipped
   VIEW = { x0: scroller.scrollLeft / scale, y0: scroller.scrollTop / scale, x1: (scroller.scrollLeft + scroller.clientWidth) / scale, y1: (scroller.scrollTop + scroller.clientHeight) / scale };
@@ -1996,7 +2043,7 @@ function render() {
         drawCreature(t1, tp.x, tp.y, hh); }); }   // own drawn professor (her approval, one at a time)
       else { const t0 = staff[(i + 1) % staff.length], tch = { ...t0, back: frontFacing(i), flip: tp.left, path: tp.moving ? [1] : [], ph: performance.now() / 1000 + i }; add(tp.x, tp.y, () => (teacherGlow(tp, 42), drawCreature(tch, tp.x, tp.y, 42, (x, y) => drawHat(x, y - 40, '#6c4fd1')))); } }
     const thI = themeOf(CLASS_SLOT[i]), stations = thI && THEMES[thI].stations;   // potions: a little cauldron instead of a desk
-    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) }; add(p.x, p.y, () => drawProp(o)); } else add(p.x, p.y, () => drawDesk(p)); }
+    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) }; add(p.x, p.y, () => drawProp(o)); } else add(p.x, p.y, () => { drawDesk(p); if (CLASSES[i].id === 'herbs') herbsDeskFx(i, d, p); }); }
     for (const o of roomProps(i)) add(o.x, o.y, () => drawProp(o));
     CLASSES[i].items.forEach((it, k) => {
       if (!st.items[k]) return;
@@ -3078,7 +3125,7 @@ window.__sim = {
   stars: () => schoolStars(),
   inSchool: () => inSchool().length,
 };
-window.__test = { P, SLOTS, focusTile, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P(14.5, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
