@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=178';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=178';
+} from './data.js?v=179';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=179';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 178;   // keep equal to the ?v= number in index.html
+const BUILD = 179;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1158,7 +1158,7 @@ function helperPos(i, k) {   // render-only: helps inside 16 s, walks out, looks
 function helpersHtml(i) {
   if (WORLD !== 1 || CLASSES[i].final) return '';
   const h = helpersOf(i);
-  return `<div class="card up"><span class="remoji">🪄</span><div class="grow"><b>Помощники-маги: ${h.length}/${HELP_MAX}</b><div class="muted">${h.length ? h.map((x) => `${x.name} (${RANKS[x.rk || 3]}, ${SP_NAMES[x.sp]})${x.away ? ' — пересдаёт на Мастера' : ''}`).join(', ') : 'выпускник со званием «Маг» останется помогать, если здесь нет мага его вида'} · Маг +${HELP_BONUS * 100}%, Старший маг +${HELP_BONUS_ELDER * 100}% к экзамену на звание. Старший маг сменяет Мага и ходит пересдавать на Мастера</div></div></div>`;
+  return `<div class="card up"><span class="remoji">🪄</span><div class="grow"><b>Помощники-маги: ${h.length}/${HELP_MAX}</b><div class="muted">${h.length ? h.map((x) => `${x.name} (${RANKS[x.rk || 3]}, ${SP_NAMES[x.sp]})${x.away ? ' — пересдаёт на Мастера' : ''}`).join(', ') : 'выпускник со званием «Маг» останется помогать, если здесь нет мага его вида'} · +${HELP_BONUS * 100}% к экзамену на звание за каждого. Старший маг сменяет Мага и время от времени ходит пересдавать на Мастера</div></div></div>`;
 }
 function peoplePanel() {
   const l = inSchool(), n = (f) => l.filter(f).length;
