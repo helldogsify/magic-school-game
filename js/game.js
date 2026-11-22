@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=215';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=215';
+} from './data.js?v=216';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=216';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 215;   // keep equal to the ?v= number in index.html
+const BUILD = 216;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -233,7 +233,7 @@ const PROP_H = { fire_ped: 42, water_ped: 42, earth_ped: 42, air_ped: 42, sofa: 
 const parts = {};
 let partsVer = 0;   // bumped on every part load: themeReady() answers from its cache until then
 for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
-  if (!n) continue; const im = new Image(); im.onload = () => { partsVer++; }; im.src = `${t.dir}${n}.webp?v=2152`; parts[k + '/' + n] = im;
+  if (!n) continue; const im = new Image(); im.onload = () => { partsVer++; }; im.src = `${t.dir}${n}.webp?v=2162`; parts[k + '/' + n] = im;
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
@@ -1715,24 +1715,26 @@ function layoutCorridor() {
   const inside = (x, y) => regAt(x, y) === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
   const doorTiles = []; for (const d of DOORS) { const [a, b] = d.split('|').map((t) => t.split(',').map(Number)); for (const q of [a, b]) if (regAt(q[0], q[1]) === 'hall') doorTiles.push(q); }
   const nearDoor = (x, y) => doorTiles.some(([dx, dy]) => Math.abs(dx - x) <= 2 && dy - y <= 1 && y - dy <= 3);   // the door and the queue below it stay free
+  // only in front of the tall corridor walls (her report: props on the knee walls of the classes looked put anyhow):
+  // a tile whose far side is such a wall and whose near sides are open corridor, so nothing stands over a wall
+  const tall = new Set(EDGES.filter((e) => e.hallWall).map((e) => e.x + ',' + e.y + ',' + e.side));
   const cand = [];
   for (let x = BUILDING.x0; x < BUILDING.x1; x++) for (let y = BUILDING.y0; y < BUILDING.y1; y++) {
-    if (!inside(x, y) || (x >= 14 && x <= 16) || nearDoor(x, y)) continue;   // never on the pink runner
-    const edge = !inside(x - 1, y) || !inside(x, y - 1) || !inside(x + 1, y) || !inside(x, y + 1); if (!edge) continue;
-    if (regAt(x + 1, y) === 'path' || regAt(x, y + 1) === 'path' || regAt(x - 1, y) === 'path' || regAt(x, y - 1) === 'path') continue;   // garden / tower / canteen openings
-    cand.push([x, y]);
+    if (!inside(x, y) || (x >= 14 && x <= 16) || nearDoor(x, y)) continue;
+    const wy = tall.has(x + ',' + y + ',y0'), wx = tall.has(x + ',' + y + ',x0'); if (!wy && !wx) continue;
+    if (!inside(x + 1, y) || !inside(x, y + 1) || (wy && !wx && !inside(x - 1, y)) || (wx && !wy && !inside(x, y - 1))) continue;   // open on the near sides
+    cand.push([x, y, wy, wx]);
   }
   const out = [], k0 = []; let k = 0;
   cand.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]) || a[0] - b[0]);
-  for (const [x, y] of cand) {
-    if (k0.some(([px, py]) => Math.abs(px - x) + Math.abs(py - y) < 4)) continue;   // spaced out: «не наваливать»
+  for (const [x, y, wy, wx] of cand) {
+    if (k0.some(([px, py]) => Math.abs(px - x) + Math.abs(py - y) < 3)) continue;
     k0.push([x, y]);
-    const ox = !inside(x - 1, y) ? 0.32 : !inside(x + 1, y) ? 0.68 : 0.5, oy = !inside(x, y - 1) ? 0.32 : !inside(x, y + 1) ? 0.68 : 0.5;   // pushed against the edge
-    out.push({ n: CORR_SET[k++ % CORR_SET.length], x: x + ox, y: y + oy, th: 'corridor', flip: !inside(x, y - 1) && inside(x - 1, y) });
+    out.push({ n: CORR_SET[k++ % CORR_SET.length], x: x + (wx ? 0.42 : 0.5), y: y + (wy ? 0.42 : 0.5), th: 'corridor', flip: wx && !wy });   // a little off the wall, facing into the corridor
   }
   CORR = out;
   CANDLES = []; let c = 0;
-  for (let x = BUILDING.x0; x < BUILDING.x1; x += 4) for (let y = BUILDING.y0; y < BUILDING.y1; y += 4) if (inside(x, y) && inside(x + 1, y) && inside(x, y + 1) && inside(x - 1, y) && inside(x, y - 1)) CANDLES.push({ x: x + 0.5 + hash2(x, y, 141) * 0.6, y: y + 0.5 + hash2(x, y, 142) * 0.6, k: c++ });
+  for (let x = BUILDING.x0; x < BUILDING.x1; x += 4) for (let y = BUILDING.y0; y < BUILDING.y1; y += 4) if ([[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [-1, -1], [-2, -2], [-2, 0], [0, -2], [-1, -2], [-2, -1]].every(([dx, dy]) => inside(x + dx, y + dy))) CANDLES.push({ x: x + 0.5 + hash2(x, y, 141) * 0.6, y: y + 0.5 + hash2(x, y, 142) * 0.6, k: c++ });
 }
 function drawCorr(o) {
   const im = part('corridor', o.n); if (!im) return;
@@ -1746,7 +1748,7 @@ function drawCandles() {   // candles floating over the corridors: each bobs slo
   const T = fxNow();
   for (const q of CANDLES) {
     const m = P(q.x, q.y); if (m.x < VIEW.x0 - 20 || m.x > VIEW.x1 + 20 || m.y < VIEW.y0 - 20 || m.y > VIEW.y1 + 120) continue;
-    const bob = Math.sin((T + q.k * 0.9) * Math.PI * 2 / 4) * 3, x = m.x, y = m.y - 82 + bob;
+    const bob = Math.sin((T + q.k * 0.9) * Math.PI * 2 / 4) * 3, x = m.x, y = m.y - 56 + bob;   // above the students' heads, below the walls' tops
     ctx.save(); ctx.globalAlpha = 0.55 + 0.2 * Math.sin(T * 2.3 + q.k); ctx.drawImage(glowSprite('255,205,120'), x - 14, y - 18, 28, 28); ctx.restore();   // warm halo
     ctx.fillStyle = '#fff6e6'; ctx.strokeStyle = '#a88b6c'; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.roundRect(x - 2.4, y, 4.8, 11, 1.2); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#f3e2c4'; ctx.beginPath(); ctx.ellipse(x, y, 2.4, 0.9, 0, 0, Math.PI * 2); ctx.fill();   // melted top
