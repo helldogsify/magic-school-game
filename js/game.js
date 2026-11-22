@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=148';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=148';
+} from './data.js?v=149';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=149';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 148;   // keep equal to the ?v= number in index.html
+const BUILD = 149;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -27,7 +27,7 @@ function migrate() {   // classes added to the game later (the final exam) appea
   while (S.classes.length < CLASSES.length) { const c = CLASSES[S.classes.length]; S.classes.push({ built: !!c.final, buildEnd: 0, teacher: 1, desks: c.final ? 4 : 2, time: 0, items: c.items.map(() => 0) }); }
 }
 function load() {
-  try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { S = JSON.parse(raw); migrate(); return; } } catch (e) { /* fresh */ }
+  try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { S = JSON.parse(raw); migrate(); migrateForms(); return; } } catch (e) { /* fresh */ }
   freshState();
 }
 let noSave = false;
@@ -38,7 +38,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid })),
+    agents: agents.filter((a) => a.state !== 'fly').map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -312,11 +312,14 @@ const clsTheme = (i) => { const th = themeOf(CLASS_SLOT[i]); return th ? THEMES[
 const frontFacing = (i) => clsTheme(i)?.facing === 'front';   // students face the viewer, the teacher stands at the front
 const sitsOn = (i) => !!clsTheme(i)?.sitOn;                     // students sit on their station (clouds)
 function faceTeacher(a, i) { const tp = teacherPos(i); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = !frontFacing(i); }
+const sideHall = (i) => !!CLASSES[i].final && WORLD === 1;   // the exam hall faces its left wall
 function deskPos(i, d) {   // 3 columns across the room, rows from the board towards us: the first rows stay on the room picture
+  if (sideHall(i)) { const s = slotOf(i), per = 3, gy = (s.y1 - s.y0 - 2.2) / (per - 1); return { x: s.x0 + 3.2 + Math.floor(d / per) * 1.95, y: s.y0 + 1.1 + (d % per) * gy }; }   // rows of 3 along the left wall, 7 rows deep into the hall
   const s = slotOf(i), w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3, gap = (w - 2.2) / (cols - 1);
   return { x: s.x0 + 1.1 + (d % cols) * gap, y: s.y0 + (frontFacing(i) ? 1.9 : 2.5) + Math.floor(d / cols) * (CLASSES[i].final ? 1.45 : 1.2) };   // exam rows wider apart: each student clearly sits at his own desk
 }
-const seatPos = (i, d) => { const p = deskPos(i, d); if (frontFacing(i)) return { x: p.x - 0.45, y: p.y + 0.4 };   // charms: beside the lectern, on its left on screen (her ruling 2026-11-21)
+const seatPos = (i, d) => { const p = deskPos(i, d); if (sideHall(i)) return { x: p.x + 0.5, y: p.y + 0.05 };   // behind his desk, facing the left wall
+  if (frontFacing(i)) return { x: p.x - 0.45, y: p.y + 0.4 };   // charms: beside the lectern, on its left on screen (her ruling 2026-11-21)
   return { x: p.x, y: p.y + (sitsOn(i) ? 0.05 : CLASSES[i].final ? 0.32 : 0.45) }; };   // in front of the desk (nearer to us): the desk is between the student and the board
 // render-only stroll: the teacher walks slowly left and right along the board, pauses, turns to the class
 function teacherGlow(tp, hh, col = 'rgba(255,244,205,0.6)') {   // soft light around a teacher so they stand out from the class
@@ -363,6 +366,11 @@ function secretaryPos() {
 }
 let secGoal = 'board';
 function teacherWalk(i) {
+  if (sideHall(i)) {   // the examiner paces along the left wall, in front of the rows
+    const s = slotOf(i), T = performance.now() / 1000 + i * 3.7, ph = (T % 11) / 11;
+    const u = ph < 0.4 ? ph / 0.4 : ph < 0.5 ? 1 : ph < 0.9 ? 1 - (ph - 0.5) / 0.4 : 0, k = 0.5 - 0.5 * Math.cos(u * Math.PI);
+    return { x: s.x0 + 1.35, y: s.y0 + 0.9 + k * (s.y1 - s.y0 - 1.8), moving: ph < 0.4 || (ph >= 0.5 && ph < 0.9), left: ph < 0.4 };
+  }
   const b = teacherPos(i), s = slotOf(i), T = performance.now() / 1000 + i * 3.7;
   const span = Math.max(0.8, Math.min(2.2, (s.x1 - s.x0) / 2 - 1.4));
   const ph = (T % 9) / 9;                                         // 9 s loop: walk, stop, walk back, stop
@@ -371,7 +379,7 @@ function teacherWalk(i) {
   const moving = (ph < 0.35 || (ph >= 0.5 && ph < 0.85));
   return { x, y, moving, left: ph >= 0.5 && ph < 0.85 };
 }
-const teacherPos = (i) => { const s = slotOf(i); return frontFacing(i) ? { x: s.x0 + (s.x1 - s.x0) / 2 + 0.6, y: s.y1 - 0.9 } : { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
+const teacherPos = (i) => { const s = slotOf(i); if (sideHall(i)) return { x: s.x0 + 1.35, y: (s.y0 + s.y1) / 2 }; return frontFacing(i) ? { x: s.x0 + (s.x1 - s.x0) / 2 + 0.6, y: s.y1 - 0.9 } : { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
 let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.75, y: REC.y0 + 3.3 };
 const queueSlot = (k) => ({ x: REC.x0 + 3.0 + k * 0.7, y: REC.y0 + 4.6 });
 function waitSpot(i, k) { const [, h] = slotOf(i).door; return { x: h[0] + 0.5 + (k % 2) * 0.6 - 0.3, y: h[1] + 0.5 + Math.floor(k / 2) * 0.6 }; }
@@ -515,7 +523,7 @@ function seat(a, i, d) {
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
   const bonus = a.prepared ? libBonus() : 0; a.prepared = false;
-  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; if (WORLD === 1) spState(a.sp).xp++; earn(Math.round(tuition(i) * spBonus(a.sp)), p.x, p.y, null, 46); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
+  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; formXp(a, i); earn(Math.round(tuition(i) * payMul(a)), p.x, p.y, null, 46); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
@@ -759,26 +767,98 @@ function inspPanel() {
 }
 // how many students are in the school right now (her wish 2026-11-21)
 const inSchool = () => agents.filter((a) => a.state !== 'fly' && !(a.goal && (a.goal.t === 'x' || a.goal.t === 'g')));
-// Each of the 4 species has a level: every lesson passed by a creature of that kind gives 1 XP; with enough XP the level
-// is bought for coins. Every level: +5% tuition from that kind. Levels 5, 10, 15, 20 bring a new outfit (5 stages).
+// ======================= ranks and the album (her design 2026-11-22) =======================
+// Every student enters as a novice. After a passed lesson in a class that holds the exam for its NEXT rank, the student
+// tries that exam (low chance): passed -> the student itself gets the new outfit on the spot (her ruling: «наряд получает
+// он сам, пройдя экзамен»). Rank 5 = master of one of the four elements (exam hall). The album (🎓) has a card per
+// species x form: it opens when a student first reaches that form; students of that form gather XP with passed lessons
+// and the card level is bought with coins: +5% pay from every student in that form.
 const SP_NAMES = { mothfox: 'Лисичка-мотылёк', petalear: 'Ушастик', fernhorn: 'Рогатик', starwhisker: 'Звёздный котик' };
-const SP_MAX = 25, SP_TIERS = [1, 5, 10, 15, 20];
-const spState = (sp) => { S.spl ||= {}; return (S.spl[sp] ||= { lvl: 1, xp: 0 }); };
-const spLvl = (sp) => (WORLD === 1 && S && S.spl && S.spl[sp] ? S.spl[sp].lvl : 1);
-const spNeed = (l) => Math.round(30 * Math.pow(1.45, l - 1));
-const spCost = (l) => Math.round(20000 * Math.pow(2.1, l - 1));
-const spBonus = (sp) => 1 + 0.05 * (spLvl(sp) - 1);
-const spTier = (sp) => { const l = spLvl(sp); let t = 0; SP_TIERS.forEach((v, k) => { if (l >= v) t = k; }); return t; };
-const SP_OUTFITS = ['новичок', 'шарфик и сумка', 'мантия ученика', 'мантия и шляпа со звёздами', 'мантия мага с посохом'];
-function speciesCards() {
-  return SPECIES.map((sp) => {
-    const st = spState(sp), need = spNeed(st.lvl), ok = st.xp >= need, max = st.lvl >= SP_MAX;
-    const nextTier = SP_TIERS.find((v) => v > st.lvl);
-    return `<div class="card up"><img class="spimg" src="assets/creatures/${sp}${spTier(sp) && sprites[sp + '_t' + spTier(sp)]?.naturalWidth ? '_t' + spTier(sp) : ''}.png"><div class="grow"><b>${SP_NAMES[sp]}</b> <span class="muted">ур. ${st.lvl}/${SP_MAX}</span>
-      <div class="muted">+${Math.round((spBonus(sp) - 1) * 100)}% к плате · ${SP_OUTFITS[spTier(sp)]}${nextTier ? ` · новый наряд на ур. ${nextTier}` : ''}</div>
-      <div class="lvbar"><i style="width:${Math.min(100, st.xp / need * 100)}%"></i></div><div class="muted">опыт ${fmt(Math.min(st.xp, need))}/${fmt(need)}</div></div>
-      ${max ? '<span class="done">макс.</span>' : ok ? costBtn('↑', spCost(st.lvl), 'splvl', `data-k="${sp}"`) : '<span class="muted">копит опыт</span>'}</div>`;
-  }).join('');
+const RANKS = ['Новичок', 'Ученик', 'Младший маг', 'Маг', 'Старший маг', 'Мастер'];
+const RANKS_TO = ['новичком', 'учеником', 'младшим магом', 'магом', 'старшим магом', 'мастером'];
+const ELEMS = [{ name: 'огня', emo: '🔥', col: '255,106,43' }, { name: 'воды', emo: '💧', col: '63,169,245' }, { name: 'земли', emo: '🌱', col: '90,160,44' }, { name: 'воздуха', emo: '🌪️', col: '120,200,230' }];
+const RANK_AT = (i) => (CLASSES[i].final ? 5 : [1, 1, 2, 2, 3, 4][i] || 0);   // the rank exam each class holds
+const RANK_BASE = [0, 0.30, 0.20, 0.12, 0.08, 0.04];    // chance at upgrade level 0 (rank 5: all four elements together)
+const RANK_STEP = [0, 0.01, 0.01, 0.01, 0.01, 0.005];   // + per «Шанс экзамена» level
+const RANK_MUL = [1, 1.3, 1.7, 2.2, 3, 5];              // a student in that rank pays this much more for every lesson
+const FORM_BASE = [4000, 15000, 80000, 400000, 2000000, 10000000];   // first card level price per rank
+const MAX_EX_LVL = 20, MAX_XPL_LVL = 10, FORM_MAX = 20;
+const exLvl = (i) => S.classes[i].ex || 0, xplLvl = (i) => S.classes[i].xpl || 0;
+const rankChance = (i) => RANK_BASE[RANK_AT(i)] + RANK_STEP[RANK_AT(i)] * exLvl(i);
+const exCost = (i) => Math.round(CLASSES[i].tuition * 300 * Math.pow(1.7, exLvl(i)));
+const xplCost = (i) => Math.round(CLASSES[i].tuition * 200 * Math.pow(1.8, xplLvl(i)));
+const fkey = (sp, rk, el) => sp + ':' + rk + (rk === 5 ? ':' + el : '');
+const FORM_KEYS = SPECIES.flatMap((sp) => [0, 1, 2, 3, 4].map((rk) => fkey(sp, rk)).concat([0, 1, 2, 3].map((el) => fkey(sp, 5, el))));
+const formSt = (k) => { S.forms ||= {}; return (S.forms[k] ||= { lvl: 1, xp: 0, seen: k.split(':')[1] === '0' }); };
+const formOf = (a) => fkey(a.sp, a.rk || 0, a.el || 0);
+const formRank = (k) => +k.split(':')[1];
+const formTitle = (k) => { const [, rk, el] = k.split(':'); return +rk === 5 ? 'Мастер ' + ELEMS[el].name : RANKS[rk]; };
+const formName = (k) => `${SP_NAMES[k.split(':')[0]]} — ${formTitle(k)}`;
+const formNeed = (l) => Math.round(25 * Math.pow(1.5, l - 1));
+const formCost = (k) => Math.round(FORM_BASE[formRank(k)] * Math.pow(1.9, formSt(k).lvl - 1));
+const payMul = (a) => (SPECIES.includes(a.sp) ? RANK_MUL[a.rk || 0] * (1 + 0.05 * (formSt(formOf(a)).lvl - 1)) : 1);
+const formReady = (k) => { const f = formSt(k); return f.seen && f.lvl < FORM_MAX && f.xp >= formNeed(f.lvl); };
+function migrateForms() {   // build 149: the old per-species levels (builds 143-148) move into the album, nothing is lost
+  if (!S || S.formsV) return;
+  S.formsV = 1; S.forms ||= {};
+  const OLD_TIERS = [1, 5, 10, 15, 20];
+  for (const [sp, o] of Object.entries(S.spl || {})) {
+    if (!SPECIES.includes(sp) || !o) continue;
+    const f = formSt(fkey(sp, 0)); f.lvl = Math.min(FORM_MAX, Math.max(f.lvl, o.lvl || 1)); f.xp = Math.max(f.xp, o.xp || 0); f.seen = true;
+    OLD_TIERS.forEach((v, t) => { if (t > 0 && (o.lvl || 1) >= v) formSt(fkey(sp, t)).seen = true; });   // outfits already earned stay open in the album
+  }
+}
+function formXp(a, i) { if (SPECIES.includes(a.sp)) formSt(formOf(a)).xp += 1 + xplLvl(i); }
+let ffwd = false;   // true while fastForward() lives through the time the game was closed
+function rankTry(a, i, p) {   // the rank exam right after a passed lesson
+  const T = RANK_AT(i);
+  if (!T || !SPECIES.includes(a.sp) || (a.rk || 0) !== T - 1) return;
+  S.classes[i].rkTry = (S.classes[i].rkTry || 0) + 1;
+  if (Math.random() >= rankChance(i)) return;
+  a.rk = T; if (T === 5) a.el = Math.floor(Math.random() * 4);
+  S.classes[i].rkPass = (S.classes[i].rkPass || 0) + 1;
+  S.stats.ranks ||= [0, 0, 0, 0, 0, 0]; S.stats.ranks[T]++;
+  popup(`🌟 ${T === 5 ? 'Мастер ' + ELEMS[a.el].name + '!' : RANKS[T] + '!'}`, p.x + 0.4, p.y - 0.6, '#b8860b', 80);
+  const k = formOf(a), f = formSt(k);
+  if (!f.seen) {
+    f.seen = true;
+    const gift = Math.max(300, Math.round((S.ema || 1) * 60 * (1 + T)));
+    S.coins += gift; S.stats.earned = (S.stats.earned || 0) + gift;
+    if (!ffwd) toast(`📖 Новая карточка в альбоме: ${formName(k)} · 🪙 +${fmt(gift)}`);
+  }
+  if (!document.hidden && !ffwd) hintOnce('rank', '🌟', 'Ученик получил звание!', 'После урока ученик может сдать экзамен на следующее звание. Сдал — сразу получает новый наряд и дальше платит за уроки больше. Не сдал — ничего страшного, попробует в следующем классе.<br><br>Звания по порядку: Ученик (Травология, Зельеварение) → Младший маг (Звездочётство, Чары) → Маг (Полёты) → Старший маг (Магия стихий) → Мастер одной из четырёх стихий (Экзаменационный зал).<br><br>Каждый вид зверька в каждом наряде — карточка в альбоме 🎓. Там их можно улучшать.');
+}
+function rankSection(i) {   // the class panel part about the rank exam held here
+  const T = RANK_AT(i); if (!T) return '';
+  const st = S.classes[i], ch = rankChance(i);
+  const who = T === 5 ? 'Старший маг → Мастер стихии' : `${RANKS[T - 1]} → ${RANKS[T]}`;
+  const cells = T === 5 ? ELEMS.map((e) => `<div><span>${e.emo}</span><b>${(ch / 4 * 100).toFixed(1).replace('.0', '')}%</b><i>мастер ${e.name}</i></div>`).join('')
+    : `<div><span>🌟</span><b>${pct(ch)}</b><i>сдают</i></div><div><span>🎯</span><b>${fmt(st.rkPass || 0)}</b><i>получили</i></div><div><span>💰</span><b>×${RANK_MUL[T]}</b><i>плата</i></div>`;
+  return `<h3>Экзамен на звание</h3><p class="muted">После урока его пробуют только ученики со званием «${RANKS[T - 1]}»: <b>${who}</b>.</p>
+    <div class="stats3${T === 5 ? ' four' : ''}">${cells}</div>
+    <div class="card up"><span class="remoji">🌟</span><div class="grow"><b>Шанс экзамена</b> <span class="muted">ур. ${exLvl(i)}/${MAX_EX_LVL}</span><div class="muted">+${RANK_STEP[T] * 100}% к экзамену на звание</div></div>
+      ${exLvl(i) >= MAX_EX_LVL ? '<span class="done">макс.</span>' : costBtn('↑', exCost(i), 'exlvl', `data-i="${i}"`)}</div>
+    <div class="card up"><span class="remoji">📈</span><div class="grow"><b>Опыт</b> <span class="muted">ур. ${xplLvl(i)}/${MAX_XPL_LVL}</span><div class="muted">за урок здесь карточка ученика получает +${1 + xplLvl(i)} опыта</div></div>
+      ${xplLvl(i) >= MAX_XPL_LVL ? '<span class="done">макс.</span>' : costBtn('↑', xplCost(i), 'xpllvl', `data-i="${i}"`)}</div>`;
+}
+const formImg = (k) => { const [sp, rk] = k.split(':'); const t = Math.min(4, +rk); return `assets/creatures/${sp}${t ? '_t' + t : ''}.png${t ? '?v=1' : ''}`; };
+let albumSp = SPECIES[0];
+function formCard(k) {
+  const f = formSt(k), rk = formRank(k), el = +(k.split(':')[2] || 0), need = formNeed(f.lvl);
+  const pic = `<div class="fpic${f.seen ? '' : ' sil'}${rk === 5 ? ' master' : ''}"${rk === 5 ? ` style="--ec:rgb(${ELEMS[el].col})"` : ''}><img src="${formImg(k)}">${rk === 5 && f.seen ? `<em>${ELEMS[el].emo}</em>` : ''}</div>`;
+  if (!f.seen) return `<div class="card up locked">${pic}<div class="grow"><b>${formTitle(k)}</b><div class="muted">${rk === 5 ? 'сдай экзамен на Мастера в Экзаменационном зале' : `ещё никто не стал ${RANKS_TO[rk]}`}</div></div><span class="muted">❔</span></div>`;
+  return `<div class="card up">${pic}<div class="grow"><b>${formTitle(k)}</b> <span class="muted">ур. ${f.lvl}/${FORM_MAX}</span>
+    <div class="muted">плата за урок ×${+(RANK_MUL[rk] * (1 + 0.05 * (f.lvl - 1))).toFixed(2)}</div>
+    ${f.lvl < FORM_MAX ? `<div class="lvbar"><i style="width:${Math.min(100, f.xp / need * 100)}%"></i></div><div class="muted">опыт ${fmt(Math.min(f.xp, need))}/${fmt(need)}</div>` : ''}</div>
+    ${f.lvl >= FORM_MAX ? '<span class="done">макс.</span>' : f.xp >= need ? costBtn('↑', formCost(k), 'formlvl', `data-k="${k}"`) : '<span class="muted">копит опыт</span>'}</div>`;
+}
+function speciesPanel() {   // 🎓 album (own button at the bottom; her ruling 2026-11-22: it levels the student IN THAT OUTFIT)
+  const seen = FORM_KEYS.filter((k) => formSt(k).seen).length;
+  const tabs = SPECIES.map((sp) => `<button class="chip${sp === albumSp ? ' on' : ''}${FORM_KEYS.some((k) => k.startsWith(sp + ':') && formReady(k)) ? ' dot' : ''}" data-alb="${sp}"><img src="assets/creatures/${sp}.png"></button>`).join('');
+  return `<div class="sh-head"><span class="remoji big">🎓</span><div><h2>Альбом учеников</h2><div class="muted">Открыто карточек: ${seen} из ${FORM_KEYS.length}</div></div><button class="x" data-close>✕</button></div>
+    <div class="chips">${tabs}</div><h3>${SP_NAMES[albumSp]}</h3>
+    ${FORM_KEYS.filter((k) => k.startsWith(albumSp + ':')).map(formCard).join('')}
+    <p class="muted">Звание ученик получает сам, сдав экзамен после урока. Каждый сданный урок даёт опыт карточке его вида и наряда. Накопился опыт — улучши карточку: все такие ученики платят на 5% больше.</p>`;
 }
 function peoplePanel() {
   const l = inSchool(), n = (f) => l.filter(f).length;
@@ -793,10 +873,6 @@ function peoplePanel() {
   return `<div class="sh-head"><span class="remoji big">👥</span><div><h2>Ученики в школе: ${l.length}</h2><div class="muted">Настроение ${moodFace(avgMood())} ${Math.round(avgMood())}% · всего выпустилось 🎓 ${fmt(S.stats.graduated)}</div></div><button class="x" data-close>✕</button></div>
     ${rows.map(([e, t, v]) => `<div class="card up"><span class="remoji">${e}</span><div class="grow"><b>${v}</b> ${t}</div></div>`).join('')}
 `;
-}
-function speciesPanel() {   // own button at the bottom (her ruling 2026-11-21: «нужна отдельная кнопка внизу»)
-  return `<div class="sh-head"><span class="remoji big">🎓</span><div><h2>Уровни учеников</h2><div class="muted">Опыт за каждый сданный урок</div></div><button class="x" data-close>✕</button></div>
-    <p class="muted">Набрал вид зверька опыт — повышай уровень: этот вид платит за уроки больше, а на 5, 10, 15 и 20 уровне получает новый наряд.</p>${speciesCards()}`;
 }
 function renderInsp() {
   const el = $('#insp'); if (!el || !S) return;
@@ -1192,7 +1268,8 @@ function roomProps(i) {
   if (T.front[0]) out.push({ n: T.front[0], x: s.x0 + 0.5, y: s.y1 - 0.45 });
   if (T.front[1]) out.push({ n: T.front[1], x: s.x1 - 0.55, y: s.y1 - 0.5 });
   if (T.front[2] && s.y1 - free >= 2.4) out.push({ n: T.front[2], x: s.x1 - 0.6, y: free + 0.5 });
-  if (T.teacherProp) { const tp = teacherPos(i); out.push({ n: T.teacherProp, x: Math.max(s.x0 + 0.9, tp.x - 3.0), y: tp.y + 0.1 }); }   // beside the teacher's walking path, never in front of it
+  if (T.teacherProp && sideHall(i)) out.push({ n: T.teacherProp, x: s.x0 + 0.9, y: s.y0 + 0.75 });   // the examiners' table in the top corner
+  else if (T.teacherProp) { const tp = teacherPos(i); out.push({ n: T.teacherProp, x: Math.max(s.x0 + 0.9, tp.x - 3.0), y: tp.y + 0.1 }); }   // beside the teacher's walking path, never in front of it
   return out.map((o) => ({ ...o, th }));
 }
 function drawProp(o) {
@@ -1383,7 +1460,11 @@ function drawPlot(c, s, ci, L, B, R, F, center) {
 function shade(hex, d) { const n = parseInt(hex.slice(1), 16); const f = (v) => Math.max(0, Math.min(255, v + d)); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; }
 
 function drawCreature(a, x, y, h, extra) {
-  const tr = SPECIES.includes(a.sp) ? spTier(a.sp) : 0, tf = tr && sprites[a.sp + '_t' + tr + (a.back ? '_back' : '')];
+  const rk = SPECIES.includes(a.sp) ? (a.rk || 0) : 0, tr = Math.min(4, rk), tf = tr && sprites[a.sp + '_t' + tr + (a.back ? '_back' : '')];
+  if (rk === 5) {   // master of an element: a glow in the element's colour (until the masters get their own art)
+    const s0 = P(x, y), c = ELEMS[a.el || 0].col, g = ctx.createRadialGradient(s0.x, s0.y - h * 0.5 - (a.z || 0), 2, s0.x, s0.y - h * 0.5 - (a.z || 0), h * 0.85);
+    g.addColorStop(0, `rgba(${c},0.55)`); g.addColorStop(1, `rgba(${c},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(s0.x, s0.y - h * 0.5 - (a.z || 0), h * 0.85, 0, Math.PI * 2); ctx.fill();
+  }
   if (tf && tf.complete && tf.naturalWidth) a = { ...a, sp: a.sp + '_t' + tr, back: false, _tierImg: tf };
   const bk = a.back && sprites[a.sp + '_back'], im = a._tierImg ? a._tierImg : bk && bk.complete && bk.naturalWidth ? bk : sprites[a.sp];
   const s = P(x, y);
@@ -1536,7 +1617,7 @@ function render() {
         drawCreature(t1, tp.x, tp.y, hh); }); }   // own drawn professor (her approval, one at a time)
       else { const t0 = staff[(i + 1) % staff.length], tch = { ...t0, back: frontFacing(i), flip: tp.left, path: tp.moving ? [1] : [], ph: performance.now() / 1000 + i }; add(tp.x, tp.y, () => (teacherGlow(tp, 42), drawCreature(tch, tp.x, tp.y, 42, (x, y) => drawHat(x, y - 40, '#6c4fd1')))); } }
     const thI = themeOf(CLASS_SLOT[i]), stations = thI && THEMES[thI].stations;   // potions: a little cauldron instead of a desk
-    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI }; add(p.x, p.y, () => drawProp(o)); } else add(p.x, p.y, () => drawDesk(p)); }
+    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) }; add(p.x, p.y, () => drawProp(o)); } else add(p.x, p.y, () => drawDesk(p)); }
     for (const o of roomProps(i)) add(o.x, o.y, () => drawProp(o));
     CLASSES[i].items.forEach((it, k) => {
       if (!st.items[k]) return;
@@ -1663,7 +1744,7 @@ function classPanel(i) {
     let h = `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">${C.final ? 'Последний шаг: сдал — стал выпускником 🎓, не сдал — в библиотеку' : `Урок ${i + 1} из ${CLASSES.length - 1}`}</div></div><button class="x" data-close>✕</button></div>
       <div class="stats3"><div><span>🪙</span><b>${fmt(tuition(i))}</b><i>плата</i></div><div><span>🎯</span><b>${pct(success(i))}</b><i>сдают экзамен</i></div><div><span>⏱️</span><b>${sec(lessonTime(i))}</b><i>урок</i></div></div>
       ${overflow(i) > 0 ? `<p class="muted">🎯 Шанс уже максимальный (${Math.round(MAX_CHANCE * 100)}%). Всё, что сверху (+${Math.round(overflow(i) * 100)}%), превращается в плату: <b>+${Math.round(overflow(i) * 200)}%</b>.</p>` : ''}
-      <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>`;
+      <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>${rankSection(i)}`;
     h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · +5% платы и +1,5% к экзамену</div></div>
       ${st.teacher >= MAX_TEACHER_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', teacherCost(i), 'teacher', `data-i="${i}"`)}</div>`;
     h += `<div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Парты: ${st.desks}/${maxDesksOf(i)}</b><div class="muted">больше учеников за раз</div></div>
@@ -2081,7 +2162,7 @@ function updateHud() {
   $('#rate').textContent = fmt(S.ema * 60) + '/м';
   document.querySelectorAll('[data-cost]').forEach((el) => el.classList.toggle('poor', S.coins < +el.dataset.cost));
   renderMission(); renderInsp();
-  const sb = $('#spbtn'); if (sb) { sb.style.display = WORLD === 1 ? '' : 'none'; sb.classList.toggle('ready', WORLD === 1 && SPECIES.some((sp) => { const st = spState(sp); return st.lvl < SP_MAX && st.xp >= spNeed(st.lvl) && S.coins >= spCost(st.lvl); })); }   // glows when a level can be bought
+  const sb = $('#spbtn'); if (sb) sb.classList.toggle('ready', FORM_KEYS.some((k) => formReady(k) && S.coins >= formCost(k)));   // glows when a card level can be bought
 }
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
 
@@ -2178,6 +2259,7 @@ document.addEventListener('click', (e) => {
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.people !== undefined) { openPanel(peoplePanel); return; }
   if (d.species !== undefined) { openPanel(speciesPanel); return; }
+  if (d.alb !== undefined) { albumSp = d.alb; refreshPanel(); return; }
   if (d.music !== undefined) { setMusic(d.music === '1'); if (panel === settingsPanel) { openPanel(settingsPanel); drawFbPics(); } return; }
   if (d.calm !== undefined) { setCalm(d.calm === '1'); if (panel === settingsPanel) { openPanel(settingsPanel); drawFbPics(); } return; }
   if (d.worlds !== undefined) { openPanel(worldsPanel); return; }
@@ -2209,7 +2291,9 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
-  else if (d.act === 'splvl') { const st = spState(d.k); if (st.lvl < SP_MAX && st.xp >= spNeed(st.lvl) && spend(spCost(st.lvl))) { st.xp -= spNeed(st.lvl); st.lvl++; toast(`✨ ${SP_NAMES[d.k]}: уровень ${st.lvl}!`); } }
+  else if (d.act === 'formlvl') { const f = formSt(d.k); if (formReady(d.k) && spend(formCost(d.k))) { f.xp -= formNeed(f.lvl); f.lvl++; toast(`✨ ${formName(d.k)}: уровень ${f.lvl}!`); } }
+  else if (d.act === 'exlvl') { if (exLvl(i) < MAX_EX_LVL && spend(exCost(i))) st.ex = exLvl(i) + 1; }
+  else if (d.act === 'xpllvl') { if (xplLvl(i) < MAX_XPL_LVL && spend(xplCost(i))) st.xpl = xplLvl(i) + 1; }
   else if (d.act === 'shopbuild') { if (!shopOpen() && spend(SHOP_COST)) { shopUp().built = true; staticKey = ''; toast('🛍️ Лавка открыта!'); panel = shopPanel; } }
   else if (d.act === 'shopup') { const k = d.k; if (shopUp()[k] < SHOP_MAX && spend(shopCost(k))) shopUp()[k]++; }
   else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!dirBuilt() && S.coins >= DIR_COST && spendStars(DIR_STARS) && spend(DIR_COST)) { S.dirBuilt = true; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
@@ -2457,7 +2541,7 @@ function fastForward(sec) {   // live through the time the game was closed or in
   if (sec < 1) return 0;
   const before = S.coins;
   const stepDt = sec > 600 ? 0.5 : 0.25;
-  for (let t = 0; t < sec; t += stepDt) stepWorld(stepDt);
+  ffwd = true; try { for (let t = 0; t < sec; t += stepDt) stepWorld(stepDt); } finally { ffwd = false; }
   popups.length = 0; earnedThisSec = 0;
   $('#fx').innerHTML = '';
   return S.coins - before;

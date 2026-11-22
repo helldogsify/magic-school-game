@@ -246,3 +246,16 @@ img.em { height: 1.15em; width: 1.15em; vertical-align: -0.2em; margin: 0 .03em;
 .iwarn { flex-basis: 100%; text-align: left; background: #fff8d6; border: 2px solid #ffd23f; border-radius: 14px; padding: 7px 12px; font: 700 13.5px/1.35 ui-rounded, "Nunito", sans-serif; color: #4a3a6b; box-shadow: 0 3px 0 #e6b80055; animation: mpulse 1.2s ease-in-out infinite; }
 .spimg { width: 44px; height: 44px; object-fit: contain; }
 .spbtn { position: absolute; left: 86px; bottom: calc(var(--safe-b) + 14px); z-index: 4; }
+/* album of forms (build 149) */
+.chips { display: flex; gap: 8px; margin: 6px 0 2px; }
+.chip { position: relative; flex: 1; border: 2px solid #d9ccf3; background: #faf6ff; border-radius: 14px; padding: 4px; }
+.chip img { width: 40px; height: 40px; object-fit: contain; }
+.chip.on { border-color: #8f6ef0; background: #efe7ff; box-shadow: 0 2px 0 #8f6ef055; }
+.chip.dot::after { content: ''; position: absolute; right: 5px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: #ff5a8a; }
+.fpic { position: relative; width: 52px; height: 52px; flex: none; display: grid; place-items: center; border-radius: 14px; background: #fff; }
+.fpic img { width: 48px; height: 48px; object-fit: contain; }
+.fpic.master { background: radial-gradient(circle, color-mix(in srgb, var(--ec) 45%, transparent), #fff 72%); }
+.fpic em { position: absolute; right: -4px; bottom: -4px; font-style: normal; font-size: 16px; }
+.fpic.sil img { filter: brightness(0) opacity(.28); }
+.card.locked { opacity: .85; }
+.stats3.four span { font-size: 16px; } .stats3.four b { font-size: 15px; }
