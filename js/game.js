@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=186';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=186';
+} from './data.js?v=187';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=187';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 186;   // keep equal to the ?v= number in index.html
+const BUILD = 187;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1042,7 +1042,7 @@ function stepRetake(dt) {
 // and shows magic for MC_DUR s: every lesson passed there meanwhile gives his master card XP and the class +MC_BONUS exam chance.
 // Only while the game is open (no master-classes in the offline catch-up); one at a time.
 const MC_DUR = 90, MC_GAP = 60, MC_BONUS = 0.05, MC_XP = 10;
-let mcGap = 20;
+let mcGap = 20, mcLastEl = -1;   // elements take turns (her ruling 2026-11-22: «старались по очереди стихии идти», air went twice in a row)
 const mcClass = () => CLASSES.findIndex((c) => c.id === 'elements');
 const mcActive = (i) => agents.some((a) => a.mcls && a.state === 'mclass' && a.mcC === i);
 function mcMasters() {   // [classIndex or -1 for the tower, record] of every master who can go
@@ -1059,7 +1059,10 @@ function stepMasterClass(dt) {
   mcGap -= dt; if (mcGap > 0) return;
   const pool = all.filter(([ci, r]) => !r.away && (ci < 0 || isOpen(ci))); if (!pool.length) { mcGap = 10; return; }
   mcGap = MC_GAP;
-  const [ci, r] = pool[Math.floor(Math.random() * pool.length)];
+  let pick = pool;
+  for (let k = 1; k <= 4; k++) { const e = (mcLastEl + k + 4) % 4, l = pool.filter(([, r]) => (r.el || 0) === e); if (l.length) { pick = l; break; } }   // the next element in turn that has a master free
+  const [ci, r] = pick[Math.floor(Math.random() * pick.length)];
+  mcLastEl = r.el || 0;
   r.id ||= S.nextId++; r.mc = true;
   const [d] = ci < 0 ? SLOTS.TOWER.door : slotOf(ci).door;
   const a = { id: S.nextId++, sp: r.sp, rk: 5, el: r.el || 0, name: r.name, x: d[0] + 0.5, y: d[1] + 0.5, z: 0, path: [], speed: 2.5, state: 'walk', onArrive: null, flip: false, t: 0, dur: MC_DUR, c: -1, mcC: i, desk: -1, ph: Math.random() * 6, mood: 100, paid: 0, mcls: r.id, mcHome: ci };
@@ -1665,7 +1668,7 @@ function drawProp(o) {
   const p = P(o.x, o.y), h = ((THEMES[o.th] && THEMES[o.th].h) || {})[o.n] || PROP_H[o.n] || 30, w = h * im.naturalWidth / im.naturalHeight;
   { const rx = Math.min(w * 0.34, h * 0.5), cy = p.y - h * 0.02; const g = ctx.createRadialGradient(p.x, cy, 0, p.x, cy, rx);   // soft contact shadow right under the object's footprint (her report: shadows looked detached)
     g.addColorStop(0, 'rgba(60,40,80,0.20)'); g.addColorStop(1, 'rgba(60,40,80,0)'); ctx.save(); ctx.translate(p.x, cy); ctx.scale(1, 0.42); ctx.translate(-p.x, -cy); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, cy, rx, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
-  ctx.save(); ctx.translate(p.x, p.y + h * 0.08); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
+  ctx.save(); ctx.translate(p.x, p.y + h * 0.08 - (o.lift || 0)); if (o.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
 }
 function drawRugAt(c, th, s) {   // rooms without desks (library): a rug in the middle
   const im = THEMES[th].rug && part(th, THEMES[th].rug); if (!im) return;
@@ -2036,7 +2039,15 @@ function charmsFx(i, d, p, o) {
     }
   });
 }
-const STATION_FX = { potions: potionsFx, stars: starsFx, charms: charmsFx };
+// Flight: a busy cloud floats up and down with its student (one slow wave = 4.5 s) and a feather drifts down past them (6 s fall)
+const flightLift = (id) => 4 + 4 * Math.sin((fxNow() + id * 0.83) * Math.PI * 2 / 4.5);
+function flightFx(i, d, p, o) {
+  const a = studentAt(i, d); if (!a) return;
+  const m = P(o.x, o.y), T = fxNow() + a.id * 1.9, u = (T / 6) % 1, al = Math.min(1, Math.sin(u * Math.PI) * 2);
+  const fx = m.x + 9 + Math.sin(u * Math.PI * 3) * 6, fy = m.y - 58 + u * 52;
+  fxTop.push(() => { ctx.save(); ctx.globalAlpha = al * 0.95; emoji('🪶', fx, fy, 9); ctx.restore(); });
+}
+const STATION_FX = { potions: potionsFx, stars: starsFx, charms: charmsFx, flight: flightFx };
 function drawDesk(p) {
   const a = P(p.x - 0.55, p.y - 0.25), b = P(p.x + 0.55, p.y - 0.25), cc = P(p.x + 0.55, p.y + 0.25), d = P(p.x - 0.55, p.y + 0.25);
   const h = 9;
@@ -2173,7 +2184,7 @@ function render() {
         drawCreature(t1, tp.x, tp.y, hh); }); }   // own drawn professor (her approval, one at a time)
       else { const t0 = staff[(i + 1) % staff.length], tch = { ...t0, back: frontFacing(i), flip: tp.left, path: tp.moving ? [1] : [], ph: performance.now() / 1000 + i }; add(tp.x, tp.y, () => (teacherGlow(tp, 42), drawCreature(tch, tp.x, tp.y, 42, (x, y) => drawHat(x, y - 40, '#6c4fd1')))); } }
     const thI = themeOf(CLASS_SLOT[i]), stations = thI && THEMES[thI].stations;   // potions: a little cauldron instead of a desk
-    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) }; const sfx = STATION_FX[CLASSES[i].id]; add(p.x, p.y, () => { drawProp(o); if (sfx) sfx(i, d, p, o); }); } else add(p.x, p.y, () => { drawDesk(p); if (CLASSES[i].id === 'herbs') herbsDeskFx(i, d, p); }); }
+    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) }; const sfx = STATION_FX[CLASSES[i].id]; add(p.x, p.y, () => { if (CLASSES[i].id === 'flight') { const sa = studentAt(i, d); o.lift = sa ? flightLift(sa.id) : 0; } drawProp(o); if (sfx) sfx(i, d, p, o); }); } else add(p.x, p.y, () => { drawDesk(p); if (CLASSES[i].id === 'herbs') herbsDeskFx(i, d, p); }); }
     for (const o of roomProps(i)) add(o.x, o.y, () => drawProp(o));
     CLASSES[i].items.forEach((it, k) => {
       if (!st.items[k]) return;
@@ -2243,7 +2254,7 @@ function render() {
   for (const a of agents) {
     // an incident in the class: its students leave their places and rush around the room in a panic (her wish 2026-11-21)
     const pn = panicPos(a), ax = pn ? pn.x : a.x, ay = pn ? pn.y : a.y;
-    if (a.state !== 'fly') a.z = !pn && a.state === 'study' && !(a.path && a.path.length) && sitsOn(a.c) ? 9 : (a.state === 'read' && !(a.path && a.path.length) && themeOf('LIB') ? 6 : a.state === 'sleep' && !(a.path && a.path.length) && themeOf('DORM') ? 4 : 0);   // on a cloud / in an armchair
+    if (a.state !== 'fly') a.z = !pn && a.state === 'study' && !(a.path && a.path.length) && sitsOn(a.c) ? 9 + (CLASSES[a.c].id === 'flight' && !incOf(a.c) ? flightLift(a.id) : 0) : (a.state === 'read' && !(a.path && a.path.length) && themeOf('LIB') ? 6 : a.state === 'sleep' && !(a.path && a.path.length) && themeOf('DORM') ? 4 : 0);   // on a cloud / in an armchair
     if (pn) { a._panic = true; a.flip = pn.left; a.back = pn.up; } else if (a._panic) { a._panic = false; if (a.state === 'study') faceTeacher(a, a.c); }
     const draw = () => drawCreature(a, ax, ay, 30, (x, y) => {
       if (pn) { if (Math.sin(a.ph * 3 + a.id) > 0.2) emoji(a.id % 3 ? '❗' : '😱', x + 2, y - 36, 12); return; }
