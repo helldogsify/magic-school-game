@@ -104,7 +104,8 @@ export const META = readMeta();
 export const WORLD = WORLDS.some((w) => w.id === META.current && !w.soon) ? META.current : 1;
 export const CLASSES = WORLD === 2 ? GNOME_CLASSES : MAGIC_CLASSES;
 
-export const SPECIES = ['mothfox', 'petalear', 'fernhorn', 'starwhisker'];
+// world 2 (cold mountain kingdom) has its own six cave creatures (her pick 2026-11-22)
+export const SPECIES = WORLD === 2 ? ['mossmole', 'owlbat', 'quartzhog', 'batbunny', 'geosnail', 'axolotl'] : ['mothfox', 'petalear', 'fernhorn', 'starwhisker'];
 
 export const NAMES = ['Мира', 'Тоша', 'Луна', 'Плюш', 'Кекс', 'Искра', 'Ромашка', 'Бублик', 'Звёздочка', 'Сеня',
   'Ириска', 'Пикси', 'Мята', 'Тучка', 'Феня', 'Зефир', 'Капля', 'Лимпа', 'Боня', 'Вишенка', 'Шуша', 'Пончик',
