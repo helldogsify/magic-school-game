@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=151';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=151';
+} from './data.js?v=152';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=152';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 151;   // keep equal to the ?v= number in index.html
+const BUILD = 152;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -44,8 +44,8 @@ function save() {
 }
 
 // ---- balance (rebalance 2026-11-22, her goal: world 1 in ~1.5 weeks, first master on ~day 5; tuned with tools/sim_driver.js) ----
-const BAL_NEW = { chance0: 0.45, maxChance: 0.8, item: 1.45, teacher: 1.6, expand: 600, expandK: 4, desk: 3.0, examDesk: 1.8, time: 2.0, rec: 1.5, ads: 1.55,
-  build: [0, 2000, 50000, 1000000, 20000000, 300000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000 };
+const BAL_NEW = { chance0: 0.45, maxChance: 0.8, item: 1.5, teacher: 1.6, expand: 600, expandK: 4, desk: 3.0, examDesk: 1.8, time: 2.0, rec: 1.5, ads: 1.55,
+  build: [0, 2000, 50000, 1000000, 60000000, 1500000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000 };
 const BAL_OLD = { chance0: 0.6, maxChance: 0.85, item: 1.25, teacher: 1.35, expand: 120, expandK: 3, desk: 2.3, examDesk: 1.6, time: 1.6, rec: 1.4, ads: 1.45, build: [], buildTime: [], tower: 500000 };
 const BAL = { ...BAL_OLD };   // the new balance goes live only when tuned (the pacing simulation switches it with __sim.bal)
 const buildCost = (i) => (WORLD === 1 && BAL.build[i] !== undefined ? BAL.build[i] : CLASSES[i].build);
@@ -118,7 +118,7 @@ const WALLH = ROOM * 2 * HW * 0.3676;              // wall height in the art, re
 // corridor (a row is as deep as its bigger room), reception, dorms, gate. Expanding a class re-runs it (relayout()).
 // Wall rule: outer walls of the building are tall, partitions next to halls are low (cut.left / cut.right).
 let GW = 32, GH = 60;
-let HALLS = [], BUILDING = { x0: 7, y0: 0, x1: 22, y1: 0 }, OUTER_WALLS = [], GATE_TILE = { x: 14.5, y: 0 };
+let PATHS = [], HALLS = [], BUILDING = { x0: 7, y0: 0, x1: 22, y1: 0 }, OUTER_WALLS = [], GATE_TILE = { x: 14.5, y: 0 };
 const SLOTS = {};
 function slot(x0, y0, door, cut = {}, w = ROOM, h = ROOM, extra = []) { return { x0, y0, x1: x0 + w, y1: y0 + h, door, cut, extra }; }
 const NCLS = CLASSES.length - 1;                                  // classes before the final exam
@@ -225,7 +225,12 @@ function genLayout() {
     lastGap = [y, y + CW]; y += CW;
   }
   const recY = y;
-  if (WORLD === 1) SLOTS.TOWER = slot(24, 8, [[24, 9], [23, 9]], {}, 6, 6, [[[24, 10], [23, 10]]]);   // masters' tower right of the top right class, under the garden (her pick 2026-11-22); door to the corridor below the exam hall
+  PATHS = [];
+  if (WORLD === 1) {   // masters' tower: a separate building on the grass right of the school, a garden path leads there (her pick 2026-11-22)
+    PATHS.push({ x0: 24, y0: 9, x1: 35, y1: 11 });
+    PATHS.push({ x0: 33, y0: 11, x1: 35, y1: 15 });
+    SLOTS.TOWER = slot(31, 15, [[33, 15], [33, 14]], {}, 6, 6, [[[34, 15], [34, 14]]]);
+  }
   if (WORLD === 1) { const sy = lastGap[0] - 6; SLOTS.SHOP = slot(1, sy, [[3, sy + 5], [3, sy + 6]], {}, 6, 6, [[[4, sy + 5], [4, sy + 6]]]); }   // the school shop, door to the wide corridor
   // front block: library | reception | dorms
   SLOTS.LIB = slot(0, recY, [[2, recY], [2, recY - 1]], {}, 6, 8, [[[3, recY], [3, recY - 1]], [[5, recY + 3], [6, recY + 3]], [[5, recY + 4], [6, recY + 4]]]);   // own space: the reception's tall wall must not hide it
@@ -244,7 +249,7 @@ function genLayout() {
   ];
   GATE_TILE = { x: 16.5, y: recY + 12.5 };
   GATE_Y = recY + 9;
-  GH = recY + 16; GW = 36;
+  GH = recY + 16; GW = WORLD === 1 ? 40 : 36;
 }
 let GATE_Y = 0;
 // region grid (rebuilt with the layout)
@@ -257,6 +262,7 @@ const DOORS = new Set();
 function buildGrid() {
   REG = Array.from({ length: GW }, () => Array(GH + YOFF + 2).fill(null));
   HALLS.forEach((h) => fillRect(h, 'hall'));
+  PATHS.forEach((h) => fillRect(h, 'path'));
   Object.entries(SLOTS).forEach(([id, r]) => fillRect(r, id));
   DOORS.clear();
   Object.values(SLOTS).forEach((s) => { for (const [a, b] of [s.door, ...s.extra]) { DOORS.add(`${a[0]},${a[1]}|${b[0]},${b[1]}`); DOORS.add(`${b[0]},${b[1]}|${a[0]},${a[1]}`); } });
@@ -270,7 +276,7 @@ function buildEdges() {
   Object.values(SLOTS).forEach((sl) => [sl.door, ...sl.extra].forEach(([a, b]) => { doorAt.add(`${a[0]},${a[1]},${b[0] - a[0]},${b[1] - a[1]}`); doorAt.add(`${b[0]},${b[1]},${a[0] - b[0]},${a[1] - b[1]}`); }));
   const sides = [['x0', -1, 0], ['y0', 0, -1], ['x1', 1, 0], ['y1', 0, 1]];
   for (let x = 0; x < GW; x++) for (let y = 0; y < GH; y++) {
-    const id = regAt(x, y); if (!id || id === 'GARDEN') continue;
+    const id = regAt(x, y); if (!id || id === 'GARDEN' || id === 'path') continue;
     if (id === 'hall' && y >= GATE_Y) continue;                    // the gate path is open
     for (const [side, dx, dy] of sides) {
       const nb = regAt(x + dx, y + dy);
@@ -278,7 +284,7 @@ function buildEdges() {
       if (doorAt.has(`${x},${y},${dx},${dy}`)) continue;
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
-      const lowSide = ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0') || (id === 'TOWER' && side === 'x0');   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
+      const lowSide = ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
       EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
     }
   }
@@ -289,6 +295,7 @@ function canStep(ax, ay, bx, by) {
   const ra = regAt(ax, ay), rb = regAt(bx, by);
   if (!ra || !rb) return false;
   if (ra === rb) return true;
+  if ((ra === 'path' && rb === 'hall') || (ra === 'hall' && rb === 'path')) return true;   // the garden path leaves the building through an opening
   if ((ra === 'DORM2' || rb === 'DORM2') && !dorm2Built()) return false;
   if (rb === 'REC' && recBlocked(bx, by)) return false;   // the reception desk is not a floor
   return DOORS.has(`${ax},${ay}|${bx},${by}`);
@@ -792,7 +799,7 @@ const RANKS = ['Новичок', 'Ученик', 'Младший маг', 'Ма�
 const RANKS_TO = ['новичком', 'учеником', 'младшим магом', 'магом', 'старшим магом', 'мастером'];
 const ELEMS = [{ name: 'огня', emo: '🔥', col: '255,106,43' }, { name: 'воды', emo: '💧', col: '63,169,245' }, { name: 'земли', emo: '🌱', col: '90,160,44' }, { name: 'воздуха', emo: '🌪️', col: '120,200,230' }];
 const RANK_AT = (i) => (CLASSES[i].final ? 5 : [1, 1, 2, 2, 3, 4][i] || 0);   // the rank exam each class holds
-const RANK_BASE = [0, 0.30, 0.20, 0.12, 0.08, 0.04];    // chance at upgrade level 0 (rank 5: all four elements together)
+const RANK_BASE = [0, 0.30, 0.20, 0.12, 0.05, 0.025];    // chance at upgrade level 0 (rank 5: all four elements together)
 const RANK_STEP = [0, 0.01, 0.01, 0.01, 0.01, 0.005];   // + per «Шанс экзамена» level
 const RANK_MUL = [1, 1.3, 1.7, 2.2, 3, 5];              // a student in that rank pays this much more for every lesson
 const FORM_BASE = [4000, 15000, 80000, 400000, 2000000, 10000000];   // first card level price per rank
@@ -901,7 +908,7 @@ function towerAdmit(a) {   // the graduate walks from the garden into the tower 
     if (!ffwd) toast(`🏰 ${a.name} (${resTitle(r)}) поселился в Башне мастеров`);
   } else if (T.wait.length < TOWER_WAIT) {
     T.wait.push(r); a.state = 'walk'; a.goal = { t: 'tw' };
-    walk(a, s.x0 - 0.8, s.y0 + 2 + T.wait.length * 0.7, () => { a.gone = true; });
+    walk(a, s.x0 + 2.4 + (T.wait.length - 1) * 0.7, s.y0 - 0.5, () => { a.gone = true; });
     if (!ffwd) toast(`🏰 Башня полна: ${a.name} (${resTitle(r)}) ждёт у двери`);
   } else return false;
   return true;
@@ -1154,8 +1161,8 @@ function drawStatic() {
   c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2);
   // halls
   for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) {
-    if (regAt(x, y) !== 'hall') continue;
-    const inside = x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
+    const rid = regAt(x, y); if (rid !== 'hall' && rid !== 'path') continue;
+    const inside = rid === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
     const carpet = inside && x >= 14 && x <= 16 && y > BUILDING.y0;
     const col = carpet ? (y % 2 ? '#d98f97' : '#dd979f') : inside ? (x % 2 ? '#d7a46e' : '#dcab76') : ((x + y) % 2 ? '#e9dcc4' : '#efe4cf');
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
@@ -1667,7 +1674,7 @@ function render() {
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
   const list = [];
-  const zone = (x, y) => { const id = regAt(Math.floor(x), Math.floor(y)); if (id && id !== 'hall') { const s = SLOTS[id]; return (s.x0 + s.x1 + s.y0 + s.y1) / 2; } return x + y; };
+  const zone = (x, y) => { const id = regAt(Math.floor(x), Math.floor(y)); if (id && id !== 'hall' && SLOTS[id]) { const s = SLOTS[id]; return (s.x0 + s.x1 + s.y0 + s.y1) / 2; } return x + y; };
   const add = (x, y, draw, bias = 0) => { const m = P(x, y); if (onScreen(m.x, m.y)) list.push({ k1: zone(x, y), k2: x + y + bias, draw }); };   // off-screen things are skipped
   VIEW = { x0: scroller.scrollLeft / scale, y0: scroller.scrollTop / scale, x1: (scroller.scrollLeft + scroller.clientWidth) / scale, y1: (scroller.scrollTop + scroller.clientHeight) / scale };
   const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
@@ -1727,7 +1734,7 @@ function render() {
   if (towerOpen() && SLOTS.TOWER) {   // residents of the masters' tower stroll; those waiting stand at the door outside
     const T = towerUp();
     T.res.forEach((r, k) => { const p = towerPos(k); add(p.x, p.y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: p.flip, path: p.moving ? [1] : [], ph: k * 1.7 + performance.now() / 1000 }, p.x, p.y, 30)); });
-    T.wait.forEach((r, k) => { const s = SLOTS.TOWER, x = s.x0 - 0.8, y = s.y0 + 1.2 + k * 0.9; add(x, y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: true, path: [], ph: k }, x, y, 30, (sx, sy) => emoji('⏳', sx + 12, sy - 34, 12))); });
+    T.wait.forEach((r, k) => { const s = SLOTS.TOWER, x = s.x0 + 2.4 + k * 0.7, y = s.y0 - 0.5; add(x, y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: true, path: [], ph: k }, x, y, 30, (sx, sy) => emoji('⏳', sx + 12, sy - 34, 12))); });
   }
   if (shopOpen() && SLOTS.SHOP) { const fo = foxPos(), im = sprites['fox_' + fo.pose]; if (im && im.naturalWidth) add(fo.x, fo.y, () => { teacherGlow(fo, 56, 'rgba(255,240,200,0.7)'); drawPose(im, fo.x, fo.y, 56, fo.flip, fo.moving); }); }
   const co = conciergePos();
@@ -2315,7 +2322,7 @@ scroller.addEventListener('click', (e) => {
     const a = (wx - OX) / HW, b = (wy + lift - OY) / HH;
     const tx = Math.floor((a + b) / 2), ty = Math.floor((b - a) / 2);
     const id = regAt(tx, ty);
-    if (!id || id === 'hall') continue;
+    if (!id || id === 'hall' || id === 'path') continue;
     openRoom(id); return;
   }
   // in the corridors a tap on a creature tells what it is doing
