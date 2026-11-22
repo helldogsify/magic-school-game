@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=197';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=197';
+} from './data.js?v=198';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=198';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 197;   // keep equal to the ?v= number in index.html
+const BUILD = 198;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1480,12 +1480,12 @@ const GROVES = [['oak', 'oak', 'fir', 'fir'], ['fir', 'fir', 'fir', 'oak'], ['bl
 const UNDER = ['fern', 'berrybush', 'boulder', 'glowmush', 'stump', 'hedge', 'fern', 'bells'];
 function layoutOutdoor() {
   const key = GW + ':' + GH + ':' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0 + ',' + s.x1 + ',' + s.y1).join(';'); if (key === outKey) return; outKey = key;
-  const X0 = -40, Y0 = -40, X1 = GW + 40, Y1 = GH + 40, NX = X1 - X0, NY = Y1 - Y0, dist = new Int16Array(NX * NY).fill(999), q = [];
+  const X0 = -80, Y0 = -60, X1 = GW + 65, Y1 = GH + 50, NX = X1 - X0, NY = Y1 - Y0, dist = new Int16Array(NX * NY).fill(999), q = [];
   for (let x = X0; x < X1; x++) for (let y = Y0; y < Y1; y++) if (regAt(x, y)) { dist[(x - X0) * NY + (y - Y0)] = 0; q.push(x, y); }
   for (let h = 0; h < q.length; h += 2) { const x = q[h], y = q[h + 1], d = dist[(x - X0) * NY + (y - Y0)];   // chessboard distance to the nearest building or path
     for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const nx = x + dx, ny = y + dy; if (nx < X0 || ny < Y0 || nx >= X1 || ny >= Y1) continue; const k = (nx - X0) * NY + (ny - Y0); if (dist[k] > d + 1) { dist[k] = d + 1; q.push(nx, ny); } } }
   const D = (x, y) => { x = Math.floor(x); y = Math.floor(y); return x < X0 || y < Y0 || x >= X1 || y >= Y1 ? 999 : dist[(x - X0) * NY + (y - Y0)]; };
-  const inWorld = (x, y) => { const m = P(x, y); return m.x > 80 && m.x < WW - 80 && m.y > 200 && m.y < WH - 20; };
+  const inWorld = (x, y) => { const m = P(x, y); return m.x > -40 && m.x < WW + 40 && m.y > 40 && m.y < WH + 160; };   // trees may stand right at the map edge (crowns cut by it)
   const G0 = GATE_TILE, front = (x, y) => (Math.abs(x - G0.x - 0.5) < 10 && y > G0.y - 4) || (y > BUILDING.y1 && D(x, y) < 10);   // the view of the entrance and the south front stays open
   const out = [], put = (n, x, y, minD, sc = 1) => { if (D(x, y) < minD || !inWorld(x, y)) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
   // scenes, each tied to a building (skipped when that building's slot is missing)
@@ -1508,14 +1508,22 @@ function layoutOutdoor() {
     entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + 8.5 }; }
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
-  for (let gx = X0; gx < X1; gx += 9) for (let gy = Y0; gy < Y1; gy += 9) {
+  // edge groves near the clearing (sparse), then a deep forest that fills the map to its edges (her «за ним просто ничего»)
+  const grove = (gx, gy, cx, cy, deep) => {
+    const kind = GROVES[Math.floor(hash2(gx, gy, 13) * GROVES.length)], n = deep ? 5 : kind.length;
+    for (let k = 0; k < n; k++) { const an = k * 2.4 + hash2(gx, gy, 20 + k) * 0.8, r = k ? (deep ? 1.9 : 1.7) + hash2(gx, gy, 30 + k) * 0.7 : 0; put(kind[k % kind.length], cx + Math.cos(an) * r, cy + Math.sin(an) * r, 6, 0.9 + hash2(gx, gy, 40 + k) * 0.22); }
+    if (!deep) for (let k = 0; k < 2; k++) { const an = 0.6 + k * 1.1 + hash2(gx, gy, 50 + k) * 0.5; put(UNDER[Math.floor(hash2(gx, gy, 60 + k) * UNDER.length)], cx + Math.cos(an) * 3, cy + Math.sin(an) * 3, 4); }   // undergrowth on the side facing the school
+  };
+  const blocked = (cx, cy) => zones.some(([zx, zy]) => Math.hypot(zx - cx, zy - cy) < 8) || (Math.abs(cx - G.x) < 8 && cy > G.y - 4 && cy < G.y + 16);
+  for (let gx = X0; gx < X1; gx += 9) for (let gy = Y0; gy < Y1; gy += 9) {   // the edge of the forest, 7..13 tiles from the buildings
     const cx = gx + 2 + hash2(gx, gy, 11) * 5, cy = gy + 2 + hash2(gx, gy, 12) * 5, d = D(cx, cy);
-    if (d < 7 || d > 18 || !inWorld(cx, cy)) continue;
-    if (zones.some(([zx, zy]) => Math.hypot(zx - cx, zy - cy) < 8)) continue;
-    if (Math.abs(cx - G.x) < 8 && cy > G.y - 4 && cy < G.y + 16) continue;   // keep the view of the entrance open
-    const kind = GROVES[Math.floor(hash2(gx, gy, 13) * GROVES.length)];
-    kind.forEach((n, k) => { const an = k * 2.4 + hash2(gx, gy, 20 + k) * 0.8, r = k ? 1.7 + hash2(gx, gy, 30 + k) * 0.6 : 0; put(n, cx + Math.cos(an) * r, cy + Math.sin(an) * r, 6, 0.9 + hash2(gx, gy, 40 + k) * 0.22); });
-    for (let k = 0; k < 2; k++) { const an = 0.6 + k * 1.1 + hash2(gx, gy, 50 + k) * 0.5; put(UNDER[Math.floor(hash2(gx, gy, 60 + k) * UNDER.length)], cx + Math.cos(an) * 3, cy + Math.sin(an) * 3, 4); }   // undergrowth on the side facing the school
+    if (d < 7 || d > 13 || !inWorld(cx, cy) || blocked(cx, cy)) continue;
+    grove(gx, gy, cx, cy, false);
+  }
+  for (let gx = X0; gx < X1; gx += 5) for (let gy = Y0; gy < Y1; gy += 5) {   // deep forest beyond: dense groves up to the map edge
+    const cx = gx + 1 + hash2(gx, gy, 71) * 3, cy = gy + 1 + hash2(gx, gy, 72) * 3, d = D(cx, cy);
+    if (d <= 13 || !inWorld(cx, cy) || blocked(cx, cy)) continue;
+    grove(gx + 1000, gy, cx, cy, true);
   }
   OUTDOOR = out;
 }
