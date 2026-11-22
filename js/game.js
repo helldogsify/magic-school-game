@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=232';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=232';
+} from './data.js?v=233';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=233';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 232;   // keep equal to the ?v= number in index.html
+const BUILD = 233;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -303,36 +303,39 @@ function genLayoutCourt() {
   const C = (i, ...a) => (SLOTS['C' + i] = slot(...a));
   // GAP: a strip of lawn between neighbouring rooms, as wide as what a tall wall hides behind it, so every room keeps its tall
   // decorated walls and none of them hides the next room (her «так стирается много красивых стен» on 230)
-  const GAP = 4; LAWNS = [];
+  // court classes are 8 tiles wide (bigger next to the court, her «комнаты малюсенькие»); the court is kept compact (her «слишком большой двор»)
+  const GAP = 3, CWD = 8; LAWNS = [];
   SLOTS.EXAM = slot(0, 0, [[8, 5], [8, 6]], {}, 17, 6, [[[9, 5], [9, 6]], [[10, 5], [10, 6]], [[11, 5], [11, 6]], [[12, 5], [12, 6]]]);
   const dRow = Math.max(6, ...[3, 4, 5].map(depthOf));
   let x = 17 + GAP; LAWNS.push({ x0: 17, y0: 6, x1: 17 + GAP, y1: dRow });
-  for (const i of [3, 4, 5]) { const d = depthOf(i); C(i, x, 0, [[x + 2, d - 1], [x + 2, d]], {}, ROOM, d, [[[x + 3, d - 1], [x + 3, d]]]); x += ROOM; LAWNS.push({ x0: x, y0: 6, x1: x + GAP, y1: dRow }); x += GAP; }   // doors down into the court
-  SLOTS.DIR = slot(x, 0, [[x + 2, 5], [x + 2, 6]], {}, 6, 6); x += 6;   // the right end of the back row
+  for (const i of [3, 4, 5]) { const d = depthOf(i); C(i, x, 0, [[x + 3, d - 1], [x + 3, d]], {}, CWD, d, [[[x + 4, d - 1], [x + 4, d]]]); x += CWD; if (i !== 5) { LAWNS.push({ x0: x, y0: 6, x1: x + GAP, y1: dRow }); x += GAP; } }   // doors down into the court
   const XR = x;
   let y = 6 + GAP;
-  for (const i of [0, 1, 2]) { const d = depthOf(i), ym = y + Math.floor(d / 2); C(i, 0, y, [[5, ym], [6, ym]], {}, ROOM, d, [[[5, ym + 1], [6, ym + 1]]]); y += d + GAP; }   // doors right into the court
+  for (const i of [0, 1, 2]) { const d = depthOf(i), ym = y + Math.floor(d / 2); C(i, 0, y, [[CWD - 1, ym], [CWD, ym]], {}, CWD, d, [[[CWD - 1, ym + 1], [CWD, ym + 1]]]); y += d + GAP; }   // doors right into the court
   y -= GAP;
-  const colEnd = y, recY = Math.max(colEnd + 4, dRow + 20);
-  COURT = { x0: 11, y0: dRow + 4, x1: XR - 5, y1: recY - 4 };
+  const colEnd = y, recY = Math.max(colEnd + 4, dRow + 14);
+  COURT = { x0: CWD + 4, y0: dRow + 4, x1: XR - 4, y1: recY - 4 };
   PATHS = [];
   SLOTS.GARDEN = slot(XR + 2, 0, [[XR + 3, 6], [XR + 3, 5]], {}, 6, 6);   // the graduates' garden on the lawn right of the back row, a path leads there
   PATHS.push({ x0: XR, y0: 6, x1: XR + 5, y1: 9 });
   SLOTS.TOWER = slot(XR + 3, dRow + 6, [[XR + 4, dRow + 6], [XR + 4, dRow + 5]], {}, 6, 6, [[[XR + 5, dRow + 6], [XR + 5, dRow + 5]]]);
   PATHS.push({ x0: XR, y0: dRow + 2, x1: XR + 6, y1: dRow + 4 }, { x0: XR + 3, y0: dRow + 4, x1: XR + 6, y1: dRow + 6 });
-  SLOTS.CANT = slot(XR + 3, dRow + 15, [[XR + 4, dRow + 15], [XR + 4, dRow + 14]], {}, 6, 6, [[[XR + 5, dRow + 15], [XR + 5, dRow + 14]]]);
-  PATHS.push({ x0: XR, y0: dRow + 11, x1: XR + 6, y1: dRow + 13 }, { x0: XR + 3, y0: dRow + 13, x1: XR + 6, y1: dRow + 15 });
   // front block: library | reading court | reception | dorm | dorm 2 | shop (their walls toward the court are low, see buildEdges)
   SLOTS.LIB = slot(0, recY, [[2, recY], [2, recY - 1]], {}, 6, 8, [[[3, recY], [3, recY - 1]], [[5, recY + 3], [6, recY + 3]], [[5, recY + 4], [6, recY + 4]]]);
   SLOTS.REC = slot(12, recY, [[15, recY], [15, recY - 1]], {}, 9, 9,
     [[[16, recY], [16, recY - 1]], [[17, recY], [17, recY - 1]], [[16, recY + 8], [16, recY + 9]], [[17, recY + 8], [17, recY + 9]], [[20, recY], [21, recY]]]);
   SLOTS.DORM = slot(21, recY, [[21, recY], [20, recY]], {}, ROOM, dormDepth(1));
   SLOTS.DORM2 = slot(27, recY, [[27, recY + 3], [26, recY + 3]], {}, ROOM, dormDepth(2));
-  SLOTS.SHOP = slot(33, recY, [[35, recY], [35, recY - 1]], {}, 6, 6, [[[36, recY], [36, recY - 1]]]);
-  BUILDING = { x0: 0, y0: 6, x1: XR, y1: recY + 8 };
+  // pavilions in the court (her «слишком большой двор. Огромный кусок ничего»): the shop, the canteen and the director's office
+  // stand on the lawn around the fountain plaza, each in a quarter of the court, doors on their usual sides
+  { const cx = (COURT.x0 + COURT.x1) / 2, cy = (COURT.y0 + COURT.y1) / 2, qx0 = Math.round(cx - 12), qx1 = Math.round(cx + 6), qy0 = Math.round(cy - 11), qy1 = Math.round(cy + 5);
+    SLOTS.SHOP = slot(qx0, qy0, [[qx0 + 2, qy0 + 5], [qx0 + 2, qy0 + 6]], {}, 6, 6, [[[qx0 + 3, qy0 + 5], [qx0 + 3, qy0 + 6]]]);
+    SLOTS.CANT = slot(qx1, qy0, [[qx1 + 1, qy0], [qx1 + 1, qy0 - 1]], {}, 6, 6, [[[qx1 + 2, qy0], [qx1 + 2, qy0 - 1]]]);
+    SLOTS.DIR = slot(qx0, qy1, [[qx0 + 5, qy1 + 3], [qx0 + 6, qy1 + 3]], {}, 6, 6); }
+  BUILDING = { x0: 0, y0: 6, x1: Math.max(XR, 45), y1: recY + 8 };
   HALLS = [
-    { x0: 6, y0: 6, x1: XR, y1: recY },                             // the court and the corridor around it (rooms are cut out of it)
-    { x0: 0, y0: colEnd, x1: 6, y1: recY },                          // under the left column, toward the library
+    { x0: CWD, y0: 6, x1: Math.max(XR, 45), y1: recY },              // the court and the corridor around it (rooms are cut out of it)
+    { x0: 0, y0: colEnd, x1: CWD, y1: recY },                          // under the left column, toward the library
     { x0: 6, y0: recY, x1: 12, y1: recY + 8 },                       // reading court
     { x0: 15, y0: recY + 9, x1: 19, y1: recY + 14 },                // path from the gate
   ];
@@ -1677,7 +1680,7 @@ function layoutOutdoor() {
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
   if (WORLD === 1 && COURT) {   // the magic court (her «место игровое с фонтаном, тусовкой учеников»): fountain in the middle, benches round the plaza, trees and flowers in the lawn corners, lanterns on the paths
-    const c = courtC(), R = 3.6, W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, add = (n, x, y, sc = 1, fl = false) => { out.push({ n, x, y, th: 'outdoor', s: sc, flip: fl }); keep.push([x, y]); };
+    const c = courtC(), R = 3.6, W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, add = (n, x, y, sc = 1, fl = false) => { for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (regAt(Math.floor(x) + dx, Math.floor(y) + dy) !== 'hall') return; out.push({ n, x, y, th: 'outdoor', s: sc, flip: fl }); keep.push([x, y]); };
     add('fountain', c.x + 0.5, c.y + 0.6, 1.45);
     [[0.75, 1], [2.36, 0], [3.93, 1], [5.5, 0]].forEach(([an, f]) => add(f ? 'bench_a' : 'bench_b', c.x + Math.cos(an) * R, c.y + Math.sin(an) * R, 1.1));
     for (const [fx, fy] of [[0.22, 0.22], [0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // a corner garden in each quarter of the lawn
