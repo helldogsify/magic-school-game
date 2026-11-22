@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=249';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=249';
+} from './data.js?v=250';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=250';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 249;   // keep equal to the ?v= number in index.html
+const BUILD = 250;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -441,19 +441,22 @@ function genLayoutCourt() {
   SLOTS.CANT = slot(Xr, cy0, [[Xr, cy0 + 2], [Xr - 1, cy0 + 2]], {}, 6, 6, [[[Xr, cy0 + 3], [Xr - 1, cy0 + 3]]]);
   SLOTS.LIB = slot(Xr, cy0 + 8, [[Xr, cy0 + 11], [Xr - 1, cy0 + 11]], {}, 6, 8, [[[Xr, cy0 + 12], [Xr - 1, cy0 + 12]]]);
   SLOTS.TOWER = slot(Xr, cy0 + 18, [[Xr, cy0 + 20], [Xr - 1, cy0 + 20]], {}, 6, 6, [[[Xr, cy0 + 21], [Xr - 1, cy0 + 21]]]);
-  // front row: shop | director | reception (its middle door looks up the court at the fountain) | dorm | dorm 2
+  // front row (build 250, her «плинтусы и мебель заходят друг на друга»): shop | gap | reception (its middle door looks up the court at
+  // the fountain) | dorm | dorm 2 | gap | director. A 1-tile gap keeps one room's wall off the furniture of the next one; the dorms
+  // stay glued to the reception (the concierge stands at its desk)
   const rx = Math.round((cx0 + cx1) / 2) - 4;
   SLOTS.REC = slot(rx, Yf, [[rx + 3, Yf], [rx + 3, Yf - 1]], {}, 9, 9,
     [[[rx + 4, Yf], [rx + 4, Yf - 1]], [[rx + 5, Yf], [rx + 5, Yf - 1]], [[rx + 4, Yf + 8], [rx + 4, Yf + 9]], [[rx + 5, Yf + 8], [rx + 5, Yf + 9]], [[rx + 8, Yf], [rx + 9, Yf]]]);
-  SLOTS.DIR = slot(rx - 6, Yf, [[rx - 3, Yf], [rx - 3, Yf - 1]], {}, 6, 6);
-  SLOTS.SHOP = slot(rx - 12, Yf, [[rx - 10, Yf], [rx - 10, Yf - 1]], {}, 6, 6, [[[rx - 9, Yf], [rx - 9, Yf - 1]]]);
+  SLOTS.SHOP = slot(rx - 7, Yf, [[rx - 5, Yf], [rx - 5, Yf - 1]], {}, 6, 6, [[[rx - 4, Yf], [rx - 4, Yf - 1]]]);
   SLOTS.DORM = slot(rx + 9, Yf, [[rx + 9, Yf], [rx + 8, Yf]], {}, ROOM, dormDepth(1));
   SLOTS.DORM2 = slot(rx + 15, Yf, [[rx + 15, Yf + 3], [rx + 14, Yf + 3]], {}, ROOM, dormDepth(2));
+  SLOTS.DIR = slot(rx + 22, Yf, [[rx + 25, Yf], [rx + 25, Yf - 1]], {}, 6, 6);
   BUILDING = { x0: 0, y0: 6, x1: XR, y1: Yf + 10 };
   HALLS = [
     { x0: CWD, y0: 6, x1: XR, y1: cy0 },                               // gallery under the back row, to the right edge
     { x0: CWD, y0: cy0, x1: Xr, y1: Yf },                              // the court and the gallery round it (rooms are cut out of it)
     { x0: Xr, y0: cy1, x1: XR, y1: Yf },                               // gallery corner under the tower, in front of the second dorm
+    { x0: CWD, y0: Yf, x1: CWD + BAND, y1: Math.max(Yf, colEnd) },  // the left gallery runs on beside the lowest class (its doors open here: build 245 left Herbs' doors on the lawn)
     { x0: rx + 3, y0: Yf + 9, x1: rx + 7, y1: Yf + 14 },               // path from the gate
   ];
   LAWNS.push({ x0: Xr, y0: cy0 + 6, x1: XR, y1: cy0 + 8 }, { x0: Xr, y0: cy0 + 16, x1: XR, y1: cy0 + 18 });
@@ -534,7 +537,7 @@ function buildEdges() {
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
       if (id === 'hall' && WORLD === 1 && !nb && (side === 'x0' || side === 'y0') && !roomNear(x, y, side) && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1) { EDGES.push({ x, y, side, id, tall: true, hallWall: true, wallTheme: 'REC' }); continue; }   // corridor back wall with only grass behind it: a real tall wall (her «добавь стены где можно»)
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
-      const lowSide = (WORLD === 2 && side === 'x0' && nb === 'hall') || (WORLD === 1 && side === 'x0' && ['SHOP', 'DIR', 'REC', 'DORM', 'DORM2'].includes(id) && ['SHOP', 'DIR', 'REC', 'DORM', 'DORM2'].includes(nb)) || ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
+      const lowSide = (WORLD === 2 && side === 'x0' && nb === 'hall') || (WORLD === 1 && side === 'x0' && ['SHOP', 'DIR', 'REC', 'DORM', 'DORM2'].includes(id) && nb !== 'hall') || (WORLD === 1 && side === 'y0' && ['LIB', 'TOWER'].includes(id) && nb !== 'hall')   /* the 2-tile lawn gaps of the right column: a tall wall would hide the room above (her «плинтусы и мебель заходят друг на друга») */ || ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
       EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
     }
   }
@@ -4080,7 +4083,7 @@ function frame(now) {
   warmRooms();
   requestAnimationFrame(frame);
 }
-const LAYOUT = 13;   // 10: world 1 courtyard layout (build 229); 11: «круг к экзамену» (build 243); 12: library + garden moved (build 245); 13: tall walls + 4-tile gallery (build 248)
+const LAYOUT = 14;   // 14: front row with gaps (build 250); 10: world 1 courtyard layout (build 229); 11: «круг к экзамену» (build 243); 12: library + garden moved (build 245); 13: tall walls + 4-tile gallery (build 248)
 function relayout() {   // rebuild the map (a class was expanded): creatures keep their task, seats move with the rooms
   const snap = agents.length ? (save(), S.world) : null;
   genLayout(); buildGrid(); buildEdges(); decorateEdges();
