@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=254';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=254';
+} from './data.js?v=255';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=255';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 254;   // keep equal to the ?v= number in index.html
+const BUILD = 255;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1790,7 +1790,41 @@ function advReport() {   // [{hot, emo, text, go}] — go: [room id, selector] |
   return out;
 }
 const advHot = () => tikhonOn() && advReport().some((r) => r.hot);
+// His walk round the school (her «Тихон должен иногда прогуливаться по школе», build 254): every 3-5 minutes of play he leaves the
+// office with his staff, visits 2-3 places (the court, a class door, the reception) and stops at each for 4-6 s to read his
+// scroll, raise the lantern or explain something, then comes back. Render-only, like the teachers' strolls; never while the game is closed.
+const TK = { x: 0, y: 0, path: [], stops: [], hold: 0, pose: 'staff', on: false, wait: 150 + Math.random() * 60, last: 0, flip: false, speed: 1.6 };
+window.__tk = TK;   // test hook
+const tkHome = () => ({ x: SLOTS.DIR.x0 + 1.25, y: SLOTS.DIR.y0 + 3.7 });
+function tkPlaces() {   // reachable stops for one walk, in a sensible order
+  const out = [], add = (x, y) => { if (x !== undefined && bfs(TK.x, TK.y, x, y).length) out.push({ x, y }); };
+  if (COURT) { const c = courtC(); const sp = [[-4, -3], [4, -3], [-4, 3], [4, 3], [0, -4], [0, 4]]; const [dx, dy] = sp[Math.floor(Math.random() * sp.length)]; add(Math.floor(c.x + dx) + 0.5, Math.floor(c.y + dy) + 0.5); }
+  const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && SLOTS[CLASS_SLOT[i]] && SLOTS[CLASS_SLOT[i]].door);
+  for (let n = 0; n < 2 && open.length; n++) { const i = open.splice(Math.floor(Math.random() * open.length), 1)[0], d = SLOTS[CLASS_SLOT[i]].door[0]; add(d[0] + 0.5, d[1] + 0.5); }
+  return out.sort(() => Math.random() - 0.5).slice(0, 3);
+}
+function stepTikhonWalk() {
+  const now = performance.now() / 1000, dt = Math.min(0.2, now - (TK.last || now)); TK.last = now;
+  if (!TK.on) {
+    TK.wait -= dt; if (TK.wait > 0) return;
+    const h = tkHome(); TK.x = h.x; TK.y = h.y;
+    TK.stops = tkPlaces(); TK.wait = 180 + Math.random() * 120;
+    if (!TK.stops.length) return;
+    TK.stops.push({ x: h.x, y: h.y, home: true }); TK.on = true; TK.hold = 0; TK.path = pathTo(TK, TK.stops[0].x, TK.stops[0].y);
+    return;
+  }
+  if (TK.hold > 0) { TK.hold -= dt; if (TK.hold <= 0) { TK.stops.shift(); if (TK.stops.length) TK.path = pathTo(TK, TK.stops[0].x, TK.stops[0].y); } return; }
+  if (!TK.path.length) {   // arrived at a stop
+    if (!TK.stops.length || TK.stops[0].home) { TK.on = false; TK.stops = []; return; }
+    TK.hold = 4 + Math.random() * 2; TK.pose = ['read', 'lantern', 'explain'][Math.floor(Math.random() * 3)]; return;
+  }
+  const p = TK.path[0], dx = p.x - TK.x, dy = p.y - TK.y, dist = Math.hypot(dx, dy), st = TK.speed * WALK_K * dt;
+  if (Math.abs(dx - dy) > 0.01) TK.flip = dx - dy > 0;   // his staff pose looks to the left: mirror when walking right on screen
+  if (dist <= st) { TK.x = p.x; TK.y = p.y; TK.path.shift(); } else { TK.x += dx / dist * st; TK.y += dy / dist * st; }
+}
 function tikhonPos() {   // by the window side of the desk; a pose at least 3 s (her rule: every pose >= 2.5 s)
+  stepTikhonWalk();
+  if (TK.on) return { x: TK.x, y: TK.y, pose: TK.hold > 0 ? TK.pose : 'staff', moving: TK.hold <= 0, flip: TK.flip };
   const s = SLOTS.DIR, now = performance.now() / 1000;
   const pose = advHot() ? (Math.floor(now / 3) % 2 ? 'read' : 'explain') : ['staff', 'read', 'staff', 'explain', 'lantern'][Math.floor(now / 4) % 5];
   return { x: s.x0 + 1.25, y: s.y0 + 3.7, pose };   // left of the desk, by the bookcase: never over the director's walk to the window
@@ -3159,7 +3193,7 @@ function render() {
   }
   // library (themed): an armchair at every open reading place and a few things around
   if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = sprites['dir_' + (dp.pose === 'walk' ? 'proud' : dp.pose)]; if (WORLD === 1 && im && im.naturalWidth) add(dp.x, dp.y, () => { teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, 64, dp.flip, dp.moving, 'hover'); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
-  if (tikhonOn()) { const tp = tikhonPos(), im = sprites['tikhon_' + tp.pose]; if (im && im.naturalWidth) add(tp.x, tp.y, () => { teacherGlow(tp, 60); drawPose(im, tp.x, tp.y, 60, false, false, 'hover'); drawTikhonBadge(tp); }); }   // Tikhon, the advisor (build 251)
+  if (tikhonOn()) { const tp = tikhonPos(), im = sprites['tikhon_' + tp.pose]; if (im && im.naturalWidth) add(tp.x, tp.y, () => { teacherGlow(tp, 60); drawPose(im, tp.x, tp.y, 60, !!tp.flip, !!tp.moving, tp.moving ? 'waddle' : 'hover'); drawTikhonBadge(tp); }); }   // Tikhon, the advisor (build 251)
   if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR', 'SHOP', 'TOWER', 'CANT']) {
     const th = themeOf(rid); if (!th || !SLOTS[rid] || (rid === 'CANT' && !cantOpen()) || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt()) || (rid === 'SHOP' && !shopOpen()) || (rid === 'TOWER' && !towerOpen())) continue;
