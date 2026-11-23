@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=322';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=322';
-import { initMinigame } from './minigame.js?v=322';
-import { initChests } from './chests.js?v=322';
+} from './data.js?v=323';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=323';
+import { initMinigame } from './minigame.js?v=323';
+import { initChests } from './chests.js?v=323';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 322;   // keep equal to the ?v= number in index.html
+const BUILD = 323;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2632,10 +2632,21 @@ function glowSprite(rgb) {   // a soft round glow, rendered once per colour (dra
 function outFx(o, p, h) {
   const T = fxNow() + (o.x * 7.3 + o.y * 3.1);
   if (o.n === 'fountain') {   // jets from the top bowl: drops arc out and fall back (2.6 s), a soft glow over the water (3 s)
-    const tx = p.x, ty = p.y - h * 0.62;
-    ctx.save(); ctx.globalAlpha = 0.35 + 0.15 * Math.sin(T * Math.PI * 2 / 3); ctx.drawImage(glowSprite('140,240,230'), tx - h * 0.45, p.y - h * 0.45 - h * 0.2, h * 0.9, h * 0.5); ctx.restore();
-    for (let k = 0; k < 8; k++) { const u = ((T + k * 0.33) / 2.6) % 1, an = k * 0.785, vx = Math.cos(an) * h * 0.3, vy = Math.sin(an) * h * 0.12, x = tx + vx * u, y = ty + vy * u - Math.sin(u * Math.PI) * h * 0.18 + u * h * 0.2;
-      ctx.globalAlpha = Math.sin(u * Math.PI) * 0.9; ctx.fillStyle = '#d6fbff'; ctx.beginPath(); ctx.arc(x, y, 1.3, 0, Math.PI * 2); ctx.fill(); }
+    const tx = p.x, ty = p.y - h * 0.62, L = WORLD === 1 && S.courtUp ? S.courtUp.fount || 1 : 1, C = WORLD === 1 && S.courtUp ? S.courtUp.coin || 0 : 0, g = (L - 1) / 9;   // fountain level 1..10, coin level 0..10
+    ctx.save(); ctx.globalAlpha = Math.min(1, 0.35 + 0.45 * g + 0.15 * Math.sin(T * Math.PI * 2 / 3)); const gw = h * (0.9 + 0.7 * g); ctx.drawImage(glowSprite('140,240,230'), tx - gw / 2, p.y - h * 0.45 - h * 0.2 - g * h * 0.15, gw, h * (0.5 + 0.45 * g)); ctx.restore();
+    const nJ = 8 + 2 * (L - 1), jh = 0.18 * (1 + 0.1 * (L - 1)), dr = 1.6 + 0.22 * (L - 1);   // more, higher, bigger drops with every level
+    for (let k = 0; k < nJ; k++) { const u = ((T + k * 2.6 / nJ) / 2.6) % 1, an = k * Math.PI * 2 / nJ, vx = Math.cos(an) * h * 0.3, vy = Math.sin(an) * h * 0.12, x = tx + vx * u, y = ty + vy * u - Math.sin(u * Math.PI) * h * jh + u * h * 0.2;
+      ctx.globalAlpha = Math.sin(u * Math.PI) * 0.9; ctx.fillStyle = '#d6fbff'; ctx.beginPath(); ctx.arc(x, y, dr, 0, Math.PI * 2); ctx.fill(); }
+    if (L >= 3) { const hh = h * (0.3 + 0.07 * (L - 3)), w0 = 2 + 0.3 * (L - 3), gr = ctx.createLinearGradient(0, ty, 0, ty - hh);   // a tall central jet: a water column with a spray crown
+      gr.addColorStop(0, 'rgba(200,250,255,0.85)'); gr.addColorStop(1, 'rgba(230,253,255,0.15)'); ctx.globalAlpha = 1; ctx.fillStyle = gr;
+      ctx.beginPath(); ctx.moveTo(tx - w0, ty); ctx.quadraticCurveTo(tx - w0 * 0.4 + Math.sin(T * 5) * 0.8, ty - hh * 0.6, tx, ty - hh); ctx.quadraticCurveTo(tx + w0 * 0.4 + Math.sin(T * 5 + 1) * 0.8, ty - hh * 0.6, tx + w0, ty); ctx.fill();
+      for (let k = 0; k < 12; k++) { const u = ((T * 0.9 + k / 12) % 1), an = k * 0.52, x = tx + Math.cos(an) * u * h * 0.16, y = ty - hh - Math.sin(u * Math.PI) * h * 0.06 + u * u * hh * 0.7;
+        ctx.globalAlpha = 0.9 * (1 - u); ctx.fillStyle = '#e6fdff'; ctx.beginPath(); ctx.arc(x, y, dr * 0.9, 0, Math.PI * 2); ctx.fill(); } }
+    if (L >= 5) for (let k = 0; k < Math.min(6, L - 4); k++) { const an = T * 0.6 + k * Math.PI * 2 / Math.min(6, L - 4), ox = tx + Math.cos(an) * h * 0.55, oy = ty - h * 0.05 + Math.sin(an) * h * 0.2 + Math.sin(T * 1.7 + k) * 3, r = 6 + 0.6 * Math.sin(T * 2 + k);   // floating water orbs
+      ctx.globalAlpha = 0.8; ctx.drawImage(glowSprite('150,235,255'), ox - r * 3, oy - r * 3, r * 6, r * 6); ctx.globalAlpha = 0.9; ctx.fillStyle = 'rgba(215,250,255,0.9)'; ctx.beginPath(); ctx.arc(ox, oy, r, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(ox - r * 0.35, oy - r * 0.35, r * 0.3, 0, Math.PI * 2); ctx.fill(); }
+    if (L >= 8) for (let k = 0; k < 6; k++) { const an = T * 0.9 + k * 1.047, sx = tx + Math.cos(an) * h * 0.55, sy = ty - h * 0.55 + Math.sin(an) * h * 0.18 - ((T * 0.5 + k / 6) % 1) * h * 0.2; fxStar(sx, sy, 3.2, 1, k % 2 ? '255,236,150' : '190,240,255'); }   // sparkles over a great fountain
+    for (let k = 0; k < C; k++) { const an = k * 2.4 + 0.5, rr = 0.15 + 0.22 * ((k * 0.37) % 1), gx = tx + Math.cos(an) * h * rr * 1.4, gy = p.y - h * 0.3 + Math.sin(an) * h * rr * 0.45, tw = 0.5 + 0.5 * Math.sin(T * 2.3 + k * 1.7);   // coins glinting in the basin
+      ctx.globalAlpha = 0.5 + 0.5 * tw; ctx.fillStyle = '#e8b83a'; ctx.beginPath(); ctx.ellipse(gx, gy, 2.2, 1.3, 0, 0, Math.PI * 2); ctx.fill(); if (tw > 0.85) fxStar(gx, gy - 1, 1.6, 0.9); }
     ctx.globalAlpha = 1;
   }
   if (o.n === 'lantern_gold' || o.n === 'lantern_blue') {   // the crystal flame glows softly (3 s), two motes drift around it (6 s)
@@ -2710,7 +2721,7 @@ function drawOut(o) {
   { const dh = h * scale * dpr, lv = o.depth > 0.6 ? 1 : o.depth > 0.25 ? 0 : -1, t = lv >= 0 && outTint[o.n];   // nearest smaller copy (big downscales every frame are slow); deep trees use the tinted copies
     if (outLo[o.n] && dh < 230) im = t ? t.lo[lv] : outLo[o.n]; else if (outMid[o.n] && (dh < 430 || t)) im = t ? t.mid[lv] : outMid[o.n]; }
   if (!drawTreeGrounded(o, im, p, w, h)) ctx.drawImage(o.flip ? flipped(im) : im, p.x - w / 2, p.y + h * 0.05 - h, w, h);
-  if (zoom >= 1.3) outFx(o, p, h);   // zoomed out the life is too small to see: save the iPhone's work
+  if (zoom >= 1.3 || o.n === 'fountain') outFx(o, p, h);   // the fountain's water shows at every zoom (it grows with its upgrades)   // zoomed out the life is too small to see: save the iPhone's work
 }
 function drawGarland(o, im) {   // a garland swag hung between the tops of two columns: the picture's bow corners are pinned to the column tops
   const top = (c) => { const p = P(c.x, c.y), h = OUT_H[c.n] || 84; return { x: p.x, y: p.y + h * 0.05 - h * (c.n === 'gal_urn' ? 0.62 : 0.9) }; };
@@ -3921,7 +3932,7 @@ function render() {
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
   if (WORLD === 1 && COURT) {   // build 279: the fountain has a sign too: it opens the court's upgrades
-    const c = courtC(), q = up(P(c.x + 0.89, c.y + 0.89), 92), pl = signPill(signLabel('⛲ Двор'), '#d6f0ff', 12, 22, '#ffffff', '#2e2340');
+    const c = courtC(), q = up(P(c.x + 0.89, c.y + 0.89), 150), pl = signPill(signLabel('⛲ Двор'), '#d6f0ff', 12, 22, '#ffffff', '#2e2340');
     if (onScreen(q.x, q.y, 160, 40)) ctx.drawImage(pl.cv, q.x - pl.w / 2, q.y - pl.h / 2, pl.w, pl.h);
     signRects.push({ id: 'FOUNT', x0: q.x - pl.tw / 2, y0: q.y - pl.hh, x1: q.x + pl.tw / 2, y1: q.y + pl.hh });
   }
