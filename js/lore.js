@@ -110,6 +110,62 @@ PAGES.push(
 );
 const CHAPTERS = [['world', '🏰', 'Мир'], ['races', '🌸', 'Расы'], ['teachers', '🧙', 'Учителя'], ['school', '📖', 'Школа']];
 
+// ---- Tikhon's exam: 6 questions per chapter (her «Давай», 2026-11-23); answer 0 is the right one (shuffled on screen)
+const QUIZ = {
+  world: [['Как называется край, где стоит школа?', 'Мотыльковые холмы', 'Звёздная поляна', 'Тихая долина'], ['Кто основал школу?', 'Тихон', 'Лев', 'Экзаменатор Сова'],
+    ['Кто Тихон по природе?', 'Очень древняя черепаха', 'Старый ёжик', 'Мудрый филин'], ['Кому Тихон дал обещание?', 'Первой звезде', 'Льву', 'Прежнему директору'],
+    ['Что пообещал Тихон?', 'Только записывать историю, а не вершить её', 'Никогда не покидать школу', 'Научить всех летать'], ['Что оставил исчезнувший директор?', 'Записку-загадку', 'Ключ от школы', 'Свою шляпу']],
+  races: [['Почему у лисичек-мотыльков светятся крылья?', 'На них осела пыльца упавшей звезды', 'Их раскрашивает Мастер Искра', 'Они едят светящиеся грибы'],
+    ['Что ушастики делают вместо прощания?', 'Касаются друг друга кончиками ушей', 'Машут хвостом', 'Дарят засушенный листок'],
+    ['Как ссорятся рогатики?', 'Молча стоят рог к рогу, пока кто-то не уступит', 'Громко спорят', 'Бодаются'],
+    ['Почему первый рогатик пришёл учиться в школу?', 'Тихон пообещал посадить дерево у ворот', 'Его позвала Госпожа Буря', 'Он искал звезду'],
+    ['Что меняется у крылоушки, когда она влюбляется?', 'Узор на крыльях', 'Цвет шёрстки', 'Голос'], ['Какое самое страшное оскорбление у лисичек-мотыльков?', '«Бескрылый»', '«Болтун»', '«Соня»']],
+  teachers: [['Как зовут лягушку Мадам Пузырь?', 'Кваклин', 'Квакуша', 'Пузырёк'], ['Почему Мастер Искра сбежала из королевства?', 'В неё влюбился оживлённый портрет', 'Она взорвала котёл', 'Проиграла дуэль'],
+    ['Чего боится Капитан Ветерок?', 'Высоты, когда стоит на земле', 'Грозы', 'Громких звуков'], ['Что видел Звездочёт Лун, чего не видел никто?', 'Первую звезду ещё на небе', 'Исчезновение директора', 'Дракона'],
+    ['Что появляется над Госпожой Бурей, когда она злится?', 'Маленькая тучка', 'Молнии', 'Снежинки'], ['Как Экзаменатор Сова называет Льва?', '«Тот вежливый мальчик»', '«Мой лучший ученик»', '«Юный директор»']],
+  school: [['Как Бумажкина рассылает записки?', 'Бумажными самолётиками', 'Через сов', 'С учениками'], ['Что делает Баю-Бая со свечой по ночам?', 'Поправляет одеяла', 'Читает', 'Ищет ключи'],
+    ['Где Закладкин носит закладки?', 'На иголках', 'В шарфе', 'В книгах'], ['Что случается, когда Уголёк чихает?', 'Суп превращается в жаркое', 'Гаснет печь', 'Летят искры'],
+    ['Как господин Хитрован оказался в школе?', 'Пришёл с тележкой сладостей, и ученики скупили всё за день', 'Его пригласил Лев', 'Он здесь учился'],
+    ['Что Хитрован делает, если ученик грустит?', 'Отдаёт сладость бесплатно', 'Продаёт конфету со скидкой', 'Рассказывает анекдот']],
+};
+const REWARD = { world: '+3% к шансу сдать Финальный экзамен — навсегда, и статуэтка звезды во дворе', races: '+5% опыта альбома — навсегда, и фонтанчик с лисичкой-мотыльком во дворе',
+  teachers: 'уроки на 3% короче — навсегда, и бюст Экзаменатора Совы во дворе', school: '+5% дохода Столовой и Лавки — навсегда, и статуя Тихона с книгой во дворе' };
+const RETRY_MS = 3600 * 1000;
+let quiz = null;   // { ch, qs: [{ q, opts: [[text, right]] }], k, wrong, done }
+const QS = () => (LS().quiz ||= {});
+const chapterRead = (ch, f) => PAGES.filter((p) => p.ch === ch).every((p) => openN(p, f) === p.layers.length && (LS().seen[p.id] || 0) >= p.layers.length);
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function startQuiz(ch) { quiz = { ch, k: 0, wrong: 0, qs: shuffle(QUIZ[ch].map(([q, ...o]) => ({ q, opts: shuffle(o.map((t, i) => [t, i === 0])) }))) }; }
+function quizHtml() {
+  const z = quiz, name = (CHAPTERS.find((c) => c[0] === z.ch) || [])[2];
+  if (z.done) {
+    const ok = !z.wrong;
+    return `<button class="lo-back" data-loqback>‹ К главе</button><div class="lo-quiz"><img class="lo-tk" src="assets/staff/${ok ? 'tikhon_explain' : 'tikhon_read'}.png" alt="">
+      <h3>${ok ? 'Экзамен сдан!' : 'Почти получилось…'}</h3>
+      <p>${ok ? `«Превосходно! Ты знаешь главу «${name}» не хуже меня», — говорит Тихон и ставит в книге свою печать.` : `«Ошибок: ${z.wrong}. Перечитай главу «${name}» внимательнее — и приходи через час», — говорит Тихон.`}</p>
+      ${ok ? `<div class="lo-reward">🎁 ${esc(REWARD[z.ch])}</div>` : ''}</div>`;
+  }
+  const q = z.qs[z.k];
+  return `<button class="lo-back" data-loqback>‹ К главе</button><div class="lo-quiz"><img class="lo-tk" src="assets/staff/tikhon_explain.png" alt="">
+    <div class="lo-qn">Вопрос ${z.k + 1} из ${z.qs.length}</div><h3>${esc(q.q)}</h3>
+    ${q.opts.map(([t], i) => `<button class="lo-opt" data-loans="${i}">${esc(t)}</button>`).join('')}</div>`;
+}
+function answer(i) {
+  const z = quiz, q = z.qs[z.k]; if (!q.opts[i][1]) z.wrong++;
+  if (++z.k < z.qs.length) return;
+  z.done = true; const st = QS();
+  if (!z.wrong) { st[z.ch] = { done: true, at: Date.now() }; A.onQuiz && A.onQuiz(z.ch); }
+  else st[z.ch] = { fail: Date.now() };
+  A.save();
+}
+function quizBlock(f) {
+  const st = QS()[chap] || {}, name = (CHAPTERS.find((c) => c[0] === chap) || [])[2];
+  if (st.done) return `<div class="lo-seal">🎓 Сдано · <i>подпись: Тихон</i><small>${esc(REWARD[chap])}</small></div>`;
+  if (!chapterRead(chap, f)) return `<div class="lo-exam lock">🎓 Экзамен Тихона по главе «${name}»<small>Откроется, когда все страницы главы будут открыты и прочитаны целиком.</small></div>`;
+  const left = st.fail ? st.fail + RETRY_MS - Date.now() : 0;
+  if (left > 0) return `<div class="lo-exam lock">🎓 Экзамен Тихона<small>Новая попытка через ${Math.ceil(left / 60000)} мин. Пока перечитай главу.</small></div>`;
+  return `<button class="lo-exam" data-loquiz>🎓 Сдать экзамен Тихона<small>6 вопросов по главе «${name}». Награда: ${esc(REWARD[chap])}.</small></button>`;
+}
 // ---- progress
 function facts() {
   const f = A.facts();
@@ -127,11 +183,11 @@ const para = (t) => esc(t).split('\n\n').map((x) => `<p>${x}</p>`).join('');
 function pic(p, locked) { return p.img ? `<img class="lo-pic${locked ? ' lock' : ''}" src="${p.img}" alt="">` : `<span class="lo-ico">${p.icon || '📜'}</span>`; }
 function listHtml(f) {
   const tabs = CHAPTERS.map(([k, ic, nm]) => { const n = PAGES.filter((p) => p.ch === k && openN(p, f) > (LS().seen[p.id] || 0)).length;
-    return `<button class="lo-tab${k === chap ? ' on' : ''}" data-lochap="${k}">${ic} ${nm}${n ? `<span class="lo-dot">${n}</span>` : ''}</button>`; }).join('');
+    return `<button class="lo-tab${k === chap ? ' on' : ''}" data-lochap="${k}">${(QS()[k] || {}).done ? '🎓' : ic} ${nm}${n ? `<span class="lo-dot">${n}</span>` : ''}</button>`; }).join('');
   const cards = PAGES.filter((p) => p.ch === chap).map((p) => { const n = openN(p, f), all = p.layers.length, fresh = n > (LS().seen[p.id] || 0);
     if (!n) return `<div class="lo-card locked">${pic(p, true)}<div class="lo-ct"><b>???</b><small>🔒 Откроется, ${esc(p.layers[0].hint || '')}</small></div></div>`;
     return `<button class="lo-card" data-lopage="${p.id}">${pic(p)}<div class="lo-ct"><b>${esc(p.title)}</b>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}<small>Открыто ${n} из ${all}</small></div>${fresh ? '<span class="lo-new">новое</span>' : ''}</button>`; }).join('');
-  return `<div class="lo-tabs">${tabs}</div><div class="lo-list">${cards}</div>`;
+  return `<div class="lo-tabs">${tabs}</div><div class="lo-list">${cards}</div>${quizBlock(f)}`;
 }
 function pageHtml(p, f) {
   const n = openN(p, f), secs = p.layers.map((l, k) => (k < n || !l.need || l.need(f))
@@ -141,7 +197,7 @@ function pageHtml(p, f) {
   return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-head">${pic(p)}<div><h3>${esc(p.title)}</h3>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div></div>${secs}`;
 }
 function html() {
-  const f = facts(), body = page ? pageHtml(PAGES.find((p) => p.id === page), f) : listHtml(f);
+  const f = facts(), body = quiz ? quizHtml() : page ? pageHtml(PAGES.find((p) => p.id === page), f) : listHtml(f);
   return `<div id="lore"><div class="lo-top"><h2>📜 Летопись Мотыльковых холмов</h2><button class="lo-x" data-loclose>✕</button></div>
     <div class="lo-sub">${page ? '' : 'Записи летописца Тихона. Новые страницы открываются, пока растёт твоя школа.'}</div><div class="lo-body">${body}</div></div>`;
 }
@@ -192,6 +248,19 @@ function css() {
 #lore .lo-line { font-family: Georgia, serif; font-size: 14.5px; color: #8a6f4c; padding: 5px 0; border-bottom: 1px dotted #d9c19a; }
 #lore .lo-line span { color: #b9a17c; font-style: italic; }
 #lore .lo-cnt { margin-top: 6px; font-weight: 800; color: #7a5528; font-size: 13.5px; }
+#lore .lo-exam { display: block; width: 100%; margin: 12px 0 6px; border: 0; border-radius: 16px; padding: 12px; background: linear-gradient(#8a5a2b, #6b4220); color: #fff7e6; font: 800 16px Georgia, serif; text-align: center; box-shadow: 0 3px 0 #4f3417; }
+#lore .lo-exam small { display: block; font: 600 12.5px ui-rounded, sans-serif; margin-top: 4px; opacity: .9; }
+#lore .lo-exam.lock { background: #e9dcc0; color: #8a6f4c; box-shadow: none; }
+#lore .lo-seal { margin: 12px 0 6px; padding: 10px 12px; border: 2px solid #b8925a; border-radius: 16px; text-align: center; color: #7a5528; font: 800 16px Georgia, serif; background: #fff6df; }
+#lore .lo-seal small { display: block; font: 600 12.5px ui-rounded, sans-serif; margin-top: 4px; }
+#lore .lo-quiz { background: #fffaf0; border-radius: 18px; padding: 12px; text-align: center; box-shadow: 0 2px 0 #e2cfa9; }
+#lore .lo-tk { width: 110px; height: 110px; object-fit: contain; }
+#lore .lo-quiz h3 { font-family: Georgia, serif; color: #5a3b1c; font-size: 19px; margin: 6px 0 10px; }
+#lore .lo-quiz p { font-family: Georgia, serif; font-size: 15px; line-height: 1.5; }
+#lore .lo-qn { font-size: 12.5px; color: #9a7f5c; font-weight: 800; }
+#lore .lo-opt { display: block; width: 100%; margin: 7px 0; border: 2px solid #e2cfa9; border-radius: 14px; padding: 11px 10px; background: #fff; color: #3d2f22; font: 700 15px ui-rounded, sans-serif; }
+#lore .lo-opt:active { background: #f3e3c3; }
+#lore .lo-reward { margin-top: 8px; padding: 10px; border-radius: 14px; background: #fff1c9; font-weight: 800; color: #6b4a22; }
 #lore .lo-orn { text-align: center; color: #b8925a; letter-spacing: .4em; font-size: 13px; margin: 2px 0; }
 #lore .lo-sec.locked p { font-family: inherit; font-size: 13.5px; }
 body.lore-open #fx .toast { display: none; }
@@ -238,11 +307,14 @@ function tune() { const a = A.audioOut && A.audioOut(); if (!a) return; try { co
 export function open() { if (root || !S() || !A.on()) return; css(); page = null; root = el(html()); document.body.appendChild(root); root.addEventListener('click', onClick); document.body.classList.add('lore-open'); if (!bookMusic(true)) tune(); }
 export function close() { if (!root) return; root.remove(); root = null; document.body.classList.remove('lore-open'); bookMusic(false); A.save(); A.onClose && A.onClose(); }
 function onClick(e) {
-  const t = e.target.closest('[data-lochap],[data-lopage],[data-loback],[data-loclose]'); if (!t) return;
+  const t = e.target.closest('[data-lochap],[data-lopage],[data-loback],[data-loclose],[data-loquiz],[data-loans],[data-loqback]'); if (!t) return;
   const d = t.dataset;
-  if (d.loclose !== undefined) close();
+  if (d.loquiz !== undefined) { startQuiz(chap); redraw(); return; }
+  if (d.loans !== undefined) { answer(+d.loans); redraw(); return; }
+  if (d.loqback !== undefined) { quiz = null; redraw(); return; }
+  if (d.loclose !== undefined) { quiz = null; close(); }
   else if (d.loback !== undefined) { page = null; redraw(); }
-  else if (d.lochap) { chap = d.lochap; page = null; redraw(); }
+  else if (d.lochap) { chap = d.lochap; page = null; quiz = null; redraw(); }
   else if (d.lopage) { page = d.lopage; const p = PAGES.find((q) => q.id === page); LS().seen[page] = Math.max(LS().seen[page] || 0, openN(p, facts())); A.save(); redraw(); root.querySelector('.lo-body').scrollTop = 0; }
 }
 export function initLore(api) {

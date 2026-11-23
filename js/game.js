@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=383';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=383';
-import { initMinigame } from './minigame.js?v=383';
-import { initChests } from './chests.js?v=383';
-import { initLore } from './lore.js?v=383';
-import { initAvatar } from './avatar.js?v=383';
+} from './data.js?v=384';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=384';
+import { initMinigame } from './minigame.js?v=384';
+import { initChests } from './chests.js?v=384';
+import { initLore } from './lore.js?v=384';
+import { initAvatar } from './avatar.js?v=384';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 383;   // keep equal to the ?v= number in index.html
+const BUILD = 384;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -81,7 +81,7 @@ const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
 const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance above the cap is not wasted: each 1% gives +2% tuition
 const W2_PAY = 0.7;   // world 2 pays 30% less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
 const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY * relicK() : 1) * boostK());   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
-const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time);
+const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time) * (loreQ('teachers') ? 0.97 : 1);
 const itemCost = (i, k) => paced(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, Math.min(25, S.classes[i].items[k])) * Math.pow(BAL.itemHi, Math.max(0, S.classes[i].items[k] - 25)), S.classes[i].items[k] + 1);   // levels 26..40 (build 299, her pick «Предметы в классах 25→40»): x2.5 per level, sim keeps all classes ~4.5 d
 const teacherCost = (i) => paced(CLASSES[i].tuition * 6 * Math.pow(BAL.teacher, S.classes[i].teacher - 1), S.classes[i].teacher);
 const expandCost = (i) => paced(CLASSES[i].tuition * BAL.expand * Math.pow(BAL.expandK, sizeOf(i) - 1), sizeOf(i));
@@ -119,7 +119,8 @@ const shopUp = () => (S.shop ||= { built: false, seller: 1, shelves: 1, goods: 1
 const shopOpen = () => WORLD <= 2 && !!(S && bReady(S.shop));
 const shopChance = () => 0.12 + 0.03 * (shopUp().shelves - 1);                 // share of students who drop in after a lesson
 const shopTime = () => 2.2 * Math.pow(0.88, shopUp().seller - 1);              // seconds to serve one
-const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1))));
+const loreQ = (k) => !!(WORLD === 1 && S && S.lore && S.lore.quiz && S.lore.quiz[k] && S.lore.quiz[k].done);   // Tikhon's exam passed for chapter k (js/lore.js)
+const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1)) * (loreQ('school') ? 1.05 : 1)));
 const shopCost = (k) => paced(SHOP_COST * 0.4 * Math.pow(1.9, shopUp()[k] - 1), shopUp()[k]);
 const SHOP_SPOTS = (s) => [0, 1, 2, 3, 4, 5].map((k) => ({ x: s.x0 + 2.75, y: s.y0 + 1.6 + k * 0.62 }));   // a line in front of the counter: the first is served, the rest wait (her ask)
 // ---- the canteen (her choices 2026-11-22: its own house on the lawn between Charms and the masters' tower; a snack after a lesson
@@ -132,7 +133,7 @@ const cantOpen = () => cantBuilt() && Date.now() >= (S.cant.end || 0);
 const cantChance = () => 0.15 + 0.03 * (cantUp().tables - 1);              // share of students who go to eat after a lesson
 const cantServe = () => 2.0 * Math.pow(0.88, cantUp().cook - 1);           // seconds the cook needs to fill one tray
 const CANT_EAT = 4;                                                         // seconds at the table
-const cantPrice = () => Math.max(5, Math.round(fee() * (0.6 + 0.15 * (cantUp().menu - 1))));
+const cantPrice = () => Math.max(5, Math.round(fee() * (0.6 + 0.15 * (cantUp().menu - 1)) * (loreQ('school') ? 1.05 : 1)));
 const cantMood = () => 20 + 2 * (cantUp().menu - 1);
 const FED_BONUS = 0.05;                                                     // a fed student: +5% on the next exam
 const cantCost = (k) => paced(CANT_COST * 0.4 * Math.pow(1.9, cantUp()[k] - 1), cantUp()[k]);
@@ -1309,7 +1310,7 @@ function w2Section(i) {
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
-  const dream = a.dream && CLASSES[i].final ? DREAM_BONUS : 0; if (CLASSES[i].final) a.dream = false;   // dorm roles: slept before the Final
+  const dream = (a.dream && CLASSES[i].final ? DREAM_BONUS : 0) + (CLASSES[i].final && loreQ('world') ? 0.03 : 0);   // + Tikhon's exam «Мир» if (CLASSES[i].final) a.dream = false;   // dorm roles: slept before the Final
   a.les = (a.les || 0) + 1; if (a.rest > 0) a.rest--;   // dorm roles: tiredness grows with every lesson, the rest wears off
   const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + dream; a.prepared = false; a.fed = false; a.luck = 0;   // a meal in the canteen helps one exam
   if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i)), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
@@ -1758,7 +1759,7 @@ function migrateForms() {   // build 149: the old per-species levels (builds 143
     OLD_TIERS.forEach((v, t) => { if (t > 0 && (o.lvl || 1) >= v) formSt(fkey(sp, t)).seen = true; });   // outfits already earned stay open in the album
   }
 }
-function formXp(a, i) { if (SPECIES.includes(a.sp)) formSt(formOf(a)).xp += 1 + xplLvl(i); }
+function formXp(a, i) { if (SPECIES.includes(a.sp)) formSt(formOf(a)).xp += (1 + xplLvl(i)) * (loreQ('races') ? 1.05 : 1); }
 let ffwd = false;   // true while fastForward() lives through the time the game was closed
 function rankTry(a, i, p) {   // the rank exam right after a passed lesson
   const T = RANK_AT(i);
@@ -2531,7 +2532,7 @@ const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, to
   fountain: 100, flowerarch: 118, gazebo: 132, founder: 96, bench_a: 34, bench_b: 34, topiary_ball: 42, topiary_spiral: 48, hedge_long: 26, peonybed: 30, hydrangea: 40, crystalball: 40,
   lantern_gold: 76, lantern_blue: 76, owl_statue: 62, fox_statue: 62, flowerbed: 34, signpost2: 58, urn: 46, flowerbox: 26, gate_big: 170,
   runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46, gal_rose: 84, gal_lamp: 84, gal_urn: 94,
-  cz_swing: 112, cz_target: 68, cz_picnic: 58, cz_cushions: 40, cz_bookshelf: 74, cz_lanterns: 92 };   // big enough to read at the normal zoom   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
+  st_star: 70, st_fox: 60, st_owl: 66, st_tikhon: 44, cz_swing: 112, cz_target: 68, cz_picnic: 58, cz_cushions: 40, cz_bookshelf: 74, cz_lanterns: 92 };   // big enough to read at the normal zoom   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
 // World 2 (cold mountain kingdom): the same composed territory, drawn with cave things instead of trees and flowers.
 // The world-1 layout names are mapped to cave sprites (null = nothing there); the pictures load into the same 'outdoor/<name>' keys.
 // the lake's things: [name, dx, dy from the lake centre (tiles), scale, flip]
@@ -2564,7 +2565,7 @@ let OUTDOOR = [], outKey = '', OUT_ON = true, entrancePath = null, entranceDecal
 const GROVES = [['oak', 'oak', 'fir', 'fir'], ['fir', 'fir', 'fir', 'oak'], ['blossom', 'blossom', 'goldtree'], ['willow', 'oak', 'fir'], ['goldtree', 'oak', 'blossom', 'oak'], ['oak', 'willow', 'oak']];
 const UNDER = ['fern', 'berrybush', 'boulder', 'glowmush', 'stump', 'hedge', 'fern', 'bells'];
 function layoutOutdoor() {
-  const key = GW + ':' + GH + ':' + (WORLD === 1 && S.courtUp ? S.courtUp.bench : 1) + ':' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0 + ',' + s.x1 + ',' + s.y1).join(';'); if (key === outKey) return; outKey = key;
+  const key = GW + ':' + GH + ':' + (WORLD === 1 && S.courtUp ? S.courtUp.bench : 1) + ':' + ['world', 'races', 'teachers', 'school'].map((k) => (loreQ(k) ? 1 : 0)).join('') + ':' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0 + ',' + s.x1 + ',' + s.y1).join(';'); if (key === outKey) return; outKey = key;
   const X0 = -80, Y0 = -60, X1 = GW + 65, Y1 = GH + 50, NX = X1 - X0, NY = Y1 - Y0, dist = new Int16Array(NX * NY).fill(999), q = [];
   for (let x = X0; x < X1; x++) for (let y = Y0; y < Y1; y++) if (regAt(x, y)) { dist[(x - X0) * NY + (y - Y0)] = 0; q.push(x, y); }
   for (let h = 0; h < q.length; h += 2) { const x = q[h], y = q[h + 1], d = dist[(x - X0) * NY + (y - Y0)];   // chessboard distance to the nearest building or path
@@ -2613,6 +2614,7 @@ function layoutOutdoor() {
       Z.cushions.forEach((q, k) => add('cz_cushions', q.x, q.y, k ? 0.8 : 0.9, !!k)); add('cz_bookshelf', Z.shelf.x, Z.shelf.y); add('birdbath', Z.bath.x, Z.bath.y);
       add('cz_swing', Z.swing.x, Z.swing.y); add('cz_target', Z.target.x, Z.target.y); add('topiary_ball', Z.play.x + 3.0, Z.play.y + 2.6);
       add('cz_picnic', Z.picnic.x, Z.picnic.y); Z.lanterns.forEach((q, k) => add('cz_lanterns', q.x, q.y, 1, !!k)); }
+    [['world', 'st_star', -3.9, -3.9], ['races', 'st_fox', 3.9, -3.9], ['teachers', 'st_owl', -3.9, 3.9], ['school', 'st_tikhon', 3.9, 3.9]].forEach(([k, n, dx, dy]) => { if (loreQ(k)) add(n, c.x + 0.5 + dx, c.y + 0.6 + dy, 1); });   // Tikhon's exam statuettes
     for (const [dx, dy] of [[-5.2, 0], [5.2, 0], [0, -5.2], [0, 5.2]]) add('lantern_gold', c.x + dx + (dx ? 0 : 1.4), c.y + dy + (dy ? 0 : 1.4), 0.9);
     for (const g of GAL || []) out.push({ n: g.n, x: g.x, y: g.y, th: 'outdoor', s: 1 });   // the colonnade (plan item 2)
     for (const [a, b] of GAL_G || []) out.push({ n: 'gal_garland', x: (a.x + b.x) / 2 + 0.01, y: (a.y + b.y) / 2 + 0.01, th: 'outdoor', g: [a, b] });
