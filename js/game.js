@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=321';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=321';
-import { initMinigame } from './minigame.js?v=321';
-import { initChests } from './chests.js?v=321';
+} from './data.js?v=322';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=322';
+import { initMinigame } from './minigame.js?v=322';
+import { initChests } from './chests.js?v=322';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 321;   // keep equal to the ?v= number in index.html
+const BUILD = 322;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -70,7 +70,7 @@ const rawSuccess = (i) => BAL.chance0 + 0.015 * (S.classes[i].teacher - 1) + 0.0
 const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
 const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance above the cap is not wasted: each 1% gives +2% tuition
 const W2_PAY = 0.7;   // world 2 pays 30% less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
-const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY : 1) * boostK());   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
+const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY * relicK() : 1) * boostK());   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time);
 const itemCost = (i, k) => paced(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, Math.min(25, S.classes[i].items[k])) * Math.pow(BAL.itemHi, Math.max(0, S.classes[i].items[k] - 25)), S.classes[i].items[k] + 1);   // levels 26..40 (build 299, her pick «Предметы в классах 25→40»): x2.5 per level, sim keeps all classes ~4.5 d
 const teacherCost = (i) => paced(CLASSES[i].tuition * 6 * Math.pow(BAL.teacher, S.classes[i].teacher - 1), S.classes[i].teacher);
@@ -496,7 +496,8 @@ function genLayoutW2() {
     { x0: 15, y0: recY + 9, x1: 19, y1: recY + 14 },              // path from the gate
   ];
   SLOTS.TRADE = slot(8, recY + 9, [[13, recY + 11], [14, recY + 11]], {}, 6, 5);   // the trading yard: an open cobbled yard left of the gate road
-  HALLS.push({ x0: 14, y0: recY + 10, x1: 15, y1: recY + 13 });   // a short way from the gate road into the yard
+  HALLS.push({ x0: 14, y0: recY + 10, x1: 15, y1: recY + 13 });
+  { const m = SLOTS.C3 || SLOTS.C1; if (m) SLOTS.EXPED = slot(28, m.y0, [[28, m.y0 + 3], [27, m.y0 + 3]], {}, 6, 6); }   // the gates of the deep: an open yard right of the middle row   // a short way from the gate road into the yard
   GATE_TILE = { x: 16.5, y: recY + 12.5 };
   GATE_Y = recY + 9;
   GH = recY + 16; GW = 36;
@@ -658,7 +659,7 @@ function buildEdges() {
   Object.values(SLOTS).forEach((sl) => [sl.door, ...sl.extra].forEach(([a, b]) => { doorAt.add(`${a[0]},${a[1]},${b[0] - a[0]},${b[1] - a[1]}`); doorAt.add(`${b[0]},${b[1]},${a[0] - b[0]},${a[1] - b[1]}`); }));
   const sides = [['x0', -1, 0], ['y0', 0, -1], ['x1', 1, 0], ['y1', 0, 1]];
   for (let x = 0; x < GW; x++) for (let y = 0; y < GH; y++) {
-    const id = regAt(x, y); if (!id || id === 'GARDEN' || id === 'TRADE' || id === 'path') continue;
+    const id = regAt(x, y); if (!id || id === 'GARDEN' || id === 'TRADE' || id === 'EXPED' || id === 'path') continue;
     if (id === 'hall' && y >= GATE_Y) continue;                    // the gate path is open
     for (const [side, dx, dy] of sides) {
       const nb = regAt(x + dx, y + dy);
@@ -1210,6 +1211,49 @@ function thronePanel() {
   }
   return h;
 }
+// ---- the gates of the deep: expeditions and relics (world 2) ----
+const EXPED_COST = 60000000, EXPED_NEED = 'gems';
+const RELICS = [['👑', 'Корона первого короля'], ['📯', 'Рог глубин'], ['🗝️', 'Древний ключ'], ['🪨', 'Скрижаль предков'], ['💎', 'Сердце горы'], ['🏆', 'Кубок пира'],
+  ['🔨', 'Молот прародителя'], ['🗺️', 'Карта забытых шахт'], ['🔥', 'Негаснущий уголь'], ['❄️', 'Ледяная руна'], ['🔔', 'Колокол тишины'], ['📜', 'Свиток основателей']];
+const DEPTHS = [{ name: 'Ближние штольни', emo: '⛏️', min: 30, need: 5, relic: 0.3, pool: 6, gems: [1, 3] },
+  { name: 'Забытые залы', emo: '🕳️', min: 120, need: 15, relic: 0.7, pool: 10, gems: [3, 6] },
+  { name: 'Корни горы', emo: '🔥', min: 480, need: 40, relic: 1, pool: 12, gems: [8, 12] }];
+const EXPED_MAX = 10;
+const exped = () => { const w = W2(); return (w.exped ||= { built: false, seekers: 0, gear: 0, camp: 0, cur: null, relics: {}, trips: 0 }); };
+const expedOpen = () => WORLD === 2 && !!(S && S.w2 && S.w2.exped && S.w2.exped.built);
+const seekCap = () => 50 + 25 * (exped().camp || 0);
+const tripMin = (d) => Math.round(DEPTHS[d].min * Math.pow(0.92, exped().gear || 0));
+const exCostUp = (k) => paced(EXPED_COST * 0.15 * Math.pow(2.0, exped()[k] || 0), (exped()[k] || 0) + 1);
+function relicK() { const r = S && S.w2 && S.w2.exped && S.w2.exped.relics; return r ? 1 + 0.02 * Object.keys(r).length : 1; }
+function w2Seeker() { if (!expedOpen()) return; const E = exped(); if (E.seekers < seekCap()) E.seekers++; }
+function sendExped(d) { const E = exped(), D = DEPTHS[d]; if (!D || E.cur || E.seekers < D.need) return; E.seekers -= D.need; E.cur = { d, end: Date.now() + tripMin(d) * 60000 }; toast(`🎒 Отряд ушёл в «${D.name}»: вернётся через ${tripMin(d)} мин`); }
+function stepExped() {
+  if (!expedOpen()) return; const E = exped(); if (!E.cur || Date.now() < E.cur.end) return;
+  const D = DEPTHS[E.cur.d], coins = Math.round(Math.max(1000, (S.ema || 1) * 60 * D.min * 0.12)), g = D.gems[0] + Math.floor(Math.random() * (D.gems[1] - D.gems[0] + 1));
+  earn(coins); W2().gems += g; E.trips++; S.stats.expeds = (S.stats.expeds || 0) + 1;
+  let msg = `🎒 Отряд вернулся из «${D.name}»: 🪙 +${fmt(coins)}, 💎 +${g}`;
+  if (Math.random() < D.relic) { const k = Math.floor(Math.random() * D.pool); if (!E.relics[k]) { E.relics[k] = 1; msg += ` и реликвия ${RELICS[k][0]} «${RELICS[k][1]}»!`; } else { const extra = coins; earn(extra); msg += ` и копия реликвии ${RELICS[k][0]} (продана: 🪙 +${fmt(extra)})`; } }
+  E.cur = null; if (!ffwd) toast(msg); dirtyPanel = true;
+}
+function expedPanel() {
+  const E = exped();
+  if (!E.built) { const gi = CLASSES.findIndex((c) => c.id === EXPED_NEED), ok = gi >= 0 && isOpen(gi);
+    return `<div class="sh-head"><span class="remoji big">🕳️</span><div><h2>Врата глубин</h2><div class="muted">Отсюда искатели уходят вглубь горы</div></div><button class="x" data-close>✕</button></div>
+    <p>Выпускники становятся искателями. Отряд уходит в глубины на 30 минут — 8 часов (даже когда игра закрыта) и приносит монеты, самоцветы и древние реликвии. Каждая реликвия навсегда добавляет +2% к плате за уроки во втором мире.</p>
+    ${ok ? `<button class="btn wide" data-cost="${EXPED_COST}" data-act="expedbuild">Построить <span class="cost">🪙${fmt(EXPED_COST)}</span></button>` : '<p><b>Сначала построй Гранильню 💎</b> — без мастеров камня в глубины не спуститься.</p>'}`; }
+  const n = Object.keys(E.relics).length;
+  let h = `<div class="sh-head"><span class="remoji big">🕳️</span><div><h2>Врата глубин</h2><div class="muted">${E.cur ? `Отряд в «${DEPTHS[E.cur.d].name}»: вернётся через ${mmss((E.cur.end - Date.now()) / 1000)}` : 'Отряд в лагере'}</div></div><button class="x" data-close>✕</button></div>
+    <div class="stats3"><div><span>🎒</span><b>${E.seekers}/${seekCap()}</b><i>искатели</i></div><div><span>🏺</span><b>${n}/${RELICS.length}</b><i>реликвии</i></div><div><span>💰</span><b>+${n * 2}%</b><i>к плате</i></div></div>
+    <p class="muted">Каждый выпускник второго мира становится искателем. Найденная реликвия навсегда добавляет +2% к плате за уроки, повторная продаётся.</p>`;
+  DEPTHS.forEach((D, d) => { const can = !E.cur && E.seekers >= D.need;
+    h += `<div class="card up"><span class="remoji">${D.emo}</span><div class="grow"><b>${D.name}</b><div class="muted">${tripMin(d)} мин · нужно 🎒 ${D.need} · реликвия ${Math.round(D.relic * 100)}% · 💎 ${D.gems[0]}–${D.gems[1]}</div></div>
+      <button class="btn" data-act="exped" data-k="${d}" ${can ? '' : 'disabled'}>Отправить</button></div>`; });
+  h += '<h3>Реликвии</h3><div class="stats3" style="flex-wrap:wrap">' + RELICS.map(([e, nm], k) => `<div style="min-width:30%"><span>${E.relics[k] ? e : '❔'}</span><i>${E.relics[k] ? nm : '???'}</i></div>`).join('') + '</div>';
+  for (const [k, emo, nm, txt] of [['gear', '🪢', 'Снаряжение', '−8% времени похода'], ['camp', '⛺', 'Лагерь искателей', '+25 мест для искателей']]) { const l = E[k] || 0;
+    h += `<div class="card up"><span class="remoji">${emo}</span><div class="grow"><b>${nm}</b> <span class="muted">ур. ${l}/${EXPED_MAX}</span><div class="muted">${txt}</div></div>
+      ${l >= EXPED_MAX ? '<span class="done">макс.</span>' : costBtn('↑', exCostUp(k), 'expedup', `data-k="${k}"`)}</div>`; }
+  return h;
+}
 function w2Section(i) {
   const id = w2Id(i), w = WORLD === 2 ? W2() : null; if (!w) return '';
   if (id === 'mine') return `<h3>Склад руды</h3><p class="muted">Каждый сданный урок здесь приносит ⛏️ 1 руду. Руду забирает Кузня: из 2 руды выходит 1 изделие ⚒️.</p>
@@ -1368,7 +1412,7 @@ function goGraduate(a) {
   if (a.retake) { retakeHome(a); return; }   // an elder from the tower after his retake: not a new graduate
   const tx = WORLD === 1 ? g.x0 + 3 + (Math.random() - 0.5) * 0.4 : WORLD === 2 ? g.x0 + 3.55 + (Math.random() - 0.5) * 0.3 : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 3 + (Math.random() - 0.5) * 0.4 : WORLD === 2 ? g.y0 + 4.3 + (Math.random() - 0.5) * 0.2 : g.y0 + 1 + Math.random() * 4;   // world 2: in front of the great crystal of the hall of glory   // into the gazebo (her wish: they vanish there, like through a magic fireplace)
   walk(a, tx, ty, () => {
-    S.stats.graduated++; reviewGraduate(a);
+    S.stats.graduated++; reviewGraduate(a); w2Seeker();
     if (helperAdmit(a)) return;                       // mages and elder mages stay as teachers' helpers (elders replace mages)
     if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower                       // mages stay as teachers' helpers (two per class, different kinds)
     popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
@@ -2018,6 +2062,7 @@ function stepWorld(dt, live = false) {
   stepAdvisor(dt, live);
   stepRefund(dt);
   stepTrade(dt);
+  stepExped();
   stepRumble(dt, live);
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6 && !(WORLD === 2 && schoolFull())) spawn(); }   // world 2: nobody new comes while every line and every bed is taken
@@ -2451,7 +2496,7 @@ function layoutOutdoor() {
   const inWorld = (x, y) => { const m = P(x, y); return m.x > -40 && m.x < WW + 40 && m.y > 40 && m.y < WH + 160; };   // trees may stand right at the map edge (crowns cut by it)
   const G0 = GATE_TILE, front = (x, y) => (Math.abs(x - G0.x - 0.5) < 10 && y > G0.y - 4) || (y > BUILDING.y1 && D(x, y) < 10);   // the view of the entrance and the south front stays open
   const behind = new Set(); for (const e of EDGES) if (e.hallWall) for (let k = 1; k <= 5; k++) for (let j = -2; j <= 2; j++) behind.add(e.side === 'y0' ? (e.x + j) + ',' + (e.y - k) : (e.x - k) + ',' + (e.y + j));   // the tall corridor walls hide what stands just behind them
-  const TD = WORLD === 2 && SLOTS.DIR, out = [], put = (n, x, y, minD, sc = 1) => { n = outName(n); if (!n) return false; if (TD && x > TD.x0 - 1 && x < TD.x1 + 5 && y > TD.y0 - 1 && y < TD.y1 + 5) return false; if (D(x, y) < minD || !inWorld(x, y) || behind.has(Math.floor(x) + ',' + Math.floor(y))) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
+  const TD = WORLD === 2 && SLOTS.DIR, out = [], put = (n, x, y, minD, sc = 1) => { n = outName(n); if (!n) return false; if (TD && x > TD.x0 - 1 && x < TD.x1 + 5 && y > TD.y0 - 1 && y < TD.y1 + 5) return false; if (WORLD === 2 && SLOTS.EXPED && x > SLOTS.EXPED.x0 - 1 && x < SLOTS.EXPED.x1 + 5 && y > SLOTS.EXPED.y0 - 1 && y < SLOTS.EXPED.y1 + 5) return false; if (D(x, y) < minD || !inWorld(x, y) || behind.has(Math.floor(x) + ',' + Math.floor(y))) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
   // scenes, each tied to a building (skipped when that building's slot is missing)
   const zones = [];
   const keep = [];   // every scene / entrance item: no tree may stand in front of (down-screen of) it
@@ -2569,6 +2614,7 @@ function grassPat(c) {
   let p = grassPats.get(c); if (!p) { p = c.createPattern(grassTile, 'repeat'); p.setTransform(new DOMMatrix([1 / GRASS_K, 0, 0, 1 / GRASS_K, 0, 0])); grassPats.set(c, p); }
   return p;
 }
+const isOpat = (c) => isoPat(c, 'path', 3);
 function isoPat(c, n, tiles) {   // a ground texture laid on the iso grid, aligned to the world origin
   const p = pat(c, 'outdoor', n); if (!p) return null;
   const T = part('outdoor', n).naturalWidth / tiles, o = P(0, 0);
@@ -2729,6 +2775,8 @@ function layoutNaveW2() {
   out.push({ n: 'dwarf_statue', x: 14.4, y: N.y0 + 0.7, th: 'corridor' }, { n: 'dwarf_statue', x: 18.6, y: N.y0 + 0.7, th: 'corridor', flip: true });
   out.push({ n: 'runestone', x: NAVE_X0 + 0.6, y: N.y1 - 0.8, th: 'corridor' });
   const m = slotOf(2); if (m) for (const [dx, dy] of [[-1.4, 1.5], [-3.2, 2.4], [-5.0, 3.3]]) out.push({ n: 'minecart', x: m.x0 + dx, y: m.y0 + dy, th: 'corridor', flip: true });
+  const ex = SLOTS.EXPED; if (ex && expedOpen()) {   // the gates of the deep: two rune pillars at the cave mouth, lanterns, a cart of gear, a rune stone
+    for (const [n, dx, dy, fl] of [['pillar', 4.6, 1.2], ['pillar', 4.6, 4.8], ['dwarf_statue', 5.4, 3.0, true], ['minecart', 1.2, 1.4], ['runestone', 1.0, 4.8], ['brazier', 3.2, 0.7], ['brazier', 3.2, 5.3]]) out.push({ n, x: ex.x0 + dx, y: ex.y0 + dy, th: 'corridor', flip: !!fl }); }
   const t = SLOTS.TRADE; if (t && tradeOpen()) {   // the yard: stalls along the back, crane and crates at the sides, the wagon + goat in front (the caravan)
     for (const [n, dx, dy, fl] of [['t_stall_pots', 1.0, 0.6], ['t_stall_tools', 3.2, 0.6], ['t_crane', 5.3, 0.9, true], ['t_crates_tall', 0.6, 2.4], ['t_scales', 2.2, 2.0], ['t_crates', 5.2, 3.9]]) out.push({ n, x: t.x0 + dx, y: t.y0 + dy, th: 'corridor', flip: !!fl });
     out.push({ n: 'caravan', x: t.x0 + 3.2, y: t.y0 + 3.6, th: 'corridor' });
@@ -3170,6 +3218,14 @@ function drawSlot(c, id) {
     else { text('👑 Кабинет директора', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(DIR_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('⭐ ' + DIR_STARS, center.x, center.y + 19, 11, '#c98a00', c); }
     return;
   }
+  if (id === 'EXPED') {   // granite road yard before the gates of the deep; before it is built, a dashed plot with the price
+    const fl = expedOpen() && isOpat(c);
+    if (fl) { poly(c, [L, B, R, F]); c.fillStyle = fl; c.fill(); return; }
+    poly(c, [L, B, R, F], '#5d5a58'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffaa'); c.setLineDash([]);
+    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 60, center.y - 30, 120, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    text('Врата глубин', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(EXPED_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('нужна Гранильня', center.x, center.y + 19, 8.5, '#8a7a9a', c);
+    return;
+  }
   if (id === 'TRADE') {   // cobbled yard; before it is built, a dashed plot with the price
     const fl = tradeOpen() && pat(c, 'corridor', 't_floor');
     if (fl) { const T0 = part('corridor', 't_floor').naturalWidth / 3, o = P(0, 0); fl.setTransform(new DOMMatrix([HW / T0, HH / T0, -HW / T0, HH / T0, o.x, o.y])); poly(c, [L, B, R, F]); c.fillStyle = fl; c.fill(); return; }
@@ -3278,8 +3334,8 @@ function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
   if (id === 'GARDEN' && WORLD <= 2) {   // drawn over everything like the room signs, above the gazebo (world 2: the hall of glory)
     const pl = WORLD === 2 ? signPill(signLabel('🎓 Зал славы'), '#d6dcf2', 12, 22, '#ffffff', '#2e3a5a') : signPill(signLabel('🎓 Сад выпускников'), '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = WORLD === 1 ? P(s.x0 + 3.6, s.y0 + 0.5) : P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - (WORLD === 1 ? 138 : 150) - pl.h / 2, pl.w, pl.h); return; }
-  if (id === 'GARDEN' || (id === 'TRADE' && !tradeOpen()) || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
-  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'TRADE' ? '💰 Торговый двор' : WORLD === 2 && id === 'LIB' ? '📚 Чертог летописей' : WORLD === 2 && id === 'DORM' ? '🛏️ Кельи' : WORLD === 2 && id === 'DORM2' ? '🛏️ Вторые кельи' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? (WORLD === 2 ? '👑 Трон старейшины' : '👑 Кабинет директора') : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
+  if (id === 'GARDEN' || (id === 'EXPED' && !expedOpen()) || (id === 'TRADE' && !tradeOpen()) || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
+  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'TRADE' ? '💰 Торговый двор' : id === 'EXPED' ? '🕳️ Врата глубин' : WORLD === 2 && id === 'LIB' ? '📚 Чертог летописей' : WORLD === 2 && id === 'DORM' ? '🛏️ Кельи' : WORLD === 2 && id === 'DORM2' ? '🛏️ Вторые кельи' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? (WORLD === 2 ? '👑 Трон старейшины' : '👑 Кабинет директора') : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const midBack = WORLD === 1 && ['DORM', 'DORM2', 'DIR', 'SHOP'].includes(id);   // build 258: front-row rooms put their sign over the middle of their tall back wall (on the corner it hung over the gallery)
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : midBack ? up(P((s.x0 + s.x1) / 2, s.y0), WALLH * 0.72 + 12) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   const fs = 12, hgt = 22, bg = ci >= 0 ? CLASSES[ci].wall : SIGN_BG[id] || '#ffffff';
@@ -3297,7 +3353,7 @@ function drawSign(c, id) {
     }
   }
 }
-const SIGN_BG = { TRADE: '#e8d4b0', CANT: '#f9d3a5', REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f', DIR: '#f5d77a', SHOP: '#f7c1d9', TOWER: '#cdbdf2' };
+const SIGN_BG = { EXPED: '#c9c3e6', TRADE: '#e8d4b0', CANT: '#f9d3a5', REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f', DIR: '#f5d77a', SHOP: '#f7c1d9', TOWER: '#cdbdf2' };
 let signRects = [];   // tappable room signs of the last frame, world coords
 function drawPlot(c, s, ci, L, B, R, F, center) {
   const next = S.classes.findIndex((q) => !q.built) === ci;
@@ -4624,6 +4680,7 @@ function openRoom(id) {
     if (id === 'CANT') { openPanel(cantPanel); return; }
     if (id === 'TOWER') { openPanel(towerPanel); return; }
     if (id === 'TRADE') { openPanel(tradePanel); return; }
+    if (id === 'EXPED') { openPanel(expedPanel); return; }
     if (id === 'DORM' || id === 'DORM2') { openPanel(dormPanel); return; }
   }
 }
@@ -4705,6 +4762,9 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'formlvl') { const f = formSt(d.k); if (formReady(d.k) && spend(formCost(d.k))) { f.xp -= formNeed(f.lvl); f.lvl++; toast(`✨ ${formName(d.k)}: уровень ${f.lvl}!`); } }
   else if (d.act === 'thronebuild') { const gi = guardsIdx(); if (!throne().built && gi >= 0 && isOpen(gi) && spend(THRONE_COST)) { throne().built = true; staticKey = ''; toast('👑 Трон старейшины готов! Слушайте гул из глубин'); } }
   else if (d.act === 'throneup') { const k = d.k; if ((throne()[k] || 0) < THRONE_MAX && spend(thCost(k))) throne()[k] = (throne()[k] || 0) + 1; }
+  else if (d.act === 'expedbuild') { const gi = CLASSES.findIndex((c) => c.id === EXPED_NEED); if (!exped().built && gi >= 0 && isOpen(gi) && spend(EXPED_COST)) { exped().built = true; corrKey = ''; staticKey = ''; toast('🕳️ Врата глубин открыты! Выпускники станут искателями'); } }
+  else if (d.act === 'exped') { sendExped(+d.k); }
+  else if (d.act === 'expedup') { const k = d.k; if ((exped()[k] || 0) < EXPED_MAX && spend(exCostUp(k))) exped()[k] = (exped()[k] || 0) + 1; }
   else if (d.act === 'tradebuild') { const fi = CLASSES.findIndex((c) => c.id === 'forge'); if (!trade().built && fi >= 0 && isOpen(fi) && spend(TRADE_COST)) { trade().built = true; corrKey = ''; staticKey = ''; toast('🐐 Торговый двор построен!'); } }
   else if (d.act === 'caravan') sendCaravan();
   else if (d.act === 'tup') { const k = d.k; if (trade()[k] < MAX_TUP && spend(tupCost(k))) trade()[k]++; }
