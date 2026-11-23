@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=287';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=287';
-import { initMinigame } from './minigame.js?v=287';
+} from './data.js?v=288';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=288';
+import { initMinigame } from './minigame.js?v=288';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -14,7 +14,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 287;   // keep equal to the ?v= number in index.html
+const BUILD = 288;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -153,7 +153,7 @@ const entryFee = () => Math.max(1, Math.round(fee() * planOf().fee * ((campNow()
 function startCamp(k) {
   if (!bossOn() || !CAMPS[k] || campNow() || campWait() > 0) return;
   if (!spend(campCost(k))) return;
-  const now = Date.now(); boss().camp = { k, end: now + CAMP_LEN * 1000, cd: now + (CAMP_LEN + CAMP_PAUSE) * 1000 };
+  const now = Date.now(); boss().camp = { k, end: now + CAMP_LEN * 1000, cd: now + (CAMP_LEN + CAMP_PAUSE) * 1000 }; S.stats.camps = (S.stats.camps || 0) + 1;   // counted for the missions
   arrivalT = Math.min(arrivalT, arrivalInterval());
   toast(`${CAMPS[k].emo} Акция «${CAMPS[k].name}» началась на 5 минут!`); save();
 }
@@ -195,7 +195,7 @@ function answerMail(how, auto) {
     if (Math.random() < 0.6) { cheerAll(8, '😊'); mailResult = '🎓 Открытый урок понравился! Родители успокоились, ученики гордятся школой.'; }
     else { B.rep = Math.max(-REP_MAX, (B.rep || 0) - 1); cheerAll(-5); mailResult = '😕 Открытый урок не убедил родителей. Репутация школы немного упала.'; }
   } else { B.rep = Math.max(-REP_MAX, (B.rep || 0) - 1); cheerAll(-12, '😟'); mailResult = auto ? '📭 На письмо никто не ответил. Родители обиделись: репутация упала, ученики загрустили.' : '😤 Родители обиделись на отказ: репутация упала, ученики загрустили.'; }
-  M.cur = null; dirtyPanel = true; save();
+  M.cur = null; dirtyPanel = true; if (!auto) S.stats.mails = (S.stats.mails || 0) + 1; save();   // mails: counted for the missions
   toast(auto ? '📭 Письмо родителей осталось без ответа' : mailResult.split(':')[0].split('!')[0]);
 }
 function drawMail() {   // a bobbing envelope over the director's office while a letter waits
@@ -231,6 +231,10 @@ const G = { // helpers exposed to missions
   get S() { return S; }, cls, built: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return isOpen(i); },
   item: (cid, iid) => { const i = CLASSES.findIndex((c) => c.id === cid); return S.classes[i].items[CLASSES[i].items.findIndex((x) => x.id === iid)]; },
   maxItem: () => Math.max(...S.classes.flatMap((c) => c.items)),
+  // features added since build 237 (story missions 2026-11-23)
+  stars: () => schoolStars(), dir: () => dirBuilt(), shop: () => shopOpen(), cant: () => cantBuilt(), tower: () => towerOpen(),
+  court: () => courtUp(), named: () => !!schoolName(), ally: () => !!myAl(), mg: () => S.mg || {}, masters: () => (S.stats.ranks || [])[5] || 0,
+  trade: () => tradeOpen(), tradeAway: () => !!(tradeOpen() && trade().away), w2: () => W2(),
 };
 
 // ---- the school's outflow and the refund cap (build 275, tester's report «должен показывать реальный прирост с учётом ушедших ...
@@ -1010,9 +1014,9 @@ const w2Id = (i) => (WORLD === 2 ? CLASSES[i].id : '');
 const w2Pay = (i) => (w2Id(i) === 'forge' && W2().ore < ORE_FORGE ? 0.5 : 1);   // a forge lesson without ore pays half
 function w2Lesson(i, p) {
   const id = w2Id(i); if (!id) return; const w = W2();
-  if (id === 'mine') { if (w.ore < oreCap()) { w.ore++; if (!ffwd) popup('⛏️ +1', p.x + 0.4, p.y - 0.2, '#8a6d3b', 30); } else if (!ffwd) popup('📦 склад полон', p.x + 0.4, p.y - 0.2, '#a05a2c', 30); }
-  else if (id === 'forge') { if (w.ore >= ORE_FORGE) { w.ore -= ORE_FORGE; w.items++; if (!ffwd) popup('⚒️ +1', p.x + 0.4, p.y - 0.2, '#b0602c', 30); } else if (!ffwd) popup('нет руды', p.x + 0.4, p.y - 0.2, '#7a7a7a', 30); }
-  else if (id === 'gems' && Math.random() < GEM_CHANCE) { w.gems++; if (!ffwd) popup('💎 +1', p.x + 0.4, p.y - 0.2, '#7b5cd6', 40); }
+  if (id === 'mine') { if (w.ore < oreCap()) { w.ore++; S.stats.ore = (S.stats.ore || 0) + 1; if (!ffwd) popup('⛏️ +1', p.x + 0.4, p.y - 0.2, '#8a6d3b', 30); } else if (!ffwd) popup('📦 склад полон', p.x + 0.4, p.y - 0.2, '#a05a2c', 30); }
+  else if (id === 'forge') { if (w.ore >= ORE_FORGE) { w.ore -= ORE_FORGE; w.items++; S.stats.forged = (S.stats.forged || 0) + 1; if (!ffwd) popup('⚒️ +1', p.x + 0.4, p.y - 0.2, '#b0602c', 30); } else if (!ffwd) popup('нет руды', p.x + 0.4, p.y - 0.2, '#7a7a7a', 30); }
+  else if (id === 'gems' && Math.random() < GEM_CHANCE) { w.gems++; S.stats.gemsCut = (S.stats.gemsCut || 0) + 1; if (!ffwd) popup('💎 +1', p.x + 0.4, p.y - 0.2, '#7b5cd6', 40); }
 }
 // ---- caravans (Торговый двор): items and gems are loaded into the wagon; a full wagon leaves by itself (or by the button)
 // and comes back after the trip with coins. Works offline (stepWorld). Her plan 2026-11-22: about a third of world-2 income.
@@ -1956,6 +1960,16 @@ const MISSION_LORE = {
   beds: 'Усталому ученику нужна кровать, а не очередь.',
   lib: 'Новый стол в библиотеке — новый читатель.',
   build: 'Летопись ждёт новую главу: пора строить!',
+  court: 'Во дворе ученики отдыхают душой. Пусть там будет уютно.',
+  dir: 'Директор правит школой из кабинета. Я подскажу, если что.',
+  shop: 'Сладость после урока — лучшая награда, поверь старику.',
+  cant: 'Сытый ученик учится вдвое охотнее.',
+  tower: 'Мастера — гордость школы. Им нужен свой дом.',
+  room: 'Мелочи делают школу большой.',
+  rank: 'Звание — это ступенька. Пусть ученики поднимаются выше.',
+  mg: 'Котёл бурлит — значит, в школе жизнь!',
+  gift: 'Дружба школ крепче любой стены.',
+  w2: 'Под горой ценят руду, молот и честную торговлю.',
 };
 // leavers of the last 3 minutes: sampled every 10 s of play
 const advLog = []; let advSampleT = 0;
@@ -3803,6 +3817,61 @@ ${msg}
 // The fixed chain (data.js) comes first; then a new mission is generated each time from the state of the school.
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 // ---- fair mission rewards (her ruling 2026-11-21: «Задания не соразмерны полученным деньгам») ----
+// ---- mission kinds for the features added since build 237 (2026-11-23, her «Обновить нужно все задания и обучения ... весь пул
+// уже не затрагивает нововведения»). 'up' = raise an upgrade «ур. a → b» (UPS, per class: CUPS); 'cnt' = make a counter grow (CNTS).
+// cost() = price of the next level now, k = its growth per level: the reward pays back REWARD_SHARE of the whole way.
+const slotOfId = (id) => { const i = CLASSES.findIndex((c) => (id === 'final' ? c.final : c.id === id)); return i >= 0 ? CLASS_SLOT[i] : null; };
+const openId = (id) => { const i = CLASSES.findIndex((c) => c.id === id); return i >= 0 && isOpen(i); };
+const UPS = {
+  cbench: { g: 'court', name: 'Скамейки во дворе', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().bench, max: () => MAX_BENCH, cost: () => benchCost(), k: 2.3, go: () => ['FOUNT', '[data-act="cbench"]'] },
+  cfount: { g: 'court', name: 'Волшебный фонтан', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().fount, max: () => MAX_FOUNT, cost: () => fountCost(), k: 2.3, go: () => ['FOUNT', '[data-act="cfount"]'] },
+  ccoin: { g: 'court', name: 'Монетка на счастье', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().coin, max: () => MAX_COIN, cost: () => coinCost(), k: 2.4, go: () => ['FOUNT', '[data-act="ccoin"]'] },
+  ...Object.fromEntries(Object.keys(DIR_UP).map((k) => ['dir_' + k, { g: 'dir', name: DIR_UP[k].name, on: () => bossOn(), lvl: () => dirLvl(k), max: () => DIR_UP[k].max, cost: () => dirCost(k), k: DIR_UP[k].k, go: () => ['DIR', `[data-act="dir"][data-k="${k}"]`] }])),
+  ...Object.fromEntries([['seller', 'Продавец'], ['shelves', 'Витрины'], ['goods', 'Товары']].map(([k, name]) => ['shop_' + k, { g: 'shop', name: name + ' в лавке', on: () => shopOpen(), lvl: () => shopUp()[k], max: () => SHOP_MAX, cost: () => shopCost(k), k: 1.9, go: () => ['SHOP', `[data-act="shopup"][data-k="${k}"]`] }])),
+  ...Object.fromEntries([['cook', 'Повар'], ['tables', 'Столы'], ['menu', 'Меню']].map(([k, name]) => ['cant_' + k, { g: 'cant', name: name + ' в столовой', on: () => cantOpen(), lvl: () => cantUp()[k], max: () => CANT_MAX[k], cost: () => cantCost(k), k: 1.9, go: () => ['CANT', `[data-act="cantup"][data-k="${k}"]`] }])),
+  towercap: { g: 'tower', name: 'Места в Башне мастеров', on: () => towerOpen(), lvl: () => towerUp().cap, max: () => TOWER_MAXUP, cost: () => towerCapCost(), k: 2.3, go: () => ['TOWER', '[data-act="towercap"]'] },
+  towerprep: { g: 'tower', name: 'Подготовка мастеров', on: () => towerOpen(), lvl: () => retakeLvl(), max: () => RETAKE_MAX, cost: () => retakeCost(), k: 2.0, go: () => ['TOWER', '[data-act="towerprep"]'] },
+  ads: { g: 'room', name: 'Объявления о школе', on: () => true, lvl: () => S.reception.ads, max: () => MAX_REC_LVL, cost: () => adsCost(), k: BAL.ads, go: () => ['REC', '[data-act="ads"]'] },
+  libspeed: { g: 'room', name: 'Быстрее подготовка (библиотека)', on: () => true, lvl: () => libUp().speed, max: () => MAX_LIB_LVL, cost: () => libSpeedCost(), k: 1.5, go: () => ['LIB', '[data-act="libspeed"]'] },
+  libbonus: { g: 'room', name: 'Лучше подготовка (библиотека)', on: () => true, lvl: () => libUp().bonus, max: () => MAX_LIB_LVL, cost: () => libBonusCost(), k: 1.55, go: () => ['LIB', '[data-act="libbonus"]'] },
+  conc: { g: 'room', name: 'Консьержка быстрее', on: () => true, lvl: () => dormUp().conc, max: () => MAX_CONC, cost: () => concCost(), k: 1.5, go: () => ['DORM', '[data-act="conc"]'] },
+  store: { g: 'w2', name: 'Склад руды', on: () => WORLD === 2 && openId('mine'), lvl: () => W2().store, max: () => MAX_STORE, cost: () => storeCost(), k: 2.0, go: () => [slotOfId('mine'), '[data-act="store"]'] },
+  ...Object.fromEntries([['wagon', 'Повозка больше', 2.6], ['road', 'Дорога короче', 2.4], ['price', 'Цена выше', 2.4]].map(([k, name, gk]) => ['tup_' + k, { g: 'w2', name: name + ' (Торговый двор)', on: () => tradeOpen(), lvl: () => trade()[k], max: () => MAX_TUP, cost: () => tupCost(k), k: gk, go: () => ['TRADE', `[data-act="tup"][data-k="${k}"]`] }])),
+};
+const CUPS = {   // per class (m.i)
+  ex: { g: 'rank', name: 'Шанс экзамена на звание', on: (i) => RANK_AT(i) > 0, lvl: (i) => exLvl(i), max: () => MAX_EX_LVL, cost: (i) => exCost(i), k: 2.0, act: 'exlvl' },
+  xpl: { g: 'rank', name: 'Опыт за урок', on: (i) => RANK_AT(i) > 0, lvl: (i) => xplLvl(i), max: () => MAX_XPL_LVL, cost: (i) => xplCost(i), k: 1.8, act: 'xpllvl' },
+  expand: { g: 'room', name: 'Расширить класс', on: (i) => !CLASSES[i].final, lvl: (i) => sizeOf(i), max: () => MAX_SIZE, cost: (i) => expandCost(i), k: BAL.expandK, act: 'expand' },
+};
+const upOf = (m) => { const U = m.i >= 0 && CUPS[m.k] ? CUPS[m.k] : UPS[m.k]; return U ? { ...U, on: () => U.on(m.i), lvl: () => U.lvl(m.i), cost: () => U.cost(m.i), go: () => (U.go ? U.go() : [CLASS_SLOT[m.i], `[data-act="${U.act}"]`]) } : null; };
+const rankSum = () => (S.stats.ranks || []).reduce((a, b) => a + (b || 0), 0);
+const formSum = () => FORM_KEYS.reduce((a, k) => a + ((S.forms && S.forms[k] && S.forms[k].lvl) || 0), 0);
+const lowEx = () => { let b = -1; for (let i = 0; i < CLASSES.length; i++) if (isOpen(i) && RANK_AT(i) && exLvl(i) < MAX_EX_LVL && (b < 0 || exLvl(i) < exLvl(b))) b = i; return b < 0 ? null : [CLASS_SLOT[b], '[data-act="exlvl"]']; };
+const nOf = (n, one, few, many) => (n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many);
+const CNTS = {
+  shop: { g: 'shop', on: () => shopOpen(), now: () => S.stats.shop || 0, n: () => rint(3, 8) * 10, text: (n) => `Пусть ученики купят в лавке ещё ${n} сладостей 🍭`, go: () => ['SHOP', '[data-act="shopup"][data-k="shelves"]'] },
+  cant: { g: 'cant', on: () => cantOpen(), now: () => S.stats.cant || 0, n: () => rint(3, 8) * 10, text: (n) => `Накорми в столовой ещё ${n} учеников 🍲`, go: () => ['CANT', '[data-act="cantup"][data-k="tables"]'] },
+  ranks: { g: 'rank', on: () => S.stats.graduated >= 10, now: rankSum, n: () => rint(2, 6) * 5, text: (n) => `Пусть ещё ${n} ${nOf(n, 'ученик получит', 'ученика получат', 'учеников получат')} звание 🌟`, go: lowEx },
+  masters: { g: 'rank', on: () => isOpen(NCLS - 1) && ((S.stats.ranks || [])[4] || 0) > 0, now: () => (S.stats.ranks || [])[5] || 0, n: () => rint(1, 3), text: (n) => `Пусть ещё ${n} ${nOf(n, 'ученик получит', 'ученика получат', 'учеников получат')} высшее звание «${RANKS[RANKS.length - 1]}» 🌟`, go: () => [slotOfId('final'), '[data-act="exlvl"]'] },
+  camps: { g: 'dir', on: () => bossOn(), now: () => S.stats.camps || 0, n: () => 1, text: () => 'Проведи рекламную акцию в кабинете директора 📣', go: () => ['DIR', '[data-act="camp"]'] },
+  mails: { g: 'dir', on: () => bossOn() && S.stats.graduated >= 20 && !calm(), now: () => S.stats.mails || 0, n: () => 1, text: () => 'Ответь на письмо родителей ✉️', go: () => ['DIR', '[data-act="mail"]'] },
+  pot: { g: 'mg', on: () => true, now: () => (S.mg && S.mg.pot) || 0, n: () => rint(2, 4), text: (n) => `Свари ещё ${n} ${nOf(n, 'зелье', 'зелья', 'зелий')} в Зельеварке 🧪`, go: () => ['@mg', null] },
+  gifts: { g: 'gift', on: () => !!myAl(), now: () => S.stats.gifts || 0, n: () => 1, text: () => 'Отправь подарок другу из альянса 🎁', go: () => ['@ally', null] },
+  forms: { g: 'rank', on: () => FORM_KEYS.some(formReady), now: formSum, n: () => 1, text: () => 'Улучши карточку ученика в альбоме 🎓', go: () => ['@album', null],
+    cost: () => Math.min(...FORM_KEYS.filter(formReady).map(formCost)) },
+  ore: { g: 'w2', on: () => WORLD === 2 && openId('mine'), now: () => S.stats.ore || 0, n: () => rint(3, 8) * 10, text: (n) => `Добудь в Штольне ещё ${n} руды ⛏️`, go: () => [slotOfId('mine'), '[data-act="desk"]'] },
+  forged: { g: 'w2', on: () => WORLD === 2 && openId('mine') && openId('forge'), now: () => S.stats.forged || 0, n: () => rint(2, 5) * 10, text: (n) => `Выкуй в Кузне ещё ${n} ${nOf(n, 'изделие', 'изделия', 'изделий')} ⚒️`, go: () => [slotOfId('forge'), '[data-act="desk"]'] },
+  caravans: { g: 'w2', on: () => tradeOpen(), now: () => S.stats.caravans || 0, n: () => rint(1, 3), text: (n) => `Отправь ещё ${n} ${nOf(n, 'караван', 'каравана', 'караванов')} 🐐`, go: () => ['TRADE', '[data-act="caravan"]'] },
+};
+// where a story mission's go points: '#classId' -> that class's room; the rest as is
+const storyGo = (go) => (go && go[0] && go[0][0] === '#' ? [slotOfId(go[0].slice(1)), go[1]] : go);
+// story chain: S.story = ids of claimed missions; old saves kept an index S.mission into the 13 first (v1) ones
+function storyCur() {
+  if (!S.story) { S.story = {}; if (WORLD === 1) MISSIONS.filter((m) => m.v1).slice(0, S.mission || 0).forEach((m) => { S.story[m.id] = 1; }); }
+  return MISSIONS.find((m) => !S.story[m.id]) || null;
+}
+const storyBuilds = () => { const c = storyCur(); return !!(c && c.build); };   // the story itself asks to build the next class
+window.__ms = { list: () => missionList(), make: () => makeMission(), go: (k) => goMission(k), claim: (k) => claimMission(k), story: () => storyCur(), goT: (g) => goTarget(g), hint: () => (document.getElementById('mhint') || {}).textContent || '', UPS, CNTS, CUPS };   // test hook
 // upgrades pay back REWARD_SHARE of what they cost; counting missions pay for the minutes they really take at the current pace
 const REWARD_SHARE = 0.3, TIME_SHARE = 0.25;
 const nice = (x) => { const e = Math.pow(10, Math.max(0, Math.floor(Math.log10(Math.max(1, x))) - 1)); return Math.round(x / e) * e; };
@@ -3817,13 +3886,17 @@ function missionCost(m) {   // coins still needed from the current state to the 
     case 'beds': return bedsCost();
     case 'lib': return libSeatsCost();
     case 'build': return buildCost(m.i);   // was buildCost(i): ReferenceError on his father's phone (build 174)
+    case 'up': { const U = upOf(m); if (!U) return -1; const n = Math.max(0, m.target - U.lvl()); return U.cost() * (Math.pow(U.k, n) - 1) / (U.k - 1); }
+    case 'cnt': { const K = CNTS[m.k]; return K && K.cost && K.on() ? K.cost() : -1; }
   }
   return -1;
 }
 const RATE_KEY = { grad: 'graduated', exams: 'passed', enroll: 'enrolled', read: 'read' };
+const CNT_RATE = ['shop', 'cant', 'ranks', 'masters', 'ore', 'forged'];   // counting missions priced by their measured pace
 let rateLast = null;
 function stepRates(sec) {   // per-second pace of every counter (EMA), measured while the game is open
   const now = { graduated: S.stats.graduated, passed: S.stats.passed, enrolled: S.stats.enrolled, read: S.stats.read || 0 };
+  for (const k of CNT_RATE) now['c_' + k] = CNTS[k].now();
   S.rt ||= {};
   if (rateLast) for (const k of Object.keys(now)) S.rt[k] = (S.rt[k] || 0) * 0.97 + ((now[k] - rateLast[k]) / sec) * 0.03;
   rateLast = now;
@@ -3833,32 +3906,37 @@ function rewardFor(m) {
   if (cost >= 0) return Math.max(50, nice(cost * REWARD_SHARE));
   const perMin = Math.max(1, (S.ema || 1) * 60);
   if (m.type === 'earn') return Math.max(50, nice((m.n || 0) * TIME_SHARE));
-  const key = RATE_KEY[m.type], rate = key ? (S.rt && S.rt[key]) || 0 : 0;
+  const key = m.type === 'cnt' ? (CNT_RATE.includes(m.k) ? 'c_' + m.k : null) : RATE_KEY[m.type], rate = key ? (S.rt && S.rt[key]) || 0 : 0;
   const minutes = rate > 0.001 ? Math.min(15, Math.max(0.5, (m.n || 0) / (rate * 60))) : 3;
   return Math.max(50, nice(perMin * minutes * TIME_SHARE));
 }
-function makeMission() {
+function makeMission(onlyNew) {   // onlyNew: draw from the new kinds only (the one-time refresh of old lists)
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i));
-  const kinds = [];
-  kinds.push(() => { const n = rint(3, 8) * 10; return { type: 'grad', target: S.stats.graduated + n, text: `Выпусти ещё ${n} учеников 🎓` }; });
-  kinds.push(() => { const n = rint(5, 15) * 10; return { type: 'enroll', target: S.stats.enrolled + n, text: `Прими в школу ещё ${n} новичков 🛎️` }; });
-  kinds.push(() => { const n = Math.max(500, Math.round((S.ema || 1) * 60 * rint(3, 8) / 100) * 100); return { type: 'earn', target: (S.stats.earned || 0) + n, text: `Заработай ещё ${fmt(n)} монет 🪙` }; });
-  kinds.push(() => { const n = rint(2, 6) * 5; return { type: 'read', target: (S.stats.read || 0) + n, text: `Пусть ${n} учеников подготовятся в библиотеке 📚` }; });
-  kinds.push(() => { const n = rint(5, 15) * 10; return { type: 'exams', target: S.stats.passed + n, text: `Пусть ученики сдадут ещё ${n} экзаменов` }; });
+  const kinds = [], wts = [], add = (f, w = 1) => { kinds.push(f); wts.push(w); };
+  add(() => { const n = rint(3, 8) * 10; return { type: 'grad', target: S.stats.graduated + n, text: `Выпусти ещё ${n} учеников 🎓` }; });
+  add(() => { const n = rint(5, 15) * 10; return { type: 'enroll', target: S.stats.enrolled + n, text: `Прими в школу ещё ${n} новичков 🛎️` }; });
+  add(() => { const n = Math.max(500, Math.round((S.ema || 1) * 60 * rint(3, 8) / 100) * 100); return { type: 'earn', target: (S.stats.earned || 0) + n, text: `Заработай ещё ${fmt(n)} монет 🪙` }; });
+  add(() => { const n = rint(2, 6) * 5; return { type: 'read', target: (S.stats.read || 0) + n, text: `Пусть ${n} учеников подготовятся в библиотеке 📚` }; });
+  add(() => { const n = rint(5, 15) * 10; return { type: 'exams', target: S.stats.passed + n, text: `Пусть ученики сдадут ещё ${n} экзаменов` }; });
   for (const i of open) {
     const st = S.classes[i], C = CLASSES[i];
-    C.items.forEach((it, k) => { if (st.items[k] < MAX_ITEM_LEVEL) kinds.push(() => { const t = Math.min(MAX_ITEM_LEVEL, st.items[k] + rint(2, 4)); return { type: 'item', i, k, target: t, text: `Улучши «${it.name}» (${C.name}) до ур. ${t}` }; }); });
-    if (st.teacher < MAX_TEACHER_LEVEL) kinds.push(() => { const t = Math.min(MAX_TEACHER_LEVEL, st.teacher + rint(1, 3)); return { type: 'teacher', i, target: t, text: `Улучши учителя (${C.name}) до ур. ${t}` }; });
-    if (st.desks < maxDesksOf(i)) kinds.push(() => ({ type: 'desk', i, target: st.desks + 1, text: `Поставь ещё одну парту: ${C.name}` }));
-    if (st.time < MAX_TIME_LEVEL) kinds.push(() => ({ type: 'time', i, target: st.time + 1, text: `Сократи урок: ${C.name}` }));
+    C.items.forEach((it, k) => { if (st.items[k] < MAX_ITEM_LEVEL) add(() => { const t = Math.min(MAX_ITEM_LEVEL, st.items[k] + rint(2, 4)); return { type: 'item', i, k, target: t, text: `Улучши «${it.name}» (${C.name}) до ур. ${t}` }; }); });
+    if (st.teacher < MAX_TEACHER_LEVEL) add(() => { const t = Math.min(MAX_TEACHER_LEVEL, st.teacher + rint(1, 3)); return { type: 'teacher', i, target: t, text: `Улучши учителя (${C.name}) до ур. ${t}` }; });
+    if (st.desks < maxDesksOf(i)) add(() => ({ type: 'desk', i, target: st.desks + 1, text: `Поставь ещё одну парту: ${C.name}` }));
+    if (st.time < MAX_TIME_LEVEL) add(() => ({ type: 'time', i, target: st.time + 1, text: `Сократи урок: ${C.name}` }));
   }
-  if (S.reception.level < MAX_REC_LVL) kinds.push(() => ({ type: 'rec', target: Math.min(MAX_REC_LVL, S.reception.level + rint(1, 3)), text: `Улучши секретаря в приёмной до ур. ${S.reception.level + 1}+` }));
-  if (bedCount() < maxBeds()) kinds.push(() => ({ type: 'beds', target: bedCount() + 1, text: 'Купи ещё одну кровать в спальне 🛏️' }));
-  if (libSeats() < MAX_LIB_SEATS) kinds.push(() => ({ type: 'lib', target: libSeats() + 1, text: 'Поставь ещё один стол в библиотеке 📚' }));
+  if (S.reception.level < MAX_REC_LVL) add(() => ({ type: 'rec', target: Math.min(MAX_REC_LVL, S.reception.level + rint(1, 3)), text: `Улучши секретаря в приёмной до ур. ${S.reception.level + 1}+` }));
+  if (bedCount() < maxBeds()) add(() => ({ type: 'beds', target: bedCount() + 1, text: 'Купи ещё одну кровать в спальне 🛏️' }));
+  if (libSeats() < MAX_LIB_SEATS) add(() => ({ type: 'lib', target: libSeats() + 1, text: 'Поставь ещё один стол в библиотеке 📚' }));
   const nextPlot = S.classes.findIndex((c) => !c.built);
-  const storyBuild = WORLD === 1 && S.mission < MISSIONS.length && MISSIONS[S.mission].text.startsWith('Построй класс');   // Sonya's report 2026-11-22: the same class twice in the list
-  if (nextPlot >= 0 && !storyBuild) kinds.push(() => ({ type: 'build', i: nextPlot, target: 1, text: `Построй класс «${CLASSES[nextPlot].name}»` }));
-  const m = kinds[Math.floor(Math.random() * kinds.length)]();
+  const storyBuild = storyBuilds();   // Sonya's report 2026-11-22: the same class twice in the list
+  if (nextPlot >= 0 && !storyBuild) add(() => ({ type: 'build', i: nextPlot, target: 1, text: `Построй класс «${CLASSES[nextPlot].name}»` }));
+  for (const [k, U] of Object.entries(UPS)) if (U.on() && U.lvl() < U.max()) add(() => { const t = Math.min(U.max(), U.lvl() + rint(1, 3)); return { type: 'up', k, target: t, text: `Улучши «${U.name}» до ур. ${t}` }; }, U.g === 'room' ? 1 : 2);
+  for (const i of open) for (const [k, U] of Object.entries(CUPS)) if (U.on(i) && U.lvl(i) < U.max()) add(() => { const t = Math.min(U.max(), U.lvl(i) + (k === 'expand' ? 1 : rint(1, 3))); return { type: 'up', k, i, target: t, text: k === 'expand' ? `Расширь класс «${CLASSES[i].name}» 📐` : `Улучши «${U.name}» (${CLASSES[i].name}) до ур. ${t}` }; }, 0.5);
+  for (const [k, K] of Object.entries(CNTS)) if (K.on()) add(() => { const n = K.n(); return { type: 'cnt', k, n, target: K.now() + n, text: K.text(n) }; }, k === 'pot' || k === 'gifts' ? 1.5 : 2.5);
+  if (onlyNew && wts.some((w) => w >= 1.5)) for (let j = 0; j < wts.length; j++) if (wts[j] < 1.5) wts[j] = 0;
+  let r = Math.random() * wts.reduce((a, b) => a + b, 0), pick = 0; while (pick < kinds.length - 1 && (r -= wts[pick]) > 0) pick++;
+  const m = kinds[pick]();
   if (m.type === 'rec') m.text = `Улучши секретаря в приёмной до ур. ${m.target}`;
   const statNow = { grad: S.stats.graduated, enroll: S.stats.enrolled, earn: S.stats.earned || 0, read: S.stats.read || 0, exams: S.stats.passed }[m.type];
   if (statNow !== undefined) m.n = m.target - statNow;
@@ -3880,6 +3958,8 @@ function dynDone(m) {
     case 'beds': return bedCount() >= m.target;
     case 'lib': return libSeats() >= m.target;
     case 'build': return S.classes[m.i].built;
+    case 'up': { const U = upOf(m); return !U || U.lvl() >= m.target; }
+    case 'cnt': { const K = CNTS[m.k]; return !K || K.now() >= m.target; }
     default: return true;
   }
 }
@@ -3898,6 +3978,8 @@ function dynProgress(m) {   // [now, target] for the progress counter
     case 'rec': return [S.reception.level, m.target];
     case 'beds': return [bedCount(), m.target];
     case 'lib': return [libSeats(), m.target];
+    case 'up': { const U = upOf(m); return U ? [U.lvl(), m.target] : null; }
+    case 'cnt': { const K = CNTS[m.k]; return K ? [Math.max(0, K.now() - (m.target - m.n)), m.n] : null; }   // counted from the mission's start: «12/40»
     default: return null;
   }
 }
@@ -3905,7 +3987,7 @@ function missionList() {   // [{key, text, reward, ok, prog}]
   if (S.dyn && !S.dynList) S.dynList = [S.dyn];   // older saves had one generated mission
   S.dynList ||= [];
   const out = [];
-  if (WORLD === 1 && S.mission < MISSIONS.length) { const m = MISSIONS[S.mission]; out.push({ key: 'f', type: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: null, go: missionGo(null, m.text) }); }
+  { const m = storyCur(); if (m) out.push({ key: 'f', type: 'f', lk: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: m.prog ? m.prog(G) : null, go: m.go ? storyGo(m.go) : missionGo(null, m.text) }); }
   let made = false;
   const kindKey = (x) => [x.type, x.i ?? '', x.k ?? ''].join(':');   // one mission per kind at a time
   const seen = new Set(); S.dynList = S.dynList.filter((x) => !seen.has(kindKey(x)) && seen.add(kindKey(x)));
@@ -3919,22 +4001,27 @@ function missionList() {   // [{key, text, reward, ok, prog}]
       case 'time': return m.target <= MAX_TIME_LEVEL;
       case 'beds': return m.target <= maxBeds();
       case 'lib': return m.target <= MAX_LIB_SEATS;
+      case 'up': { const U = upOf(m); return !!U && U.on() && m.target <= U.max(); }
+      case 'cnt': { const K = CNTS[m.k]; return !!K && K.on(); }
       default: return true;
     }
   };
-  const storyBuild = WORLD === 1 && S.mission < MISSIONS.length && MISSIONS[S.mission].text.startsWith('Построй класс');
-  S.dynList = S.dynList.filter((m) => dynDone(m) || (possible(m) && !(storyBuild && m.type === 'build')));   // the story already asks to build it
+  const storyBuild = storyBuilds();
+  const sg = out[0] && out[0].go, twin = (m) => !!(sg && sg[1] && m.type !== 'grad' && m.type !== 'earn' && ['item', 'teacher', 'desk', 'rec', 'up', 'build'].includes(m.type) && (missionGo(m) || []).join('|') === sg.join('|'));   // the same button as the story mission (her w2 save: tablets twice)
+  S.dynList = S.dynList.filter((m) => dynDone(m) || (possible(m) && !(storyBuild && m.type === 'build') && !twin(m)));   // the story already asks to build it
   for (const m of S.dynList) if (m.rv !== 2 && !dynDone(m)) {   // missions made before the fair rewards: priced again from what is left to do
     const pr = dynProgress(m); if (pr && ['grad', 'enroll', 'earn', 'read', 'exams'].includes(m.type)) m.n = pr[1] - pr[0];
     m.reward = rewardFor(m); m.rv = 2;
   }
+  let fresh = false;   // 2026-11-23: old lists were full of old kinds; once, keep what is done and two unfinished ones, fill the rest with new kinds
+  if (!S.mv3) { S.mv3 = 1; if (S.dynList.length) { const done = S.dynList.filter(dynDone), left = S.dynList.filter((m) => !dynDone(m)); S.dynList = [...done, ...left.slice(0, 2)]; fresh = true; } made = true; }
   for (let tries = 0; out.length + S.dynList.length < MISSION_SLOTS && tries < 200; tries++) {
-    const m = makeMission();
-    if (S.dynList.some((x) => kindKey(x) === kindKey(m))) continue;
+    const m = makeMission(fresh);
+    if (S.dynList.some((x) => kindKey(x) === kindKey(m)) || twin(m)) continue;
     S.dynList.push(m); made = true;
   }
   if (made) save();
-  S.dynList.forEach((m, k) => out.push({ key: 'd' + k, type: m.type, text: m.text, reward: m.reward, ok: dynDone(m), prog: dynProgress(m), go: missionGo(m) }));
+  S.dynList.forEach((m, k) => out.push({ key: 'd' + k, type: m.type, lk: m.type === 'up' ? (upOf(m) || {}).g : m.type === 'cnt' ? (CNTS[m.k] || {}).g : m.type, text: m.text, reward: m.reward, ok: dynDone(m), prog: dynProgress(m), go: missionGo(m) }));
   return out;
 }
 // «Выполнить»: where a mission is done -> [room id, selector of the button to light up in its panel]
@@ -3950,6 +4037,8 @@ function missionGo(m, text) {
     case 'lib': case 'read': return ['LIB', '[data-act="libseats"]'];
     case 'grad': case 'exams': return [exam, '[data-act="desk"]'];
     case 'earn': return [weakest(), '[data-act="desk"]'];
+    case 'up': { const U = upOf(m); return U ? U.go() : null; }
+    case 'cnt': { const K = CNTS[m.k]; return K ? K.go() : null; }
   }
   // fixed missions: read the text
   const t = text || '';
@@ -3980,7 +4069,7 @@ function goMission(key) {
 let mHint = null;
 function missionHintText(m, sel) {
   if (m.ok) return '✅ Задание выполнено — забери награду в «Заданиях»';
-  const P0 = m.prog, LV = { item: 'ур.', teacher: 'учитель ур.', time: 'урок ур.', rec: 'секретарь ур.' }, CNT = { desk: 'парт', beds: 'кроватей', lib: 'мест' };
+  const P0 = m.prog, LV = { item: 'ур.', teacher: 'учитель ур.', time: 'урок ур.', rec: 'секретарь ур.', up: 'ур.' }, CNT = { desk: 'парт', beds: 'кроватей', lib: 'мест' };
   if (P0 && LV[m.type]) return `📋 ${LV[m.type]} ${P0[0]} → ${P0[1]}`;
   if (P0 && CNT[m.type]) return `📋 ${CNT[m.type]}: ${P0[0]} → ${P0[1]}`;
   if (P0) return `📋 ${m.text} · осталось ${fmt(Math.max(0, P0[1] - P0[0]))}`;
@@ -4013,7 +4102,10 @@ setInterval(updMissionHint, 400);
 function goTarget(go) {   // open a room and light up the button that helps (missions and Tikhon's reports)
   const [id, sel] = go, s = SLOTS[id];
   closePanel();
-  openRoom(id);
+  if (id === '@mg') { MG.open(); return; }
+  if (id === '@top') openTop(); else if (id === '@ally') openAlly(); else if (id === '@insp') openPanel(inspPanel); else if (id === '@album') openPanel(speciesPanel);
+  else if (id === 'FOUNT') { if (!COURT) return; openPanel(fountainPanel); const c = courtC(); setTimeout(() => focusTile(c.x, c.y), 60); }
+  else openRoom(id);
   if (s) setTimeout(() => focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), 60);   // after the panel is up: the room goes above it
   if (!sel) return;
   setTimeout(() => {   // light up the button that does it
@@ -4027,7 +4119,7 @@ function claimMission(key) {
   const list = missionList(), m = list.find((x) => x.key === key);
   if (!m || !m.ok) return;
   S.coins += m.reward;
-  if (key === 'f') S.mission++; else S.dynList.splice(+key.slice(1), 1);
+  if (key === 'f') { const c = storyCur(); if (c) { S.story[c.id] = 1; if (c.v1) S.mission = (S.mission || 0) + 1; } } else S.dynList.splice(+key.slice(1), 1);
   toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); save();
 }
 
@@ -4082,7 +4174,7 @@ function missionsPanel() {
   const tk = WORLD === 1;   // world 1: the quests come from Chronicler Tikhon (build 251, her pick)
   return `<div class="sh-head">${tk ? tikhonPic(56) : '<span class="remoji big">📋</span>'}<div><h2>${tk ? 'Задания от Тихона' : 'Задания'}</h2><div class="muted">${tk ? '«Летопись школы пишется твоими делами, директор»' : 'Выполняй и забирай награды. Новые появляются сразу'}</div></div><button class="x" data-close>✕</button></div>
     <div class="qbar">${list.map((m) => `<div class="q ${m.ok ? 'ok' : ''}"><span class="qi">${m.ok ? '🎁' : '📋'}</span>
-      <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}${tk && MISSION_LORE[m.type] ? `<span class="muted" style="display:block;font-style:italic;font-size:12px">${MISSION_LORE[m.type]}</span>` : ''}</span>
+      <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}${tk && MISSION_LORE[m.lk || m.type] ? `<span class="muted" style="display:block;font-style:italic;font-size:12px">${MISSION_LORE[m.lk || m.type]}</span>` : ''}</span>
       ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo"><span class="qr">🪙${fmt(m.reward)}</span>${m.go ? `<button class="btn small go" data-mgo="${m.key}">Выполнить ➜</button>` : ''}</span>`}</div>`).join('')}</div>`;
 }
 function updateHud() {
@@ -4440,7 +4532,7 @@ async function allySend(toUid, kind) {
     const r = await fetch(ALLY_URL + '/gifts', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok },
       body: JSON.stringify({ fields: { from: { stringValue: A.uid }, fname: { stringValue: schoolName().slice(0, 24) }, to: { stringValue: toUid }, w: { integerValue: String(WORLD) }, kind: { stringValue: kind }, t: { integerValue: String(Date.now()) } } }) });
     if (!r.ok) throw new Error(r.status);
-    L[k][toUid] = (L[k][toUid] || 0) + 1; save();
+    L[k][toUid] = (L[k][toUid] || 0) + 1; S.stats.gifts = (S.stats.gifts || 0) + 1; save();   // gifts: counted for the missions
     toast(kind === 'boost' ? '✨ Вдохновение отправлено!' : '🎁 Подарок отправлен!');
   } catch (e) { toast('Не получилось отправить — проверь интернет'); }
   refreshAlly();
