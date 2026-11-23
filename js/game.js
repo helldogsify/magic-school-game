@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=390';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=390';
-import { initMinigame } from './minigame.js?v=390';
-import { initChests } from './chests.js?v=390';
-import { initLore } from './lore.js?v=390';
-import { initAvatar } from './avatar.js?v=390';
+} from './data.js?v=391';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=391';
+import { initMinigame } from './minigame.js?v=391';
+import { initChests } from './chests.js?v=391';
+import { initLore } from './lore.js?v=391';
+import { initAvatar } from './avatar.js?v=391';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 390;   // keep equal to the ?v= number in index.html
+const BUILD = 391;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1197,7 +1197,10 @@ function tradePanel() {
     <div class="stats3"><div><span>📦</span><b>${T.load + T.gems}/${wagonCap()}</b><i>в повозке</i></div><div><span>⚒️</span><b>${fmt(w.items)}</b><i>на складе</i></div><div><span>💰</span><b>${fmt(T.away ? T.value : loadValue())}</b><i>${T.away ? 'везут' : 'стоит груз'}</i></div></div>
     <p class="muted">Изделие ⚒️ стоит 🪙${fmt(itemPrice())}, самоцвет 💎 — 🪙${fmt(gemPrice())}. Дорога: ${mmss(tripTime())}. Полная повозка уходит сама.</p>
     ${T.away ? '' : `<button class="btn wide" data-act="caravan" ${T.load + T.gems ? '' : 'disabled'}>Отправить сейчас <span class="cost">🪙${fmt(loadValue())}</span></button>`}
-    ${up('wagon', '🛒', 'Повозка больше', '+10 мест для груза', MAX_TUP)}${up('road', '🛤️', 'Дорога короче', '−10% времени пути', MAX_TUP)}${up('price', '⚖️', 'Цена выше', '+12% за изделие и самоцвет', MAX_TUP)}`;
+    ${(() => { const nx = (k, now, next) => (T[k] >= MAX_TUP ? `сейчас ${now}` : `сейчас ${now} → станет ${next}`);   // her «как было -10% пути так и осталось»: the card showed only the per-level step
+      return up('wagon', '🛒', 'Повозка больше', `${nx('wagon', wagonCap() + ' мест', wagonCap() + 10 + ' мест')} (+10 за уровень)`, MAX_TUP)
+        + up('road', '🛤️', 'Дорога короче', `путь ${nx('road', mmss(tripTime()), mmss(Math.round(180 * Math.pow(0.9, T.road))))} (−10% за уровень)`, MAX_TUP)
+        + up('price', '⚖️', 'Цена выше', `${nx('price', '+' + 12 * (T.price - 1) + '%', '+' + 12 * T.price + '%')} к цене изделий и самоцветов`, MAX_TUP); })()}${T.away ? '<p class="muted">Караван, который уже в пути, едет со старым временем; новое время — со следующего рейса.</p>' : ''}`;
 }
 // ---- the elder's throne + rumble from the depths (world 2) ----
 const THRONE_COST = 20000000, THRONE_NEED = 'guards';
