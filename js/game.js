@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=418';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=418';
-import { initMinigame } from './minigame.js?v=418';
-import { initChests } from './chests.js?v=418';
-import { initLore } from './lore.js?v=418';
-import { initAvatar } from './avatar.js?v=418';
+} from './data.js?v=419';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=419';
+import { initMinigame } from './minigame.js?v=419';
+import { initChests } from './chests.js?v=419';
+import { initLore } from './lore.js?v=419';
+import { initAvatar } from './avatar.js?v=419';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 418;   // keep equal to the ?v= number in index.html
+const BUILD = 419;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -818,7 +818,7 @@ function secretaryPos() {
   // 3 stamps, 2 writing spells, then she walks away (to the shelf with the stack, next time to the map with a note)
   if (!secTrip && secU === 0) {
     secClock += dt;
-    if (secClock > SEC_STAMPS + SEC_WRITES) { secClock = 0; secTrip = secNext; secNext = secNext === 'shelf' ? 'board' : 'shelf'; }
+    if (secClock > SEC_STAMPS + SEC_WRITES) { secClock = 0; if (queue.length < 3) { secTrip = secNext; secNext = secNext === 'shelf' ? 'board' : 'shelf'; } }   // a long line keeps her at the counter (tester Гоща: «барсук медленно обрабатывает»): stamp, stamp, stamp, write, write, again
   }
   let target = 0;
   if (secTrip === 'shelf') { target = 1; if (secU >= 1) { secHold += dt; if (secHold > 2.2) { secTrip = 'back'; secHold = 0; } } }
@@ -853,7 +853,8 @@ function teacherWalk(i) {
 }
 const teacherPos = (i) => { const s = slotOf(i); return frontFacing(i) ? { x: s.x0 + (s.x1 - s.x0) / 2 + 0.6, y: s.y1 - 0.9 } : { x: s.x0 + (s.x1 - s.x0) / 2 + 1.3, y: s.y0 + 1.0 }; };
 let REC = SLOTS.REC, OFFICER = { x: REC.x0 + 0.75, y: REC.y0 + 3.3 };
-const queueSlot = (k) => ({ x: REC.x0 + 3.0 + k * 0.7, y: REC.y0 + 4.6 });
+const queueSlot = (k) => (k < 6 ? { x: REC.x0 + 3.0 + k * 0.7, y: REC.y0 + 4.6 } : { x: REC.x0 + 3.0 + (11 - k) * 0.7, y: REC.y0 + 3.75 });   // a second row behind the first (snake) for a long line
+const queueCap = () => 6 + Math.floor(Math.max(0, recLvl() - 16) / 4);   // 6 places, 12 at reception level 40 (tester Гоща: arrivals at max ads were lost at the door)
 function waitSpot(i, k) { const [, h] = slotOf(i).door; return { x: h[0] + 0.5 + (k % 2) * 0.6 - 0.3, y: h[1] + 0.5 + Math.floor(k / 2) * 0.6 }; }
 
 // ======================= agents =======================
@@ -874,7 +875,7 @@ function goQueue(a) { const p = queueSlot(queue.indexOf(a)); a.goal = { t: 'q' }
 function startNextProcess(live) {
   if (processing || !queue.length) return;
   if (live && secU > 0.02) return;   // the secretary first walks back to her counter
-  const a = queue[0]; if (a.state !== 'queue') return;
+  const a = queue[0]; if (a.state !== 'queue') { const q = queueSlot(0); if (!(a.goal && a.goal.t === 'q' && a.state === 'walk' && Math.hypot(a.x - q.x, a.y - q.y) < 0.6)) return; a.path = []; a.onArrive = null; }   // almost at the counter: taken at once
   processing = a; procT = 0; a.state = 'process';
 }
 function finishProcess() {
@@ -2141,7 +2142,7 @@ function stepWorld(dt, live = false) {
   stepExped();
   stepRumble(dt, live);
   arrivalT -= dt;
-  if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6 && !(WORLD === 2 && schoolFull())) spawn(); }   // world 2: nobody new comes while every line and every bed is taken
+  if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < queueCap() && !(WORLD === 2 ? schoolFull() : freeBeds() <= 4)) spawn(); }   // world 1 too: nobody new comes while the court and the dorm are (almost) full   // world 2: nobody new comes while every line and every bed is taken
   startNextProcess(live);
   if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime()) finishProcess(); }
   stepConcierge(dt);
