@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=317';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=317';
-import { initMinigame } from './minigame.js?v=317';
-import { initChests } from './chests.js?v=317';
+} from './data.js?v=318';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=318';
+import { initMinigame } from './minigame.js?v=318';
+import { initChests } from './chests.js?v=318';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 317;   // keep equal to the ?v= number in index.html
+const BUILD = 318;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2430,6 +2430,7 @@ function tintCopies(src) { return [0.17, 0.32].map((a) => { const c = document.c
 for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; if (OUT_H[n]) { const c = document.createElement('canvas'), k = 40 / im.naturalHeight; c.width = Math.max(4, Math.round(im.naturalWidth * k)); c.height = 40; const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(38,48,62)'; x.fillRect(0, 0, c.width, c.height); outSh[n] = c; } if (im.naturalHeight > 560) { const c = document.createElement('canvas'), k = 440 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 440; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outMid[n] = c; } if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } if (OUT_TREE.has(n) && outMid[n] && outLo[n]) outTint[n] = { mid: tintCopies(outMid[n]), lo: tintCopies(outLo[n]) }; }; im.src = `assets/parts/${OUT_DIR}/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
 let GRASS_ON = true, BG_OFF = false;
 const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+if (WORLD === 1) for (const n of ['honey', 'mosaic']) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/outdoor/${n}.webp?v=1`; parts['outdoor/' + n] = im; }   // paving art (art/parts/paving, SYNTX 4 tokens)
 let garlandLo = null;   // a small copy: the 917-px picture shrunk to ~90 px every frame lost its colours
 if (WORLD === 1) { const im = new Image(); im.onload = () => { partsVer++; let src = im, w = im.naturalWidth; while (w > 300) { w = Math.round(w / 2); const c = document.createElement('canvas'); c.width = w; c.height = Math.round(im.naturalHeight * w / im.naturalWidth); const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, c.width, c.height); src = c; } garlandLo = src; }; im.src = 'assets/parts/outdoor/gal_garland.webp?v=1'; parts['outdoor/gal_garland'] = im; }   // court colonnade garlands (no shadow)
 let OUTDOOR = [], outKey = '', OUT_ON = true, entrancePath = null, entranceDecal = null, gardenDecal = null;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
@@ -2795,6 +2796,7 @@ function drawStatic() {
   { const g = WORLD <= 2 && GRASS_ON && grassPat(c); if (g) { c.fillStyle = g; c.fillRect(0, 0, WW, WH); } else { c.fillStyle = '#9fd184'; for (let i = 0; i < 260; i++) c.fillRect((i * 97) % WW, (i * 211) % WH, 3, 2); } }
   const stone = WORLD <= 2 && isoPat(c, 'path', 3);
   const courtGrass = WORLD === 1 && COURT && isoPat(c, 'grass', 4);
+  const honey = WORLD === 1 && COURT && isoPat(c, 'honey', 3);   // the gallery's warm flagstones
   const corrFloor = WORLD <= 2 && (() => { const pt = pat(c, 'corridor', 'floor'); if (!pt) return null; const T = part('corridor', 'floor').naturalWidth / 3, o = P(0, 0); pt.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, o.x, o.y])); return pt; })();
   // halls
   for (let x = 0; x < GW; x++) for (let y = -YOFF; y < GH; y++) {
@@ -2802,14 +2804,16 @@ function drawStatic() {
     const inside = rid === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
     const carpet = WORLD > 2 && inside && x >= 14 && x <= 16 && y > BUILDING.y0;   // world 1: no pink runner any more, parquet everywhere (her «Зачем розовая полоса плитки по коридору»)
     if (inCourt(x, y) && courtGrass) { const cc = courtC(), r = Math.hypot(x + 0.5 - cc.x, (y + 0.5 - cc.y)); poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); const G = SLOTS.GARDEN, gp = G && G.y0 > COURT.y0 && x >= G.x0 + 2 && x <= G.x0 + 3 && y < G.y0; c.fillStyle = gp || r < 4.6 || Math.abs(x + 0.5 - cc.x) < 1.2 || Math.abs(y + 0.5 - cc.y) < 1.2 ? stone : courtGrass; c.fill(); continue; }   // the court: grass, a round flagstone plaza and paths in a cross
-    if (inside && WORLD === 1 && COURT && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); c.fillStyle = 'rgba(236,178,112,0.30)'; c.fill(); continue; }   // paving idea (her «Разное мощение»): the gallery is warm honey stone, the court paths stay lilac   // build 241: the gallery round the court is stone, not the classrooms' parquet (designer review)   // build 241: the gallery round the court is stone, not the classrooms' parquet (designer review)
+    if (inside && WORLD === 1 && COURT && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); if (honey) { c.fillStyle = honey; c.fill(); } else { c.fillStyle = stone; c.fill(); c.fillStyle = 'rgba(236,178,112,0.30)'; c.fill(); } continue; }   // paving idea (her «Разное мощение»): the gallery is warm honey stone, the court paths stay lilac   // build 241: the gallery round the court is stone, not the classrooms' parquet (designer review)   // build 241: the gallery round the court is stone, not the classrooms' parquet (designer review)
     if (inside && !carpet && WORLD <= 2 && corrFloor) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = corrFloor; c.fill(); continue; }   // parquet with star inlays
     const col = carpet ? (y % 2 ? '#d98f97' : '#dd979f') : inside ? (x % 2 ? '#d7a46e' : '#dcab76') : ((x + y) % 2 ? '#e9dcc4' : '#efe4cf');
     if (!inside && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); continue; }   // outdoor paths: rune flagstones
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
     if (carpet && y % 3 === 0) { const m = P(x + 0.5, y + 0.5); emoji('✦', m.x, m.y, 7, c); }
   }
-  if (WORLD === 1 && COURT && stone) {   // paving idea: a mosaic plaza round the fountain — cream ring, gold borders, an eight-pointed star of teal and lilac
+  const mos = WORLD === 1 && COURT && part('outdoor', 'mosaic');
+  if (mos) { const cc = courtC(), R = 4.6, Wm = mos.naturalWidth, T = Wm / (2 * R), o = P(cc.x - R, cc.y - R); c.save(); c.transform(HW / T, HH / T, -HW / T, HH / T, o.x, o.y); c.drawImage(mos, 0, 0); c.restore(); }   // the mosaic picture, flat on the ground
+  else if (WORLD === 1 && COURT && stone) {   // paving idea: a mosaic plaza round the fountain — cream ring, gold borders, an eight-pointed star of teal and lilac
     const cc = courtC(), ring = (r, n = 48) => { const o = []; for (let k = 0; k < n; k++) { const an = k / n * Math.PI * 2; o.push(P(cc.x + Math.cos(an) * r, cc.y + Math.sin(an) * r)); } return o; };
     c.save(); poly(c, ring(4.55)); c.fillStyle = 'rgba(255,244,222,0.55)'; c.fill();
     for (let k = 0; k < 16; k++) { const a0 = k / 16 * Math.PI * 2, a1 = (k + 0.5) / 16 * Math.PI * 2, a2 = (k + 1) / 16 * Math.PI * 2, r0 = 1.9, r1 = k % 2 ? 3.3 : 4.15;
