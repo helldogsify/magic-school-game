@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=311';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=311';
-import { initMinigame } from './minigame.js?v=311';
-import { initChests } from './chests.js?v=311';
+} from './data.js?v=312';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=312';
+import { initMinigame } from './minigame.js?v=312';
+import { initChests } from './chests.js?v=312';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 311;   // keep equal to the ?v= number in index.html
+const BUILD = 312;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -990,7 +990,7 @@ function courtZones() {
   const W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, q = (fx, fy) => ({ x: COURT.x0 + W * fx, y: COURT.y0 + H * fy });
   const R = q(0.78, 0.22), G = q(0.22, 0.78), T = q(0.78, 0.78);
   return { read: R, play: G, tea: T,
-    cushions: [{ x: R.x - 1.5, y: R.y + 2.0 }, { x: R.x + 1.3, y: R.y + 1.8 }], shelf: { x: R.x - 0.3, y: R.y - 2.7 }, bath: { x: R.x - 3.0, y: R.y - 1.4 },
+    cushions: [{ x: R.x - 1.5, y: R.y + 2.0 }, { x: R.x + 1.3, y: R.y + 1.8 }], shelf: { x: R.x - 0.3, y: R.y - 2.7 }, bath: { x: R.x - 3.6, y: R.y + 0.6 },   // her «кормление птичек происходит за деревом и не видно»: in the open left of the tree
     swing: { x: G.x, y: G.y }, target: { x: G.x + 0.7, y: G.y - 3.1 }, hop: { x: G.x - 3.0, y: G.y - 2.6 },
     picnic: { x: T.x - 0.2, y: T.y + 2.5 }, lanterns: [{ x: T.x - 3.2, y: T.y + 0.4 }, { x: T.x + 1.3, y: T.y - 2.8 }] };
 }
@@ -1002,9 +1002,9 @@ function courtSpots() {   // fixed points per activity (a small fixed set keeps 
   for (let k = 0; k < 8; k++) { const an = k * Math.PI / 4; v.tag.push({ x: c.x + Math.cos(an) * 2.7, y: c.y + Math.sin(an) * 2.7 }); }
   for (let k = 0; k < 6; k++) { const an = k * Math.PI / 3; v.tag.push({ x: Z.play.x + Math.cos(an) * 2.4, y: Z.play.y + 0.3 + Math.sin(an) * 2.4 }); }   // tag round the swing too
   for (let k = 0; k < 4; k++) { const an = k * Math.PI / 2 + Math.PI / 4; v.coin.push({ x: c.x + Math.cos(an) * 1.9, y: c.y + Math.sin(an) * 1.9 }); }
-  for (const q of Z.cushions) v.read.push({ x: q.x + 0.1, y: q.y + 0.25, seat: true });   // reading garden: one reader per cushion, two more under the tree
-  v.read.push({ x: Z.read.x + 0.9, y: Z.read.y + 0.4 }, { x: Z.read.x - 0.8, y: Z.read.y + 0.2 });
-  v.birds.push({ x: Z.bath.x + 0.9, y: Z.bath.y + 0.7 }, { x: Z.bath.x - 0.2, y: Z.bath.y + 1.1 });
+  for (const q of Z.cushions) v.read.push({ x: q.x - 0.4, y: q.y - 0.3, seat: true });   // on the cushion (drawn after it: render adds +0.6 depth)   // reading garden: one reader per cushion, two more under the tree
+  v.read.push({ x: Z.read.x + 1.0, y: Z.read.y + 1.1 }, { x: Z.read.x - 0.6, y: Z.read.y + 1.1 });   // in front of the trunk, never behind it
+  v.birds.push({ x: Z.bath.x + 0.6, y: Z.bath.y + 0.9 }, { x: Z.bath.x - 0.5, y: Z.bath.y + 1.1 });
   v.sparks.push({ x: Z.target.x - 0.3, y: Z.target.y + 2.2, look: Z.target }, { x: Z.target.x + 1.6, y: Z.target.y + 1.7, look: Z.target }, { x: Z.target.x - 1.6, y: Z.target.y + 1.6, look: Z.target });
   v.swing.push({ x: Z.swing.x - 0.18, y: Z.swing.y + 0.18, seat: true });
   v.tea.push({ x: Z.picnic.x - 1.25, y: Z.picnic.y + 0.2, seat: true }, { x: Z.picnic.x + 0.25, y: Z.picnic.y + 1.25, seat: true }, { x: Z.picnic.x + 1.2, y: Z.picnic.y - 0.15, seat: true });
@@ -3814,7 +3814,7 @@ function render() {
       }
     });
     if (a.state === 'vanish') { add(ax, ay, () => drawVanish(a, ax, ay), 0.3); continue; }
-    if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else add(ax, ay, draw);
+    if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else if (a.state === 'court' && a.spot && a.spot.seat && (a.act === 'read' || a.act === 'tea')) add(ax + 0.6, ay + 0.6, draw); else add(ax, ay, draw);   // her «Ученики должны быть выше подушек»: sitters on a cushion / the picnic blanket are drawn over it
   }
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
   for (const f of fxTop) f();
