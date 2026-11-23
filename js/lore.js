@@ -143,6 +143,8 @@ const HINTS = [
   ['Желания тонут, но не исчезают.', 'Вода во дворе помнит каждое желание. Ей нужна сотня.', 'Пусть ученики загадают сто счастливых желаний у фонтана.'],
   ['То, что ждёт хозяина, просыпается с солнцем.', 'В комнате того, кто вернулся домой, утром что-то блестит.', 'Знающий мир найдёт ответ утром на столе директора.'],
 ];
+const WHY = ['Ты коснулась луны над северным лесом ночью — и рядом вспыхнула его звезда.', 'Все классы школы построены — то, что он начал, достроено.',
+  'Ты уговорила Тихона на вечерней прогулке — и он отдал листок, который хранил.', 'Ученики загадали у фонтана сто счастливых желаний.', 'Утром ты коснулась короны на столе директора.'];
 const TK_LINES = ['М? Я просто гуляю…', 'Нет-нет, ничего такого. Просто вечер хороший.', 'Вы что-то хотели спросить?.. Не стоит.', 'Я обещал только записывать. Только записывать…',
   'Вы ведь не отстанете, да?', 'Он… он очень любил такие вечера.', '(вздыхает и достаёт из-за пазухи сложенный листок) Возьмите. Я хранил его слишком долго.'];
 const DAY = 86400000, HINT_EVERY = 2 * DAY, TK_RESET = 18000;
@@ -155,12 +157,13 @@ const canFind = (k) => { const r = RD(); return !!r.start && !has(k) && !r.found
 function findLine(k) {
   const r = RD(); if (!canFind(k)) return false;
   while (r.found.length < 5) r.found.push(null); r.found[k] = Date.now(); r.lastHint = Date.now(); A.save();
-  say(`📜 Найдена строчка записки (${nFound()} из 5): «${RIDDLE[k]}»`);
+  say(`📜 ${WHY[k]}\nНайдена строчка записки (${nFound()} из 5): «${RIDDLE[k]}»`, 7000);
+  if (root) redraw();
   return true;
 }
 function say(t, ms = 4500) {   // a longer note than the game's 2-s toast: Tikhon's words and found lines must be readable
   const d = document.createElement('div'); d.className = 'lo-say'; d.textContent = t; document.body.appendChild(d);
-  if (!document.getElementById('lore-say-css')) { const st = document.createElement('style'); st.id = 'lore-say-css'; st.textContent = '.lo-say{position:fixed;left:50%;top:calc(var(--safe-t,0px) + 110px);transform:translateX(-50%);z-index:30;max-width:calc(100vw - 32px);width:max-content;padding:10px 16px;border-radius:16px;background:#fff6e2f2;color:#4a3420;border:2px solid #c9a46a;font:600 15px/1.35 Georgia,serif;text-align:center;box-shadow:0 6px 18px #0003;animation:losay '+ '4.5s ease forwards;pointer-events:none}@keyframes losay{0%{opacity:0;transform:translate(-50%,8px)}8%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}'; document.head.appendChild(st); }
+  if (!document.getElementById('lore-say-css')) { const st = document.createElement('style'); st.id = 'lore-say-css'; st.textContent = '.lo-say{position:fixed;left:50%;top:calc(var(--safe-t,0px) + 110px);transform:translateX(-50%);z-index:30;max-width:calc(100vw - 32px);width:max-content;padding:10px 16px;border-radius:16px;background:#fff6e2f2;color:#4a3420;border:2px solid #c9a46a;font:600 15px/1.35 Georgia,serif;text-align:center;box-shadow:0 6px 18px #0003;white-space:pre-line;animation:losay '+ (ms / 1000) + 's ease forwards;pointer-events:none}@keyframes losay{0%{opacity:0;transform:translate(-50%,8px)}8%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}'; document.head.appendChild(st); }
   setTimeout(() => d.remove(), ms);
 }
 let tkTaps = 0, tkLast = 0;
@@ -272,7 +275,7 @@ function pageHtml(p, f) {
   if (p.night && openN(p, f) && !isNight()) return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-head">${pic(p)}<div><h3>${esc(p.title)}</h3></div></div><div class="lo-sec faded"><p>Строки на этой странице едва видны. Они проступают только при звёздах — с 22:00 до 5:00.</p></div>`;
   if (p.night && openN(p, f) === p.layers.length && !LS().prize) { LS().prize = Date.now(); A.save(); A.onPrize && A.onPrize(); }   // the big prize for reading «Последняя ночь»
   const n = openN(p, f), secs = p.layers.map((l, k) => (k < n || !l.need || l.need(f))
-    ? l.riddle ? (() => { const r = RD(); return `<div class="lo-sec riddle"><h4>🔎 ${esc(l.t)}</h4>${para(l.x)}<div class="lo-lines">${RIDDLE.map((t, k) => has(k) ? `<div class="lo-line got"><span class="lo-seal-st">★</span><div class="lo-got-t">«${esc(t)}»</div><small>строчка ${k + 1} · найдена</small></div>` : `<div class="lo-line">${k + 1}. <span>· · · ? · · ·</span><em>Пометка Тихона: ${esc(HINTS[k][r.hint[k]])}</em></div>`).join('')}</div><div class="lo-cnt">Найдено строк: ${nFound()} из 5${nFound() < 5 ? ' · не больше одной в день' : ''}${!has(3) && r.start ? ` · желаний в фонтане: ${Math.min(100, r.coins)} из 100` : ''}</div></div>`; })()
+    ? l.riddle ? (() => { const r = RD(); return `<div class="lo-sec riddle"><h4>🔎 ${esc(l.t)}</h4>${para(l.x)}<div class="lo-lines">${RIDDLE.map((t, k) => has(k) ? `<div class="lo-line got"><span class="lo-seal-st">★</span><div class="lo-got-t">«${esc(t)}»</div><small>строчка ${k + 1} · найдена</small><em class="lo-why">${esc(WHY[k])}</em></div>` : `<div class="lo-line">${k + 1}. <span>· · · ? · · ·</span><em>Пометка Тихона: ${esc(HINTS[k][r.hint[k]])}</em></div>`).join('')}</div><div class="lo-cnt">Найдено строк: ${nFound()} из 5${nFound() < 5 ? ' · не больше одной в день' : ''}${!has(3) && r.start ? ` · желаний в фонтане: ${Math.min(100, r.coins)} из 100` : ''}</div></div>`; })()
     : `<div class="lo-sec${l.wide ? ' wide' : ''}">${l.img && l.wide ? `<img class="lo-ill" src="${l.img}" alt="" onerror="this.remove()">` : ''}<h4>${esc(l.t)}</h4>${l.img && !l.wide && l.img !== p.img ? `<img class="lo-pose ${k % 2 ? 'l' : 'r'}" src="${l.img}" alt="" onerror="this.remove()">` : ''}${para(l.x)}<div class="lo-clr"></div></div>${k < p.layers.length - 1 ? '<div class="lo-orn">✦ ❧ ✦</div>' : ''}`
     : `<div class="lo-sec locked"><h4>🔒 ${esc(l.t)}</h4><p>Откроется, ${esc(l.hint || '')}.</p></div>`).join('');
   return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-pg${p.hand ? ' hand' : ''}${p.night ? ' night' : ''}"><div class="lo-head">${pic(p)}<div><h3>${esc(p.title)}</h3>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div></div>${secs}${p.night && LS().prize ? '</div><div class="lo-reward">🎁 Награда: звезда директора навсегда горит над холмами, его корона лежит на столе в кабинете, доход школы +10% навсегда.</div>' : '</div>'}`;
@@ -332,6 +335,7 @@ function css() {
 #lore .lo-line.got:nth-child(even) { transform: rotate(0.5deg); }
 #lore .lo-got-t { font: 700 17px/1.4 Georgia, 'Times New Roman', serif; font-style: italic; color: #2c1d10; }
 #lore .lo-line.got small { display: block; margin-top: 4px; font: 800 11px ui-rounded, sans-serif; color: #b08a3c; letter-spacing: .05em; text-transform: uppercase; }
+#lore .lo-line.got em.lo-why { display: block; margin-top: 3px; font: italic 600 12.5px/1.35 ui-rounded, sans-serif; color: #7a5528; }
 #lore .lo-seal-st { position: absolute; left: 9px; top: 11px; width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #f6d36b, #c08a1e); color: #fff8dc; font-size: 13px; line-height: 22px; text-align: center; box-shadow: 0 1px 3px #0004; }
 #lore .lo-line em { display: block; font-size: 13px; color: #9a6a3a; margin-top: 2px; font-family: 'Segoe Script', 'Bradley Hand', cursive; }
 #lore .lo-cnt { margin-top: 6px; font-weight: 800; color: #7a5528; font-size: 13.5px; }
