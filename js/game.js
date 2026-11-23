@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=373';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=373';
-import { initMinigame } from './minigame.js?v=373';
-import { initChests } from './chests.js?v=373';
-import { initLore } from './lore.js?v=373';
-import { initAvatar } from './avatar.js?v=373';
+} from './data.js?v=374';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=374';
+import { initMinigame } from './minigame.js?v=374';
+import { initChests } from './chests.js?v=374';
+import { initLore } from './lore.js?v=374';
+import { initAvatar } from './avatar.js?v=374';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -28,7 +28,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 373;   // keep equal to the ?v= number in index.html
+const BUILD = 374;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1289,7 +1289,7 @@ function expedPanel() {
   DEPTHS.forEach((D, d) => { const can = !E.cur && E.seekers >= D.need;
     h += `<div class="card up"><span class="remoji">${D.emo}</span><div class="grow"><b>${D.name}</b><div class="muted">${tripMin(d)} мин · нужно 🎒 ${D.need} · реликвия ${Math.round(D.relic * 100)}% · 💎 ${D.gems[0]}–${D.gems[1]}</div></div>
       <button class="btn" data-act="exped" data-k="${d}" ${can ? '' : 'disabled'}>Отправить</button></div>`; });
-  h += '<h3>Реликвии</h3><div class="stats3" style="flex-wrap:wrap">' + RELICS.map(([e, nm], k) => `<div style="min-width:30%"><span>${E.relics[k] ? e : '❔'}</span><i>${E.relics[k] ? nm : '???'}</i></div>`).join('') + '</div>';
+  h += '<h3>Реликвии</h3><div class="stats3" style="flex-wrap:wrap">' + RELICS.map(([e, nm], k) => `<div style="min-width:30%"><span>${E.relics[k] ? `<img src="assets/relics/r${k}.webp" alt="" style="width:44px;height:44px;object-fit:contain">` : '❔'}</span><i>${E.relics[k] ? nm : '???'}</i></div>`).join('') + '</div>';
   for (const [k, emo, nm, txt] of [['gear', '🪢', 'Снаряжение', '−8% времени похода'], ['camp', '⛺', 'Лагерь искателей', '+25 мест для искателей']]) { const l = E[k] || 0;
     h += `<div class="card up"><span class="remoji">${emo}</span><div class="grow"><b>${nm}</b> <span class="muted">ур. ${l}/${EXPED_MAX}</span><div class="muted">${txt}</div></div>
       ${l >= EXPED_MAX ? '<span class="done">макс.</span>' : costBtn('↑', exCostUp(k), 'expedup', `data-k="${k}"`)}</div>`; }
@@ -2917,7 +2917,7 @@ function drawGarland(o, im) {   // a garland swag hung between the tops of two c
 // Herringbone parquet with star inlays on every inner corridor tile (the pink runner stays), free-standing furniture along the
 // corridor edges every few tiles (never near a door or a queue), and floating candles drifting over the corridors (code).
 // world 2: dark granite slabs and dwarven things (armour, barrels, crates, anvil, weapon rack, brazier, crystal, candles, bench)
-const CORR_H = WORLD === 2 ? { t_wagon: 50, t_wagon_full: 50, t_goat: 34, t_stall_pots: 50, t_stall_tools: 50, t_crates_tall: 48, t_crane: 56, t_crates: 36, t_scales: 30, pillar: 74, dwarf_statue: 66, runestone: 46, minecart: 46, armor: 56, barrels: 36, crates: 40, anvil: 34, weapon_rack: 46, brazier: 44, crystal_ped: 46, candle_stand: 58, bench: 26 }
+const CORR_H = WORLD === 2 ? { ex_abyss: 92, ex_winch: 50, ex_gear: 32, ex_tent: 54, ex_crates: 38, ex_seekers: 60, t_wagon: 50, t_wagon_full: 50, t_goat: 34, t_stall_pots: 50, t_stall_tools: 50, t_crates_tall: 48, t_crane: 56, t_crates: 36, t_scales: 30, pillar: 74, dwarf_statue: 66, runestone: 46, minecart: 46, armor: 56, barrels: 36, crates: 40, anvil: 34, weapon_rack: 46, brazier: 44, crystal_ped: 46, candle_stand: 58, bench: 26 }
   : { monstera: 44, lavender_pot: 32, bench: 32, armor: 54, globe: 40, bookcase: 44, candelabra: 52, noticeboard: 42, portrait: 44, flowerbox: 30, chestbench: 32, rug_round: 20, fernpot: 36, books: 28, scrolls: 28, catbed: 22 };
 const CORR_SET = WORLD === 2 ? ['armor', 'barrels', 'brazier', 'crates', 'weapon_rack', 'crystal_ped', 'anvil', 'candle_stand', 'bench']
   : ['monstera', 'bench', 'globe', 'lavender_pot', 'portrait', 'armor', 'bookcase', 'noticeboard', 'candelabra'];
@@ -2970,7 +2970,7 @@ function layoutNaveW2() {
   out.push({ n: 'runestone', x: NAVE_X0 + 0.6, y: N.y1 - 0.8, th: 'corridor' });
   const m = slotOf(2); if (m) for (const [dx, dy] of [[-1.4, 1.5], [-3.2, 2.4], [-5.0, 3.3]]) out.push({ n: 'minecart', x: m.x0 + dx, y: m.y0 + dy, th: 'corridor', flip: true });
   const ex = SLOTS.EXPED; if (ex && expedOpen()) {   // the gates of the deep: two rune pillars at the cave mouth, lanterns, a cart of gear, a rune stone
-    for (const [n, dx, dy, fl] of [['pillar', 4.6, 1.2], ['pillar', 4.6, 4.8], ['dwarf_statue', 5.4, 3.0, true], ['minecart', 1.2, 1.4], ['runestone', 1.0, 4.8], ['brazier', 3.2, 0.7], ['brazier', 3.2, 5.3]]) out.push({ n, x: ex.x0 + dx, y: ex.y0 + dy, th: 'corridor', flip: !!fl }); }
+    for (const [n, dx, dy, fl] of [['ex_abyss', 4.1, 3.0], ['brazier', 3.0, 0.8], ['brazier', 2.4, 5.2], ['ex_tent', 1.1, 1.1], ['ex_gear', 0.9, 5.0], ['ex_winch', 5.7, 1.0, true], ['ex_crates', 5.5, 5.4], ['ex_seekers', 1.9, 3.0]]) out.push({ n, x: ex.x0 + dx, y: ex.y0 + dy, th: 'corridor', flip: !!fl }); }   // her «Делай» (art for the gates): door -> squad -> abyss on one axis
   const t = SLOTS.TRADE; if (t && tradeOpen()) {   // the yard: stalls along the back, crane and crates at the sides, the wagon + goat in front (the caravan)
     for (const [n, dx, dy, fl] of [['t_stall_pots', 1.0, 0.6], ['t_stall_tools', 3.2, 0.6], ['t_crane', 5.3, 0.9, true], ['t_crates_tall', 0.6, 2.4], ['t_scales', 2.2, 2.0], ['t_crates', 5.2, 3.9]]) out.push({ n, x: t.x0 + dx, y: t.y0 + dy, th: 'corridor', flip: !!fl });
     out.push({ n: 'caravan', x: t.x0 + 3.2, y: t.y0 + 3.6, th: 'corridor' });
@@ -2990,6 +2990,7 @@ function drawCaravan(o) {   // home: wagon (empty or loaded) with the goat; leav
 }
 function drawCorr(o) {
   if (o.n === 'caravan') return drawCaravan(o);
+  if (o.n === 'ex_seekers' && (!expedOpen() || exped().cur)) return;   // the squad is away in the depths
   const im = part('corridor', o.n); if (!im) return;
   const p = P(o.x, o.y), h = CORR_H[o.n] || 36, w = h * im.naturalWidth / im.naturalHeight;
   if (zoom >= 1.2) { const rx = Math.min(w * 0.4, h * 0.55); ctx.drawImage(propShadow(), p.x - rx, p.y - rx * 0.42, rx * 2, rx * 0.84); }
