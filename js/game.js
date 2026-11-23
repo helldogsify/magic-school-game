@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=338';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=338';
-import { initMinigame } from './minigame.js?v=338';
-import { initChests } from './chests.js?v=338';
+} from './data.js?v=339';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=339';
+import { initMinigame } from './minigame.js?v=339';
+import { initChests } from './chests.js?v=339';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 338;   // keep equal to the ?v= number in index.html
+const BUILD = 339;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2773,6 +2773,24 @@ function litRooms() {   // screen polygons (device px) of every built room: floo
   return out;
 }
 let dnDark = false;
+const DN_ALWAYS = new Set(['fountain', 'glowmush', 'crystals']);   // magic lights glow by themselves
+function lampOn(o) {   // the light level at which this lamp is lit: nearest to the gate first
+  if (o._on !== undefined) return o._on; const g = GATE_TILE, d = Math.hypot(o.x - g.x, o.y - g.y) / Math.hypot(GW, GH);
+  return (o._on = 0.1 + 0.75 * Math.min(1, d * 1.6));
+}
+// her pick «4»: moon and stars over the forest at the top of the map (world px, fixed), shown at night
+let DN_STARS = null;
+function drawSky(T, L) {
+  if (!DN_STARS || DN_STARS.w !== WW) { DN_STARS = []; DN_STARS.w = WW; let h = 7; const rn = () => ((h = (h * 16807) % 2147483647) / 2147483647);
+    for (let k = 0; k < 90; k++) DN_STARS.push({ x: rn() * WW, y: 20 + Math.pow(rn(), 1.6) * WH * 0.2, r: 0.8 + rn() * 1.8, ph: rn() * 6.3 }); }
+  const a = Math.max(0, Math.min(1, (L - 0.3) / 0.4)); if (a <= 0) return;
+  for (const st of DN_STARS) { if (st.x < VIEW.x0 - 10 || st.x > VIEW.x1 + 10 || st.y < VIEW.y0 - 10 || st.y > VIEW.y1 + 10) continue; const tw = 0.45 + 0.55 * Math.abs(Math.sin(T * 0.9 + st.ph)); fxStar(st.x, st.y, st.r * 1.6, a * tw, st.ph > 4.5 ? '200,220,255' : '255,250,225'); }
+  const mr = 22 / scale, mx = VIEW.x1 - 70 / scale, my = VIEW.y0 + 150 / scale, o0 = P(0, 0), top = o0.y + Math.abs(mx - o0.x) * HH / HW - WALLH - 60;   // the moon hangs in the sky (screen-fixed); the school's top edge under it
+  const north = Math.max(0, Math.min(1, (top - (my + mr)) / (60 / scale))); if (north <= 0) return; const a0 = a; { const a = a0 * north;   // only over forest, never over a room
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45 * a; ctx.drawImage(glowSprite('190,205,255'), mx - mr * 4, my - mr * 4, mr * 8, mr * 8); ctx.restore();
+  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#fbf3d6'; ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(214,200,170,0.55)'; for (const [dx, dy, r] of [[-8, -6, 6], [7, 4, 4.5], [-2, 10, 3.5], [10, -9, 3]]) { ctx.beginPath(); ctx.arc(mx + dx * mr / 26, my + dy * mr / 26, r * mr / 26, 0, Math.PI * 2); ctx.fill(); } ctx.restore(); }
+}
 function lampGlow(l, T, L) { const f = 0.85 + 0.15 * Math.sin(T * 5.3 + l.x * 0.7 + l.y), r = l.r * 3.2; ctx.globalAlpha = 0.55 * L * f; ctx.drawImage(glowSprite('255,190,100'), l.x - r, l.y - r, r * 2, r * 2); ctx.globalAlpha = 0.85 * L * f; ctx.drawImage(glowSprite('255,235,170'), l.x - l.r, l.y - l.r, l.r * 2, l.r * 2); }
 function drawDayNight() {
   const t = dayTint(), dark = 1 - (t[0] + t[1] + t[2]) / 765; dnDark = dark > 0.035; if (dark < 0.02) return;
@@ -2789,6 +2807,7 @@ function drawDayNight() {
   ctx.restore();
   if (L < 0.08) return;   // lights only once it gets dark
   const T = performance.now() / 1000;
+  drawSky(T, L);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const q of lit) { const s = q.s, W = s.x1 - s.x0, D = s.y1 - s.y0;   // lamps in the rooms: sconces along both back walls, a soft pool of light on the floor
     const pool = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), pr = Math.max(W, D) * HW * 0.75; ctx.globalAlpha = 0.22 * L; ctx.drawImage(glowSprite('255,190,110'), pool.x - pr, pool.y - pr * 0.6, pr * 2, pr * 1.2);
@@ -2797,8 +2816,10 @@ function drawDayNight() {
   for (const a of agents) { if (a.state === 'fly' || a.state === 'vanish') continue; const rg = regAt(Math.floor(a.x), Math.floor(a.y)); if (rg && rg !== 'hall' && rg !== 'path') continue;   // the little lantern each student carries outside
     const m = P(a.x, a.y); if (!onScreen(m.x, m.y)) continue; const f = 0.85 + 0.15 * Math.sin(T * 4 + a.id), lx = m.x + (a.flip ? -9 : 9), ly = m.y - 12 - (a.z || 0); ctx.globalAlpha = 0.8 * L * f; ctx.drawImage(glowSprite('255,225,150'), lx - 4, ly - 4, 8, 8); }
   for (const o of OUTDOOR) { const d = DN_LIGHT[o.n]; if (!d || o.px === undefined || o.px < VIEW.x0 - 80 || o.px > VIEW.x1 + 80 || o.py < VIEW.y0 - 40 || o.py > VIEW.y1 + 200) continue;
-    const h = (OUT_H[o.n] || 40) * (o.s || 1), y = o.py + h * 0.05 - h * d[0], r = h * 0.55 * d[2] * (0.92 + 0.08 * Math.sin(T * 2 + o.px)); ctx.globalAlpha = 0.75 * L; ctx.drawImage(glowSprite(d[1]), o.px - r, y - r, r * 2, r * 2);
-    if (o.n !== 'fountain' && o.n !== 'glowmush' && o.n !== 'crystals') { ctx.globalAlpha = 0.35 * L; ctx.drawImage(glowSprite(d[1]), o.px - r * 1.4, o.py - r * 0.5, r * 2.8, r); } }   // a pool of light on the ground
+    const lit1 = DN_ALWAYS.has(o.n) ? L : Math.max(0, Math.min(1, (L - lampOn(o)) / 0.08)); if (lit1 <= 0) continue;   // her pick «5»: the lamplighter lights them one by one from the gate inwards (and puts them out in the morning)
+    const h = (OUT_H[o.n] || 40) * (o.s || 1), y = o.py + h * 0.05 - h * d[0], r = h * 0.55 * d[2] * (0.92 + 0.08 * Math.sin(T * 2 + o.px)); ctx.globalAlpha = 0.75 * lit1; ctx.drawImage(glowSprite(d[1]), o.px - r, y - r, r * 2, r * 2);
+    if (lit1 < 1 && lit1 > 0.2) { ctx.globalAlpha = (1 - lit1) * 0.9; ctx.drawImage(glowSprite('255,250,220'), o.px - 6, y - 6, 12, 12); }   // the spark of lighting
+    if (o.n !== 'fountain' && o.n !== 'glowmush' && o.n !== 'crystals') { ctx.globalAlpha = 0.35 * lit1; ctx.drawImage(glowSprite(d[1]), o.px - r * 1.4, o.py - r * 0.5, r * 2.8, r); } }   // a pool of light on the ground
   if (COURT) for (let k = 0; k < 18; k++) { const an = T * (0.15 + (k % 5) * 0.03) + k * 2.4, x = COURT.x0 + 2 + ((k * 7.3) % (COURT.x1 - COURT.x0 - 4)) + Math.cos(an) * 1.5, y = COURT.y0 + 2 + ((k * 5.1) % (COURT.y1 - COURT.y0 - 4)) + Math.sin(an * 1.3) * 1.2, m = P(x, y), tw = 0.5 + 0.5 * Math.sin(T * 3 + k * 1.9);   // fireflies
     ctx.globalAlpha = L * (0.3 + 0.6 * tw); ctx.drawImage(glowSprite('230,255,150'), m.x - 6, m.y - 26 - 6, 12, 12); }
   ctx.restore();
