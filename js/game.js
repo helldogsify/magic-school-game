@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=366';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=366';
-import { initMinigame } from './minigame.js?v=366';
-import { initChests } from './chests.js?v=366';
-import { initAvatar } from './avatar.js?v=366';
+} from './data.js?v=367';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=367';
+import { initMinigame } from './minigame.js?v=367';
+import { initChests } from './chests.js?v=367';
+import { initAvatar } from './avatar.js?v=367';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -22,7 +22,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 366;   // keep equal to the ?v= number in index.html
+const BUILD = 367;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1701,7 +1701,7 @@ const inSchool = () => agents.filter((a) => a.state !== 'fly' && a.state !== 'va
 // он сам, пройдя экзамен»). Rank 5 = master of one of the four elements (exam hall). The album (🎓) has a card per
 // species x form: it opens when a student first reaches that form; students of that form gather XP with passed lessons
 // and the card level is bought with coins: +5% pay from every student in that form.
-const SP_NAMES = { mothfox: 'Лисичка-мотылёк', petalear: 'Ушастик', fernhorn: 'Рогатик', starwhisker: 'Звёздный котик',
+const SP_NAMES = { mothfox: 'Лисичка-мотылёк', petalear: 'Ушастик', fernhorn: 'Рогатик', starwhisker: 'Крылоушка',
   mossmole: 'Мшистик', owlbat: 'Сумрачный совёнок', quartzhog: 'Кварцевый ёжик', batbunny: 'Медный крольчонок', geosnail: 'Улитка-жеода', axolotl: 'Пещерный тритон' };
 const SP_H = { geosnail: 0.72, axolotl: 0.85, owlbat: 1.05 };
 const CRAWLERS = { geosnail: 1 }, FACES_LEFT = { geosnail: 1 };   // her «Все улитки двигаются задом наперед ... не прыгали а ползали» (2026-11-23)   // world-2 creatures: wide ones are drawn lower so they do not look huge
