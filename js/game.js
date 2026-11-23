@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=404';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=404';
-import { initMinigame } from './minigame.js?v=404';
-import { initChests } from './chests.js?v=404';
-import { initLore } from './lore.js?v=404';
-import { initAvatar } from './avatar.js?v=404';
+} from './data.js?v=405';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=405';
+import { initMinigame } from './minigame.js?v=405';
+import { initChests } from './chests.js?v=405';
+import { initLore } from './lore.js?v=405';
+import { initAvatar } from './avatar.js?v=405';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 404;   // keep equal to the ?v= number in index.html
+const BUILD = 405;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2950,17 +2950,34 @@ function lampOn(o) {   // the light level at which this lamp is lit: nearest to 
 }
 // her pick «4»: moon and stars over the forest at the top of the map (world px, fixed), shown at night
 let DN_STARS = null;
+let MOON_DISC = null;
+function moonDisc() {   // the painted moon, drawn once at 256 px: ivory disc, soft grey-blue maria, craters with lit rims, darker lower-right limb
+  if (MOON_DISC) return MOON_DISC;
+  const N = 256, R = 122, cv = document.createElement('canvas'); cv.width = cv.height = N; const c = cv.getContext('2d'), C = N / 2;
+  c.beginPath(); c.arc(C, C, R, 0, Math.PI * 2); c.clip();
+  let g = c.createRadialGradient(C - R * 0.35, C - R * 0.35, R * 0.1, C, C, R); g.addColorStop(0, '#fffdf2'); g.addColorStop(0.55, '#f6eed4'); g.addColorStop(0.9, '#ddd3b8'); g.addColorStop(1, '#c4bba4'); c.fillStyle = g; c.fillRect(0, 0, N, N);
+  const blot = (x, y, r, al) => { const q = c.createRadialGradient(C + x * R, C + y * R, 0, C + x * R, C + y * R, r * R); q.addColorStop(0, `rgba(150,150,160,${al})`); q.addColorStop(0.7, `rgba(150,150,160,${al * 0.6})`); q.addColorStop(1, 'rgba(150,150,160,0)'); c.fillStyle = q; c.fillRect(0, 0, N, N); };
+  for (const [x, y, r, al] of [[-0.3, -0.25, 0.32, 0.42], [0.12, -0.38, 0.22, 0.36], [0.28, -0.05, 0.26, 0.34], [-0.05, 0.12, 0.2, 0.3], [-0.42, 0.25, 0.18, 0.28], [0.2, 0.35, 0.14, 0.22]]) blot(x, y, r, al);   // the dark «seas»
+  for (const [x, y, r] of [[0.15, 0.58, 0.11], [-0.55, -0.05, 0.08], [0.5, 0.3, 0.07], [0.42, -0.5, 0.06]]) {   // craters: a dark bowl with a light rim on the lit (upper-left) side
+    const X = C + x * R, Y = C + y * R, rr = r * R; c.fillStyle = 'rgba(140,132,118,0.28)'; c.beginPath(); c.arc(X, Y, rr, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = 'rgba(255,255,245,0.6)'; c.lineWidth = rr * 0.22; c.beginPath(); c.arc(X + rr * 0.12, Y + rr * 0.12, rr * 0.9, Math.PI * 0.05, Math.PI * 1.0); c.stroke(); }
+  g = c.createRadialGradient(C - R * 0.45, C - R * 0.45, R * 0.6, C - R * 0.2, C - R * 0.2, R * 1.45); g.addColorStop(0, 'rgba(40,40,80,0)'); g.addColorStop(1, 'rgba(40,40,80,0.45)'); c.fillStyle = g; c.fillRect(0, 0, N, N);   // shade towards the lower right
+  c.restore && c.restore(); c.strokeStyle = 'rgba(255,255,240,0.5)'; c.lineWidth = 3; c.beginPath(); c.arc(C, C, R - 1.5, Math.PI * 0.9, Math.PI * 1.75); c.stroke();   // bright limb on the lit side
+  return (MOON_DISC = cv);
+}
 function drawSky(T, L) {
   if (!DN_STARS || DN_STARS.w !== WW) { DN_STARS = []; DN_STARS.w = WW; let h = 7; const rn = () => ((h = (h * 16807) % 2147483647) / 2147483647);
     for (let k = 0; k < 90; k++) DN_STARS.push({ x: rn() * WW, y: 20 + Math.pow(rn(), 1.6) * WH * 0.2, r: 0.8 + rn() * 1.8, ph: rn() * 6.3 }); }
   const a = Math.max(0, Math.min(1, (L - 0.3) / 0.4)); if (a <= 0) return;
   for (const st of DN_STARS) { if (st.x < VIEW.x0 - 10 || st.x > VIEW.x1 + 10 || st.y < VIEW.y0 - 10 || st.y > VIEW.y1 + 10) continue; const tw = 0.45 + 0.55 * Math.abs(Math.sin(T * 0.9 + st.ph)); fxStar(st.x, st.y, st.r * 1.6, a * tw, st.ph > 4.5 ? '200,220,255' : '255,250,225'); }
-  const mr = 22 / scale, mx = VIEW.x1 - 70 / scale, my = VIEW.y0 + 150 / scale, o0 = P(0, 0), top = o0.y + Math.abs(mx - o0.x) * HH / HW - WALLH - 60;   // the moon hangs in the sky (screen-fixed); the school's top edge under it
-  const north = Math.max(0, Math.min(1, (top - (my + mr)) / (60 / scale))); if (north <= 0) return; window.__moonHit = { x: mx, y: my, r: mr * 1.8, t: performance.now() }; const a0 = a; { const a = a0 * north;
+  const o0 = P(0, 0), mr = 34, mx = o0.x + 300, my = o0.y - 360, north = 1;   // the moon hangs at one spot in the sky over the northern forest (world-fixed: it scrolls with the map)
+  if (mx + mr * 5 < VIEW.x0 || mx - mr * 5 > VIEW.x1 || my + mr * 5 < VIEW.y0 || my - mr * 5 > VIEW.y1) { window.__moonHit = null; return; }
+  window.__moonHit = { x: mx, y: my, r: mr * 1.6, t: performance.now() }; const a0 = a; { const a = a0 * north;
   if (S && S.lore && S.lore.prize) { const sx = mx - mr * 3, sy = my + mr * 0.9, tw = 0.75 + 0.25 * Math.sin(T * 1.7); fxStar(sx, sy, mr * 0.45 * tw, a * north, '255,236,170'); }   // the director's star (final prize)   // only over forest, never over a room
-  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45 * a; ctx.drawImage(glowSprite('190,205,255'), mx - mr * 4, my - mr * 4, mr * 8, mr * 8); ctx.restore();
-  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#fbf3d6'; ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(214,200,170,0.55)'; for (const [dx, dy, r] of [[-8, -6, 6], [7, 4, 4.5], [-2, 10, 3.5], [10, -9, 3]]) { ctx.beginPath(); ctx.arc(mx + dx * mr / 26, my + dy * mr / 26, r * mr / 26, 0, Math.PI * 2); ctx.fill(); } ctx.restore(); }
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 * a; ctx.drawImage(glowSprite('170,190,255'), mx - mr * 5, my - mr * 5, mr * 10, mr * 10); ctx.globalAlpha = 0.55 * a; ctx.drawImage(glowSprite('255,244,210'), mx - mr * 2, my - mr * 2, mr * 4, mr * 4); ctx.restore();   // a wide cool halo and a warm close glow
+  ctx.save(); ctx.globalAlpha = a; ctx.drawImage(moonDisc(), mx - mr, my - mr, mr * 2, mr * 2);
+  const cx = mx + ((T * 3) % (mr * 6)) - mr * 3; ctx.globalAlpha = 0.45 * a * Math.max(0, 1 - Math.abs(cx - mx) / (mr * 3)); ctx.fillStyle = '#3a3566'; ctx.beginPath(); ctx.ellipse(cx, my + mr * 0.35, mr * 1.3, mr * 0.13, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(cx + mr * 0.5, my + mr * 0.55, mr * 0.9, mr * 0.09, 0, 0, Math.PI * 2); ctx.fill();   // a thin cloud drifts across (a full pass ~70 s)
+  ctx.restore(); }
 }
 function lampGlow(l, T, L) { const f = 0.85 + 0.15 * Math.sin(T * 5.3 + l.x * 0.7 + l.y), r = l.r * 3.2; ctx.globalAlpha = 0.55 * L * f; ctx.drawImage(glowSprite('255,190,100'), l.x - r, l.y - r, r * 2, r * 2); ctx.globalAlpha = 0.85 * L * f; ctx.drawImage(glowSprite('255,235,170'), l.x - l.r, l.y - l.r, l.r * 2, l.r * 2); }
 function drawHallDark() {   // world 2: dark halls (multiply), their lamps glow brighter with every level of «Светильники»
