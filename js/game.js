@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=330';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=330';
-import { initMinigame } from './minigame.js?v=330';
-import { initChests } from './chests.js?v=330';
+} from './data.js?v=331';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=331';
+import { initMinigame } from './minigame.js?v=331';
+import { initChests } from './chests.js?v=331';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 330;   // keep equal to the ?v= number in index.html
+const BUILD = 331;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2325,13 +2325,16 @@ function drawTikhonBadge(p) {   // a scroll over his head while he has something
   emoji('📜', c.x, y, 30 * k);
 }
 let advTargets = [];
-function advisorBlock() {   // top of the director's panel
+function advisorBlock(own = false) {   // top of the director's panel (own: inside Tikhon's own window, no second name card)
   const rep = advReport(); advTargets = rep.map((r) => r.go);
   const items = rep.map((r, k) => `<div class="card up"${r.hot ? ' style="border:2px solid #ffb4a8"' : ''}><span class="remoji">${r.emo}</span><div class="grow">${r.text}</div>${r.go ? `<button class="btn small go" data-advgo="${k}">${r.go === 'missions' ? 'Задания' : r.go === 'mail' ? 'Открыть' : 'Показать'}</button>` : ''}</div>`).join('');
   const quote = ADV_QUOTES[Math.floor(Date.now() / 60000) % ADV_QUOTES.length];
-  return `<div class="card up" style="align-items:center">${tikhonPic(70)}<div class="grow"><b>${ADV_NAME}</b><div class="muted">советник директора и летописец школы</div><div>«${rep.length ? 'Директор, вот что я заметил:' : 'В школе всё спокойно, директор. ' + quote}»</div></div></div>
+  return `<div class="card up" style="align-items:center">${own ? '' : tikhonPic(70)}<div class="grow">${own ? '' : `<b>${ADV_NAME}</b><div class="muted">советник директора и летописец школы</div>`}<div>«${rep.length ? 'Директор, вот что я заметил:' : 'В школе всё спокойно, директор. ' + quote}»</div></div></div>
     ${items}
     <button class="btn ghost wide" data-missions>📋 Задания от Тихона</button>`;
+}
+function tikhonPanel() {   // his own window (tester «По Тихону открывается весь кабинет директора а должен открываться только меню Тихона Тихон отдельное личность»): a tap on him opens only his report and quests
+  return `<div class="sh-head">${tikhonPic(56)}<div><h2>${ADV_NAME}</h2><div class="muted">советник директора и летописец школы</div></div><button class="x" data-close>✕</button></div>` + advisorBlock(true);
 }
 function advGo(k) {
   const g = advTargets[+k]; if (!g) return;
@@ -4709,7 +4712,7 @@ scroller.addEventListener('click', (e) => {
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
   const mr = mailRect; if (mr && performance.now() - mr.t < 600 && wx >= mr.x0 && wx <= mr.x1 && wy >= mr.y0 && wy <= mr.y1) { openPanel(mailPanel); return; }   // the envelope over the office opens the letter (build 311)
-  const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { openRoom('DIR'); return; }   // Tikhon (or his scroll) opens his report, wherever he walks
+  const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { openPanel(tikhonPanel); return; }   // Tikhon (or his scroll) opens his own report window, wherever he walks
   const sign = signRects.find((r) => wx >= r.x0 - 6 && wx <= r.x1 + 6 && wy >= r.y0 - 6 && wy <= r.y1 + 6);   // a sign always opens its room
   if (sign) { if (sign.id === 'FOUNT') openPanel(fountainPanel); else openRoom(sign.id); return; }
   if (WORLD === 1 && COURT) for (const lift of [0, 20, 40, 60]) {   // build 279: a tap on the fountain opens the court's upgrades
