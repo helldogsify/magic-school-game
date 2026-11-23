@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=415';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=415';
-import { initMinigame } from './minigame.js?v=415';
-import { initChests } from './chests.js?v=415';
-import { initLore } from './lore.js?v=415';
-import { initAvatar } from './avatar.js?v=415';
+} from './data.js?v=416';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=416';
+import { initMinigame } from './minigame.js?v=416';
+import { initChests } from './chests.js?v=416';
+import { initLore } from './lore.js?v=416';
+import { initAvatar } from './avatar.js?v=416';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 415;   // keep equal to the ?v= number in index.html
+const BUILD = 416;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -399,7 +399,7 @@ const THEMES = {
     decor: ['torch', 'shield', 'banner', 'niche', 'plaque'], back: ['brazier', 'brazier'], side: ['bookcase', 'runestone'], front: [], rug: '',
     stations: ['st_blue', 'st_teal', 'st_violet'], teacherProp: 'rune_altar', h: { bookcase: 50, brazier: 36, runestone: 30, rune_altar: 40, st_blue: 24, st_teal: 24, st_violet: 24 } },
   herbs: { dir: 'assets/parts/herbs/', wallTiles: 4, floorTiles: 3, board: 'board',
-    decor: ['window', 'herbs_rack', 'clock', 'shelf', 'window2'], iso: true, back: ['plant', 'lavender'], side: ['bookcase', 'table'], front: ['magic_pot', 'basket', 'barrel'], rug: 'rug' },
+    decor: ['bigwin', 'clock', 'bigwin'], iso: true, back: ['plant', 'lavender'], side: ['bookcase', 'table'], front: ['magic_pot', 'basket', 'barrel'], rug: 'rug' },
   // Potions (her wish 2026-11-21: no school board, students brew at their own cauldrons instead of sitting at desks)
   potions: { dir: 'assets/parts/potions/', wallTiles: 4, floorTiles: 3, board: 'poster', isoOnly: true, iso: true,
     decor: ['window', 'shelf', 'herbs_rack', 'cabinet', 'round_window'], back: ['barrel', 'barrel'], side: ['bookcase', 'table'], front: [], rug: '',
@@ -481,6 +481,7 @@ let partsVer = 0;   // bumped on every part load: themeReady() answers from its 
 for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
   if (!n) continue; const im = new Image(); im.onload = () => { partsVer++; }; im.src = `${t.dir}${n}.webp?v=2202`; parts[k + '/' + n] = im;
 }
+for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/herbs_${n}.webp?v=1`; if (WORLD === 1) parts['herbs/' + n] = im; }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
 const themeOf = (id) => { if (WORLD > 2 || !id || THEMES_OFF.has(id)) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? (WORLD === 2 && CLASSES[ci].final ? 'oath' : CLASSES[ci].id) : WORLD === 2 && THEMES[id + '_W2'] ? id + '_W2' : id; return THEMES[key] && !!THEMES[key].w2 === (WORLD === 2) ? key : null; };   // each world uses only its own themes (world 2 'final' must not take the world-1 exam hall)
@@ -3347,6 +3348,8 @@ function texWall(c, th, e, a, b, h) {
 // iso_* sprites are drawn in the room's own angle for the back-left wall (with depth: shelves stick out, windows are set in);
 // on the back-right wall they are mirrored. They are placed as they are, not skewed.
 const ISO_W = { jar_shelf: 1.2, toy_rack: 1.3, owl_clock: 0.8, flying_books: 1.5, candles: 0.9, portrait: 1.3, certificates: 1.4, notice: 1.0, lantern: 0.6, garland: 2.6, moon_clock: 0.85, bookshelf: 1.5, bookshelf2: 1.4, lamp: 0.6, map: 1.2, banner: 1.1, sconce: 0.7, diploma: 0.9, el_poster: 1.6, torch: 0.75, planter: 1.35, wing_poster: 1.8, birds: 1.5, circle: 1.8, mirror: 0.95, wand_rack: 1.4, chart: 1.9, painting: 0.95, poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
+DECOR.bigwin = { w: 1.25, lo: 0.14, deep: 0.6 }; ISO_W.bigwin = 1.45;
+const HERBS_WINS = new Map();   // where the big windows were hung (world px), for the night glass drawn every frame
 function hangIso(c, th, n, s, side, t0, lo) {
   const im = part(th, 'iso_' + n); if (!im) return false;
   const d = DECOR[n], w = ISO_W[n] || d.w, sw = w * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - w * HH);
@@ -3355,6 +3358,7 @@ function hangIso(c, th, n, s, side, t0, lo) {
   c.save(); c.translate(m.x, m.y); if (side === 'y0') c.scale(-1, 1);
   c.shadowColor = 'rgba(55,35,80,0.35)'; c.shadowBlur = 3 * k; c.shadowOffsetX = (side === 'y0' ? -1.2 : 1.2) * k; c.shadowOffsetY = 1.8 * k;
   c.drawImage(im, -sw / 2, -sh / 2, sw, sh); c.restore();
+  if (n === 'bigwin') HERBS_WINS.set(Math.round(m.x) + ',' + Math.round(m.y), { x: m.x, y: m.y, sw, sh, flip: side === 'y0' });
   return true;
 }
 function hang(c, th, n, s, side, t0, lo) {
@@ -3402,6 +3406,50 @@ function drawWallDecor(c, id) {
   if (l) fillWall(c, th, s, 'x0', l[0], l[1], T.decor, k);
 }
 // furniture of a themed class: corners at the back, a bookcase by the left wall, small things in the free strip in front
+// ---- redesigned rooms: built-in, staged furnishing items (stage 0 = not bought, 1 = lvl 1-9, 2 = 10-24, 3 = 25-39, 4 = 40)
+const ITEM_IMS = {};
+function itemIm(n) { let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=1`; } return im.complete && im.naturalWidth ? im : null; }
+const stageOf = (lv) => (!lv ? 0 : lv < 10 ? 1 : lv < 25 ? 2 : lv < 40 ? 3 : 4);
+function itemDraw(n, x, y, h, o = {}) {   // a sprite standing on tile (x, y): bottom-centre on the floor point, lift = px above the floor
+  const im = itemIm(n); if (!im) return null; const p = P(x, y), w = h * im.naturalWidth / im.naturalHeight, top = p.y + (o.down || 0) - (o.lift || 0) - h;
+  if (o.shadow && zoom >= 1.2) ctx.drawImage(propShadow(), p.x - w * 0.4, p.y - w * 0.12, w * 0.8, w * 0.24);
+  ctx.save(); if (o.alpha != null) ctx.globalAlpha = o.alpha; if (o.flip) { ctx.translate(p.x, 0); ctx.scale(-1, 1); ctx.translate(-p.x, 0); } ctx.drawImage(im, p.x - w / 2 + (o.dx || 0), top, w, h); ctx.restore();
+  return { x: p.x + (o.dx || 0), top, w, h };
+}
+const daylight = () => { const h = window.__hour ?? (new Date().getHours() + new Date().getMinutes() / 60); return h >= 7 && h < 18.5 ? Math.min(1, (h - 7) / 1.5, (18.5 - h) / 1.5) : 0; };
+const ROOM_ART = {
+  herbs(i, s, st, add) {
+    const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000;
+    const depth = s.y1 - s.y0, W = s.x1 - s.x0, free = s.y0 + (frontFacing(i) ? 1.9 : 2.5) + (Math.ceil(maxDesksOf(i) / 3) - 1) * 1.2 + 1.0;
+    const wallEnd = Math.min(s.y1 - 1.0, free);   // the left wall is free from the bookcase to the side table
+    // sunbeams from the windows across the floor (day)
+    const dl = daylight(); if (dl > 0) add(s.x0 + 0.2, s.y0 + 0.2, () => { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.24 * dl;
+      for (const yb of [s.y0 + 1.2, s.y0 + Math.min(depth - 1.5, 3.6)]) { const a = P(s.x0, yb), b = P(s.x0, yb + 0.9), c = P(s.x0 + Math.min(W - 0.5, 4.5), yb + 1.6), d = P(s.x0 + Math.min(W - 0.5, 4.5), yb + 0.7); const g = ctx.createLinearGradient(a.x, a.y, c.x, c.y); g.addColorStop(0, 'rgba(255,220,150,1)'); g.addColorStop(1, 'rgba(255,220,150,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); }
+      ctx.restore(); });
+    // planters along the left wall
+    const sp = stageOf(lv('pots')), plH = 46, units = [];
+    if (sp) { units.push([sp === 1 ? 'herbs_planter1' : 'herbs_planter2', s.y0 + 3.15]); if (sp >= 3 && wallEnd - s.y0 >= 5.6) units.push(['herbs_planter2', s.y0 + 5.15]); }
+    for (const [n, y] of units) add(s.x0 + 0.42, y, () => { itemDraw(n, s.x0 + 0.42, y, plH, { shadow: 1, dx: -6 }); });
+    if (sp >= 4) add(s.x0 + 0.5, s.y0 + 3.3, () => { for (let k = 0; k < 3; k++) { const q = P(s.x0 + 0.5, s.y0 + 2.6 + k * 0.9), an = T * 1.3 + k * 2.1; emoji('🦋', q.x + Math.cos(an) * 10, q.y - 54 + Math.sin(an * 1.7) * 6, 9); } });   // butterflies over a full planter
+    // the seed cabinet against the board wall
+    const ss = stageOf(lv('seeds')); if (ss) { const cx = s.x0 + 2.35, cy = s.y0 + 0.32, h = [0, 34, 42, 62, 62][ss]; add(cx, cy, () => { const r = itemDraw('herbs_cabinet' + Math.min(3, ss), cx, cy, h, { shadow: ss >= 3, down: ss < 3 ? -26 : 0 });
+      if (r && ss >= 4) { const tw = Math.pow(Math.max(0, Math.sin(T * 1.2)), 6); if (tw > 0.05) fxStar(r.x - r.w * 0.1, r.top + r.h * 0.25, 5 * tw, tw); } }); }   // a small shelf hangs on the wall; the full cabinet stands
+    // the big windows at night: the glass turns into a starry sky, fading in with the dusk (her «окна то тоже должны темнеть»)
+    { const D = dayTint(), t = D.sun.map((v, j) => (v + D.shade[j]) / 2), nt = Math.min(1, Math.max(0, (1 - (t[0] + t[1] + t[2]) / 765) * 2.2)); if (nt > 0.03) add(s.x0 + 0.05, s.y0 + 0.05, () => { const im = itemIm('herbs_window_night'); if (!im) return; ctx.save(); ctx.globalAlpha = nt; for (const wv of HERBS_WINS.values()) { ctx.save(); ctx.translate(wv.x, wv.y); if (wv.flip) ctx.scale(-1, 1); ctx.drawImage(im, -wv.sw / 2, -wv.sh / 2, wv.sw, wv.sh); ctx.restore(); } ctx.restore(); }); }
+    // the cloud watering can over the planters
+    const sc = stageOf(lv('can')); if (sc) { const cx = s.x0 + 0.55, cy = s.y0 + 3.4, k = [0, 0.6, 0.8, 1, 1.1][sc]; add(cx + 0.2, cy + 0.2, () => { const r = itemDraw('herbs_can', cx, cy, 34 * k, { lift: 40 + Math.sin(T * 1.4) * 2.5 });
+      if (!r) return; ctx.fillStyle = 'rgba(150,200,240,0.85)'; for (let d = 0; d < 3 + sc; d++) { const u = ((T * 0.9 + d / (3 + sc)) % 1), x = r.x - r.w * 0.38 + (d % 3) * 2.5, y = r.top + r.h * 0.6 + u * 40; ctx.globalAlpha = 1 - u; ctx.beginPath(); ctx.ellipse(x, y, 1.2, 2.2, 0, 0, Math.PI * 2); ctx.fill(); } ctx.globalAlpha = 1;   // drops falling onto the plants
+      if (sc >= 4) { ctx.save(); ctx.globalAlpha = 0.45; ctx.lineWidth = 2; ['#ff8a8a', '#ffd27a', '#9be39b', '#8ac4ff', '#c59bff'].forEach((c, j) => { ctx.strokeStyle = c; ctx.beginPath(); ctx.arc(r.x, r.top + r.h + 22, 18 - j * 2.2, Math.PI, 0); ctx.stroke(); }); ctx.restore(); } }); }   // a small rainbow under the cloud
+    // the sun lamp hanging from the ceiling over the desks
+    const sl = stageOf(lv('sunlamp')); if (sl) { const lx = s.x0 + W * 0.5, ly = s.y0 + Math.min(depth * 0.45, 3.6), k = [0, 0.55, 0.75, 1, 1.15][sl]; add(lx + 0.6, ly + 0.6, () => {
+      const p = P(lx, ly), h = 30 * k, lift = 58, topY = p.y - lift - 55; ctx.strokeStyle = 'rgba(110,80,50,0.9)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(p.x, topY); ctx.lineTo(p.x, p.y - lift - h * 0.75); ctx.stroke();   // the cord from the ceiling
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (0.18 + 0.12 * sl / 4) * (dnDark ? 1.3 : 1); ctx.drawImage(glowSprite('255,214,130'), p.x - 34 * k * 2, p.y - 14 * k * 2, 68 * k * 2, 28 * k * 2);   // a warm pool of light on the desks
+      ctx.globalAlpha = 0.35; ctx.drawImage(glowSprite('255,225,150'), p.x - h, p.y - lift - h * 1.3, h * 2, h * 2); ctx.restore();
+      itemDraw('herbs_sun', lx, ly, h, { lift: lift - h * 0.25 });
+      if (sl >= 4) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.1 + 0.04 * Math.sin(T); ctx.fillStyle = 'rgba(255,220,150,1)'; ctx.beginPath(); ctx.moveTo(p.x - 6, p.y - lift - h * 0.4); ctx.lineTo(p.x + 6, p.y - lift - h * 0.4); ctx.lineTo(p.x + 46, p.y); ctx.lineTo(p.x - 46, p.y); ctx.closePath(); ctx.fill(); ctx.restore(); }   // a cone of light at the top level
+      if (dnDark) frameLamps.push({ x: p.x, y: p.y - lift - h * 0.5, r: 8 * k }); }); }
+  },
+};
 function roomProps(i) {
   const id = CLASS_SLOT[i], th = themeOf(id); if (!th) return [];
   const s = SLOTS[id], T = THEMES[th], w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3;
@@ -4195,7 +4243,8 @@ function render() {
     const thI = themeOf(CLASS_SLOT[i]), stations = thI && THEMES[thI].stations;   // potions: a little cauldron instead of a desk
     for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) }; const sfx = STATION_FX[CLASSES[i].id]; add(p.x, p.y, () => { if (CLASSES[i].id === 'flight') { const sa = studentAt(i, d); o.lift = sa ? flightLift(sa.id) : 0; } drawProp(o); if (sfx) sfx(i, d, p, o); }); } else add(p.x, p.y, () => { drawDesk(p); if (CLASSES[i].id === 'herbs') herbsDeskFx(i, d, p); }); }
     for (const o of roomProps(i)) add(o.x, o.y, () => drawProp(o));
-    CLASSES[i].items.forEach((it, k) => {
+    if (ROOM_ART[CLASSES[i].id]) ROOM_ART[CLASSES[i].id](i, s, st, add);   // a redesigned room draws its own built-in items and light
+    else CLASSES[i].items.forEach((it, k) => {
       if (!st.items[k]) return;
       const spots = [[s.x0 + 0.7, s.y0 + 0.7], [s.x0 + 5.3, s.y0 + 0.7], [s.x0 + 0.7, s.y0 + 5.2], [s.x0 + 5.3, s.y0 + 5.2]];
       const p = P(spots[k][0], spots[k][1]);
