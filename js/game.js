@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=406';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=406';
-import { initMinigame } from './minigame.js?v=406';
-import { initChests } from './chests.js?v=406';
-import { initLore } from './lore.js?v=406';
-import { initAvatar } from './avatar.js?v=406';
+} from './data.js?v=407';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=407';
+import { initMinigame } from './minigame.js?v=407';
+import { initChests } from './chests.js?v=407';
+import { initLore } from './lore.js?v=407';
+import { initAvatar } from './avatar.js?v=407';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 406;   // keep equal to the ?v= number in index.html
+const BUILD = 407;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2975,7 +2975,7 @@ function drawSky(T, L) {
   window.__moonHit = { x: mx, y: my, r: mr * 1.6, t: performance.now() }; const a0 = a; { const a = a0 * north;
   if (S && S.lore && S.lore.prize) { const sx = mx - mr * 3, sy = my + mr * 0.9, tw = 0.75 + 0.25 * Math.sin(T * 1.7); fxStar(sx, sy, mr * 0.45 * tw, a * north, '255,236,170'); }   // the director's star (final prize)   // only over forest, never over a room
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 * a; ctx.drawImage(glowSprite('170,190,255'), mx - mr * 5, my - mr * 5, mr * 10, mr * 10); ctx.globalAlpha = 0.55 * a; ctx.drawImage(glowSprite('255,244,210'), mx - mr * 2, my - mr * 2, mr * 4, mr * 4); ctx.restore();   // a wide cool halo and a warm close glow
-  ctx.save(); ctx.globalAlpha = a; ctx.drawImage(moonDisc(), mx - mr, my - mr, mr * 2, mr * 2);
+  ctx.save(); ctx.globalAlpha = 1; ctx.drawImage(moonDisc(), mx - mr, my - mr, mr * 2, mr * 2);   // solid: the forest must not show through the moon
   const cx = mx + ((T * 3) % (mr * 6)) - mr * 3; ctx.globalAlpha = 0.45 * a * Math.max(0, 1 - Math.abs(cx - mx) / (mr * 3)); ctx.fillStyle = '#3a3566'; ctx.beginPath(); ctx.ellipse(cx, my + mr * 0.35, mr * 1.3, mr * 0.13, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(cx + mr * 0.5, my + mr * 0.55, mr * 0.9, mr * 0.09, 0, 0, Math.PI * 2); ctx.fill();   // a thin cloud drifts across (a full pass ~70 s)
   ctx.restore(); }
 }
