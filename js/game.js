@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=263';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=263';
+} from './data.js?v=264';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=264';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 263;   // keep equal to the ?v= number in index.html
+const BUILD = 264;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -78,7 +78,7 @@ const adsCost = () => Math.round(30 * Math.pow(BAL.ads, S.reception.ads - 1));
 const DIR_UP = {
   refund: { emo: '💸', name: 'Правила возврата', max: 8, base: 1000000, k: 2.0, desc: (l) => `ушедшим возвращаем ${Math.round(refundRateAt(l) * 100)}% взноса` },
   care: { emo: '💗', name: 'Забота об учениках', max: 10, base: 500000, k: 1.9, desc: (l) => `в очередях грустят на ${Math.round((1 - careK(l)) * 100)}% медленнее` },
-  keeper: { emo: '🧹', name: 'Дежурный завхоз', max: 10, base: 750000, k: 1.9, desc: (l) => `происшествия реже на ${Math.round(l * 10)}%, сами проходят за ${Math.round(INC_AUTO_AT(l) / 60)} мин` },
+  keeper: { emo: '🧹', name: 'Дежурный завхоз', max: 10, base: 750000, k: 1.9, desc: (l) => `происшествия ${l ? `в ${String(+(1 + 0.1 * l).toFixed(1)).replace('.', ',')} раза реже` : 'как обычно'}, сами проходят за ${Math.round(INC_AUTO_AT(l) / 60)} мин` },   // build 264: the old «реже на 100%» read as «never» (her «Вообще без происшествий не может быть»); the pause between incidents is x(1 + 0.1 l)
   ties: { emo: '🤝', name: 'Связи с инспекцией', max: 10, base: 500000, k: 1.9, desc: (l) => `награда за проверку +${l * 10}%, штраф −${l * 7}%` },
 };
 // ---- the school shop (her ruling 2026-11-21): between lessons some students drop in to buy a treat; coins + mood ----
@@ -828,7 +828,7 @@ function courtSpots() {   // fixed points per activity (a small fixed set keeps 
   if (courtSpots.ver === bfsVer && courtSpots.v) return courtSpots.v;
   const c = courtC(), W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, ok = (p) => regAt(Math.floor(p.x), Math.floor(p.y)) === 'hall' && !courtBlocked(Math.floor(p.x), Math.floor(p.y));
   const v = { bench: [], tag: [], coin: [], sparks: [], birds: [], read: [] };
-  [0.75, 2.36, 3.93, 5.5].forEach((an) => { const bx = c.x + Math.cos(an) * 3.6, by = c.y + Math.sin(an) * 3.6; v.bench.push({ x: bx + 0.45, y: by + 0.45 }, { x: bx - 0.45, y: by + 0.45 }); });
+  [0.75, 2.36, 3.93, 5.5].forEach((an) => { const bx = c.x + Math.cos(an) * 3.6, by = c.y + Math.sin(an) * 3.6; v.bench.push({ x: bx + 0.08, y: by + 0.08, seat: true }); });   // build 264: the sitter sits ON the bench (pose «sit»)
   for (let k = 0; k < 8; k++) { const an = k * Math.PI / 4; v.tag.push({ x: c.x + Math.cos(an) * 2.7, y: c.y + Math.sin(an) * 2.7 }); }
   for (let k = 0; k < 4; k++) { const an = k * Math.PI / 2 + Math.PI / 4; v.coin.push({ x: c.x + Math.cos(an) * 1.9, y: c.y + Math.sin(an) * 1.9 }); }
   for (const [fx, fy] of [[0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // the lawn quarters (the top-left one is the graduates' garden)
@@ -850,8 +850,11 @@ function leaveCourt(a) { const k = courtList.indexOf(a); if (k >= 0) courtList.s
 function courtAct(a) {   // pick the next activity and walk to its spot
   const v = courtSpots(); let act = rnd(COURT_ACTS); if (!v[act] || !v[act].length) act = 'tag';
   const l = v[act] || []; if (!l.length) { a.state = 'court'; a.act = 'idle'; a.t = 0; a.dur = 3; return; }
-  const p = rnd(l); a.act = act; a.laps = act === 'tag' ? 3 + Math.floor(Math.random() * 3) : 0;
-  a.state = 'walk'; walk(a, p.x + (Math.random() - 0.5) * 0.3, p.y + (Math.random() - 0.5) * 0.3, () => courtArrive(a));
+  let p = rnd(l);
+  if (act === 'bench') { const free = l.filter((q) => !courtList.some((o) => o !== a && o.act === 'bench' && o.spot === q)); if (!free.length) { act = 'tag'; p = rnd(v.tag); } else p = rnd(free); }   // one sitter per bench
+  a.act = act; a.spot = p; a.laps = act === 'tag' ? 3 + Math.floor(Math.random() * 3) : 0;
+  const j = p.seat ? 0 : 0.3;
+  a.state = 'walk'; walk(a, p.x + (Math.random() - 0.5) * j, p.y + (Math.random() - 0.5) * j, () => courtArrive(a));
 }
 function courtArrive(a) {
   if (!(a.goal && a.goal.t === 'k')) return;
@@ -868,8 +871,8 @@ function courtFx(a, x, y) {   // what each court activity shows (render only; ev
   else if (a.act === 'coin') { const f = Math.min(1, a.t / 1.2), c = courtC(), q = P(c.x, c.y), mx = x + (q.x - x) * f, my = y - 26 + (q.y - 30 - (y - 26)) * f - Math.sin(f * Math.PI) * 26;
     if (f < 1) emoji('🪙', mx, my, 10); else if (a.t < 2.2) emoji('✨', q.x, q.y - 34 - (a.t - 1.2) * 8, 14); }
   else if (a.act === 'sparks') { for (let k = 0; k < 3; k++) { const an = T * 2.1 + k * 2.094; emoji('✨', x + (a.flip ? -14 : 14) + Math.cos(an) * 8, y - 24 + Math.sin(an) * 5 - k * 2, 8 + 2 * Math.sin(T * 3 + k)); } }
-  else if (a.act === 'birds') { for (let k = 0; k < 2; k++) { const hop = Math.abs(Math.sin(T * 2.4 + k * 1.7)) * 5; emoji('🐦', x + (k ? 16 : -15), y + 4 - hop, 9); } }
-  else if (a.act === 'read') emoji('📖', x + (a.flip ? -11 : 11), y - 18, 11);
+  else if (a.act === 'birds' && !courtPose(a)) { for (let k = 0; k < 2; k++) { const hop = Math.abs(Math.sin(T * 2.4 + k * 1.7)) * 5; emoji('🐦', x + (k ? 16 : -15), y + 4 - hop, 9); } }
+  else if (a.act === 'read' && !courtPose(a)) emoji('📖', x + (a.flip ? -11 : 11), y - 18, 11);
 }
 function stepCourt(a, dt) {
   a.t += dt; if (a.t < a.dur) return;
@@ -1998,6 +2001,17 @@ for (const [k, f] of Object.entries(WORLD === 2 ? STAFF_ART_W2 : STAFF_ART)) { c
 if (WORLD === 1) for (const sp of SPECIES) for (let e = 0; e < 4; e++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_m${e}${v}.png?v=1`; sprites[sp + '_m' + e + v] = im; }   // element masters (her «вау», 2026-11-22)
 if (WORLD === 1) for (const sp of SPECIES) for (let t = 1; t < 5; t++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_t${t}${v}.png?v=1`; sprites[sp + '_t' + t + v] = im; }   // outfit stages (drawn later; missing ones fall back)
 for (const sp of SPECIES) for (const v of ['', '_back']) { const im = new Image(); im.src = `assets/creatures/${sp}${v}.png`; sprites[sp + v] = im; }   // front and back views
+// court poses (build 264, her pick «2»: real poses instead of icons; first test sheet: the moth fox without an outfit)
+const COURT_POSE = { bench: 'sit', tag: 'run', coin: 'coin', read: 'read', sparks: 'wand', birds: 'birds' };
+const COURT_POSE_ART = ['mothfox'];   // looks that have a pose sheet: species or species_tN
+if (WORLD === 1) for (const k of COURT_POSE_ART) for (const p of Object.values(COURT_POSE)) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${k}_k_${p}.png?v=1`; sprites[k + '_k_' + p] = im; }
+function courtPose(a) {   // the pose picture of a student busy in the court, or null (then the usual sprite and the icons)
+  if (WORLD !== 1 || !a.goal || a.goal.t !== 'k' || !COURT_POSE[a.act]) return null;
+  if (!(a.state === 'court' || (a.act === 'tag' && a.path && a.path.length))) return null;
+  const rk = Math.min(4, a.rk || 0); if ((a.rk || 0) >= 5) return null;
+  const im = sprites[a.sp + (rk ? '_t' + rk : '') + '_k_' + COURT_POSE[a.act]];
+  return im && im.complete && im.naturalWidth ? im : null;
+}
 const arts = {};
 for (const [k, a] of Object.entries(ART)) { const im = new Image(); im.onload = () => { staticKey = ''; }; im.src = a.src; arts[k] = im; }
 const popups = [];
@@ -2882,6 +2896,7 @@ function shade(hex, d) { const n = parseInt(hex.slice(1), 16); const f = (v) => 
 
 function drawCreature(a, x, y, h, extra) {
   const sp0 = a.sp; h *= SP_H[sp0] || 1;   // world-2 wide creatures (snail, salamander) are drawn lower
+  const cpose = courtPose(a); if (cpose) h *= cpose.naturalHeight / 420 * 1.18;   // pose sheets keep their sizes relative to the tallest pose (420 px)
   const rk = SPECIES.includes(a.sp) ? (a.rk || 0) : 0, tr = Math.min(4, rk), mf = rk === 5 && sprites[a.sp + '_m' + (a.el || 0) + (a.back ? '_back' : '')];
   const tf = mf && mf.complete && mf.naturalWidth ? mf : tr && sprites[a.sp + '_t' + tr + (a.back ? '_back' : '')];
   if (rk === 5) {   // master of an element: a glow in the element's colour (until the masters get their own art)
@@ -2890,7 +2905,7 @@ function drawCreature(a, x, y, h, extra) {
   }
   if (tf && tf.complete && tf.naturalWidth) a = { ...a, sp: a.sp + '_t' + tr, back: false, _tierImg: tf };
   if (rk === 5) h *= 1.12;   // masters stand a little taller
-  const bk = a.back && sprites[a.sp + '_back'], im = a._tierImg ? a._tierImg : bk && bk.complete && bk.naturalWidth ? bk : sprites[a.sp];
+  const bk = a.back && sprites[a.sp + '_back'], im = cpose ? cpose : a._tierImg ? a._tierImg : bk && bk.complete && bk.naturalWidth ? bk : sprites[a.sp];
   const s = P(x, y);
   const walking = (a.path && a.path.length > 0 && !(a.pauseT > 0)) || a._panic;
   const bob = walking ? Math.abs(Math.sin(a.ph * 9)) * 2 : Math.sin(a.ph * 2) * 0.6;
@@ -3347,6 +3362,7 @@ function render() {
     // an incident in the class: its students leave their places and rush around the room in a panic (her wish 2026-11-21)
     const pn = panicPos(a), ax = pn ? pn.x : a.x, ay = pn ? pn.y : a.y;
     if (a.state !== 'fly') a.z = !pn && a.state === 'study' && !(a.path && a.path.length) && sitsOn(a.c) ? 9 + (CLASSES[a.c].id === 'flight' && !incOf(a.c) ? flightLift(a.id) : 0) : (a.state === 'read' && !(a.path && a.path.length) && themeOf('LIB') ? 6 : a.state === 'sleep' && !(a.path && a.path.length) && themeOf('DORM') ? 4 : 0);   // on a cloud / in an armchair
+    if (a.state === 'court' && a.act === 'bench' && courtPose(a)) a.z = 6;   // sits on the bench seat
     if (pn) { a._panic = true; a.flip = pn.left; a.back = pn.up; } else if (a._panic) { a._panic = false; if (a.state === 'study') faceTeacher(a, a.c); }
     const draw = () => drawCreature(a, ax, ay, 30, (x, y) => {
       if (pn) { if (Math.sin(a.ph * 3 + a.id) > 0.2) emoji(a.id % 3 ? '❗' : '😱', x + 2, y - 36, 12); return; }
