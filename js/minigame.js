@@ -304,6 +304,8 @@ function css() {
 #mg .fl-w { width: 82px; display: flex; flex-direction: column; align-items: center; padding: 6px 4px; border-radius: 14px; background: #f6f0ff; border: 2px solid #e2d6f8; font: 700 11px ui-rounded, "Nunito", sans-serif; color: #4a3a6b; }
 #mg .fl-w.on { background: #fff4c7; border-color: #e8b923; }
 #mg .fl-w img { width: 60px; height: 60px; object-fit: contain; }
+#mg .fl-w small b { color: #8a5a00; }
+#mg .fl-w small img { width: 11px; height: 11px; vertical-align: -1px; }   /* the coin emoji: the flyer picture rule made it 60 px */
 #mg .fl-w small { font: 600 9.5px ui-rounded, "Nunito", sans-serif; color: #8a7ea0; line-height: 1.1; margin-top: 2px; }
 #mg .fl-box { flex: 1; width: 100%; max-width: 520px; margin-top: 8px; border-radius: 20px; overflow: hidden; min-height: 0; }
 #mg .fl-cv { display: block; touch-action: none; }
@@ -673,6 +675,10 @@ const FBOOSTS = [
 ];
 const fsel = new Set();
 const fTotal = () => FBOOSTS.reduce((a, b) => a + (fsel.has(b.id) ? boostCost(b) : 0), 0);
+// a flyer with a power costs coins for every flight (her «раз бафы у летунов они должны быть тоже платные»): Новичок free,
+// ranks 1-2 half a minute of income, ranks 3-4 one minute, Masters one and a half (min 100 coins, like the boosters)
+const flyerMin = (k) => { const rk = +String(k || '').split(':')[1] || 0; return rk === 5 ? 1.5 : rk >= 3 ? 1 : rk >= 1 ? 0.5 : 0; };
+const flyerCost = (k) => (flyerMin(k) ? boostCost({ min: flyerMin(k) }) : 0);
 function flyerList() { return (A.flyers && A.flyers()) || []; }
 function showFlightStart() {
   if (FL) { FL.h.stop(); FL = null; }
@@ -682,11 +688,11 @@ function showFlightStart() {
     <p>Нажми и держи палец — ученик взлетает, отпусти — плавно опускается. Пролетай сквозь кольца, собирай искорки и не задевай тучки: первая тучка — конец полёта.</p>
     <p class="muted">Кольцо +10, точно по центру ещё +5, искорка +2, радужное кольцо — вдвое больше. Золотое перо спасает от одной тучки. Берегись ветра и тучек, которые плавают вверх-вниз!</p>
     <div class="mg-bh">Кто летит</div>
-    <div class="fl-who">${w.map((x, k) => `<button class="fl-w${cur && x.k === cur.k ? ' on' : ''}" data-flwho="${k}"><img src="${x.src}" alt=""><span>${x.name}</span><small>${powerOf(x.k).txt}</small></button>`).join('') || '<p class="muted">Пока некому лететь</p>'}</div>
-    ${cur ? `<p class="muted" style="margin-top:6px">Сила: <b>${powerOf(cur.k).txt}</b></p>` : ''}
+    <div class="fl-who">${w.map((x, k) => `<button class="fl-w${cur && x.k === cur.k ? ' on' : ''}" data-flwho="${k}"><img src="${x.src}" alt=""><span>${x.name}</span><small>${powerOf(x.k).txt}<br><b>${flyerCost(x.k) ? '🪙 ' + A.fmt(flyerCost(x.k)) : 'бесплатно'}</b></small></button>`).join('') || '<p class="muted">Пока некому лететь</p>'}</div>
+    ${cur ? `<p class="muted" style="margin-top:6px">Сила: <b>${powerOf(cur.k).txt}</b> · ${flyerCost(cur.k) ? `🪙 ${A.fmt(flyerCost(cur.k))} за полёт` : 'бесплатно'}</p>` : ''}
     <div class="mg-bh">Бонусы на полёт <span class="muted">(за монеты школы)</span></div>
     <div class="mg-boosts">${FBOOSTS.map((b, k) => `<button class="mg-bst${fsel.has(b.id) ? ' on' : ''}" data-flb="${k}"><span class="mg-bi">${b.ico()}</span><span class="mg-bn">${b.name}</span><span class="mg-bc">🪙 ${A.fmt(boostCost(b))}</span></button>`).join('')}</div>
-    ${fsel.size ? `<p class="muted">Бонусы: 🪙 ${A.fmt(fTotal())} спишутся при старте</p>` : ''}
+    ${fTotal() + (cur ? flyerCost(cur.k) : 0) ? `<p class="muted">При старте спишется: 🪙 ${A.fmt(fTotal() + (cur ? flyerCost(cur.k) : 0))}</p>` : ''}
     <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
     <p class="muted">Награда: монеты (до ${MAX_MIN} минут дохода школы), за 2–3 ⭐ ещё ✨ Вдохновение. Рекорд недели: ${num(f.wb || 0)}${f.best ? ` · за всё время: ${num(f.best)}` : ''}</p>
     <button class="btn wide" data-flplay${cur ? '' : ' disabled'}>${n > 0 ? '▶️ Лететь (1 попытка)' : '▶️ Лететь без награды'}</button>
@@ -695,8 +701,8 @@ function showFlightStart() {
 }
 function startFlight() {
   const w = flyerList(), cur = w.find((x) => x.k === mg().fly) || w[0]; if (!cur) return;
-  const cost = fTotal(), S0 = st();
-  if (cost && (S0.coins || 0) < cost) { fsel.clear(); A.toast('🪙 Не хватает монет на бонусы'); showFlightStart(); return; }
+  const cost = fTotal() + flyerCost(cur.k), S0 = st();
+  if (cost && (S0.coins || 0) < cost) { fsel.clear(); A.toast(flyerCost(cur.k) > (S0.coins || 0) ? '🪙 Не хватает монет на этого летуна — выбери Новичка' : '🪙 Не хватает монет на бонусы'); showFlightStart(); return; }
   if (cost) { S0.coins -= cost; fl().bst = (fl().bst || 0) + fsel.size; }
   const boost = { shield: fsel.has('shield'), magnet: fsel.has('magnet'), slow: fsel.has('slow') };
   const rewarded = charges() > 0;
