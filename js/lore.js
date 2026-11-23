@@ -64,7 +64,7 @@ const T = (id, cls, title, img, look, story, habits, weak, quote, ps = []) => P(
 PAGES.push(
   T('moss', 'herbs', 'Профессор Мох', 'assets/staff/moss.png', 'Седой лесной старец с огромными ушами, зелёной бородой до пояса, венком из листьев и лейкой.',
     'Самый старый учитель после Тихона. Говорят, когда-то он сам был деревом и очнулся от того, что ушастик шепнул ему на ухо «проснись». С тех пор ходит медленно и разговаривает с растениями чаще, чем со взрослыми.',
-    'Поливает всё подряд: цветы, учеников, иногда Тихона. Борода у него растёт, если он счастлив, — и весной её приходится подстригать.', 'терпеть не может спешку. Если торопить его урок, он нарочно начинает говорить ещё медленнее.', '«Корни глубже, чем кажутся. У всех».', ['assets/staff/moss_water.png', 'assets/staff/moss_sniff.png', 'assets/staff/moss_proud.png']),
+    'Поливает всё подряд: цветы, учеников, иногда Тихона. Борода у него растёт, если он счастлив, — и весной её приходится подстригать.', 'терпеть не может спешку. Если торопить его урок, он нарочно начинает говорить ещё медленнее.', '«Корни глубже, чем кажутся. У всех».', ['assets/staff/moss_read.png', 'assets/staff/moss_sniff.png', 'assets/staff/moss_explain.png']),
   T('bubble', 'potions', 'Мадам Пузырь', 'assets/staff/bubble.png', 'Кругленькая, с огромной рыжей шевелюрой, в толстых очках, фартуке и с колбой в лапе. На плече сидит лягушка.',
     'Её котлы взрываются чаще, чем у всех вместе взятых, но ни один ученик ни разу не пострадал: каждый взрыв она превращает в фейерверк. Волосы стали такими кудрявыми после самого первого взрыва и так и не распрямились.',
     'Нюхает всё, прежде чем попробовать. Лягушку зовут Кваклин — когда-то он был зельем, которое пошло не так.', 'не умеет следовать рецептам и всегда добавляет «щепоточку чего-нибудь интересного».', '«Если не бахнуло — значит, не старались!»', ['assets/staff/bubble_stir.png', 'assets/staff/bubble_sniff.png', 'assets/staff/bubble_proud.png']),
@@ -73,16 +73,16 @@ PAGES.push(
     'Днём спит в шляпе, ночью не спит совсем. Ведёт свою «книгу неба», где записывает каждую новую звезду.', 'рассеянный: может прийти на урок в пижаме — но точно со звёздной картой.', '«Смотри вверх. Там всё уже написано».', ['assets/staff/lun_spyglass.png', 'assets/staff/lun_book.png', 'assets/staff/lun_map.png']),
   T('spark', 'charms', 'Мастер Искра', 'assets/staff/spark.png', 'Изящная кремовая лисичка в тиаре и фиолетовом звёздном платье, с волшебной палочкой и крыльями бабочки.',
     'Бывшая придворная волшебница далёкого королевства. Однажды для забавы оживила королевский портрет — а он влюбился в неё: вздыхал, подмигивал и посылал воздушные поцелуи на всех приёмах, прямо при королеве. Скандал был огромный, и Искра сбежала в школу. Ни разу не пожалела.',
-    'Каждое утро колдует себе новую причёску. Учит, что чары должны быть не только сильными, но и красивыми.', 'немного тщеславна: если похвалить её платье, можно получить на экзамене лишнюю минуту.', '«Магия без красоты — просто фокус».', ['assets/staff/spark_star.png', 'assets/staff/spark_polish.png', 'assets/staff/spark_curtsy.png']),
+    'Каждое утро колдует себе новую причёску. Учит, что чары должны быть не только сильными, но и красивыми.', 'немного тщеславна: если похвалить её платье, можно получить на экзамене лишнюю минуту.', '«Магия без красоты — просто фокус».', ['assets/staff/spark_star.png', 'assets/staff/spark_book.png', 'assets/staff/spark_curtsy.png']),
   T('breeze', 'flight', 'Капитан Ветерок', 'assets/staff/breeze.png', 'Усатый сурок-авиатор в шлеме с очками, кожаной куртке с медалями и красном шарфе. На плече — маленькая сова.',
     'Облетел все небеса над холмами и дальше. Медали — за спасения: однажды поймал в воздухе целый класс, который сдуло ветром. Совёнок Пух был его штурманом во всех полётах.',
-    'Рассказывает истории о полётах так громко, что ушастики прячутся. Шарф всегда развевается, даже если ветра нет.', 'боится высоты, если стоит на земле. В воздухе — ничего не боится.', '«Эх, вот в наше время крылья были крепче!»', ['assets/staff/breeze_fly1.png', 'assets/staff/breeze_owl.png', 'assets/staff/breeze_proud.png']),
+    'Рассказывает истории о полётах так громко, что ушастики прячутся. Шарф всегда развевается, даже если ветра нет.', 'боится высоты, если стоит на земле. В воздухе — ничего не боится.', '«Эх, вот в наше время крылья были крепче!»', ['assets/staff/breeze_goggles.png', 'assets/staff/breeze_map.png', 'assets/staff/breeze_explain.png']),
   T('storm', 'elements', 'Госпожа Буря', 'assets/staff/storm.png', 'Белая горностаиха с длинными волосами четырёх цветов — огонь, вода, земля, воздух, — с посохом из стихийных кристаллов, в бирюзовом платье.',
     'Родилась в грозу, в которой все четыре стихии бушевали разом, и с тех пор её волосы меняют цвет от настроения. Строгая, но справедливая — самая требовательная учительница школы.',
-    'Когда злится, над её головой собирается маленькая тучка. Когда довольна — вокруг пахнет дождём и цветами.', 'тайно обожает рогатиков за упрямство, но никогда в этом не признается.', '«Стихии не слушаются. С ними договариваются».', ['assets/staff/storm_fire.png', 'assets/staff/storm_leaves.png', 'assets/staff/storm_proud.png']),
+    'Когда злится, над её головой собирается маленькая тучка. Когда довольна — вокруг пахнет дождём и цветами.', 'тайно обожает рогатиков за упрямство, но никогда в этом не признается.', '«Стихии не слушаются. С ними договариваются».', ['assets/staff/storm_fire.png', 'assets/staff/storm_water.png', 'assets/staff/storm_leaves.png']),
   T('owl', 'final', 'Экзаменатор Сова', 'assets/staff/owl.png', 'Седой сова в академической шапочке, с длинной белой бородой, в тёмной мантии с золотой цепью, со свитком и песочными часами.',
     'Принимал экзамены у самого Льва, когда тот был учеником, и до сих пор называет его «тот вежливый мальчик». Помнит каждого выпускника по имени.',
-    'Переворачивает песочные часы перед каждым вопросом, хотя никогда на них не смотрит. Ставит оценки длинным пером, которое скрипит.', 'растрогается от любого хорошего ответа — и тогда борода у него дрожит.', '«Экзамен — это урок, который пришёл проверить сам себя».', ['assets/staff/owl_hourglass.png', 'assets/staff/owl_write.png', 'assets/staff/owl_proud.png']),
+    'Переворачивает песочные часы перед каждым вопросом, хотя никогда на них не смотрит. Ставит оценки длинным пером, которое скрипит.', 'растрогается от любого хорошего ответа — и тогда борода у него дрожит.', '«Экзамен — это урок, который пришёл проверить сам себя».', ['assets/staff/owl_hourglass.png', 'assets/staff/owl_glasses.png', 'assets/staff/owl_seal.png']),
 );
 // school staff: the page opens with their building; habits at 100 graduates, the phrase at 500
 const W = (id, has, title, img, look, story, habits, weak, quote, ps = []) => P({ id, ch: 'school', title, img, layers: [
@@ -94,13 +94,13 @@ const W = (id, has, title, img, look, story, habits, weak, quote, ps = []) => P(
 PAGES.push(
   W('paper', 'rec', 'Бумажкина', 'assets/staff/secretary.png', 'Барсучиха в жёлтой вязаной кофте и очках, с карандашом за ухом и стопкой бумаг; рядом летит бумажный самолётик. Секретарь Приёмной.',
     'Записывает каждого новичка с первого дня. Знает имя и день рождения каждого ученика — и никто не понимает, как она всё помнит.',
-    'Отправляет записки бумажными самолётиками по всей школе. Самолётики иногда попадают в Тихона.', 'не может выбросить ни одной бумажки: в её шкафах лежат записки за сто лет.', '«Так… имя… угу-м… раса… ага… Добро пожаловать!»', ['assets/staff/sec_write.png', 'assets/staff/sec_carry.png', 'assets/staff/sec_stamp.png']),
+    'Отправляет записки бумажными самолётиками по всей школе. Самолётики иногда попадают в Тихона.', 'не может выбросить ни одной бумажки: в её шкафах лежат записки за сто лет.', '«Так… имя… угу-м… раса… ага… Добро пожаловать!»', ['assets/staff/sec_pin.png', 'assets/staff/sec_stamp.png', 'assets/staff/sec_carry.png']),
   W('bayu', 'dorm', 'Баю-Бая', 'assets/staff/concierge.png', 'Пушистая овечка в розовом ночном колпаке и халате, в тапочках-зайчиках, со связкой ключей и свечой. На колпаке дремлет крошечная сова. Консьержка Спальни.',
     'Охраняет сон всей школы. Колыбельные поёт так, что засыпает даже Звездочёт Лун — хотя он ночами вообще не спит.',
-    'Ходит по спальне со свечой и поправляет одеяла. Знает, какой ученик храпит, а какой разговаривает во сне.', 'сама вечно зевает и может уснуть стоя посреди разговора.', '«Тише-тише… ТИШЕ, ГОВОРЮ!»', ['assets/staff/con_key.png', 'assets/staff/con_walk.png', 'assets/staff/con_yawn.png']),
+    'Ходит по спальне со свечой и поправляет одеяла. Знает, какой ученик храпит, а какой разговаривает во сне.', 'сама вечно зевает и может уснуть стоя посреди разговора.', '«Тише-тише… ТИШЕ, ГОВОРЮ!»', ['assets/staff/con_key.png', 'assets/staff/con_write.png', 'assets/staff/con_yawn.png']),
   W('zakl', 'lib', 'Закладкин', 'assets/staff/lib_read.png', 'Ёжик в очках, длинном полосатом шарфе и вязаном свитере, всегда с горой книг в лапах. Библиотекарь.',
     'Прочитал каждую книгу в библиотеке, некоторые по три раза. Единственный, кому Тихон даёт читать старые страницы летописи.',
-    'На иголках носит закладки. Если книгу долго не возвращают, он лично приходит и смотрит. Молча. Очень долго.', 'стесняется громко говорить и шепчет, даже когда кричит «пожар!».', '«А? Простите… я увлёкся… Что вы сказали?»', ['assets/staff/lib_shelve.png', 'assets/staff/lib_carry.png', 'assets/staff/lib_shh.png']),
+    'На иголках носит закладки. Если книгу долго не возвращают, он лично приходит и смотрит. Молча. Очень долго.', 'стесняется громко говорить и шепчет, даже когда кричит «пожар!».', '«А? Простите… я увлёкся… Что вы сказали?»', ['assets/staff/lib_carry.png', 'assets/staff/lib_shelve.png', 'assets/staff/lib_shh.png']),
   W('ugolek', 'cant', 'Уголёк', 'assets/staff/cook_stir.png', 'Маленький мятный дракончик в поварском колпаке и фартуке, с поварёшкой и кастрюлей. Повар Столовой.',
     'Вылупился из яйца, найденного в лесу, прямо на кухне школы — и с тех пор оттуда не уходил. Огнём подогревает суп и никогда не пользуется печью.',
     'Пробует всё, что готовит, поэтому иногда к обеду готовит заново. Знает любимое блюдо каждого ученика.', 'когда чихает, суп превращается в жаркое.', '«Сытый маг — счастливый маг!»', ['assets/staff/cook_fire.png', 'assets/staff/cook_taste.png', 'assets/staff/cook_give.png']),
@@ -136,7 +136,7 @@ function listHtml(f) {
 function pageHtml(p, f) {
   const n = openN(p, f), secs = p.layers.map((l, k) => (k < n || !l.need || l.need(f))
     ? l.riddle ? `<div class="lo-sec riddle"><h4>🔎 ${esc(l.t)}</h4>${para(l.x)}<div class="lo-lines">${[1, 2, 3, 4, 5].map((n) => `<div class="lo-line">${n}. <span>· · · строка ещё не найдена · · ·</span></div>`).join('')}</div><div class="lo-cnt">Найдено строк: 0 из 5</div></div>`
-    : `<div class="lo-sec${l.wide ? ' wide' : ''}">${l.img && l.wide ? `<img class="lo-ill" src="${l.img}" alt="" onerror="this.remove()">` : ''}<h4>${esc(l.t)}</h4>${l.img && !l.wide ? `<img class="lo-pose ${k % 2 ? 'l' : 'r'}" src="${l.img}" alt="" onerror="this.remove()">` : ''}${para(l.x)}<div class="lo-clr"></div></div>${k < p.layers.length - 1 ? '<div class="lo-orn">✦ ❧ ✦</div>' : ''}`
+    : `<div class="lo-sec${l.wide ? ' wide' : ''}">${l.img && l.wide ? `<img class="lo-ill" src="${l.img}" alt="" onerror="this.remove()">` : ''}<h4>${esc(l.t)}</h4>${l.img && !l.wide && l.img !== p.img ? `<img class="lo-pose ${k % 2 ? 'l' : 'r'}" src="${l.img}" alt="" onerror="this.remove()">` : ''}${para(l.x)}<div class="lo-clr"></div></div>${k < p.layers.length - 1 ? '<div class="lo-orn">✦ ❧ ✦</div>' : ''}`
     : `<div class="lo-sec locked"><h4>🔒 ${esc(l.t)}</h4><p>Откроется, ${esc(l.hint || '')}.</p></div>`).join('');
   return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-head">${pic(p)}<div><h3>${esc(p.title)}</h3>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div></div>${secs}`;
 }
@@ -214,9 +214,27 @@ export function loreTune(c, out, t0) {
   const pad = c.createOscillator(), pg = c.createGain(), lp = c.createBiquadFilter(); pad.type = 'sine'; pad.frequency.value = N(38); lp.type = 'lowpass'; lp.frequency.value = 300;
   pg.gain.setValueAtTime(0.0001, t0); pg.gain.linearRampToValueAtTime(0.05, t0 + 1.2); pg.gain.linearRampToValueAtTime(0.0001, t0 + 7.6); pad.connect(lp); lp.connect(pg); pg.connect(out); pad.start(t0); pad.stop(t0 + 7.8);
 }
+// her «нужна полноценная мелодия»: while the book is open its own Suno music plays (two tracks in turn, art/music/lore*.mp3), the school
+// music pauses and comes back on close. Follows the game's music switch. The short music-box tune stays only as a fallback.
+const LORE_MUSIC = ['assets/music/lore.mp3?v=1', 'assets/music/lore-2.mp3?v=1'];
+let bm = null, bmIdx = 0, fadeT = 0;
+function bookMusic(on) {
+  if (!A.music) return false;
+  if (on) {
+    if (!A.music.on()) return true;   // music switched off: stay silent
+    if (!bm) { bm = new Audio(); bm.preload = 'auto'; bm.addEventListener('ended', () => { bmIdx = (bmIdx + 1) % LORE_MUSIC.length; bm.src = LORE_MUSIC[bmIdx]; bm.play().catch(() => {}); }); }
+    A.music.pause(); clearInterval(fadeT); bm.src = LORE_MUSIC[bmIdx]; bm.volume = 0; bm.play().catch(() => {});
+    fadeT = setInterval(() => { bm.volume = Math.min(0.4, bm.volume + 0.04); if (bm.volume >= 0.4) clearInterval(fadeT); }, 80);
+    return true;
+  }
+  if (!bm) return true; clearInterval(fadeT);
+  fadeT = setInterval(() => { bm.volume = Math.max(0, bm.volume - 0.05); if (bm.volume <= 0.001) { clearInterval(fadeT); bm.pause(); bmIdx = (bmIdx + 1) % LORE_MUSIC.length; A.music.resume(); } }, 60);
+  return true;
+}
+document.addEventListener('visibilitychange', () => { if (!bm || !root) return; if (document.hidden) bm.pause(); else if (A.music && A.music.on()) bm.play().catch(() => {}); });
 function tune() { const a = A.audioOut && A.audioOut(); if (!a) return; try { const g = a.c.createGain(); g.gain.value = Math.pow(10, LORE_DB / 20); g.connect(a.out); loreTune(a.c, g, a.c.currentTime + 0.02); } catch (e) { /* never break the game for a sound */ } }
-export function open() { if (root || !S() || !A.on()) return; css(); page = null; root = el(html()); document.body.appendChild(root); root.addEventListener('click', onClick); document.body.classList.add('lore-open'); tune(); }
-export function close() { if (!root) return; root.remove(); root = null; document.body.classList.remove('lore-open'); A.save(); A.onClose && A.onClose(); }
+export function open() { if (root || !S() || !A.on()) return; css(); page = null; root = el(html()); document.body.appendChild(root); root.addEventListener('click', onClick); document.body.classList.add('lore-open'); if (!bookMusic(true)) tune(); }
+export function close() { if (!root) return; root.remove(); root = null; document.body.classList.remove('lore-open'); bookMusic(false); A.save(); A.onClose && A.onClose(); }
 function onClick(e) {
   const t = e.target.closest('[data-lochap],[data-lopage],[data-loback],[data-loclose]'); if (!t) return;
   const d = t.dataset;
