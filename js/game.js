@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=327';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=327';
-import { initMinigame } from './minigame.js?v=327';
-import { initChests } from './chests.js?v=327';
+} from './data.js?v=328';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=328';
+import { initMinigame } from './minigame.js?v=328';
+import { initChests } from './chests.js?v=328';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 327;   // keep equal to the ?v= number in index.html
+const BUILD = 328;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -117,7 +117,7 @@ const SHOP_SPOTS = (s) => [0, 1, 2, 3, 4, 5].map((k) => ({ x: s.x0 + 2.75, y: s.
 const CANT_COST = 500000, CANT_TIME = 600, CANT_NEED = 2;   // needs the third class (Stars) open
 const CANT_MAX = { cook: 10, tables: 5, menu: 10 };
 const cantUp = () => (S.cant ||= { built: false, end: 0, cook: 1, tables: 1, menu: 1 });
-const cantBuilt = () => WORLD === 1 && !!(S && S.cant && S.cant.built);
+const cantBuilt = () => WORLD <= 2 && !!(S && S.cant && S.cant.built);
 const cantOpen = () => cantBuilt() && Date.now() >= (S.cant.end || 0);
 const cantChance = () => 0.15 + 0.03 * (cantUp().tables - 1);              // share of students who go to eat after a lesson
 const cantServe = () => 2.0 * Math.pow(0.88, cantUp().cook - 1);           // seconds the cook needs to fill one tray
@@ -371,6 +371,11 @@ const THEMES = {
     extras: (s) => [{ n: 'throne_seat', x: s.x0 + 1.3, y: s.y0 + 1.0 }, { n: 't_orb', x: s.x0 + 4.9, y: s.y0 + 0.6 }, { n: 't_statue', x: s.x0 + 0.5, y: s.y1 - 0.5 },
       { n: 't_statue', x: s.x1 - 0.5, y: s.y1 - 0.5, flip: true }, { n: 't_brazier', x: s.x0 + 0.5, y: s.y0 + 2.6 }, { n: 't_brazier2', x: s.x0 + 2.8, y: s.y0 + 0.5 },
       { n: 't_maptable', x: s.x0 + 3.4, y: s.y0 + 3.6 }, { n: 't_chest', x: s.x1 - 0.6, y: s.y0 + 2.6 }, { n: 't_candel', x: s.x1 - 0.5, y: s.y0 + 4.2 }] },
+  // World 2, the feasting hall (Пиршественный зал): warm stone and wood, slate menu in runes, long feast tables, a big stew cauldron
+  CANT_W2: { w2: true, dir: 'assets/parts/feast/', wallTiles: 4, floorTiles: 3, board: 'menu', isoOnly: true, iso: true,
+    decor: ['window', 'pots', 'plates', 'dried_herbs', 'clock'], back: [], side: [], front: [], rug: '',
+    h: { counter: 44, table: 27, stove: 42, barrels: 36, bread: 22, cauldron: 32, herb_pot: 28 },
+    extras: (s) => THEMES.CANT.extras(s) },
   runes: { w2: true, dir: 'assets/parts/runes/', wallTiles: 4, floorTiles: 3, board: 'board', isoOnly: true, iso: true,
     decor: ['torch', 'shield', 'banner', 'niche', 'plaque'], back: ['brazier', 'brazier'], side: ['bookcase', 'runestone'], front: [], rug: '',
     stations: ['st_blue', 'st_teal', 'st_violet'], teacherProp: 'rune_altar', h: { bookcase: 50, brazier: 36, runestone: 30, rune_altar: 40, st_blue: 24, st_teal: 24, st_violet: 24 } },
@@ -497,6 +502,9 @@ function genLayoutW2() {
   ];
   SLOTS.TRADE = slot(8, recY + 9, [[13, recY + 11], [14, recY + 11]], {}, 6, 5);   // the trading yard: an open cobbled yard left of the gate road
   HALLS.push({ x0: 14, y0: recY + 10, x1: 15, y1: recY + 13 });
+  { const r0 = Math.min(SLOTS.C0.y0, SLOTS.C1 ? SLOTS.C1.y0 : SLOTS.C0.y0);   // the feasting hall right of the bottom row, a road from the great hall
+    PATHS.push({ x0: NAVE_X1, y0: r0 - 3, x1: 33, y1: r0 - 1 });
+    SLOTS.CANT = slot(28, r0, [[30, r0], [30, r0 - 1]], {}, 6, 6, [[[31, r0], [31, r0 - 1]]]); }
   { const m = SLOTS.C3 || SLOTS.C1; if (m) SLOTS.EXPED = slot(28, m.y0, [[28, m.y0 + 3], [27, m.y0 + 3]], {}, 6, 6); }   // the gates of the deep: an open yard right of the middle row   // a short way from the gate road into the yard
   GATE_TILE = { x: 16.5, y: recY + 12.5 };
   GATE_Y = recY + 9;
@@ -2070,7 +2078,7 @@ function stepWorld(dt, live = false) {
   if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime()) finishProcess(); }
   stepConcierge(dt);
   wakeSleepers();
-  if (cantBuilt() && S.cant.end && Date.now() >= S.cant.end) { S.cant.end = 0; toast('🍽️ Столовая открыта!'); dirtyPanel = true; staticKey = ''; }
+  if (cantBuilt() && S.cant.end && Date.now() >= S.cant.end) { S.cant.end = 0; toast(WORLD === 2 ? '🍖 Пиршественный зал открыт!' : '🍽️ Столовая открыта!'); dirtyPanel = true; staticKey = ''; }
   S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; staticKey = ''; } });
   stepAgents(dt, live);
   stepTower(dt);
@@ -2335,7 +2343,7 @@ function advGo(k) {
 // counts coins after a sale; when the shop is empty he polishes a crystal ball or carries a box of glowing jars to the shelf.
 const FOX_POSES = ['give', 'coins', 'carry', 'polish'];
 const COOK_POSES = ['stir', 'give', 'fire', 'taste'];
-for (const f of COOK_POSES) { const im = new Image(); im.src = `assets/staff/cook_${f}.png?v=1`; sprites['cook_' + f] = im; }
+for (const f of COOK_POSES) { const im = new Image(); im.src = `assets/staff/${SP2}cook_${f}.png?v=1`; sprites['cook_' + f] = im; }
 // The dragon cook (her choice 2026-11-22): hands a tray while someone is served (held at least 2.6 s); when the line is empty
 // he stirs the soup 5 s, breathes a flame at the stove 3 s, tastes from the ladle 3 s (every pose >= 2.5 s, her rule).
 let cookGiveT = 0, cookLast = 0;
@@ -2496,7 +2504,7 @@ function layoutOutdoor() {
   const inWorld = (x, y) => { const m = P(x, y); return m.x > -40 && m.x < WW + 40 && m.y > 40 && m.y < WH + 160; };   // trees may stand right at the map edge (crowns cut by it)
   const G0 = GATE_TILE, front = (x, y) => (Math.abs(x - G0.x - 0.5) < 10 && y > G0.y - 4) || (y > BUILDING.y1 && D(x, y) < 10);   // the view of the entrance and the south front stays open
   const behind = new Set(); for (const e of EDGES) if (e.hallWall) for (let k = 1; k <= 5; k++) for (let j = -2; j <= 2; j++) behind.add(e.side === 'y0' ? (e.x + j) + ',' + (e.y - k) : (e.x - k) + ',' + (e.y + j));   // the tall corridor walls hide what stands just behind them
-  const TD = WORLD === 2 && SLOTS.DIR, out = [], put = (n, x, y, minD, sc = 1) => { n = outName(n); if (!n) return false; if (TD && x > TD.x0 - 1 && x < TD.x1 + 5 && y > TD.y0 - 1 && y < TD.y1 + 5) return false; if (WORLD === 2 && SLOTS.EXPED && x > SLOTS.EXPED.x0 - 1 && x < SLOTS.EXPED.x1 + 5 && y > SLOTS.EXPED.y0 - 1 && y < SLOTS.EXPED.y1 + 5) return false; if (D(x, y) < minD || !inWorld(x, y) || behind.has(Math.floor(x) + ',' + Math.floor(y))) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
+  const TD = WORLD === 2 && SLOTS.DIR, out = [], put = (n, x, y, minD, sc = 1) => { n = outName(n); if (!n) return false; if (TD && x > TD.x0 - 1 && x < TD.x1 + 5 && y > TD.y0 - 1 && y < TD.y1 + 5) return false; if (WORLD === 2 && SLOTS.CANT && x > SLOTS.CANT.x0 - 1 && x < SLOTS.CANT.x1 + 5 && y > SLOTS.CANT.y0 - 4 && y < SLOTS.CANT.y1 + 5) return false; if (WORLD === 2 && SLOTS.EXPED && x > SLOTS.EXPED.x0 - 1 && x < SLOTS.EXPED.x1 + 5 && y > SLOTS.EXPED.y0 - 1 && y < SLOTS.EXPED.y1 + 5) return false; if (D(x, y) < minD || !inWorld(x, y) || behind.has(Math.floor(x) + ',' + Math.floor(y))) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
   // scenes, each tied to a building (skipped when that building's slot is missing)
   const zones = [];
   const keep = [];   // every scene / entrance item: no tree may stand in front of (down-screen of) it
@@ -3213,7 +3221,7 @@ function drawSlot(c, id) {
   if (id === 'CANT' && !cantBuilt()) {
     poly(c, [L, B, R, F], '#ecd2a8'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
     c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 56, center.y - 26, 112, 48, 10); c.fill(); c.strokeStyle = '#e08a3d'; c.lineWidth = 2.5; c.stroke();
-    text('🍽️ Столовая', center.x, center.y - 11, 10, '#5d4a6e', c);
+    text(WORLD === 2 ? 'Пиршественный зал' : '🍽️ Столовая', center.x, center.y - 11, 10, '#5d4a6e', c);
     if (isOpen(CANT_NEED)) text('🪙 ' + fmt(CANT_COST), center.x, center.y + 8, 12, '#7b5cd6', c); else text('🔒 ' + CLASSES[CANT_NEED].name, center.x, center.y + 8, 10, '#8a7a99', c);
     return;
   }
@@ -3347,7 +3355,7 @@ function drawSign(c, id) {
   if (id === 'GARDEN' && WORLD <= 2) {   // drawn over everything like the room signs, above the gazebo (world 2: the hall of glory)
     const pl = WORLD === 2 ? signPill(signLabel('🎓 Зал славы'), '#d6dcf2', 12, 22, '#ffffff', '#2e3a5a') : signPill(signLabel('🎓 Сад выпускников'), '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = WORLD === 1 ? P(s.x0 + 3.6, s.y0 + 0.5) : P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - (WORLD === 1 ? 138 : 150) - pl.h / 2, pl.w, pl.h); return; }
   if (id === 'GARDEN' || (id === 'EXPED' && !expedOpen()) || (id === 'TRADE' && !tradeOpen()) || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
-  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'TRADE' ? '💰 Торговый двор' : id === 'EXPED' ? '🕳️ Врата глубин' : WORLD === 2 && id === 'LIB' ? '📚 Чертог летописей' : WORLD === 2 && id === 'DORM' ? '🛏️ Кельи' : WORLD === 2 && id === 'DORM2' ? '🛏️ Вторые кельи' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? (WORLD === 2 ? '👑 Трон старейшины' : '👑 Кабинет директора') : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
+  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'TRADE' ? '💰 Торговый двор' : id === 'EXPED' ? '🕳️ Врата глубин' : WORLD === 2 && id === 'LIB' ? '📚 Чертог летописей' : WORLD === 2 && id === 'DORM' ? '🛏️ Кельи' : WORLD === 2 && id === 'DORM2' ? '🛏️ Вторые кельи' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? (WORLD === 2 ? '👑 Трон старейшины' : '👑 Кабинет директора') : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? (WORLD === 2 ? '🍖 Пиршественный зал' : '🍽️ Столовая') : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const midBack = WORLD === 1 && ['DORM', 'DORM2', 'DIR', 'SHOP'].includes(id);   // build 258: front-row rooms put their sign over the middle of their tall back wall (on the corner it hung over the gallery)
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : midBack ? up(P((s.x0 + s.x1) / 2, s.y0), WALLH * 0.72 + 12) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   const fs = 12, hgt = 22, bg = ci >= 0 ? CLASSES[ci].wall : SIGN_BG[id] || '#ffffff';
@@ -3862,7 +3870,7 @@ function render() {
       add(cx, cy, () => { emoji('🏗️', c.x, c.y - 14, 30); ctx.fillStyle = '#fffaf2ee'; rr(c.x - 40, c.y + 8, 80, 18, 9); ctx.fill(); text(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, c.x, c.y + 17, 11, '#5a3fb0'); }); }
     else {
       const ck = CANT_COOK(s), now = performance.now() / 1000, busy = cantLine.some((a) => a.state === 'cantbuy');
-      const themed = !!part('CANT', 'counter');
+      const themed = !!part(themeOf('CANT') || 'CANT', 'counter');
       if (!themed) [3.6, 4.7].forEach((dx, k) => { const q = { x: s.x0 + dx, y: s.y0 + 1.35 }; add(q.x, q.y, () => { drawCounter(q); const m = P(q.x, q.y); emoji(k ? '🍲' : '🥧', m.x, m.y - 14, 13); }); });
       const cim = sprites['cook_' + cookPose()];
       if (cim && cim.naturalWidth) add(ck.x, ck.y, () => { teacherGlow(ck, 52, 'rgba(255,225,190,0.75)'); drawPose(cim, ck.x, ck.y, 52, false, false); });
@@ -4058,7 +4066,7 @@ function libPanel() {
     <p class="muted">После библиотеки урок у ученика в 2 раза короче, а шанс сдать выше на ${Math.round(libBonus() * 100)}%.</p>`;
 }
 function cantPanel() {
-  const u = cantUp(), head = (sub) => `<div class="sh-head"><span class="remoji big">🍽️</span><div><h2>Столовая</h2><div class="muted">${sub}</div></div><button class="x" data-close>✕</button></div>`;
+  const u = cantUp(), head = (sub) => `<div class="sh-head"><span class="remoji big">🍽️</span><div><h2>${WORLD === 2 ? 'Пиршественный зал' : 'Столовая'}</h2><div class="muted">${sub}</div></div><button class="x" data-close>✕</button></div>`;
   if (!u.built) return `${head('Обеды для учеников')}
     <p>После урока часть учеников идёт в столовую: стоит в очереди к повару-дракончику, садится за стол и ест. Школа получает монеты, у ученика сильно поднимается настроение, а сытый ученик на следующем экзамене сдаёт на ${Math.round(FED_BONUS * 100)}% легче.</p>
     ${isOpen(CANT_NEED) ? `<button class="btn wide" data-cost="${CANT_COST}" data-act="cantbuild">Построить <span class="cost">🪙${fmt(CANT_COST)}</span></button><p class="muted">Стройка займёт ${Math.round(CANT_TIME / 60)} минут.</p>` : `<p class="muted">🔒 Сначала откройте класс «${CLASSES[CANT_NEED].name}».</p>`}`;
@@ -4790,7 +4798,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && !r.away && confirm(`Отпустить ${r.name} (${resTitle(r)})? Школа получит 🎁 ${fmt(releaseReward(r))}.`)) { earn(releaseReward(r)); T.res.splice(+d.k, 1); towerPull(); toast(`🎁 ${r.name} отправился в большое путешествие`); } }
   else if (d.act === 'towerno') { towerUp().wait.splice(+d.k, 1); }
   else if (d.act === 'toweronly') { const T = towerUp(); T.onlyM = !T.onlyM; if (T.onlyM) { const n = T.wait.length; T.wait = T.wait.filter((r) => r.rk === 5); if (n > T.wait.length) toast(`🏰 Отказано Старшим магам у двери: ${n - T.wait.length}`); } }
-  else if (d.act === 'cantbuild') { if (!cantBuilt() && isOpen(CANT_NEED) && spend(CANT_COST)) { const u = cantUp(); u.built = true; u.end = Date.now() + CANT_TIME * 1000; staticKey = ''; toast('🏗️ Столовая строится!'); panel = cantPanel; } }
+  else if (d.act === 'cantbuild') { if (!cantBuilt() && isOpen(CANT_NEED) && spend(CANT_COST)) { const u = cantUp(); u.built = true; u.end = Date.now() + CANT_TIME * 1000; staticKey = ''; toast(WORLD === 2 ? '🏗️ Пиршественный зал строится!' : '🏗️ Столовая строится!'); panel = cantPanel; } }
   else if (d.act === 'cantup') { const k = d.k; if (cantUp()[k] < CANT_MAX[k] && spend(cantCost(k))) cantUp()[k]++; }
   else if (d.act === 'shopup') { const k = d.k; if (shopUp()[k] < SHOP_MAX && spend(shopCost(k))) shopUp()[k]++; }
   else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!dirBuilt() && S.coins >= DIR_COST && spendStars(DIR_STARS) && spend(DIR_COST)) { S.dirBuilt = true; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
