@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=280';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=280';
-import { initMinigame } from './minigame.js?v=280';
+} from './data.js?v=281';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=281';
+import { initMinigame } from './minigame.js?v=281';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -14,7 +14,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 280;   // keep equal to the ?v= number in index.html
+const BUILD = 281;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -863,7 +863,16 @@ function nextClass(i) { for (let k = i + 1; k < CLASSES.length; k++) if (isOpen(
 // throw a coin into it, try wand sparks, feed the birds, read under a tree; each activity lasts at least 2.5 s.
 const courtList = [];
 const COURT_CAP0 = 14;
-const courtCap = () => (WORLD === 1 && COURT ? COURT_CAP0 : 0);
+// fountain upgrades (build 279, agreed plan: tap the fountain): benches = places in the court, fountain level = how fast mood rises
+// there, «Монетка на счастье» = a coin thrown into the fountain gives that student +N% at his next exam
+const MAX_BENCH = 10, MAX_FOUNT = 10, MAX_COIN = 10;
+const courtUp = () => (S.courtUp ||= { bench: 1, fount: 1, coin: 0 });
+const courtCap = () => (WORLD === 1 && COURT ? COURT_CAP0 + 3 * (courtUp().bench - 1) : 0);
+const fountMoodK = () => 1 + 0.2 * (courtUp().fount - 1);
+const coinLuck = () => (courtUp().coin ? 0.05 + 0.005 * (courtUp().coin - 1) : 0);
+const benchCost = () => Math.round(4000 * Math.pow(2.3, courtUp().bench - 1));
+const fountCost = () => Math.round(6000 * Math.pow(2.3, courtUp().fount - 1));
+const coinCost = () => Math.round(15000 * Math.pow(2.4, courtUp().coin));
 const courtRoom = () => courtList.length < courtCap();
 const courtFor = (i) => courtList.reduce((n, a) => n + (a.goal && a.goal.i === i && !a.goal.brk ? 1 : 0), 0);
 const COURT_MOOD = 0.6;   // mood per second while waiting in the court
@@ -926,7 +935,7 @@ function courtFx(a, x, y) {   // what each court activity shows (render only; ev
 function stepCourt(a, dt) {
   a.t += dt; if (a.t < a.dur) return;
   if (a.act === 'tag' && a.laps-- > 0) { const v = courtSpots().tag, p = rnd(v); a.state = 'walk'; walk(a, p.x, p.y, () => courtArrive(a)); return; }
-  if (a.act === 'coin') { const c = courtC(); popup('🪙✨', c.x, c.y, '#d4a017', 50); }
+  if (a.act === 'coin') { const c = courtC(); popup(coinLuck() ? '🍀✨' : '🪙✨', c.x, c.y, '#d4a017', 50); if (coinLuck()) a.luck = coinLuck(); }   // «Монетка на счастье»: luck for the next exam
   if (a.goal.brk && (a.acts = (a.acts || 0) + 1) >= 2) { a.acts = 0; leaveCourt(a); route(a, a.goal.i); return; }   // a break = two activities, then on to the next class
   courtAct(a);
 }
@@ -1015,7 +1024,7 @@ function w2Section(i) {
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
-  const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0); a.prepared = false; a.fed = false;   // a meal in the canteen helps one exam
+  const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0); a.prepared = false; a.fed = false; a.luck = 0;   // a meal in the canteen helps one exam
   if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i)), p.x, p.y, null, 46); w2Lesson(i, p); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
@@ -1205,7 +1214,7 @@ function giveUp(a) {   // too sad to keep waiting: frees its place and goes home
 }
 function stepMood(a, dt, live) {
   let d = 0;
-  if (a.goal && a.goal.t === 'k') d = COURT_MOOD;   // build 259: waiting in the court cheers them up
+  if (a.goal && a.goal.t === 'k') d = COURT_MOOD * fountMoodK();   // build 259: waiting in the court cheers them up
   else if (a.state === 'study') d = incOf(a.c) ? -1.5 : 0.8;
   else if (a.state === 'read') d = 1.2;
   else if (MOOD_DROP[a.state] !== undefined) d = -MOOD_DROP[a.state] * (a.state === 'sleep' ? 1 - 0.05 * (dormUp().conc - 1) : 1) * careK(dirLvl('care'));   // a better dorm and the director's care keep them calmer
@@ -3468,6 +3477,11 @@ function render() {
   ctx.globalAlpha = 1;
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
+  if (WORLD === 1 && COURT) {   // build 279: the fountain has a sign too: it opens the court's upgrades
+    const c = courtC(), q = up(P(c.x + 0.5, c.y + 0.6), 92), pl = signPill('⛲ Двор', '#d6f0ff', 12, 22, '#ffffff', '#2e2340');
+    if (onScreen(q.x, q.y, 160, 40)) ctx.drawImage(pl.cv, q.x - pl.w / 2, q.y - pl.h / 2, pl.w, pl.h);
+    signRects.push({ id: 'FOUNT', x0: q.x - pl.tw / 2, y0: q.y - 11, x1: q.x + pl.tw / 2, y1: q.y + 11 });
+  }
   drawIncidents();
   drawMail();
   if (tourStep >= 0 && tourAt(TOUR[tourStep])) { const ta = tourAt(TOUR[tourStep]), f = P(ta[0], ta[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
@@ -3545,6 +3559,18 @@ function classPanel(i) {
     });
     return h;
   };
+}
+function fountainPanel() {
+  const u = courtUp(), n = courtList.filter((a) => !a.goal.brk).length, b = courtList.length - n;
+  return `<div class="sh-head"><span class="remoji big">⛲</span><div><h2>Волшебный двор</h2><div class="muted">Здесь ждут свободной парты и отдыхают на перемене</div></div><button class="x" data-close>✕</button></div>
+    <div class="stats3"><div><span>🪑</span><b>${courtList.length}/${courtCap()}</b><i>места во дворе</i></div><div><span>😊</span><b>+${Math.round(COURT_MOOD * fountMoodK() * 60)}</b><i>настроения в минуту</i></div><div><span>🍀</span><b>${coinLuck() ? '+' + (Math.round(coinLuck() * 1000) / 10) + '%' : '—'}</b><i>монетка к экзамену</i></div></div>
+    <div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Больше скамеек</b> <span class="muted">ур. ${u.bench}/${MAX_BENCH}</span><div class="muted">+3 места во дворе: ждут здесь, а не в спальне</div></div>
+      ${u.bench >= MAX_BENCH ? '<span class="done">макс.</span>' : costBtn('↑', benchCost(), 'cbench')}</div>
+    <div class="card up"><span class="remoji">⛲</span><div class="grow"><b>Волшебный фонтан</b> <span class="muted">ур. ${u.fount}/${MAX_FOUNT}</span><div class="muted">+20% к тому, как быстро во дворе растёт настроение</div></div>
+      ${u.fount >= MAX_FOUNT ? '<span class="done">макс.</span>' : costBtn('↑', fountCost(), 'cfount')}</div>
+    <div class="card up"><span class="remoji">🍀</span><div class="grow"><b>Монетка на счастье</b> <span class="muted">ур. ${u.coin}/${MAX_COIN}</span><div class="muted">${u.coin ? 'бросил монетку в фонтан — +' + (Math.round(coinLuck() * 1000) / 10) + '% к следующему экзамену, дальше +0,5% за уровень' : 'бросил монетку в фонтан — +5% к следующему экзамену'}</div></div>
+      ${u.coin >= MAX_COIN ? '<span class="done">макс.</span>' : costBtn(u.coin ? '↑' : 'Открыть', coinCost(), 'ccoin')}</div>
+    <p class="muted">Ждут места: <b>${n}</b> · на перемене: <b>${b}</b></p>`;
 }
 function dormPanel() {
   const u = dormUp(), used = dorm.filter(Boolean).length;
@@ -4062,7 +4088,11 @@ scroller.addEventListener('click', (e) => {
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
   const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { openRoom('DIR'); return; }   // Tikhon (or his scroll) opens his report, wherever he walks
   const sign = signRects.find((r) => wx >= r.x0 - 6 && wx <= r.x1 + 6 && wy >= r.y0 - 6 && wy <= r.y1 + 6);   // a sign always opens its room
-  if (sign) { openRoom(sign.id); return; }
+  if (sign) { if (sign.id === 'FOUNT') openPanel(fountainPanel); else openRoom(sign.id); return; }
+  if (WORLD === 1 && COURT) for (const lift of [0, 20, 40, 60]) {   // build 279: a tap on the fountain opens the court's upgrades
+    const a = (wx - OX) / HW, b = (wy + lift - OY) / HH, tx = (a + b) / 2, ty = (b - a) / 2, c = courtC();
+    if (Math.abs(tx - c.x) < 2 && Math.abs(ty - c.y) < 2) { openPanel(fountainPanel); return; }
+  }
   // a tap inside a room (floor, or walls/sprites just above it) always opens the room
   for (const lift of [0, 20, 40]) {
     const a = (wx - OX) / HW, b = (wy + lift - OY) / HH;
@@ -4162,6 +4192,9 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'item') { if (spend(itemCost(i, +d.k))) st.items[+d.k]++; }
   else if (d.act === 'rec') { if (S.reception.level < MAX_REC_LVL && spend(recCost())) S.reception.level++; }
   else if (d.act === 'ads') { if (S.reception.ads < MAX_REC_LVL && spend(adsCost())) S.reception.ads++; }
+  else if (d.act === 'cbench') { if (courtUp().bench < MAX_BENCH && spend(benchCost())) courtUp().bench++; }
+  else if (d.act === 'cfount') { if (courtUp().fount < MAX_FOUNT && spend(fountCost())) courtUp().fount++; }
+  else if (d.act === 'ccoin') { if (courtUp().coin < MAX_COIN && spend(coinCost())) courtUp().coin++; }
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
