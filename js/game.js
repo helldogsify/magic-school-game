@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=332';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=332';
-import { initMinigame } from './minigame.js?v=332';
-import { initChests } from './chests.js?v=332';
+} from './data.js?v=333';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=333';
+import { initMinigame } from './minigame.js?v=333';
+import { initChests } from './chests.js?v=333';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 332;   // keep equal to the ?v= number in index.html
+const BUILD = 333;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -106,7 +106,7 @@ const DIR_UP = {
 // ---- the school shop (her ruling 2026-11-21): between lessons some students drop in to buy a treat; coins + mood ----
 const SHOP_COST = 150000, SHOP_MAX = 10;
 const shopUp = () => (S.shop ||= { built: false, seller: 1, shelves: 1, goods: 1 });
-const shopOpen = () => WORLD === 1 && !!(S && S.shop && S.shop.built);
+const shopOpen = () => WORLD <= 2 && !!(S && S.shop && S.shop.built);
 const shopChance = () => 0.12 + 0.03 * (shopUp().shelves - 1);                 // share of students who drop in after a lesson
 const shopTime = () => 2.2 * Math.pow(0.88, shopUp().seller - 1);              // seconds to serve one
 const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1))));
@@ -376,6 +376,10 @@ const THEMES = {
     decor: ['window', 'pots', 'plates', 'dried_herbs', 'clock'], back: [], side: [], front: [], rug: '',
     h: { counter: 44, table: 27, stove: 42, barrels: 36, bread: 22, cauldron: 32, herb_pot: 28 },
     extras: (s) => THEMES.CANT.extras(s) },
+  // World 2, the gem shop (Самоцветная лавка): teal stone with gold trim, a glass cabinet of amulets, a carved counter with scales
+  SHOP_W2: { w2: true, dir: 'assets/parts/gemshop/', wallTiles: 4, floorTiles: 3, board: 'jar_shelf', isoOnly: true, iso: true,
+    decor: ['window', 'toy_rack', 'owl_clock', 'cabinet', 'map'], back: [], side: [], front: [], rug: '', h: { berry_plant: 36, counter: 66, toy_table: 34, quill_barrel: 32, candy_stand: 34, book_crate: 26, floss_cauldron: 30 },
+    extras: (s) => THEMES.SHOP.extras(s) },
   runes: { w2: true, dir: 'assets/parts/runes/', wallTiles: 4, floorTiles: 3, board: 'board', isoOnly: true, iso: true,
     decor: ['torch', 'shield', 'banner', 'niche', 'plaque'], back: ['brazier', 'brazier'], side: ['bookcase', 'runestone'], front: [], rug: '',
     stations: ['st_blue', 'st_teal', 'st_violet'], teacherProp: 'rune_altar', h: { bookcase: 50, brazier: 36, runestone: 30, rune_altar: 40, st_blue: 24, st_teal: 24, st_violet: 24 } },
@@ -502,6 +506,9 @@ function genLayoutW2() {
   ];
   SLOTS.TRADE = slot(8, recY + 9, [[13, recY + 11], [14, recY + 11]], {}, 6, 5);   // the trading yard: an open cobbled yard left of the gate road
   HALLS.push({ x0: 14, y0: recY + 10, x1: 15, y1: recY + 13 });
+  { const rb = recY - ROW_GAP;   // the gem shop left of the bottom-left hall, a road down to the reading court
+    SLOTS.SHOP = slot(0, rb - 6, [[3, rb - 1], [3, rb]], {}, 6, 6, [[[4, rb - 1], [4, rb]]]);
+    PATHS.push({ x0: 1, y0: rb, x1: 8, y1: recY - 2 }); }
   { const r0 = Math.min(SLOTS.C0.y0, SLOTS.C1 ? SLOTS.C1.y0 : SLOTS.C0.y0);   // the feasting hall right of the bottom row, a road from the great hall
     PATHS.push({ x0: NAVE_X1, y0: r0 - 3, x1: 33, y1: r0 - 1 });
     SLOTS.CANT = slot(28, r0, [[30, r0], [30, r0 - 1]], {}, 6, 6, [[[31, r0], [31, r0 - 1]]]); }
@@ -1316,7 +1323,8 @@ function goShop(a, next) {
   a.goal = { t: 'shop', n: next }; a.c = -1; shopLine.push(a); shopPlace(a);
 }
 function finishShopping(a) {
-  const p = shopPrice(); earn(p, a.x, a.y, '#d96b9f', 44); S.stats.shop = (S.stats.shop || 0) + 1;
+  const gem = WORLD === 2 && S.w2 && S.w2.gems > 0; if (gem) S.w2.gems--;   // world 2: an amulet with a gem sells for x3
+  const p = shopPrice() * (gem ? 3 : 1); earn(p, a.x, a.y, '#d96b9f', 44); if (gem && !ffwd) popup('💎', a.x + 0.3, a.y - 0.5, '#7b5cd6', 50); S.stats.shop = (S.stats.shop || 0) + 1;
   a.mood = Math.min(100, (a.mood ?? 80) + 15); popup(rnd(['🍭', '🧁', '🪶', '📜', '🍬']), a.x - 0.3, a.y - 0.3, '#d96b9f', 60);
   a.back = false; const k = shopLine.indexOf(a); if (k >= 0) shopLine.splice(k, 1); route(a, a.goal.n);
   shopLine.forEach(shopPlace);   // the line moves up
@@ -2356,7 +2364,7 @@ function cookPose() {
   if (cookGiveT > 0) return 'give';
   const t = now % 11; return t < 5 ? 'stir' : t < 8 ? 'fire' : 'taste';
 }
-for (const f of FOX_POSES) { const im = new Image(); im.src = `assets/staff/fox_${f}.png?v=1`; sprites['fox_' + f] = im; }
+for (const f of FOX_POSES) { const im = new Image(); im.src = `assets/staff/${SP2}fox_${f}.png?v=1`; sprites['fox_' + f] = im; }
 let foxU = 0, foxTrip = 0, foxClock = 0, foxHold = 0, foxLast = 0, foxSold = 0, foxCoinsT = 0;
 function foxPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (foxLast || now)); foxLast = now;
@@ -3268,7 +3276,7 @@ function drawSlot(c, id) {
   if (id === 'SHOP' && !shopOpen()) {
     poly(c, [L, B, R, F], '#ecd2a8'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
     c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 56, center.y - 26, 112, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
-    text('🛍️ Лавка', center.x, center.y - 11, 10, '#5d4a6e', c); text('🪙 ' + fmt(SHOP_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
+    text(WORLD === 2 ? 'Самоцветная лавка' : '🛍️ Лавка', center.x, center.y - 11, 10, '#5d4a6e', c); text('🪙 ' + fmt(SHOP_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
   if (id === 'CANT' && !cantBuilt()) {
@@ -3408,7 +3416,7 @@ function drawSign(c, id) {
   if (id === 'GARDEN' && WORLD <= 2) {   // drawn over everything like the room signs, above the gazebo (world 2: the hall of glory)
     const pl = WORLD === 2 ? signPill(signLabel('🎓 Зал славы'), '#d6dcf2', 12, 22, '#ffffff', '#2e3a5a') : signPill(signLabel('🎓 Сад выпускников'), '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = WORLD === 1 ? P(s.x0 + 3.6, s.y0 + 0.5) : P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - (WORLD === 1 ? 138 : 150) - pl.h / 2, pl.w, pl.h); return; }
   if (id === 'GARDEN' || (id === 'EXPED' && !expedOpen()) || (id === 'TRADE' && !tradeOpen()) || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
-  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'TRADE' ? '💰 Торговый двор' : id === 'EXPED' ? '🕳️ Врата глубин' : WORLD === 2 && id === 'LIB' ? '📚 Чертог летописей' : WORLD === 2 && id === 'DORM' ? '🛏️ Кельи' : WORLD === 2 && id === 'DORM2' ? '🛏️ Вторые кельи' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? (WORLD === 2 ? '👑 Трон старейшины' : '👑 Кабинет директора') : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? (WORLD === 2 ? '🍖 Пиршественный зал' : '🍽️ Столовая') : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
+  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'TRADE' ? '💰 Торговый двор' : id === 'EXPED' ? '🕳️ Врата глубин' : WORLD === 2 && id === 'LIB' ? '📚 Чертог летописей' : WORLD === 2 && id === 'DORM' ? '🛏️ Кельи' : WORLD === 2 && id === 'DORM2' ? '🛏️ Вторые кельи' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? (WORLD === 2 ? '👑 Трон старейшины' : '👑 Кабинет директора') : id === 'SHOP' ? (WORLD === 2 ? '💎 Самоцветная лавка' : '🛍️ Лавка') : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? (WORLD === 2 ? '🍖 Пиршественный зал' : '🍽️ Столовая') : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const midBack = WORLD === 1 && ['DORM', 'DORM2', 'DIR', 'SHOP'].includes(id);   // build 258: front-row rooms put their sign over the middle of their tall back wall (on the corner it hung over the gallery)
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : midBack ? up(P((s.x0 + s.x1) / 2, s.y0), WALLH * 0.72 + 12) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   const fs = 12, hgt = 22, bg = ci >= 0 ? CLASSES[ci].wall : SIGN_BG[id] || '#ffffff';
@@ -4135,11 +4143,11 @@ function cantPanel() {
 }
 function shopPanel() {
   const u = shopUp();
-  if (!u.built) return `<div class="sh-head"><span class="remoji big">🛍️</span><div><h2>Лавка</h2><div class="muted">Сладости и мелочи для учеников</div></div><button class="x" data-close>✕</button></div>
+  if (!u.built) return `<div class="sh-head"><span class="remoji big">🛍️</span><div><h2>${WORLD === 2 ? 'Самоцветная лавка' : 'Лавка'}</h2><div class="muted">Сладости и мелочи для учеников</div></div><button class="x" data-close>✕</button></div>
     <p>Между уроками ученики будут заходить в лавку за вкусняшками: школа получает монеты, а у ученика поднимается настроение.</p>
     <button class="btn wide" data-cost="${SHOP_COST}" data-act="shopbuild">Построить <span class="cost">🪙${fmt(SHOP_COST)}</span></button>`;
   const row = (k, emo, name, lvl, desc) => `<div class="card up"><span class="remoji">${emo}</span><div class="grow"><b>${name}</b> <span class="muted">ур. ${lvl}/${SHOP_MAX}</span><div class="muted">${desc}</div></div>${lvl >= SHOP_MAX ? '<span class="done">макс.</span>' : costBtn('↑', shopCost(k), 'shopup', `data-k="${k}"`)}</div>`;
-  return `<div class="sh-head"><span class="remoji big">🛍️</span><div><h2>Лавка</h2><div class="muted">Продано: ${fmt(S.stats.shop || 0)}</div></div><button class="x" data-close>✕</button></div>
+  return `<div class="sh-head"><span class="remoji big">🛍️</span><div><h2>${WORLD === 2 ? 'Самоцветная лавка' : 'Лавка'}</h2><div class="muted">Продано: ${fmt(S.stats.shop || 0)}</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🪙</span><b>${fmt(shopPrice())}</b><i>за покупку</i></div><div><span>🚶</span><b>${Math.round(shopChance() * 100)}%</b><i>заходят</i></div><div><span>⏱️</span><b>${sec(shopTime())}</b><i>обслуживание</i></div></div>
     ${row('seller', '🧑‍🍳', 'Продавец', u.seller, 'обслуживает быстрее')}
     ${row('shelves', '🧺', 'Витрины', u.shelves, 'больше учеников заходят (+3%)')}
@@ -4845,7 +4853,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'store') { if (W2().store < MAX_STORE && spend(storeCost())) { W2().store++; toast('📦 Склад руды больше!'); } }
   else if (d.act === 'exlvl') { if (exLvl(i) < MAX_EX_LVL && spend(exCost(i))) st.ex = exLvl(i) + 1; }
   else if (d.act === 'xpllvl') { if (xplLvl(i) < MAX_XPL_LVL && spend(xplCost(i))) st.xpl = xplLvl(i) + 1; }
-  else if (d.act === 'shopbuild') { if (!shopOpen() && spend(SHOP_COST)) { shopUp().built = true; staticKey = ''; toast('🛍️ Лавка открыта!'); panel = shopPanel; } }
+  else if (d.act === 'shopbuild') { if (!shopOpen() && spend(SHOP_COST)) { shopUp().built = true; staticKey = ''; toast(WORLD === 2 ? '💎 Самоцветная лавка открыта!' : '🛍️ Лавка открыта!'); panel = shopPanel; } }
   else if (d.act === 'towerbuild') { if (!towerOpen() && isOpen(NCLS - 1) && spend(towerCost())) { towerUp().built = true; staticKey = ''; toast('🏰 Башня мастеров построена!'); panel = towerPanel; } }
   else if (d.act === 'towerprep') { if (retakeLvl() < RETAKE_MAX && spend(retakeCost())) { towerUp().prep = retakeLvl() + 1; towerUp().rt = Math.min(towerUp().rt ?? 1e9, retakeInterval()); } }
   else if (d.act === 'towercap') { if (towerUp().cap < TOWER_MAXUP && spend(towerCapCost())) { towerUp().cap++; towerPull(); } }
