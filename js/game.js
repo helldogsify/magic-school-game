@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=328';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=328';
-import { initMinigame } from './minigame.js?v=328';
-import { initChests } from './chests.js?v=328';
+} from './data.js?v=329';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=329';
+import { initMinigame } from './minigame.js?v=329';
+import { initChests } from './chests.js?v=329';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 328;   // keep equal to the ?v= number in index.html
+const BUILD = 329;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2732,6 +2732,47 @@ function drawOut(o) {
   if (!drawTreeGrounded(o, im, p, w, h)) ctx.drawImage(o.flip ? flipped(im) : im, p.x - w / 2, p.y + h * 0.05 - h, w, h);
   if (zoom >= 1.3 || o.n === 'fountain') outFx(o, p, h);   // the fountain's water shows at every zoom (it grows with its upgrades)   // zoomed out the life is too small to see: save the iPhone's work
 }
+// ======================= day and night (her pick from the location review, 2026-11-23) =======================
+// The sky follows the phone's clock: day 8-17:30, golden evening, blue night 22-5, pink dawn. Night = one multiply fill over the
+// world; lanterns, lamp columns, paper lanterns and the fountain then glow, fireflies drift over the court lawns.
+const DN_KEYS = [[0, [92, 104, 178]], [5, [92, 104, 178]], [6.5, [236, 190, 205]], [8, [255, 255, 255]], [17.5, [255, 255, 255]], [19, [255, 206, 160]], [20.5, [168, 140, 196]], [22, [92, 104, 178]], [24, [92, 104, 178]]];
+const DN_LIGHT = { lantern_gold: [0.42, '255,214,120', 1], lantern_blue: [0.42, '150,200,255', 1], gal_lamp: [0.72, '255,214,140', 0.7], cz_lanterns: [0.7, '255,170,190', 0.9], fountain: [0.45, '140,240,230', 1.4], glowmush: [0.5, '170,150,255', 0.7], crystals: [0.5, '200,170,255', 0.7] };
+function dayTint() {
+  const d = new Date(), h = window.__hour ?? d.getHours() + d.getMinutes() / 60;
+  for (let k = 1; k < DN_KEYS.length; k++) if (h <= DN_KEYS[k][0]) { const [h0, a] = DN_KEYS[k - 1], [h1, b] = DN_KEYS[k], u = (h - h0) / (h1 - h0 || 1); return a.map((v, i) => Math.round(v + (b[i] - v) * u)); }
+  return DN_KEYS[0][1];
+}
+const dnMask = document.createElement('canvas');   // the night tint with the lit rooms cut out
+function litRooms() {   // screen polygons (device px) of every built room: floor plus its back walls
+  const k = scale * dpr, ox = scroller.scrollLeft * dpr, oy = scroller.scrollTop * dpr, S2 = (m) => ({ x: m.x * k - ox, y: m.y * k - oy }), out = [];
+  for (const [id, s] of Object.entries(SLOTS)) {
+    const ci = CLASS_SLOT.indexOf(id);
+    if (id === 'GARDEN' || id === 'TRADE' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt()) || (id === 'SHOP' && !shopOpen())) continue;
+    const a = P(s.x0, s.y1), b = P(s.x0, s.y0), c = P(s.x1, s.y0), d = P(s.x1, s.y1);
+    if (!onScreen(b.x, b.y, 600, 600) && !onScreen(d.x, d.y, 600, 600)) continue;
+    out.push([up(a, WALLH), up(b, WALLH), up(c, WALLH), c, d, a].map(S2));
+  }
+  return out;
+}
+function drawDayNight() {
+  const t = dayTint(), dark = 1 - (t[0] + t[1] + t[2]) / 765; if (dark < 0.02) return;
+  const L = Math.min(1, dark * 2.2), lit = L >= 0.08 ? litRooms() : [];   // her «в комнатах конечно должен гореть свет тоже»: built rooms keep their light at night
+  const W0 = ctx.canvas.width, H0 = ctx.canvas.height, mc = dnMask, mx = mc.getContext('2d'); if (mc.width !== W0 || mc.height !== H0) { mc.width = W0; mc.height = H0; }
+  mx.globalCompositeOperation = 'copy'; mx.fillStyle = `rgb(${t[0]},${t[1]},${t[2]})`; mx.fillRect(0, 0, W0, H0);
+  if (lit.length) { mx.globalCompositeOperation = 'destination-out'; mx.beginPath(); for (const q of lit) { q.forEach((m, k) => (k ? mx.lineTo(m.x, m.y) : mx.moveTo(m.x, m.y))); mx.closePath(); } mx.fillStyle = '#000'; mx.fill(); }   // rooms cut out (overlaps stay cut)
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(mc, 0, 0);
+  if (lit.length) { ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = `rgba(255,${Math.round(196 - 20 * L)},120,${(0.10 * L).toFixed(3)})`; ctx.beginPath(); for (const q of lit) { q.forEach((m, k) => (k ? ctx.lineTo(m.x, m.y) : ctx.moveTo(m.x, m.y))); ctx.closePath(); } ctx.fill(); }   // a warm lamp-light tint
+  ctx.restore();
+  if (L < 0.08) return;   // lights only once it gets dark
+  const T = performance.now() / 1000;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const o of OUTDOOR) { const d = DN_LIGHT[o.n]; if (!d || o.px === undefined || o.px < VIEW.x0 - 80 || o.px > VIEW.x1 + 80 || o.py < VIEW.y0 - 40 || o.py > VIEW.y1 + 200) continue;
+    const h = (OUT_H[o.n] || 40) * (o.s || 1), y = o.py + h * 0.05 - h * d[0], r = h * 0.55 * d[2] * (0.92 + 0.08 * Math.sin(T * 2 + o.px)); ctx.globalAlpha = 0.75 * L; ctx.drawImage(glowSprite(d[1]), o.px - r, y - r, r * 2, r * 2);
+    if (o.n !== 'fountain' && o.n !== 'glowmush' && o.n !== 'crystals') { ctx.globalAlpha = 0.35 * L; ctx.drawImage(glowSprite(d[1]), o.px - r * 1.4, o.py - r * 0.5, r * 2.8, r); } }   // a pool of light on the ground
+  if (COURT) for (let k = 0; k < 18; k++) { const an = T * (0.15 + (k % 5) * 0.03) + k * 2.4, x = COURT.x0 + 2 + ((k * 7.3) % (COURT.x1 - COURT.x0 - 4)) + Math.cos(an) * 1.5, y = COURT.y0 + 2 + ((k * 5.1) % (COURT.y1 - COURT.y0 - 4)) + Math.sin(an * 1.3) * 1.2, m = P(x, y), tw = 0.5 + 0.5 * Math.sin(T * 3 + k * 1.9);   // fireflies
+    ctx.globalAlpha = L * (0.3 + 0.6 * tw); ctx.drawImage(glowSprite('230,255,150'), m.x - 6, m.y - 26 - 6, 12, 12); }
+  ctx.restore();
+}
 function drawGarland(o, im) {   // a garland swag hung between the tops of two columns: the picture's bow corners are pinned to the column tops
   const top = (c) => { const p = P(c.x, c.y), h = OUT_H[c.n] || 84; return { x: p.x, y: p.y + h * 0.05 - h * (c.n === 'gal_urn' ? 0.62 : 0.9) }; };
   let A = top(o.g[0]), B = top(o.g[1]); if (A.x > B.x) [A, B] = [B, A];
@@ -3938,6 +3979,7 @@ function render() {
   ctx.globalAlpha = 0.38;
   if (zoom >= 1.1) for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) (a._ghost = true, drawCreature(a, gx, gy, 30), a._ghost = false); }
   ctx.globalAlpha = 1;
+  if (WORLD === 1) drawDayNight();   // day and night (signs stay bright: drawn after)
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
   if (WORLD === 1 && COURT) {   // build 279: the fountain has a sign too: it opens the court's upgrades
