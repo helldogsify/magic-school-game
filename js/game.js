@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=308';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=308';
-import { initMinigame } from './minigame.js?v=308';
-import { initChests } from './chests.js?v=308';
+} from './data.js?v=309';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=309';
+import { initMinigame } from './minigame.js?v=309';
+import { initChests } from './chests.js?v=309';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 308;   // keep equal to the ?v= number in index.html
+const BUILD = 309;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5313,16 +5313,24 @@ window.__catch = () => ({ left: catchLeft, all: catchAll, gain: catchGain });   
 // the time the game was closed is lived through at full speed (the world is not drawn meanwhile) and the pictures of the map,
 // the staff and the creatures come in (court poses, outfits and teacher poses keep loading afterwards); the map is baked under
 // the curtain, then it fades out and the school is there whole, without pictures popping in.
-var bootOn = !!document.getElementById('boot'), bootT0 = 0, bootImgs = null, bootDrawn = 0;
+var bootOn = !!document.getElementById('boot'), bootT0 = 0, bootImgs = null, bootDrawn = 0, bootShown = 0.04, bootG0 = -1, bootAway = false;
 const BOOT_MAX_MS = 9000;   // a slow network never holds the player longer: the rest of the pictures pop in as before
 function bootFrame(now) {
   const dt = Math.max(0, Math.min(1, (now - last) / 1000)); last = now; if (!bootT0) bootT0 = now;
   if (!bootImgs) bootImgs = [...Object.values(parts), ...Object.values(arts), ...Object.entries(sprites).filter(([k]) => k.startsWith('staff_') || SPECIES.includes(k.replace(/_back$/, ''))).map(([, im]) => im)].filter((im) => im && im.src);
+  if (bootG0 < 0) bootG0 = S.stats.graduated;   // graduates before the catch-up (counters below)
   if (catchLeft > 0) catchUpSlice(dt, 220);
   const imgP = bootImgs.length ? bootImgs.filter((im) => im.complete).length / bootImgs.length : 1, cuP = catchAll ? 1 - catchLeft / catchAll : 1;
-  const bar = document.getElementById('boot-bar'); if (bar) bar.style.width = Math.round(100 * (0.08 + 0.92 * (catchAll ? (cuP + imgP) / 2 : imgP))) + '%';
+  // the bar never stalls: it follows the real progress and creeps on by itself meanwhile (never past 95% before the end); transform = smooth while busy
+  const real = 0.04 + 0.96 * (catchAll ? (cuP + imgP) / 2 : imgP); bootShown = Math.min(Math.max(real, bootShown + 0.006 * Math.min(4, dt * 60)), catchLeft > 0 || imgP < 1 ? 0.95 : 1);
+  const bar = document.getElementById('boot-bar'); if (bar) bar.style.transform = `scaleX(${bootShown.toFixed(3)})`;
+  if (catchAll >= 60) {   // «while you were away»: live counters of what the school did meanwhile
+    if (!bootAway) { bootAway = true; const m = Math.round(catchAway / 60), box = document.getElementById('boot-away'); if (box) box.style.display = ''; const t = document.getElementById('boot-time'); if (t) t.textContent = m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`; }
+    const c = document.getElementById('boot-coins'), gr = document.getElementById('boot-grads');
+    if (c) c.textContent = fmt(Math.max(0, catchGain)); if (gr) gr.textContent = fmt(S.stats.graduated - bootG0);
+  }
   if (catchLeft > 0 || (imgP < 1 && now - bootT0 < BOOT_MAX_MS)) return true;
-  if (bootDrawn < 2) { render(); bootDrawn++; return true; }   // the map is baked under the curtain
+  if (bootDrawn < 2) { render(); bootDrawn++; if (bar) bar.style.transform = 'scaleX(1)'; return true; }   // the map is baked under the curtain
   bootOn = false; window.__ready = performance.now();
   const el = document.getElementById('boot'); if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; setTimeout(() => el.remove(), 450); }
   return false;

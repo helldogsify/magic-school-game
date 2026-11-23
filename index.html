@@ -12,17 +12,42 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png?v=2">
 <link rel="icon" href="icons/icon-192.png?v=2">
-<link rel="stylesheet" href="style.css?v=308">
+<link rel="stylesheet" href="style.css?v=309">
 <script>/* iOS home-screen app: innerHeight / 100% / 100dvh are short by the status bar, a strip stayed at the bottom (her screenshots, builds 200-203); use the real screen height */
 (function(){function fit(){if(!(navigator.standalone||matchMedia('(display-mode: standalone)').matches))return;var h=Math.max(window.innerHeight,(Math.abs(window.orientation||0)===90?screen.width:screen.height));var r=document.documentElement;r.style.height=h+'px';if(document.body){document.body.style.height=h+'px';document.body.style.bottom='auto';}}fit();addEventListener('DOMContentLoaded',fit);addEventListener('resize',fit);addEventListener('orientationchange',function(){setTimeout(fit,300);});})();</script>
 </head>
 <body>
-<div id="boot" style="position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:linear-gradient(165deg,#6a4cc8 0%,#9b74e0 50%,#f2c3e6 100%);color:#fff;font:700 20px ui-rounded,system-ui,-apple-system,sans-serif;text-shadow:0 2px 6px #3a2f4a55;transition:opacity .4s">
-  <div style="position:relative;width:120px;height:120px"><img src="icons/icon-192.png?v=2" alt="" style="width:120px;height:120px;border-radius:30px;box-shadow:0 8px 24px #3a2f4a66;animation:bootfly 1.8s ease-in-out infinite"><span style="position:absolute;right:-18px;top:-10px;font-size:28px;animation:bootspark 1.2s ease-in-out infinite">✨</span></div>
-  <div>Летим в школу…</div>
-  <div style="width:210px;height:10px;border-radius:6px;background:#ffffff55;overflow:hidden"><div id="boot-bar" style="height:100%;width:6%;background:#fff;border-radius:6px;transition:width .3s"></div></div>
+<div id="boot" style="position:fixed;inset:0;z-index:50;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:linear-gradient(170deg,#5b3fbf 0%,#8f69dc 45%,#e9b9e4 100%);color:#fff;font:700 20px ui-rounded,system-ui,-apple-system,sans-serif;text-shadow:0 2px 6px #3a2f4a55;transition:opacity .45s">
+  <i class="bt-star" style="left:12%;top:14%"></i><i class="bt-star" style="left:78%;top:10%;animation-delay:.7s"></i><i class="bt-star" style="left:63%;top:27%;animation-delay:1.3s"></i><i class="bt-star" style="left:24%;top:33%;animation-delay:.4s"></i><i class="bt-star" style="left:88%;top:41%;animation-delay:1.8s"></i><i class="bt-star" style="left:7%;top:58%;animation-delay:1s"></i>
+  <img class="bt-sky" src="assets/parts/flight/cloud_white.webp?v=2202" alt="" style="top:9%;width:150px;animation-duration:19s;opacity:.55">
+  <img class="bt-sky" src="assets/parts/flight/cloud_lilac.webp?v=2202" alt="" style="top:70%;width:190px;animation-duration:24s;animation-delay:-9s;opacity:.5">
+  <img class="bt-sky" src="assets/parts/flight/cloud_white.webp?v=2202" alt="" style="top:84%;width:120px;animation-duration:15s;animation-delay:-4s;opacity:.4">
+  <div style="position:relative;z-index:1;width:210px;height:200px;animation:btbob 2.6s ease-in-out infinite">
+    <img src="assets/creatures/mothfox.png" alt="" style="position:absolute;left:46px;top:0;width:118px;animation:btsway 2.6s ease-in-out infinite">
+    <img src="assets/parts/flight/cloud_pink.webp?v=2202" alt="" style="position:absolute;left:0;top:78px;width:210px;filter:drop-shadow(0 10px 14px #3a2f4a40)">
+  </div>
+  <div style="position:relative;z-index:1">Летим в школу…</div>
+  <div style="position:relative;z-index:1;width:220px;height:10px;border-radius:6px;background:#ffffff55;overflow:hidden"><div id="boot-bar" style="height:100%;width:100%;background:#fff;border-radius:6px;transform-origin:0 50%;transform:scaleX(.04);transition:transform .7s linear"></div></div>
+  <div id="boot-away" style="position:relative;z-index:1;display:none;font-size:15px;text-align:center;line-height:1.5;background:#ffffff26;border-radius:14px;padding:8px 14px">
+    <div style="font-weight:600">Пока тебя не было <span id="boot-time"></span></div>
+    <div>🪙 +<span id="boot-coins">0</span> &nbsp; 🎓 +<span id="boot-grads">0</span></div>
+  </div>
+  <div id="boot-tip" style="position:absolute;z-index:2;left:24px;right:24px;bottom:calc(env(safe-area-inset-bottom) + 34px);font:600 15px ui-rounded,system-ui,-apple-system,sans-serif;line-height:1.4;text-align:center;color:#4a2f7a;text-shadow:none;background:#ffffffd9;border-radius:16px;padding:10px 14px;box-shadow:0 4px 14px #3a2f4a33;transition:opacity .4s"></div>
 </div>
-<style>@keyframes bootfly{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-16px) rotate(5deg)}}@keyframes bootspark{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}</style>
+<style>
+#boot .bt-star{position:absolute;width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 8px 3px #fff8;animation:bttw 2.2s ease-in-out infinite}
+#boot .bt-sky{position:absolute;z-index:0;left:0;animation:btdrift linear infinite;pointer-events:none}
+@keyframes btbob{0%,100%{transform:translateY(10px)}50%{transform:translateY(-14px)}}
+@keyframes btsway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+@keyframes bttw{0%,100%{opacity:.2;transform:scale(.6)}50%{opacity:1;transform:scale(1.2)}}
+@keyframes btdrift{from{transform:translateX(-240px)}to{transform:translateX(110vw)}}
+</style>
+<script>/* loading screen tips (her pick 2026-11-23): one every 4 s, per world */
+(function(){var w=1;try{w=(JSON.parse(localStorage.getItem('magicschool.meta')||'{}').current)||1;}catch(e){}
+var T=w===2?['Руда из шахты идёт в кузню, а из кузни — в торговый двор','Караваны сами увозят товары и камни на продажу, когда повозка полна','Склад руды можно расширить — тогда шахта не простаивает','Пока тебя нет, школа живёт сама: ученики учатся и выпускаются (до 2 часов)','Твоя школа сама сохраняется в облако — код в ⚙️']
+:['Случилось происшествие? Нажми на класс — урок сразу продолжится','Уставшие ученики спят в спальне и потом учатся на 25% быстрее. Больше кроватей — больше отдыха','Выспавшиеся перед Финальным экзаменом получают +10% к шансу сдать','Фонтан во дворе поднимает настроение учеников','Счастливая монетка у фонтана иногда приносит удачу на экзамене','Каждый выпускник оставляет отзыв — из отзывов складывается рейтинг школы','Собирай карточки учеников в альбоме 🎓 — каждый уровень карточки даёт +5%','В «Зельеварке» каждую неделю свой рейтинг — загляни в 🏆','В альянсе можно дарить друзьям подарки и вдохновение','Кабинет директора уменьшает, сколько денег забирают ушедшие ученики','Мастера стихий живут в Башне мастеров','Пока тебя нет, школа живёт сама: ученики учатся и выпускаются (до 2 часов)','Твоя школа сама сохраняется в облако — код в ⚙️'];
+var el=document.getElementById('boot-tip'),i=Math.floor(Math.random()*T.length);function show(){el.textContent='💡 '+T[i%T.length];i++;}show();
+var t=setInterval(function(){if(!document.getElementById('boot')){clearInterval(t);return;}el.style.opacity='0';setTimeout(function(){show();el.style.opacity='1';},400);},4000);})();</script>
 <div id="app">
   <header id="top">
     <div class="res" id="res-coins"><span class="ico">🪙</span><b id="coins">0</b></div>
@@ -47,6 +72,6 @@ setTimeout(function(){ if (window.__booted) return; var d=document.createElement
   d.querySelector('button').onclick=function(){ location.reload(); }; document.body.appendChild(d); }, 12000);
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h){this.rect(x,y,w,h);};}
 </script>
-<script type="module" src="js/game.js?v=308"></script>
+<script type="module" src="js/game.js?v=309"></script>
 </body>
 </html>
