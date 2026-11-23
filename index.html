@@ -12,11 +12,17 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png?v=2">
 <link rel="icon" href="icons/icon-192.png?v=2">
-<link rel="stylesheet" href="style.css?v=304">
+<link rel="stylesheet" href="style.css?v=305">
 <script>/* iOS home-screen app: innerHeight / 100% / 100dvh are short by the status bar, a strip stayed at the bottom (her screenshots, builds 200-203); use the real screen height */
 (function(){function fit(){if(!(navigator.standalone||matchMedia('(display-mode: standalone)').matches))return;var h=Math.max(window.innerHeight,(Math.abs(window.orientation||0)===90?screen.width:screen.height));var r=document.documentElement;r.style.height=h+'px';if(document.body){document.body.style.height=h+'px';document.body.style.bottom='auto';}}fit();addEventListener('DOMContentLoaded',fit);addEventListener('resize',fit);addEventListener('orientationchange',function(){setTimeout(fit,300);});})();</script>
 </head>
 <body>
+<div id="boot" style="position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:linear-gradient(165deg,#6a4cc8 0%,#9b74e0 50%,#f2c3e6 100%);color:#fff;font:700 20px ui-rounded,system-ui,-apple-system,sans-serif;text-shadow:0 2px 6px #3a2f4a55;transition:opacity .4s">
+  <div style="position:relative;width:120px;height:120px"><img src="icons/icon-192.png?v=2" alt="" style="width:120px;height:120px;border-radius:30px;box-shadow:0 8px 24px #3a2f4a66;animation:bootfly 1.8s ease-in-out infinite"><span style="position:absolute;right:-18px;top:-10px;font-size:28px;animation:bootspark 1.2s ease-in-out infinite">✨</span></div>
+  <div>Летим в школу…</div>
+  <div style="width:210px;height:10px;border-radius:6px;background:#ffffff55;overflow:hidden"><div id="boot-bar" style="height:100%;width:6%;background:#fff;border-radius:6px;transition:width .3s"></div></div>
+</div>
+<style>@keyframes bootfly{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-16px) rotate(5deg)}}@keyframes bootspark{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}</style>
 <div id="app">
   <header id="top">
     <div class="res" id="res-coins"><span class="ico">🪙</span><b id="coins">0</b></div>
@@ -41,6 +47,6 @@ setTimeout(function(){ if (window.__booted) return; var d=document.createElement
   d.querySelector('button').onclick=function(){ location.reload(); }; document.body.appendChild(d); }, 12000);
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h){this.rect(x,y,w,h);};}
 </script>
-<script type="module" src="js/game.js?v=304"></script>
+<script type="module" src="js/game.js?v=305"></script>
 </body>
 </html>

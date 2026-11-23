@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=304';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=304';
-import { initMinigame } from './minigame.js?v=304';
+} from './data.js?v=305';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=305';
+import { initMinigame } from './minigame.js?v=305';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 304;   // keep equal to the ?v= number in index.html
+const BUILD = 305;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -40,7 +40,7 @@ function load() {
 let noSave = false;
 function save() {
   if (noSave || !S) return;
-  S.last = Date.now();
+  S.last = Date.now() - Math.round((catchLeft || 0) * 1000);   // a catch-up still running: its rest is lived through at the next start
   S.world = {   // creatures and their progress, so the school keeps living across reloads
     arrivalT, procT,
     queue: queue.map((a) => a.id),
@@ -662,23 +662,35 @@ function canStep(ax, ay, bx, by) {
 }
 // Path search (build 236, her «Загрузилась через секунд 10»: the offline catch-up spent ~7 s of 11 here): a typed-array BFS
 // with an index queue instead of Map + Array.shift, and finished tile paths are cached until the map changes.
-var bfsCache = new Map(), bfsVer = 0, bfsKeyVer = "";   // var: buildGrid() runs at load before this line
+var bfsCache = new Map(), bfsVer = 0, bfsKeyVer = "", bfsAdj = null, bfsPrev = null, bfsSeen = null, bfsQx = null, bfsQy = null, bfsGen = 0;   // var: buildGrid() runs at load before this line
+// canStep() of every tile towards its 4 neighbours, built once per map (boot speed 2026-11-23: canStep inside the BFS was ~a third
+// of the offline catch-up). canStep only changes with the map and the second dorm: the same key as bfsCache.
+function bfsAdjOf(W, H, id) {
+  const t = new Uint8Array(W * H);
+  for (let x = -1; x <= GW; x++) for (let y = -YOFF - 1; y <= GH + 2; y++) {
+    const c = id(x, y);
+    for (let d = 0; d < 4; d++) { const nx = x + (d === 0 ? 1 : d === 1 ? -1 : 0), ny = y + (d === 2 ? 1 : d === 3 ? -1 : 0); if (nx < -1 || ny < -YOFF - 1 || nx > GW || ny > GH + 2) continue; if (canStep(x, y, nx, ny)) t[c] |= 1 << d; }
+  }
+  return t;
+}
 function bfs(sx, sy, tx, ty) {
   sx = Math.floor(sx); sy = Math.floor(sy); tx = Math.floor(tx); ty = Math.floor(ty);
-  const ver = bfsVer + ':' + (dorm2Built() ? 1 : 0); if (ver !== bfsKeyVer) { bfsCache.clear(); bfsKeyVer = ver; }
+  const ver = bfsVer + ':' + (dorm2Built() ? 1 : 0); if (ver !== bfsKeyVer) { bfsCache.clear(); bfsKeyVer = ver; bfsAdj = null; }
   const ck = ((sx + 64) * 512 + (sy + 64)) * 262144 + (tx + 64) * 512 + (ty + 64);
   const hit = bfsCache.get(ck); if (hit) return hit.map((q) => ({ x: q.x, y: q.y }));
   const W = GW + 2, H = GH + YOFF + 4, id = (x, y) => (x + 1) * H + (y + YOFF + 1);
   if (sx < -1 || sy < -YOFF - 1 || sx > GW || sy > GH + 2 || tx < -1 || ty < -YOFF - 1 || tx > GW || ty > GH + 2) return [];
-  const prev = new Int32Array(W * H).fill(-1), qx = new Int16Array(W * H), qy = new Int16Array(W * H); let qh = 0, qt = 0;
-  const s0 = id(sx, sy); prev[s0] = s0; qx[qt] = sx; qy[qt++] = sy; let found = sx === tx && sy === ty;
+  if (!bfsAdj || bfsAdj.length !== W * H) bfsAdj = bfsAdjOf(W, H, id);
+  if (!bfsPrev || bfsPrev.length !== W * H) { bfsPrev = new Int32Array(W * H); bfsSeen = new Uint32Array(W * H); bfsQx = new Int16Array(W * H); bfsQy = new Int16Array(W * H); bfsGen = 0; }
+  const prev = bfsPrev, seen = bfsSeen, qx = bfsQx, qy = bfsQy, gen = ++bfsGen; let qh = 0, qt = 0;   // reused buffers: a tile is visited when seen[] holds this search's number
+  const s0 = id(sx, sy); prev[s0] = s0; seen[s0] = gen; qx[qt] = sx; qy[qt++] = sy; let found = sx === tx && sy === ty;
   while (qh < qt && !found) {
     const x = qx[qh], y = qy[qh++], cur = id(x, y);
     for (let d = 0; d < 4; d++) {
       const nx = x + (d === 0 ? 1 : d === 1 ? -1 : 0), ny = y + (d === 2 ? 1 : d === 3 ? -1 : 0);
-      if (nx < -1 || ny < -YOFF - 1 || nx > GW || ny > GH + 2) continue;
-      const k = id(nx, ny); if (prev[k] !== -1 || !canStep(x, y, nx, ny)) continue;
-      prev[k] = cur; qx[qt] = nx; qy[qt++] = ny; if (nx === tx && ny === ty) { found = true; break; }
+      if (!((bfsAdj[cur] >> d) & 1)) continue;   // canStep() from the table (never true outside the grid)
+      const k = id(nx, ny); if (seen[k] === gen) continue;
+      seen[k] = gen; prev[k] = cur; qx[qt] = nx; qy[qt++] = ny; if (nx === tx && ny === ty) { found = true; break; }
     }
   }
   if (!found) return [];
@@ -5081,8 +5093,9 @@ function restoreBackup() {
 let earnedThisSec = 0, secT = 0, saveT = 0, last = performance.now(), panelT = 0;
 let renderMs = 0;   // average time of one render (test hook __test.renderMs)
 function frame(now) {
+  if (bootOn && bootFrame(now)) { requestAnimationFrame(frame); return; }   // loading screen (bootFrame)
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
-  stepWorld(dt, true);
+  if (catchLeft > 0) catchUpSlice(dt); else stepWorld(dt, true);   // the time the game was closed is lived through first, a slice per frame
   stepIntros(dt);   // feature intros (2026-11-23)
   secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; S.paceEma = (S.paceEma ?? S.ema) * 0.997 + S.ema * 0.003; earnedThisSec = 0; S.outEma = (S.outEma || 0) * 0.97 + (outThisSec / secT) * 0.03; outThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); allyTick(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
@@ -5173,6 +5186,56 @@ function fastForward(sec) {   // live through the time the game was closed or in
   popups.length = 0; earnedThisSec = 0;
   $('#fx').innerHTML = '';
   return S.coins - before;
+}
+// Catch-up in slices (boot speed 2026-11-23, her «Оптимизируй игру, долго при запуске прогружается мир»): the same steps as
+// fastForward(), but in slices: at the start under the loading screen (bootFrame), after a return from the background a few
+// dozen ms per frame with the world on screen. Before, the whole catch-up ran before the first frame (her save, 2 h away:
+// 7-8.7 s of a blank screen at 4x CPU throttling). Same step size as before: a coarser step changes the economy (2 h on her
+// save: 420M coins at 0.5 s, 308M at 1 s, 167M at 2 s). Real time that passes meanwhile is added to the rest.
+var catchLeft = 0, catchDt = 0.25, catchAll = 0, catchAway = 0, catchGain = 0, catchBox = null;
+const catchMs = () => Math.max(45, Math.min(250, 3 * renderMs));   // simulation time per frame: ~3/4 of the main thread, the picture still moves
+function catchUp(sec) {
+  sec = Math.min(OFFLINE_CAP_SEC, sec); if (sec < 1) return;
+  if (catchLeft <= 0) { catchAll = 0; catchAway = 0; catchGain = 0; }
+  catchLeft = Math.min(OFFLINE_CAP_SEC, catchLeft + sec); catchAway += sec; catchAll = Math.max(catchAll, catchLeft);
+  catchDt = catchLeft > 600 ? 0.5 : 0.25;
+}
+function catchUpSlice(dt, budget = catchMs()) {
+  catchLeft += dt;   // the clock keeps going while we catch up
+  const keep = popups.splice(0), fx = $('#fx'), fxN = fx.childElementCount, e0 = earnedThisSec, c0 = S.coins, t0 = performance.now();
+  ffwd = true;
+  try { while (catchLeft > 0 && performance.now() - t0 < budget) { stepWorld(catchDt); catchLeft -= catchDt; } } finally { ffwd = false; }
+  popups.length = 0; popups.push(...keep); earnedThisSec = e0; catchGain += S.coins - c0;   // as fastForward(): no flying coins or toasts from the past
+  while (fx.childElementCount > fxN) fx.lastElementChild.remove();
+  if (catchLeft > 0) {
+    if (!catchBox && catchAll > 20 && !bootOn) { catchBox = document.createElement('div'); catchBox.className = 'catchup'; catchBox.style.cssText = 'position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:4;background:#fffaffee;color:#5a3fb0;font:700 13px ui-rounded,system-ui,sans-serif;padding:6px 12px;border-radius:14px;box-shadow:0 2px 8px #3a2f4a33;pointer-events:none;white-space:nowrap'; $('#stage').appendChild(catchBox); }
+    const t = `⏳ Школа догоняет время: ${Math.min(99, Math.round(100 * (1 - catchLeft / catchAll)))}%`;
+    if (catchBox && catchBox.dataset.t !== t) { catchBox.dataset.t = t; catchBox.textContent = t; }
+    return;
+  }
+  catchLeft = 0; if (catchBox) { catchBox.remove(); catchBox = null; }
+  updateHud(); dirtyPanel = true;
+  if (panel || tourStep >= 0) { if (catchAway >= 60 && catchGain >= 1) toast(`🪙 +${fmt(catchGain)}: школа жила, пока тебя не было`); } else welcomeBack(catchAway, catchGain);   // never over an open panel or the tour
+  save();
+}
+window.__catch = () => ({ left: catchLeft, all: catchAll, gain: catchGain });   // test hook
+// Loading screen (her idea 2026-11-23: «экран загрузки что-то типа «летим в школу»»): index.html shows #boot at once; under it
+// the time the game was closed is lived through at full speed (the world is not drawn meanwhile) and the pictures of the map,
+// the staff and the creatures come in (court poses, outfits and teacher poses keep loading afterwards); the map is baked under
+// the curtain, then it fades out and the school is there whole, without pictures popping in.
+var bootOn = !!document.getElementById('boot'), bootT0 = 0, bootImgs = null, bootDrawn = 0;
+const BOOT_MAX_MS = 9000;   // a slow network never holds the player longer: the rest of the pictures pop in as before
+function bootFrame(now) {
+  const dt = Math.max(0, Math.min(1, (now - last) / 1000)); last = now; if (!bootT0) bootT0 = now;
+  if (!bootImgs) bootImgs = [...Object.values(parts), ...Object.values(arts), ...Object.entries(sprites).filter(([k]) => k.startsWith('staff_') || SPECIES.includes(k.replace(/_back$/, ''))).map(([, im]) => im)].filter((im) => im && im.src);
+  if (catchLeft > 0) catchUpSlice(dt, 220);
+  const imgP = bootImgs.length ? bootImgs.filter((im) => im.complete).length / bootImgs.length : 1, cuP = catchAll ? 1 - catchLeft / catchAll : 1;
+  const bar = document.getElementById('boot-bar'); if (bar) bar.style.width = Math.round(100 * (0.08 + 0.92 * (catchAll ? (cuP + imgP) / 2 : imgP))) + '%';
+  if (catchLeft > 0 || (imgP < 1 && now - bootT0 < BOOT_MAX_MS)) return true;
+  if (bootDrawn < 2) { render(); bootDrawn++; return true; }   // the map is baked under the curtain
+  bootOn = false; window.__ready = performance.now();
+  const el = document.getElementById('boot'); if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; setTimeout(() => el.remove(), 450); }
+  return false;
 }
 function welcomeBack(sec, gain) {
   if (sec < 60 || gain < 1) return;
@@ -5269,7 +5332,7 @@ let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); if (S) save(); cloudPush(true); return; }
   const away = hiddenAt ? (Date.now() - hiddenAt) / 1000 : 0; hiddenAt = 0;
-  const gain = fastForward(away); welcomeBack(away, gain); last = performance.now(); save();
+  catchUp(away); last = performance.now(); save();
   cloudPull();   // maybe it was played on another device meanwhile
 });
 window.addEventListener('pagehide', () => { if (S) save(); });
@@ -5332,7 +5395,7 @@ window.__sim = {
 window.__test = { P, SLOTS, focusTile, edges: (x0, y0, x1, y1) => EDGES.filter((e) => e.x >= x0 && e.x <= x1 && e.y >= y0 && e.y <= y1).map((e) => `${e.x},${e.y},${e.side},${e.id},${e.tall ? 'T' : 'k'}${e.hallWall ? 'H' : ''}`), vanishDemo: (t) => { const g = SLOTS.GARDEN, src = agents.find((a) => SPECIES.includes(a.sp)); if (!src) return 0; agents.push({ ...src, id: S.nextId++, x: g.x0 + (WORLD === 1 ? 3 : 4.85), y: g.y0 + (WORLD === 1 ? 3 : 1.35), path: [], state: 'vanish', t: t || 0, goal: { t: 'g' }, c: -1, desk: -1 }); return 1; }, reg: (x, y) => regAt(x, y), world: () => ({ WW, WH, GW, GH, MARGIN, SW, SH, HW, HH, GATE: GATE_TILE, GATE_Y, BUILDING }), get renderMs() { return renderMs; }, get staticN() { return staticN; }, get roomBuilds() { return roomBuilds; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outShN: () => Object.keys(outSh).length + '/' + Object.keys(outLo).length, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P((SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
-{ const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
+{ const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); catchUp(away); }   // lived through under the loading screen (bootFrame)
 updateHud();
 if (!S.tourDone && WORLD <= 2) setTimeout(() => { closePanel(); showTour(0); }, 600);   // world 2 has its own tour since 2026-11-23
 requestAnimationFrame(frame);
