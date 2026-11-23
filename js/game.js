@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=278';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=278';
-import { initMinigame } from './minigame.js?v=278';
+} from './data.js?v=279';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=279';
+import { initMinigame } from './minigame.js?v=279';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -14,7 +14,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 278;   // keep equal to the ?v= number in index.html
+const BUILD = 279;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1987,11 +1987,14 @@ function tikhonPos() {   // by the window side of the desk; a pose at least 3 s 
   const pose = advHot() ? (Math.floor(now / 3) % 2 ? 'read' : 'explain') : ['staff', 'read', 'staff', 'explain', 'lantern'][Math.floor(now / 4) % 5];
   return { x: s.x0 + 1.25, y: s.y0 + 3.7, pose };   // left of the desk, by the bookcase: never over the director's walk to the window
 }
+let tikhonRect = null;   // build 278 (tester's report «Тихон когда ходит по школе он не кликабельный ... иконка с бумагой ... должна открывать меню Тихона»): his body and scroll badge are tappable, wherever he walks
 function drawTikhonBadge(p) {   // a scroll over his head while he has something important to report
-  if (!advHot()) return;
-  const c = P(p.x, p.y), T = performance.now(), k = 1 + 0.1 * Math.sin(T / 220), y = c.y - 82 - 5 * Math.sin(T / 320);
-  ctx.fillStyle = '#fff3c4'; ctx.beginPath(); ctx.arc(c.x, y, 17 * k, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#e0a100'; ctx.lineWidth = 2.5; ctx.stroke();
-  emoji('📜', c.x, y, 22 * k);
+  const c = P(p.x, p.y), T = performance.now(), hot = advHot();
+  tikhonRect = { x0: c.x - 30, y0: c.y - (hot ? 118 : 70), x1: c.x + 30, y1: c.y + 6, t: T };
+  if (!hot) return;
+  const k = 1 + 0.1 * Math.sin(T / 220), y = c.y - 88 - 5 * Math.sin(T / 320);
+  ctx.fillStyle = '#fff3c4'; ctx.beginPath(); ctx.arc(c.x, y, 23 * k, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#e0a100'; ctx.lineWidth = 3; ctx.stroke();
+  emoji('📜', c.x, y, 30 * k);
 }
 let advTargets = [];
 function advisorBlock() {   // top of the director's panel
@@ -4057,6 +4060,7 @@ scroller.addEventListener('click', (e) => {
   const r = scroller.getBoundingClientRect();
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
+  const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { openRoom('DIR'); return; }   // Tikhon (or his scroll) opens his report, wherever he walks
   const sign = signRects.find((r) => wx >= r.x0 - 6 && wx <= r.x1 + 6 && wy >= r.y0 - 6 && wy <= r.y1 + 6);   // a sign always opens its room
   if (sign) { openRoom(sign.id); return; }
   // a tap inside a room (floor, or walls/sprites just above it) always opens the room
