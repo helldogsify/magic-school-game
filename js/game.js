@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=326';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=326';
-import { initMinigame } from './minigame.js?v=326';
-import { initChests } from './chests.js?v=326';
+} from './data.js?v=327';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=327';
+import { initMinigame } from './minigame.js?v=327';
+import { initChests } from './chests.js?v=327';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 326;   // keep equal to the ?v= number in index.html
+const BUILD = 327;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3919,7 +3919,7 @@ function render() {
       }
     });
     if (a.state === 'vanish') { add(ax, ay, () => drawVanish(a, ax, ay), 0.3); continue; }
-    if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else if (a.state === 'court' && a.spot && (a.act === 'read' || (a.spot.seat && a.act === 'tea'))) add(ax + 0.6, ay + 0.6, draw);   // build 325: every reader, also the two under the tree right behind the cushions (her «все еще сидят под текстурой подушек»: those were covered) else add(ax, ay, draw);   // her «Ученики должны быть выше подушек»: sitters on a cushion / the picnic blanket are drawn over it
+    if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else if (a.state === 'court' && a.spot && (a.act === 'read' || (a.spot.seat && a.act === 'tea'))) add(ax + 0.6, ay + 0.6, draw); else add(ax, ay, draw);   // build 327: every court reader is drawn over the cushions (her «все еще сидят под текстурой подушек»); build 325 put this comment before «else add» and hid every other student (her «Все ученики стали прозрачными!»)   // her «Ученики должны быть выше подушек»: sitters on a cushion / the picnic blanket are drawn over it
   }
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
   for (const f of fxTop) f();
