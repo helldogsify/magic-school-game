@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=341';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=341';
-import { initMinigame } from './minigame.js?v=341';
-import { initChests } from './chests.js?v=341';
+} from './data.js?v=342';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=342';
+import { initMinigame } from './minigame.js?v=342';
+import { initChests } from './chests.js?v=342';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 341;   // keep equal to the ?v= number in index.html
+const BUILD = 342;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -516,7 +516,7 @@ function genLayoutW2() {
     SLOTS.SHOP = slot(0, recY + 13, [[4, recY + 13], [4, recY + 12]], {}, 6, 6, [[[5, recY + 13], [5, recY + 12]]]);   // front-left, in the open
     PATHS.push({ x0: 3, y0: recY + 8, x1: 8, y1: recY + 13 }); }
   { const r0 = Math.min(SLOTS.C0.y0, SLOTS.C1 ? SLOTS.C1.y0 : SLOTS.C0.y0);   // the feasting hall right of the bottom row, a road from the great hall
-    PATHS.push({ x0: NAVE_X1, y0: r0 - 5, x1: 33, y1: r0 - 3 }, { x0: 29, y0: r0 - 3, x1: 33, y1: r0 });
+    PATHS.push({ x0: NAVE_X1, y0: r0 - 5, x1: 33, y1: r0 - 3 }, { x0: 30, y0: r0 - 3, x1: 32, y1: r0 });
     SLOTS.CANT = slot(28, r0, [[30, r0], [30, r0 - 1]], {}, 6, 6, [[[31, r0], [31, r0 - 1]]]);
     PATHS.push({ x0: 33, y0: r0 - 3, x1: 39, y1: r0 - 1 });   // the road runs on past the feasting hall to the Keepers' hall
     SLOTS.TOWER = slot(39, r0 - 6, [[39, r0 - 3], [38, r0 - 3]], {}, 7, 7, [[[39, r0 - 2], [38, r0 - 2]]]); }   // Чертог Хранителей: open ground, 5 tiles from the gates of the deep and the feasting hall, nothing tall in front
@@ -759,7 +759,8 @@ function pathTo(a, tx, ty) {
   const p = bfs(a.x, a.y, tx, ty); p.pop();
   if (a.lx === undefined) { a.lx = (Math.random() - 0.5) * 0.56; a.ly = (Math.random() - 0.5) * 0.56; }
   const cl = (v) => Math.max(-0.38, Math.min(0.38, v));
-  for (const q of p) { q.x = Math.floor(q.x) + 0.5 + cl(a.lx + (Math.random() - 0.5) * 0.22); q.y = Math.floor(q.y) + 0.5 + cl(a.ly + (Math.random() - 0.5) * 0.22); }
+  for (const q of p) { const k = WORLD === 2 && regAt(Math.floor(q.x), Math.floor(q.y)) === 'path' ? 0.35 : 1;   // world-2 roads: walk near the middle
+    q.x = Math.floor(q.x) + 0.5 + cl(a.lx * k + (Math.random() - 0.5) * 0.22 * k); q.y = Math.floor(q.y) + 0.5 + cl(a.ly * k + (Math.random() - 0.5) * 0.22 * k); }
   p.push({ x: tx, y: ty }); return p;
 }
 
