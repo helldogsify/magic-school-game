@@ -150,11 +150,11 @@ const HINTS = [
   ['Он не ушёл далеко. Он просто стал выше.', 'Его видно, когда школа спит. Над тёмным лесом.', 'Ночью подними глаза над северным лесом. Он ответит на прикосновение.'],
   ['Он строил, пока мог. Остальное оставил нам.', 'Школа ещё не целая. Ему было бы больно видеть пустые места.', 'Пусть в каждом классе, о котором он мечтал, зазвучат уроки.'],
   ['Молчаливый тоже устаёт молчать. Но не днём.', 'Когда солнце уходит, а звёзды ещё не пришли, летописец гуляет и становится разговорчивее.', 'Поймай летописца на прогулке в сумерках. Он сдастся, если попросить много раз.'],
-  ['Желания тонут, но не исчезают.', 'Вода во дворе помнит каждое желание. Ей нужна сотня.', 'Пусть ученики загадают сто счастливых желаний у фонтана.'],
+  ['Желания тонут, но не исчезают. Поймай их, пока они ещё блестят.', 'Когда над водой во дворе вспыхивает удача — не зевай.', 'Коснись фонтана, когда над ним загорается 🍀. Десять раз.'],
   ['То, что ждёт хозяина, просыпается с солнцем.', 'В комнате того, кто вернулся домой, утром что-то блестит.', 'Знающий мир найдёт ответ утром на столе директора.'],
 ];
 const WHY = ['Ночью луна над северным лесом откликнулась на прикосновение — и рядом вспыхнула его звезда.', 'Все классы школы построены — то, что он начал, достроено.',
-  'Тихон на вечерней прогулке сдался — и отдал листок, который хранил.', 'Ученики загадали у фонтана сто счастливых желаний.', 'Утром корона на столе директора откликнулась на прикосновение.'];
+  'Тихон на вечерней прогулке сдался — и отдал листок, который хранил.', 'Десять счастливых желаний пойманы у фонтана, пока они ещё блестели.', 'Утром корона на столе директора откликнулась на прикосновение.'];
 const TK_LINES = ['М? Я просто гуляю…', 'Нет-нет, ничего такого. Просто вечер хороший.', 'Вы что-то хотели спросить?.. Не стоит.', 'Я обещал только записывать. Только записывать…',
   'Вы ведь не отстанете, да?', 'Он… он очень любил такие вечера.', '(вздыхает и достаёт из-за пазухи сложенный листок) Возьмите. Я хранил его слишком долго.'];
 const DAY = 86400000, HINT_EVERY = 2 * DAY, TK_RESET = 18000;
@@ -183,7 +183,7 @@ function say(t, ms = 4500) {   // a longer note than the game's 2-s toast: Tikho
   if (!document.getElementById('lore-say-css')) { const st = document.createElement('style'); st.id = 'lore-say-css'; st.textContent = '.lo-say{position:fixed;left:50%;top:calc(var(--safe-t,0px) + 110px);transform:translateX(-50%);z-index:30;max-width:calc(100vw - 32px);width:max-content;padding:10px 16px;border-radius:16px;background:#fff6e2f2;color:#4a3420;border:2px solid #c9a46a;font:600 15px/1.35 Georgia,serif;text-align:center;box-shadow:0 6px 18px #0003;white-space:pre-line;animation:losay '+ (ms / 1000) + 's ease forwards;pointer-events:none}@keyframes losay{0%{opacity:0;transform:translate(-50%,8px)}8%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}'; document.head.appendChild(st); }
   setTimeout(() => d.remove(), ms);
 }
-let tkTaps = 0, tkLast = 0;
+let tkTaps = 0, tkLast = 0, luckAt = 0; const LUCK_WIN = 2500;
 export function event(kind) {   // called by game.js; true = handled (the game does nothing else for this tap)
   if (!S() || !A.on()) return false;
   const r = RD();
@@ -198,7 +198,14 @@ export function event(kind) {   // called by game.js; true = handled (the game d
     setTimeout(() => reveal('dew'), 4800); return true;
   }
   if (kind === 'moon') { if (isNight() && canFind(0)) { findLine(0); A.flash && A.flash('moon'); } else say(isNight() ? '🌙 Луна тихо светит над лесом.' : '🌙'); return true; }
-  if (kind === 'coin') { if (r.start && !has(3)) { r.coins++; if (r.coins >= 100 && canFind(3)) findLine(3); } return true; }
+  if (r.cv !== 2) { r.cv = 2; r.coins = 0; }   // the old passive count (100 coins) is dropped
+  if (kind === 'coin') { luckAt = Date.now(); window.__luckGlow = performance.now(); return true; }   // a lucky coin flares: the catch window opens
+  if (kind === 'fount') {   // a tap on the fountain
+    if (!r.start || has(3) || Date.now() - luckAt > LUCK_WIN) return false;
+    luckAt = 0; r.coins++; A.save();
+    if (r.coins >= 10 && canFind(3)) findLine(3); else say(r.coins >= 10 ? '🍀 Все десять желаний пойманы. Строчка проступит, когда придёт её день.' : `🍀 Поймано счастливое желание: ${r.coins} из 10`, 2500);
+    if (root) redraw(); return true;
+  }
   if (kind === 'crown') { if (crownWanted() && !LS().prize) { if (isMorning() && (QS().world || {}).done && canFind(4)) { findLine(4); return true; } } return !!LS().prize; }
   if (kind === 'tikhon') {
     if (!isDusk() || !r.start || has(2)) return false;
@@ -304,7 +311,7 @@ function pageHtml(p, f) {
   if (p.night && openN(p, f) && !isNight()) return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-head">${pic(p)}<div><h3>${esc(p.title)}</h3></div></div><div class="lo-sec faded"><p>Строки на этой странице едва видны. Они проступают только при звёздах — с 22:00 до 5:00.</p></div>`;
   if (p.night && openN(p, f) === p.layers.length && !LS().prize) { LS().prize = Date.now(); A.save(); A.onPrize && A.onPrize(); }   // the big prize for reading «Последняя ночь»
   const n = openN(p, f), secs = p.layers.map((l, k) => (k < n || !l.need || l.need(f))
-    ? l.riddle ? (() => { const r = RD(); return `<div class="lo-sec riddle"><h4>🔎 ${esc(l.t)}</h4>${para(l.x)}<div class="lo-lines">${RIDDLE.map((t, k) => has(k) ? `<div class="lo-line got"><span class="lo-seal-st">★</span><div class="lo-got-t">«${esc(t)}»</div><small>строчка ${k + 1} · найдена</small><em class="lo-why">${esc(WHY[k])}</em></div>` : `<div class="lo-line">${k + 1}. <span>· · · ? · · ·</span><em>Пометка Тихона: ${esc(HINTS[k][0])}</em>${HINTS[k].slice(1, r.hint[k] + 1).map((h, j) => `<em class="lo-more${j === r.hint[k] - 1 ? ' new' : ''}">${j === r.hint[k] - 1 ? '✎ новая пометка: ' : '✎ ещё пометка: '}${esc(h)}</em>`).join('')}</div>`).join('')}</div><div class="lo-cnt">Найдено строк: ${nFound()} из 5${nFound() < 5 ? ' · не больше одной в день' : ''}${!has(3) && r.start ? ` · желаний в фонтане: ${Math.min(100, r.coins)} из 100` : ''}</div></div>`; })()
+    ? l.riddle ? (() => { const r = RD(); return `<div class="lo-sec riddle"><h4>🔎 ${esc(l.t)}</h4>${para(l.x)}<div class="lo-lines">${RIDDLE.map((t, k) => has(k) ? `<div class="lo-line got"><span class="lo-seal-st">★</span><div class="lo-got-t">«${esc(t)}»</div><small>строчка ${k + 1} · найдена</small><em class="lo-why">${esc(WHY[k])}</em></div>` : `<div class="lo-line">${k + 1}. <span>· · · ? · · ·</span><em>Пометка Тихона: ${esc(HINTS[k][0])}</em>${HINTS[k].slice(1, r.hint[k] + 1).map((h, j) => `<em class="lo-more${j === r.hint[k] - 1 ? ' new' : ''}">${j === r.hint[k] - 1 ? '✎ новая пометка: ' : '✎ ещё пометка: '}${esc(h)}</em>`).join('')}</div>`).join('')}</div><div class="lo-cnt">Найдено строк: ${nFound()} из 5${nFound() < 5 ? ' · не больше одной в день' : ''}${!has(3) && r.start ? ` · поймано желаний: ${r.cv === 2 ? Math.min(10, r.coins) : 0} из 10` : ''}</div></div>`; })()
     : `<div class="lo-sec${l.wide ? ' wide' : ''}">${l.img && l.wide ? `<img class="lo-ill" src="${l.img}" alt="" onerror="this.remove()">` : ''}<h4>${esc(l.t)}</h4>${l.img && !l.wide && l.img !== p.img ? `<img class="lo-pose ${k % 2 ? 'l' : 'r'}" src="${l.img}" alt="" onerror="this.remove()">` : ''}${para(l.x)}<div class="lo-clr"></div></div>${k < p.layers.length - 1 ? '<div class="lo-orn">✦ ❧ ✦</div>' : ''}`
     : `<div class="lo-sec locked"><h4>🔒 ${esc(l.t)}</h4><p>Откроется, ${esc(l.hint || '')}.</p></div>`).join('');
   return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-pg${p.hand ? ' hand' : ''}${p.night ? ' night' : ''}${p.secret ? ' secret' : ''}"><div class="lo-head">${pic(p)}<div>${p.secret ? '<div class="lo-ribbon">🔮 Тайна раскрыта</div>' : ''}<h3>${esc(p.title)}</h3>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div></div>${secs}${p.night && LS().prize ? '</div><div class="lo-reward">🎁 Награда: звезда директора навсегда горит над холмами, его корона лежит на столе в кабинете, доход школы +10% навсегда.</div>' : '</div>'}`;

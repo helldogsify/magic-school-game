@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=412';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=412';
-import { initMinigame } from './minigame.js?v=412';
-import { initChests } from './chests.js?v=412';
-import { initLore } from './lore.js?v=412';
-import { initAvatar } from './avatar.js?v=412';
+} from './data.js?v=413';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=413';
+import { initMinigame } from './minigame.js?v=413';
+import { initChests } from './chests.js?v=413';
+import { initLore } from './lore.js?v=413';
+import { initAvatar } from './avatar.js?v=413';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 412;   // keep equal to the ?v= number in index.html
+const BUILD = 413;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2728,6 +2728,7 @@ function glowSprite(rgb) {   // a soft round glow, rendered once per colour (dra
 function outFx(o, p, h) {
   const T = fxNow() + (o.x * 7.3 + o.y * 3.1);
   if (o.n === 'fountain') {   // jets from the top bowl: drops arc out and fall back (2.6 s), a soft glow over the water (3 s)
+    { const lg = window.__luckGlow, u = lg ? (performance.now() - lg) / 2500 : 1; if (u < 1) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.8 * (1 - u); ctx.drawImage(glowSprite('140,255,150'), p.x - h * 0.6, p.y - h * 0.95, h * 1.2, h * 0.8); ctx.restore(); emoji('🍀', p.x, p.y - h * 0.6 - u * 14, 30 + 8 * Math.sin(u * Math.PI)); } }   // a lucky coin: 🍀 over the fountain for 2.5 s (the riddle's catch window)
     const tx = p.x, ty = p.y - h * 0.62, L = WORLD === 1 && S.courtUp ? S.courtUp.fount || 1 : 1, C = WORLD === 1 && S.courtUp ? S.courtUp.coin || 0 : 0, g = (L - 1) / 9;   // fountain level 1..10, coin level 0..10
     ctx.save(); ctx.globalAlpha = Math.min(1, 0.35 + 0.45 * g + 0.15 * Math.sin(T * Math.PI * 2 / 3)); const gw = h * (0.9 + 0.7 * g); ctx.drawImage(glowSprite('140,240,230'), tx - gw / 2, p.y - h * 0.45 - h * 0.2 - g * h * 0.15, gw, h * (0.5 + 0.45 * g)); ctx.restore();
     const nJ = 8 + 2 * (L - 1), jh = 0.18 * (1 + 0.1 * (L - 1)), dr = 1.6 + 0.22 * (L - 1);   // more, higher, bigger drops with every level
@@ -5082,7 +5083,7 @@ scroller.addEventListener('click', (e) => {
   if (sign) { if (sign.id === 'FOUNT') openPanel(fountainPanel); else openRoom(sign.id); return; }
   if (WORLD === 1 && COURT) for (const lift of [0, 20, 40, 60]) {   // build 279: a tap on the fountain opens the court's upgrades
     const a = (wx - OX) / HW, b = (wy + lift - OY) / HH, tx = (a + b) / 2, ty = (b - a) / 2, c = courtC();
-    if (Math.abs(tx - c.x) < 2 && Math.abs(ty - c.y) < 2) { openPanel(fountainPanel); return; }
+    if (Math.abs(tx - c.x) < 2 && Math.abs(ty - c.y) < 2) { if (!LORE.event('fount')) openPanel(fountainPanel); return; }
   }
   // a tap inside a room (floor, or walls/sprites just above it) always opens the room
   for (const lift of [0, 20, 40]) {
