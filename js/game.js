@@ -2,13 +2,18 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=276';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=276';
+} from './data.js?v=277';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=277';
+import { initMinigame } from './minigame.js?v=277';
+// mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
+const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
+  audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
+  onClose: () => { renderInsp(); updateHud(); } });
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 276;   // keep equal to the ?v= number in index.html
+const BUILD = 277;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1737,7 +1742,7 @@ function renderInsp() {
     : `<button class="ipill" data-insp>⭐ ${schoolStars()}</button>`;   // the warning itself is the banner below (iwarn)   // the warning names what will be checked (her report 2026-11-21)
   const warn = !c && !calm() && I.next ? `<button class="iwarn" data-insp>🧐 Через ${mmss(I.t)} придёт инспектор<br><b>Проверит: ${inspNextText(I.next)}</b></button>` : '';   // full text of what will be checked, 40 s ahead (her wish 2026-11-21)
   const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
-  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button><button class="ipill rate" data-top aria-label="Топ школ">🏆</button><button class="ipill rate" data-ally aria-label="Альянс">🤝${allyGifts.length ? ' 🎁' + allyGifts.length : ''}${ownReqs.length ? ' 📩' + ownReqs.length : ''}</button>` + html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + res + warn;
+  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button><button class="ipill rate" data-top aria-label="Топ школ">🏆</button><button class="ipill rate" data-ally aria-label="Альянс">🤝${allyGifts.length ? ' 🎁' + allyGifts.length : ''}${ownReqs.length ? ' 📩' + ownReqs.length : ''}</button>` + MG.pill() + html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + res + warn;
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }   // in-place update: icons are never re-created (they blinked)
 }
 function stepWorld(dt, live = false) {
@@ -4114,6 +4119,7 @@ document.addEventListener('click', (e) => {
   if (d.top !== undefined) { openTop(); return; }
   if (d.toptab !== undefined) { topTab = d.toptab; const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; return; }
   if (d.ally !== undefined) { openAlly(); return; }
+  if (d.mg !== undefined) { MG.open(); return; }
   if (d.allyclaim !== undefined) { allyClaim(); return; }
   if (d.allygift !== undefined) { allySend(d.allygift, 'gift'); return; }
   if (d.allyboost !== undefined) { allySend(d.allyboost, 'boost'); return; }
@@ -4700,7 +4706,7 @@ function frame(now) {
   secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; S.outEma = (S.outEma || 0) * 0.97 + (outThisSec / secT) * 0.03; outThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); allyTick(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
-  { const t0 = performance.now(); render(); renderMs = renderMs * 0.95 + (performance.now() - t0) * 0.05; }
+  if (!MG.isOpen()) { const t0 = performance.now(); render(); renderMs = renderMs * 0.95 + (performance.now() - t0) * 0.05; }
   warmRooms();
   requestAnimationFrame(frame);
 }
