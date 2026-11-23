@@ -49,10 +49,48 @@ export function initAvatar(o) {   // o: {url, token() -> {uid, tok}, uid() -> st
     return model;
   }
   function readImage(file) { return new Promise((res, rej) => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('image')); im.src = u; }); }
-  function square(im, px) {   // the centre square of the picture, px x px
-    const s = Math.min(im.naturalWidth, im.naturalHeight), c = document.createElement('canvas'); c.width = c.height = px;
+  function square(im, px, cr) {   // the chosen square of the picture (cr: {sx, sy, s} from cropUI; default the centre), px x px
+    const s = cr ? cr.s : Math.min(im.naturalWidth, im.naturalHeight), c = document.createElement('canvas'); c.width = c.height = px;
     const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, px, px); x.imageSmoothingQuality = 'high';
-    x.drawImage(im, (im.naturalWidth - s) / 2, (im.naturalHeight - s) / 2, s, s, 0, 0, px, px); return c;
+    x.drawImage(im, cr ? cr.sx : (im.naturalWidth - s) / 2, cr ? cr.sy : (im.naturalHeight - s) / 2, s, s, 0, 0, px, px); return c;
+  }
+  // the crop circle (tester «Я бы хотел чтобы когда загружаешь аватарку можно было вырезать кружок из неё»): drag the picture with a
+  // finger, zoom with two fingers, the slider or the mouse wheel; «Готово» resolves {sx, sy, s} in picture pixels, «Отмена» null
+  function cropUI(im) {
+    return new Promise((done) => {
+      const W = im.naturalWidth, H = im.naturalHeight, D = Math.min(300, window.innerWidth - 48), dpr = Math.min(3, window.devicePixelRatio || 1);
+      const zmin = D / Math.min(W, H); let z = zmin, ox = (D - W * z) / 2, oy = (D - H * z) / 2;
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:60;background:#2a1b4af2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;touch-action:none';
+      ov.innerHTML = `<div style="color:#fff;font-weight:800;font-size:18px;text-align:center">Выбери кружок для аватарки</div><div style="color:#e8dcff;font-size:14px;text-align:center">Двигай картинку пальцем, увеличивай двумя пальцами или ползунком</div>
+        <canvas style="width:${D}px;height:${D}px;touch-action:none;cursor:grab;border-radius:12px"></canvas>
+        <input type="range" min="1" max="4" step="0.01" value="1" style="width:${D}px">
+        <div style="display:flex;gap:10px;width:${D}px"><button class="btn ghost" data-cr="no" style="flex:1">Отмена</button><button class="btn" data-cr="ok" style="flex:1">Готово</button></div>`;
+      document.body.appendChild(ov);
+      const cv = ov.querySelector('canvas'), sl = ov.querySelector('input'), g = cv.getContext('2d'); cv.width = cv.height = Math.round(D * dpr);
+      const clamp = () => { ox = Math.min(0, Math.max(D - W * z, ox)); oy = Math.min(0, Math.max(D - H * z, oy)); };
+      const draw = () => {
+        g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, D, D); g.imageSmoothingQuality = 'high'; g.drawImage(im, ox, oy, W * z, H * z);
+        g.fillStyle = '#2a1b4aa8'; g.beginPath(); g.rect(0, 0, D, D); g.arc(D / 2, D / 2, D / 2 - 2, 0, Math.PI * 2, true); g.fill();
+        g.strokeStyle = '#ffe08a'; g.lineWidth = 3; g.beginPath(); g.arc(D / 2, D / 2, D / 2 - 2, 0, Math.PI * 2); g.stroke();
+      };
+      const zoomTo = (nz, cx = D / 2, cy = D / 2) => { nz = Math.max(zmin, Math.min(zmin * 4, nz)); ox = cx - (cx - ox) * nz / z; oy = cy - (cy - oy) * nz / z; z = nz; clamp(); sl.value = String(z / zmin); draw(); };
+      const pts = new Map(); let last = null;
+      const local = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+      cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, local(e)); last = null; });
+      cv.addEventListener('pointermove', (e) => {
+        if (!pts.has(e.pointerId)) return; const p = local(e), q = pts.get(e.pointerId); pts.set(e.pointerId, p);
+        if (pts.size === 1) { ox += p.x - q.x; oy += p.y - q.y; clamp(); draw(); return; }
+        const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y), m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        if (last) { ox += m.x - last.m.x; oy += m.y - last.m.y; zoomTo(z * d / Math.max(1, last.d), m.x, m.y); } last = { d, m };
+      });
+      const up = (e) => { pts.delete(e.pointerId); last = null; };
+      cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+      cv.addEventListener('wheel', (e) => { e.preventDefault(); const p = local(e); zoomTo(z * (e.deltaY < 0 ? 1.1 : 1 / 1.1), p.x, p.y); }, { passive: false });
+      sl.addEventListener('input', () => zoomTo(zmin * +sl.value));
+      ov.addEventListener('click', (e) => { const b = e.target.closest('[data-cr]'); if (!b) return; ov.remove(); done(b.dataset.cr === 'ok' ? { sx: -ox / z, sy: -oy / z, s: D / z } : null); });
+      draw();
+    });
   }
   const unsafe = (p) => { const g = (n) => (p.find((x) => x.className === n) || {}).probability || 0; return g('Porn') + g('Hentai') >= 0.3 || g('Sexy') >= 0.5; };   // strict: a children's game
   async function upload(file) {
@@ -61,11 +99,13 @@ export function initAvatar(o) {   // o: {url, token() -> {uid, tok}, uid() -> st
     busy = 'Загружаю проверку картинок (5 МБ, один раз)…'; o.changed();
     try {
       const im = await readImage(file);
+      busy = ''; const cr = await cropUI(im); if (!cr) { o.changed(); return; }   // the player picks the circle first
+      busy = 'Загружаю проверку картинок (5 МБ, один раз)…'; o.changed();
       const m = await nsfw();
       busy = 'Проверяю картинку…'; o.changed();
-      const p = await m.classify(square(im, CHECK));
+      const p = await m.classify(square(im, CHECK, cr));
       if (unsafe(p)) { busy = ''; o.toast('🚫 Эта картинка не подходит для игры. Выбери другую'); o.changed(); return; }
-      const c = square(im, SIZE); let data = '';
+      const c = square(im, SIZE, cr); let data = '';
       for (const q of [0.82, 0.7, 0.55, 0.4]) { data = c.toDataURL('image/jpeg', q); if (data.length <= 38000) break; }   // the rules allow 40 000 characters
       const A = await o.token();
       const body = { fields: { img: { stringValue: data }, st: { stringValue: 'wait' }, t: { integerValue: String(Date.now()) }, name: { stringValue: o.name().slice(0, 24) } } };
