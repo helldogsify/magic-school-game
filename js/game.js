@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=294';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=294';
-import { initMinigame } from './minigame.js?v=294';
+} from './data.js?v=295';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=295';
+import { initMinigame } from './minigame.js?v=295';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 294;   // keep equal to the ?v= number in index.html
+const BUILD = 295;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3039,16 +3039,23 @@ function drawGate(c) {
   text('ВОРОТА', (g.x + g2.x) / 2, (g.y + g2.y) / 2 - 40, 9, '#5a3fb0', c);
 }
 const signCache = new Map();
+// plan item 4 (bigger, clearer room labels): plates keep a readable size on the phone screen (~13 px text) instead of a fixed world
+// size that shrank to ~9 px at the normal zoom; far out (signIcons) a plate shows only the room's icon, bigger
+const SIGN_ICON_SCALE = 0.34;
+const signIcons = () => scale < SIGN_ICON_SCALE;
+const signK = () => Math.round(Math.min(signIcons() ? 4 : 2.6, Math.max(1, 13.5 / (12 * scale))) * 4) / 4;
+const signLabel = (label) => (signIcons() ? label.split(' ')[0] : label);
 function signPill(label, bg, fs, hgt, border, ink) {   // a rounded name plate rendered once per text, colour and resolution
+  const K = signK(); fs *= K; hgt *= K;
   const res = Math.max(1, Math.round(scale * dpr * 4) / 4), key = label + '|' + bg + '|' + fs + '|' + res;
   let e = signCache.get(key); if (e) return e;
   const m = document.createElement('canvas').getContext('2d'); m.font = `800 ${fs}px ui-rounded,"Nunito","Segoe UI",sans-serif`;
-  const tw = m.measureText(label).width + 22, pad = 8, w = tw + pad * 2, h = hgt + pad * 2;
+  const tw = m.measureText(label).width + 22 * K, pad = 8 * K, w = tw + pad * 2, h = hgt + pad * 2, rr = Math.min(11 * K, hgt / 2);
   const cv = document.createElement('canvas'); cv.width = Math.ceil(w * res); cv.height = Math.ceil(h * res); const c = cv.getContext('2d'); c.scale(res, res);
-  c.save(); c.shadowColor = '#3a2f4a55'; c.shadowBlur = 6; c.shadowOffsetY = 2; c.fillStyle = bg; c.beginPath(); c.roundRect(pad, pad, tw, hgt, 11); c.fill(); c.restore();
-  c.strokeStyle = border; c.lineWidth = 2; c.beginPath(); c.roundRect(pad, pad, tw, hgt, 11); c.stroke();
+  c.save(); c.shadowColor = '#3a2f4a55'; c.shadowBlur = 6 * K; c.shadowOffsetY = 2 * K; c.fillStyle = bg; c.beginPath(); c.roundRect(pad, pad, tw, hgt, rr); c.fill(); c.restore();
+  c.strokeStyle = border; c.lineWidth = 2 * K; c.beginPath(); c.roundRect(pad, pad, tw, hgt, rr); c.stroke();
   text(label, w / 2, h / 2 + 0.5, fs, ink, c);
-  e = { cv, w, h, tw };
+  e = { cv, w, h, tw, hh: hgt / 2 };
   // build 258: remember the plate only once its emoji pictures and the font are loaded; a plate cached too early kept a missing icon
   // and a fallback font for good (seen on «Библиотека», «Травология»)
   EMOJI_RE.lastIndex = 0; const ems = label.match(EMOJI_RE) || [], ready = ems.every((x) => emojiImage(x)) && (!document.fonts || document.fonts.status === 'loaded');
@@ -3058,21 +3065,21 @@ function signPill(label, bg, fs, hgt, border, ink) {   // a rounded name plate r
 function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
   if (id === 'GARDEN' && WORLD <= 2) {   // drawn over everything like the room signs, above the gazebo (world 2: the hall of glory)
-    const pl = WORLD === 2 ? signPill('🎓 Зал славы', '#d6dcf2', 12, 22, '#ffffff', '#2e3a5a') : signPill('🎓 Сад выпускников', '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - 150 - pl.h / 2, pl.w, pl.h); return; }
+    const pl = WORLD === 2 ? signPill(signLabel('🎓 Зал славы'), '#d6dcf2', 12, 22, '#ffffff', '#2e3a5a') : signPill(signLabel('🎓 Сад выпускников'), '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - 150 - pl.h / 2, pl.w, pl.h); return; }
   if (id === 'GARDEN' || (id === 'TRADE' && !tradeOpen()) || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
   const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'TRADE' ? '🐐 Торговый двор' : WORLD === 2 && id === 'LIB' ? '📚 Чертог летописей' : WORLD === 2 && id === 'DORM' ? '🛏️ Кельи' : WORLD === 2 && id === 'DORM2' ? '🛏️ Вторые кельи' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const midBack = WORLD === 1 && ['DORM', 'DORM2', 'DIR', 'SHOP'].includes(id);   // build 258: front-row rooms put their sign over the middle of their tall back wall (on the corner it hung over the gallery)
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : midBack ? up(P((s.x0 + s.x1) / 2, s.y0), WALLH * 0.72 + 12) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   const fs = 12, hgt = 22, bg = ci >= 0 ? CLASSES[ci].wall : SIGN_BG[id] || '#ffffff';
-  const pill = signPill(name, bg, fs, hgt, '#ffffff', '#2e2340'), tw = pill.tw;   // cached bitmap: the shadow blur and the text were redrawn for every sign every frame
+  const pill = signPill(signLabel(name), bg, fs, hgt, '#ffffff', '#2e2340'), tw = pill.tw;   // cached bitmap: the shadow blur and the text were redrawn for every sign every frame
   if (onScreen(sp.x, sp.y, 160, 40)) c.drawImage(pill.cv, sp.x - pill.w / 2, sp.y - pill.h / 2, pill.w, pill.h);
-  signRects.push({ id, x0: sp.x - tw / 2, y0: sp.y - hgt / 2, x1: sp.x + tw / 2, y1: sp.y + hgt / 2 });
+  signRects.push({ id, x0: sp.x - tw / 2, y0: sp.y - pill.hh, x1: sp.x + tw / 2, y1: sp.y + pill.hh });
   if (ci >= 0) {   // how many wait for this class in the dorm: shows the bottleneck at a glance
     const z = sleepersFor(ci), k = courtFor(ci);
     if (z + k > 0) {
       const t = `${k ? '⛲' + k + ' ' : ''}${z ? '💤' + z + ' ' : ''}ждут`, pb = signPill(t, '#ffffff', 11, 22, '#5b7fd6', '#3d5fb8'), bw = pb.tw, bx = sp.x + tw / 2 + 4;
       if (onScreen(bx + bw / 2, sp.y, 160, 40)) c.drawImage(pb.cv, bx + bw / 2 - pb.w / 2, sp.y - pb.h / 2, pb.w, pb.h);
-      signRects.push({ id, x0: bx, y0: sp.y - 11, x1: bx + bw, y1: sp.y + 11 });   // the badge opens the class too
+      signRects.push({ id, x0: bx, y0: sp.y - pb.hh, x1: bx + bw, y1: sp.y + pb.hh });   // the badge opens the class too
     }
   }
 }
@@ -3642,9 +3649,9 @@ function render() {
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
   if (WORLD === 1 && COURT) {   // build 279: the fountain has a sign too: it opens the court's upgrades
-    const c = courtC(), q = up(P(c.x + 0.5, c.y + 0.6), 92), pl = signPill('⛲ Двор', '#d6f0ff', 12, 22, '#ffffff', '#2e2340');
+    const c = courtC(), q = up(P(c.x + 0.5, c.y + 0.6), 92), pl = signPill(signLabel('⛲ Двор'), '#d6f0ff', 12, 22, '#ffffff', '#2e2340');
     if (onScreen(q.x, q.y, 160, 40)) ctx.drawImage(pl.cv, q.x - pl.w / 2, q.y - pl.h / 2, pl.w, pl.h);
-    signRects.push({ id: 'FOUNT', x0: q.x - pl.tw / 2, y0: q.y - 11, x1: q.x + pl.tw / 2, y1: q.y + 11 });
+    signRects.push({ id: 'FOUNT', x0: q.x - pl.tw / 2, y0: q.y - pl.hh, x1: q.x + pl.tw / 2, y1: q.y + pl.hh });
   }
   drawIncidents();
   drawMail();
