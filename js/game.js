@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=410';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=410';
-import { initMinigame } from './minigame.js?v=410';
-import { initChests } from './chests.js?v=410';
-import { initLore } from './lore.js?v=410';
-import { initAvatar } from './avatar.js?v=410';
+} from './data.js?v=411';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=411';
+import { initMinigame } from './minigame.js?v=411';
+import { initChests } from './chests.js?v=411';
+import { initLore } from './lore.js?v=411';
+import { initAvatar } from './avatar.js?v=411';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 410;   // keep equal to the ?v= number in index.html
+const BUILD = 411;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1066,7 +1066,7 @@ function courtSpots() {   // fixed points per activity (a small fixed set keeps 
   for (const b of courtBenches()) v.bench.push({ x: b.x + 0.08, y: b.y + 0.08, seat: true });   // build 264: the sitter sits ON the bench (pose «sit»)
   for (let k = 0; k < 8; k++) { const an = k * Math.PI / 4; v.tag.push({ x: c.x + Math.cos(an) * 2.7, y: c.y + Math.sin(an) * 2.7 }); }
   for (let k = 0; k < 6; k++) { const an = k * Math.PI / 3; v.tag.push({ x: Z.play.x + Math.cos(an) * 2.4, y: Z.play.y + 0.3 + Math.sin(an) * 2.4 }); }   // tag round the swing too
-  for (let k = 0; k < 4; k++) { const an = k * Math.PI / 2 + Math.PI / 4; v.coin.push({ x: c.x + Math.cos(an) * 1.9, y: c.y + Math.sin(an) * 1.9 }); }
+  for (let k = 0; k < 4; k++) { const an = k * Math.PI / 2 + Math.PI / 4; v.coin.push({ x: c.x + Math.cos(an) * 2.7, y: c.y + Math.sin(an) * 2.7 }); }
   for (const q of Z.cushions) v.read.push({ x: q.x - 0.4, y: q.y - 0.3, seat: true });   // on the cushion (drawn after it: render adds +0.6 depth)   // reading garden: one reader per cushion, two more under the tree
   v.read.push({ x: Z.read.x + 1.0, y: Z.read.y + 1.1 }, { x: Z.read.x - 0.6, y: Z.read.y + 1.1 });   // in front of the trunk, never behind it
   v.birds.push({ x: Z.bath.x + 0.6, y: Z.bath.y + 0.9 }, { x: Z.bath.x - 0.5, y: Z.bath.y + 1.1 });
