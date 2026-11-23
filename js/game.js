@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=384';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=384';
-import { initMinigame } from './minigame.js?v=384';
-import { initChests } from './chests.js?v=384';
-import { initLore } from './lore.js?v=384';
-import { initAvatar } from './avatar.js?v=384';
+} from './data.js?v=385';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=385';
+import { initMinigame } from './minigame.js?v=385';
+import { initChests } from './chests.js?v=385';
+import { initLore } from './lore.js?v=385';
+import { initAvatar } from './avatar.js?v=385';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 384;   // keep equal to the ?v= number in index.html
+const BUILD = 385;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2614,7 +2614,7 @@ function layoutOutdoor() {
       Z.cushions.forEach((q, k) => add('cz_cushions', q.x, q.y, k ? 0.8 : 0.9, !!k)); add('cz_bookshelf', Z.shelf.x, Z.shelf.y); add('birdbath', Z.bath.x, Z.bath.y);
       add('cz_swing', Z.swing.x, Z.swing.y); add('cz_target', Z.target.x, Z.target.y); add('topiary_ball', Z.play.x + 3.0, Z.play.y + 2.6);
       add('cz_picnic', Z.picnic.x, Z.picnic.y); Z.lanterns.forEach((q, k) => add('cz_lanterns', q.x, q.y, 1, !!k)); }
-    [['world', 'st_star', -3.9, -3.9], ['races', 'st_fox', 3.9, -3.9], ['teachers', 'st_owl', -3.9, 3.9], ['school', 'st_tikhon', 3.9, 3.9]].forEach(([k, n, dx, dy]) => { if (loreQ(k)) add(n, c.x + 0.5 + dx, c.y + 0.6 + dy, 1); });   // Tikhon's exam statuettes
+    [['world', 'st_star', -4.6, 4.2], ['races', 'st_fox', 4.2, -4.6], ['teachers', 'st_owl', 1.9, 5.6], ['school', 'st_tikhon', 5.6, 1.9]].forEach(([k, n, dx, dy]) => { if (loreQ(k)) add(n, c.x + 0.5 + dx, c.y + 0.6 + dy, 1.6); });   // Tikhon's exam statuettes: left and right of the mosaic and flanking its front path, 1.6x (her «Их очень плохо в игре видно»: never behind the fountain)
     for (const [dx, dy] of [[-5.2, 0], [5.2, 0], [0, -5.2], [0, 5.2]]) add('lantern_gold', c.x + dx + (dx ? 0 : 1.4), c.y + dy + (dy ? 0 : 1.4), 0.9);
     for (const g of GAL || []) out.push({ n: g.n, x: g.x, y: g.y, th: 'outdoor', s: 1 });   // the colonnade (plan item 2)
     for (const [a, b] of GAL_G || []) out.push({ n: 'gal_garland', x: (a.x + b.x) / 2 + 0.01, y: (a.y + b.y) / 2 + 0.01, th: 'outdoor', g: [a, b] });
