@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=267';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=267';
+} from './data.js?v=268';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=268';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 267;   // keep equal to the ?v= number in index.html
+const BUILD = 268;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1684,7 +1684,7 @@ function renderInsp() {
     : `<button class="ipill" data-insp>⭐ ${schoolStars()}</button>`;   // the warning itself is the banner below (iwarn)   // the warning names what will be checked (her report 2026-11-21)
   const warn = !c && !calm() && I.next ? `<button class="iwarn" data-insp>🧐 Через ${mmss(I.t)} придёт инспектор<br><b>Проверит: ${inspNextText(I.next)}</b></button>` : '';   // full text of what will be checked, 40 s ahead (her wish 2026-11-21)
   const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
-  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button><button class="ipill rate" data-top aria-label="Топ школ">🏆</button><button class="ipill rate" data-ally aria-label="Альянс">🤝${allyGifts.length ? ' 🎁' + allyGifts.length : ''}</button>` + html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + res + warn;
+  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button><button class="ipill rate" data-top aria-label="Топ школ">🏆</button><button class="ipill rate" data-ally aria-label="Альянс">🤝${allyGifts.length ? ' 🎁' + allyGifts.length : ''}${ownReqs.length ? ' 📩' + ownReqs.length : ''}</button>` + html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + res + warn;
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }   // in-place update: icons are never re-created (they blinked)
 }
 function stepWorld(dt, live = false) {
@@ -4059,6 +4059,10 @@ document.addEventListener('click', (e) => {
   if (d.allyjoin !== undefined) { allyJoin(document.getElementById('ally-code')?.value); return; }
   if (d.allyjoinid !== undefined) { allyJoin(d.allyjoinid); return; }
   if (d.allycreate !== undefined) { allyCreate(); return; }
+  if (d.reqsend !== undefined) { reqSend(d.reqsend); return; }
+  if (d.reqcancel !== undefined) { reqCancel(d.reqcancel); return; }
+  if (d.reqok !== undefined) { reqAnswer(d.reqok, true); return; }
+  if (d.reqno !== undefined) { reqAnswer(d.reqno, false); return; }
   if (d.allyemo !== undefined) { allyEmo = ALLY_EMOS[+d.allyemo] || '🦄'; refreshAlly(); return; }   // an index: emojiHtml turns an emoji inside an attribute into an <img> and broke 6 of the 12 buttons (her «не все гербы нажимаются»)
   if (d.schoolName !== undefined) { saveSchoolName(); return; }
   if (d.cloudLoad !== undefined) { cloudLoad(); return; }
@@ -4203,7 +4207,7 @@ async function topLoad() {
 const ALLY_URL = 'https://firestore.googleapis.com/v1/projects/magic-school-game-2ae0f/databases/(default)/documents';
 const ALLY_EMOS = ['🦄', '🐉', '🦉', '🌙', '⭐', '🔮', '🌸', '🍄', '🔥', '❄️', '🌈', '👑'];
 const GIFT_DAY = 3, BOOST_DAY = 1, BOOST_MIN = 10, BOOST_MAX_MIN = 60, ALLY_MAX = 10;
-let allyList = null, allyGifts = [], allyMsg = '', allyPollT = 5, allyEmo = '🦄';
+let allyList = null, allyGifts = [], allyMsg = '', allyPollT = 5, allyEmo = '🦄', myReqs = [], ownReqs = [];   // join requests (build 268): mine and those to my alliance
 function boostK() { return S && S.boostEnd && Date.now() < S.boostEnd ? 1.1 : 1; }   // «Вдохновение»: +10% to every lesson (a function: tuition() may run before this block)
 const myAl = () => (S && S.al) || '';
 const allyOf = (code) => (allyList || []).find((a) => a.id === code);
@@ -4226,6 +4230,7 @@ async function allyPoll() {   // gifts sent to me (any world; claimed in the wor
       body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'gifts' }], where: { fieldFilter: { field: { fieldPath: 'to' }, op: 'EQUAL', value: { stringValue: A.uid } } } } }) });
     if (!r.ok) return;
     const d = await r.json();
+    await reqPoll(A);
     allyGifts = d.filter((x) => x.document).map((x) => ({ id: x.document.name.split('/').pop(), fname: x.document.fields.fname?.stringValue || '?', kind: x.document.fields.kind?.stringValue, w: +(x.document.fields.w?.integerValue || 1) })).filter((g) => g.w === WORLD);
     updateHud(); if (panel === allyPanel) refreshAlly();
   } catch (e) { /* offline */ }
@@ -4287,6 +4292,58 @@ async function allyJoin(code) {
   refreshAlly();
 }
 async function allyLeave() { if (!confirm('Выйти из альянса?')) return; S.al = ''; save(); await topPush(true); await topLoad(); toast('🚪 Альянс покинут'); refreshAlly(); }
+// ---- join requests (build 268, her «Как вступить в альянс чужой может? Нет нигде подачи заявки»): any alliance can be asked
+// to let you in; its founder sees the requests in his panel and accepts or declines; the applicant joins by himself when
+// he sees «ok» (only he may write his own top entry). Firestore reqs/{uid}_{code} {from, fname, nick, r, al, owner, w, t, st}.
+const fsv = (f) => (f ? f.stringValue ?? +(f.integerValue ?? f.doubleValue ?? 0) : '');
+async function reqQuery(A, field) {
+  const r = await fetch(ALLY_URL + ':runQuery', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok },
+    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'reqs' }], where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: { stringValue: A.uid } } } } }) });
+  if (!r.ok) return [];
+  return (await r.json()).filter((x) => x.document).map((x) => { const f = x.document.fields; return { id: x.document.name.split('/').pop(), fname: fsv(f.fname), nick: fsv(f.nick), r: +fsv(f.r) || 0, al: fsv(f.al), w: +fsv(f.w) || 1, st: fsv(f.st) }; });
+}
+async function reqPoll(A) {
+  myReqs = (await reqQuery(A, 'from')).filter((q) => q.w === WORLD);
+  for (const q of myReqs.slice()) {
+    if (q.st === 'wait') continue;
+    await fetch(`${ALLY_URL}/reqs/${q.id}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + A.tok } }).catch(() => null);
+    myReqs = myReqs.filter((x) => x !== q);
+    const a = allyOf(q.al) || {};
+    if (q.st === 'ok' && !myAl()) { S.al = q.al; save(); topPush(true).then(topLoad).then(refreshAlly); toast(`🎉 Тебя приняли в альянс${a.name ? ' «' + a.name + '»' : ''}!`); }
+    else if (q.st === 'no') toast(`😔 Альянс${a.name ? ' «' + a.name + '»' : ''} отклонил заявку`);
+  }
+  if (!allyList) await allyLoad();
+  const al = allyOf(myAl());
+  ownReqs = al && al.owner === A.uid ? (await reqQuery(A, 'owner')).filter((q) => q.st === 'wait' && q.al === al.id) : [];
+}
+async function reqSend(code) {
+  const a = allyOf(code); if (!a) return;
+  try {
+    const A = await anonToken(), R = rating();
+    const r = await fetch(`${ALLY_URL}/reqs/${A.uid}_${code}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok },
+      body: JSON.stringify({ fields: { from: { stringValue: A.uid }, fname: { stringValue: schoolName().slice(0, 24) }, nick: { stringValue: playerNick().slice(0, 20) }, r: { doubleValue: +R.v.toFixed(2) }, al: { stringValue: code }, owner: { stringValue: a.owner }, w: { integerValue: String(WORLD) }, t: { integerValue: String(Date.now()) }, st: { stringValue: 'wait' } } }) });
+    if (!r.ok) throw new Error(r.status);
+    myReqs.push({ id: `${A.uid}_${code}`, al: code, st: 'wait', w: WORLD });
+    toast(`📩 Заявка в «${a.name}» отправлена. Когда её примут, ты сразу окажешься в альянсе`);
+  } catch (e) { toast('Не получилось отправить заявку — проверь интернет'); }
+  refreshAlly();
+}
+async function reqCancel(code) {
+  try { const A = await anonToken(); await fetch(`${ALLY_URL}/reqs/${A.uid}_${code}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + A.tok } }); } catch (e) { /* offline */ }
+  myReqs = myReqs.filter((q) => q.al !== code); toast('Заявка отменена'); refreshAlly();
+}
+async function reqAnswer(id, ok) {
+  const q = ownReqs.find((x) => x.id === id); if (!q) return;
+  if (ok && allyMembers(q.al).length >= ALLY_MAX) { toast(`В альянсе уже ${ALLY_MAX} школ`); return; }
+  try {
+    const A = await anonToken();
+    const r = await fetch(`${ALLY_URL}/reqs/${id}?updateMask.fieldPaths=st`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify({ fields: { st: { stringValue: ok ? 'ok' : 'no' } } }) });
+    if (!r.ok) throw new Error(r.status);
+    ownReqs = ownReqs.filter((x) => x.id !== id);
+    toast(ok ? `✅ «${q.fname}» принята — школа появится в альянсе, как только её игрок зайдёт в игру` : `Заявка «${q.fname}» отклонена`);
+  } catch (e) { toast('Не получилось — проверь интернет'); }
+  updateHud(); refreshAlly();
+}
 async function allyToggleOpen() {
   const a = allyOf(myAl()); if (!a) return;
   try {
@@ -4316,13 +4373,16 @@ function allyPanel() {
       return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY ? 'disabled' : ''}>🎁 ${GIFT_DAY - gi}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY ? 'disabled' : ''}>✨ ${BOOST_DAY - bo}</button>`}</div>`;
     }).join('') : '<p class="muted">Загружаю…</p>');
     h += `<p class="muted">🎁 Волшебный подарок: союзник получит монеты — столько, сколько его школа зарабатывает за 3 минуты. ✨ Вдохновение: +10% к плате за уроки на 10 минут. Каждому союзнику в день — ${GIFT_DAY} подарка и ${BOOST_DAY} вдохновение, у тебя при этом ничего не убывает.</p>`;
+    if (a && a.owner === anonUid()) h += '<h3>📩 Заявки на вступление</h3>' + (ownReqs.length ? ownReqs.map((q) => `<div class="card up" style="border:2px solid #b9a4f0"><div class="grow"><b>${escTxt(q.fname)}</b>${q.nick ? `<div>👤 ${escTxt(q.nick)}</div>` : ''}<div class="muted">🏅 ${q.r.toFixed(1).replace('.', ',')}</div></div><button class="btn small hot" data-reqok="${q.id}">Принять</button><button class="btn small ghost" data-reqno="${q.id}">Нет</button></div>`).join('') : '<p class="muted">Новых заявок нет. Заявку может подать любая школа из списка альянсов.</p>');
     if (a && a.owner === anonUid()) h += `<button class="btn ghost wide" data-allyopen>${a.open ? '🔒 Сделать вход только по коду' : '🔓 Открыть вход для всех'}</button>`;
     h += '<button class="btn ghost wide" data-allyleave>🚪 Выйти из альянса</button>';
     return h;
   }
-  const open = (allyList || []).filter((a) => a.w === WORLD && a.open).map((a) => ({ ...a, mem: allyMembers(a.id) })).filter((a) => a.mem.length < ALLY_MAX).sort((x, y) => y.mem.length - x.mem.length);
+  const open = (allyList || []).filter((a) => a.w === WORLD).map((a) => ({ ...a, mem: allyMembers(a.id) })).filter((a) => a.mem.length > 0 && a.mem.length < ALLY_MAX).sort((x, y) => y.open - x.open || y.mem.length - x.mem.length);   // every alliance with room: open ones -> join, closed ones -> a request (build 268)
+  const asked = (id) => myReqs.some((q) => q.al === id && q.st === 'wait');
   h += `<h3>Вступить по коду</h3><input id="ally-code" class="fb" maxlength="10" placeholder="Например: A7K2QM9X"><button class="btn wide" data-allyjoin>🤝 Вступить</button>`;
-  h += '<h3>Открытые альянсы</h3>' + (!allyList ? '<p class="muted">Загружаю…</p>' : open.length ? open.map((a) => `<div class="card up"><span class="remoji">${a.emo}</span><div class="grow"><b>${escTxt(a.name)}</b><div class="muted">школ ${a.mem.length}/${ALLY_MAX}</div></div><button class="btn small" data-allyjoinid="${a.id}">Вступить</button></div>`).join('') : '<p class="muted">Открытых альянсов пока нет — создай свой!</p>');
+  h += '<h3>Альянсы</h3>' + (!allyList ? '<p class="muted">Загружаю…</p>' : open.length ? open.map((a) => { const avg = a.mem.reduce((n, x) => n + x.r, 0) / a.mem.length;
+    return `<div class="card up"><span class="remoji">${a.emo}</span><div class="grow"><b>${escTxt(a.name)}</b><div class="muted">${a.open ? '🔓 вход свободный' : '🔒 по заявке'} · школ ${a.mem.length}/${ALLY_MAX} · 🏅 ${avg.toFixed(1).replace('.', ',')}</div></div>${a.open ? `<button class="btn small" data-allyjoinid="${a.id}">Вступить</button>` : asked(a.id) ? `<button class="btn small ghost" data-reqcancel="${a.id}">Заявка ✓ (отменить)</button>` : `<button class="btn small" data-reqsend="${a.id}">Подать заявку</button>`}</div>`; }).join('') : '<p class="muted">Альянсов пока нет — создай свой!</p>');
   h += `<h3>Создать свой альянс</h3><input id="ally-name" class="fb" maxlength="24" placeholder="Название альянса">
     <div class="muted" style="margin-top:6px">Герб:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${ALLY_EMOS.map((e, k) => `<button class="btn small ${e === allyEmo ? '' : 'ghost'}" data-allyemo="${k}">${e}</button>`).join('')}</div>
     <label class="muted" style="display:block;margin:6px 0"><input type="checkbox" id="ally-open" checked> Вход для всех (иначе только по коду)</label>
