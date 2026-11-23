@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=318';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=318';
-import { initMinigame } from './minigame.js?v=318';
-import { initChests } from './chests.js?v=318';
+} from './data.js?v=319';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=319';
+import { initMinigame } from './minigame.js?v=319';
+import { initChests } from './chests.js?v=319';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 318;   // keep equal to the ?v= number in index.html
+const BUILD = 319;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2054,7 +2054,7 @@ const ZMIN = 0.9, ZMAX = 3.4;
 const sprites = {};
 // professors drawn one by one, each approved by Maria (class id -> file in assets/staff)
 const STAFF_ART = { herbs: 'moss', potions: 'bubble', stars: 'lun', charms: 'spark', flight: 'breeze', elements: 'storm', final: 'owl' };
-const STAFF_V = {granite: 2, burav: 2, hammer: 2, iskra: 2 };   // per-name cache version of redrawn staff sprites (world-2 grim style, her pick 2026-11-23)
+const STAFF_V = {granite: 2, burav: 2, hammer: 2, iskra: 2, koren: 3 };   // per-name cache version of redrawn staff sprites (world-2 grim style, her pick 2026-11-23)
 const STAFF_ART_W2 = { runes: 'granite', mine: 'burav', forge: 'hammer', gems: 'iskra', guards: 'grom', lake: 'tisha', final: 'koren' };   // world 2 teachers (her pick 2026-11-22: old dwarf rune master «Мастер Гранит»)
 const staffOf = (cid) => (WORLD === 1 ? STAFF_ART : WORLD === 2 ? STAFF_ART_W2 : {})[cid];   // per world: world-2 'final' must not take the owl
 const STAFF_H = { koren: 50, tisha: 52, grom: 56, iskra: 50, hammer: 56, burav: 54, granite: 54, moss: 58, bubble: 54, lun: 68, spark: 62, breeze: 56, storm: 68, owl: 60 };   // teachers clearly taller than students (30) — her ruling 2026-11-21
@@ -3242,7 +3242,7 @@ function drawGate(c) {
     if (outSh.gate_big) { c.save(); c.globalAlpha = 0.26; c.translate(p.x, p.y); c.transform(1, 0, -0.62, -0.3, 0, 0); c.drawImage(outSh.gate_big, -w * GA.ax, -h * GA.ay, w, h); c.restore(); }
     c.drawImage(im, ox, oy, w, h);
     c.save(); c.translate(ox + w * GA.tx, oy + h * GA.ty); c.rotate(GA.rot); c.textAlign = 'center';
-    for (const [t, dy] of [['Школа', GA.l1], ['магии', GA.l2]]) { c.font = `800 ${GA.fs}px ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",sans-serif`; c.lineWidth = 1.6; c.strokeStyle = GA.stroke; c.strokeText(t, 0, dy); c.fillStyle = GA.fill; c.fillText(t, 0, dy); }
+    for (const [t, dy] of WORLD === 2 ? [['Чертоги', GA.l1], ['под горой', GA.l2]] : [['Школа', GA.l1], ['магии', GA.l2]]) { c.font = `800 ${GA.fs}px ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",sans-serif`; c.lineWidth = 1.6; c.strokeStyle = GA.stroke; c.strokeText(t, 0, dy); c.fillStyle = GA.fill; c.fillText(t, 0, dy); }
     c.restore();
     return;
   }
@@ -3297,7 +3297,7 @@ function drawSign(c, id) {
     }
   }
 }
-const SIGN_BG = { CANT: '#f9d3a5', REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f', DIR: '#f5d77a', SHOP: '#f7c1d9', TOWER: '#cdbdf2' };
+const SIGN_BG = { TRADE: '#e8d4b0', CANT: '#f9d3a5', REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f', DIR: '#f5d77a', SHOP: '#f7c1d9', TOWER: '#cdbdf2' };
 let signRects = [];   // tappable room signs of the last frame, world coords
 function drawPlot(c, s, ci, L, B, R, F, center) {
   const next = S.classes.findIndex((q) => !q.built) === ci;
