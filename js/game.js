@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=275';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=275';
+} from './data.js?v=276';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=276';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 275;   // keep equal to the ?v= number in index.html
+const BUILD = 276;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1808,8 +1808,9 @@ function teacherPose(i, tp) {
 const STAFF_GLOW = { lun: 'rgba(255,240,190,0.95)' }, STAFF_GLOW_ALL = 'rgba(255,244,205,0.6)';   // every teacher glows softly (her wish 2026-11-21), Lun a bit more   // drawn height: Lun is tall, Bubble small and round
 // school staff outside classes (secretary, concierge, director): own sprites, one by one with her approval
 const STAFF_OTHER = ['secretary', 'concierge'];
+const SP2 = WORLD === 2 ? 'w2_' : '';   // world-2 staff pictures (gatekeeper, cells keeper, chronicler; her pick of the grim style 2026-11-23)
 const SEC_POSES = ['write', 'stamp', 'carry', 'pin'];   // pose sprites of the secretary (her ruling 2026-11-21: real animations, not sliding)
-for (const f of SEC_POSES) { const im = new Image(); im.src = `assets/staff/sec_${f}.png?v=2`; sprites['sec_' + f] = im; }
+for (const f of SEC_POSES) { const im = new Image(); im.src = `assets/staff/${SP2}sec_${f}.png?v=2`; sprites['sec_' + f] = im; }
 // a full-body pose picture standing on the floor (with a soft shadow); a gentle step while walking
 // Moving staff (her choice 2026-11-22, variants 1+2): a frozen mid-step picture slid along the floor looked like flying with
 // a leg up, so a moving figure now WADDLES (rocks side to side with a little hop in step) or HOVERS on its wings
@@ -1830,7 +1831,7 @@ function drawPose(im, x, y, H, flip, moving, style = 'waddle') {
 // The concierge (her ask 2026-11-21: animations): writes the guest into the book, then hands over the key;
 // with nobody to check in she yawns with her candle and now and then walks along the dorm wall to see that all sleep.
 const CON_POSES = ['write', 'key', 'yawn', 'walk'];
-for (const f of CON_POSES) { const im = new Image(); im.src = `assets/staff/con_${f}.png?v=1`; sprites['con_' + f] = im; }
+for (const f of CON_POSES) { const im = new Image(); im.src = `assets/staff/${SP2}con_${f}.png?v=1`; sprites['con_' + f] = im; }
 let conU = 0, conTrip = 0, conIdle = 0, conLast = 0, conKeyAt = -1e9;
 function conciergePos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (conLast || now)); conLast = now;
@@ -2031,7 +2032,7 @@ function foxPos() {
   return { x: home.x + (shelf.x - home.x) * k, y: home.y + (shelf.y - home.y) * k, pose, moving: foxU > 0 && foxU < 1, flip: foxTrip === -1 };
 }
 const LIB_POSES = ['read', 'carry', 'shelve', 'shh'];
-for (const f of LIB_POSES) { const im = new Image(); im.src = `assets/staff/lib_${f}.png?v=1`; sprites['lib_' + f] = im; }
+for (const f of LIB_POSES) { const im = new Image(); im.src = `assets/staff/${SP2}lib_${f}.png?v=1`; sprites['lib_' + f] = im; }
 let libU = 0, libTrip = 0, libClock = 0, libHold = 0, libLast = 0;
 function librarianPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (libLast || now)); libLast = now;
@@ -2056,8 +2057,8 @@ function drawSecretary(so) {
   ctx.drawImage(im, q.x - w / 2, q.y - lift - h - bob + (so.hit || 0), w, h);
   // no extra emoji: the pose pictures already show the pencil and the pin (her report 2026-11-21)
 }
-for (const f of STAFF_OTHER) { const im = new Image(); im.src = `assets/staff/${f}.png?v=1`; sprites['staff_' + f] = im; }
-const staffSprite = (f) => WORLD === 1 && STAFF_OTHER.includes(f) && sprites['staff_' + f]?.naturalWidth;
+for (const f of STAFF_OTHER) { const im = new Image(); im.src = `assets/staff/${SP2}${f}.png?v=1`; sprites['staff_' + f] = im; }
+const staffSprite = (f) => WORLD <= 2 && STAFF_OTHER.includes(f) && sprites['staff_' + f]?.naturalWidth;
 for (const [k, f] of Object.entries(WORLD === 2 ? STAFF_ART_W2 : STAFF_ART)) { const im = new Image(); im.src = `assets/staff/${f}.png?v=${STAFF_V[f] ? 10 + STAFF_V[f] : 3}`; sprites['staff_' + k] = im; }
 if (WORLD === 1) for (const sp of SPECIES) for (let e = 0; e < 4; e++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_m${e}${v}.png?v=1`; sprites[sp + '_m' + e + v] = im; }   // element masters (her «вау», 2026-11-22)
 if (WORLD === 1) for (const sp of SPECIES) for (let t = 1; t < 5; t++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_t${t}${v}.png?v=1`; sprites[sp + '_t' + t + v] = im; }   // outfit stages (drawn later; missing ones fall back)
@@ -3373,7 +3374,7 @@ function render() {
     for (const o of (T.extras ? T.extras(s) : [])) { const oo = { ...o, th }; add(oo.x, oo.y, () => drawProp(oo)); }
   }
   // reception desk + officer
-  if (WORLD === 1 && SLOTS.LIB) { const lo = librarianPos(), im = sprites['lib_' + lo.pose]; if (im && im.naturalWidth) add(lo.x, lo.y, () => { teacherGlow(lo, 56, 'rgba(255,244,200,0.85)'); drawPose(im, lo.x, lo.y, 56, lo.flip, lo.moving); }); }   // glow: he blended into the dark green room (her report)
+  if (WORLD <= 2 && SLOTS.LIB) { const lo = librarianPos(), im = sprites['lib_' + lo.pose]; if (im && im.naturalWidth) add(lo.x, lo.y, () => { teacherGlow(lo, 56, 'rgba(255,244,200,0.85)'); drawPose(im, lo.x, lo.y, 56, lo.flip, lo.moving); }); }   // glow: he blended into the dark green room (her report)
   if (WORLD === 1) for (const [ci, list] of Object.entries(helpersAll())) {   // helper mages stroll between their class and the corridor
     const i = +ci; if (!slotOf(i) || !isOpen(i)) continue;
     list.forEach((h, k) => { if (h.away || h.mc) return; const p = helperPos(i, k); add(p.x, p.y, () => drawCreature({ sp: h.sp, rk: h.rk || 3, el: h.el || 0, back: p.back, flip: p.flip, path: p.moving ? [1] : [], ph: k + i + performance.now() / 1000 }, p.x, p.y, 30)); });
