@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=264';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=264';
+} from './data.js?v=265';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=265';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 264;   // keep equal to the ?v= number in index.html
+const BUILD = 265;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3813,7 +3813,33 @@ function missionGo(m, text) {
 function goMission(key) {
   const list = missionList(), m = list.find((x) => x.key === key); if (!m || !m.go) return;
   goTarget(m.go);
+  showMissionHint(key, m.go[1]);
 }
+// build 265 (her «очень трудно по памяти прожать с какого уровня на какой надо прокачать. Должна быть подсказка что например с 3 -> 7»):
+// while the room opened from a mission stays open, a plate above its panel says what to do: «ур. 3 → 7»; it follows the progress
+let mHint = null;
+function missionHintText(m, sel) {
+  if (m.ok) return '✅ Задание выполнено — забери награду в «Заданиях»';
+  const P0 = m.prog, LV = { item: 'ур.', teacher: 'учитель ур.', time: 'урок ур.', rec: 'секретарь ур.' }, CNT = { desk: 'парт', beds: 'кроватей', lib: 'мест' };
+  if (P0 && LV[m.type]) return `📋 ${LV[m.type]} ${P0[0]} → ${P0[1]}`;
+  if (P0 && CNT[m.type]) return `📋 ${CNT[m.type]}: ${P0[0]} → ${P0[1]}`;
+  if (P0) return `📋 ${m.text} · осталось ${fmt(Math.max(0, P0[1] - P0[0]))}`;
+  const tm = /(?:до|на)\s+(\d+)/.exec(m.text) || /(\d+)\s*(?:-?го\s*)?(?:ур|уровн)/.exec(m.text);   // fixed story missions: the target is in the text, the current level on the lit card
+  const b = sel && document.querySelector('#sheet ' + sel), card = b && (b.closest('.card') || b), cm = card && /ур\.\s*(\d+)/.exec(card.textContent);
+  if (tm && cm) return `📋 ур. ${cm[1]} → ${tm[1]}`;
+  return `📋 ${m.text}`;
+}
+function showMissionHint(key, sel) { mHint = { key, sel, fn: null, t: 0 }; setTimeout(() => { if (mHint && mHint.key === key) { mHint.fn = panel; updMissionHint(); } }, 150); }
+function updMissionHint() {
+  let el = document.getElementById('mhint');
+  if (!mHint || !mHint.fn || panel !== mHint.fn) { if (el) el.remove(); if (mHint && mHint.fn) mHint = null; return; }
+  const m = missionList().find((x) => x.key === mHint.key);
+  if (!m) { if (el) el.remove(); mHint = null; return; }
+  if (!el) { el = document.createElement('div'); el.id = 'mhint'; el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);z-index:60;background:#fff6cf;border:2px solid #e2b23c;border-radius:14px;padding:6px 14px;font:800 15px ui-rounded,"Nunito","Segoe UI",sans-serif;color:#5a4410;box-shadow:0 4px 14px #0003;pointer-events:none;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis'; document.body.appendChild(el); }
+  const html = emojiHtml(missionHintText(m, mHint.sel)); if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html; }
+  const r = $('#sheet').getBoundingClientRect(); el.style.top = Math.max(8, r.top - 46) + 'px';
+}
+setInterval(updMissionHint, 400);
 function goTarget(go) {   // open a room and light up the button that helps (missions and Tikhon's reports)
   const [id, sel] = go, s = SLOTS[id];
   closePanel();
