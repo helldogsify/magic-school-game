@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=291';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=291';
-import { initMinigame } from './minigame.js?v=291';
+} from './data.js?v=292';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=292';
+import { initMinigame } from './minigame.js?v=292';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 291;   // keep equal to the ?v= number in index.html
+const BUILD = 292;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -471,7 +471,33 @@ function genLayoutW2() {
 let COURT = null, LAWNS = []; const COURT_LAYOUT = true;
 const inCourt = (x, y) => WORLD === 1 && COURT && x >= COURT.x0 && x < COURT.x1 && y >= COURT.y0 && y < COURT.y1;
 const courtC = () => ({ x: (COURT.x0 + COURT.x1) / 2, y: (COURT.y0 + COURT.y1) / 2 });
-const courtBlocked = (x, y) => { if (!inCourt(x, y)) return false; const c = courtC(); return Math.abs(x + 0.5 - c.x) < 1.6 && Math.abs(y + 0.5 - c.y) < 1.6; };   // the fountain   // the open court rectangle (decor and the courtyard life use it)
+const courtBlocked = (x, y) => { if (!inCourt(x, y)) return false; if (GAL_T && GAL_T.has(x * 1000 + y)) return true; const c = courtC(); return Math.abs(x + 0.5 - c.x) < 1.6 && Math.abs(y + 0.5 - c.y) < 1.6; };   // the fountain   // the open court rectangle (decor and the courtyard life use it)
+// ======================= the court colonnade (agreed plan item 2, her pick «2» = columns + garlands, design/gallery_plan_v1.jpg) =======================
+// Columns stand on the edge tiles of the court lawn every ~3 tiles, from corner to corner, leaving the cross paths to the fountain
+// and the graduates' garden open; garlands hang between neighbouring columns. Column tiles are blocked for walking (no one walks
+// through a column). Art: art/parts/gallery/sheet_r0.jpg (SYNTX banana2, 2 tokens) -> assets/parts/outdoor/gal_*.webp.
+var GAL, GAL_G, GAL_T;   // var + set only in galLayout: genLayout may run before this line
+function galLayout() {
+  GAL = []; GAL_G = []; GAL_T = new Set(); if (WORLD !== 1 || !COURT) return;
+  const { x0, y0, x1, y1 } = COURT, c = courtC(), G = SLOTS.GARDEN, seen = new Map();
+  const pathX = [Math.floor(c.x - 1.2) + 1, Math.ceil(c.x + 1.2) - 1], pathY = [Math.floor(c.y - 1.2) + 1, Math.ceil(c.y + 1.2) - 1];   // cross path tiles (as drawStatic paints them)
+  const segs = (a, b, path, gEnd) => { const out = []; const lo = gEnd != null ? gEnd + 1 : a; if (lo <= path[0] - 2) out.push([lo, path[0] - 1]); if (path[1] + 1 <= b) out.push([path[1] + 1, b]); return out; };
+  const side = (fixed, horiz, a, b, path, gEnd) => {
+    for (const [s0, s1] of segs(a, b, path, gEnd)) {
+      const n = Math.max(1, Math.round((s1 - s0) / 3)), row = [];
+      for (let i = 0; i <= n; i++) { const t = Math.round(s0 + i * (s1 - s0) / n), x = horiz ? t : fixed, y = horiz ? fixed : t, k = x * 1000 + y;
+        const corner = (x === x0 || x === x1 - 1) && (y === y0 || y === y1 - 1), byPath = horiz ? (t === path[0] - 1 || t === path[1] + 1) : (t === path[0] - 1 || t === path[1] + 1);
+        let col = seen.get(k); if (!col) { col = { n: corner ? 'gal_urn' : byPath ? 'gal_lamp' : 'gal_rose', x: x + 0.5, y: y + 0.5 }; seen.set(k, col); GAL.push(col); GAL_T.add(k); }
+        row.push(col); }
+      for (let i = 0; i + 1 < row.length; i++) GAL_G.push([row[i], row[i + 1]]);
+    }
+  };
+  const gy1 = G ? G.y1 : null, gx1 = G ? G.x1 : null;
+  side(y0, true, x0, x1 - 1, pathX, G && G.y0 <= y0 ? gx1 : null);       // back edge (the garden sits in its left corner)
+  side(x1 - 1, false, y0, y1 - 1, pathY, null);                         // right edge
+  side(y1 - 1, true, x0, x1 - 1, pathX, null);                          // front edge
+  side(x0, false, y0, y1 - 1, pathY, G && G.x0 <= x0 + 1 ? gy1 : null); // left edge (below the garden)
+}
 function genLayoutCourt() {
   // Build 241 (her pick «1» of design/layout2_v1.png after the designer review): study goes round the court, 1-2-3 up the left
   // column from the entrance, 4-5-6 along the back row; the exam hall at the back corner between them; the court is smaller and
@@ -497,6 +523,7 @@ function genLayoutCourt() {
   COURT = { x0: cx0, y0: cy0, x1: cx1, y1: cy1 };
   PATHS = [];
   SLOTS.GARDEN = slot(cx0 + 1, cy0, [[cx0 + 1, cy0], [cx0 + 1, cy0 - 1]], {}, 6, 6, [[[cx0 + 2, cy0], [cx0 + 2, cy0 - 1]], [[cx0 + 6, cy0 + 3], [cx0 + 7, cy0 + 3]]]);
+  galLayout();   // plan item 2: the colonnade round the court lawn
   // right column under Elements (build 252, her «у ежика ушла стена где он на полку книжку клал»): library on top (its tall back
   // wall faces the gallery under the back row), a 4-tile lawn, the canteen (tall back wall too); the masters' tower stands outside
   // on the lawn to the right, a path from the gallery corner leads to it
@@ -2200,7 +2227,7 @@ function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.cl
 const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, toadhouse: 96, glowmush: 40, crystals: 44, berrybush: 44, fern: 38, hedge: 42, roses: 40, roses2: 40, boulder: 40, bells: 38,
   fountain: 100, flowerarch: 118, gazebo: 132, founder: 96, bench_a: 34, bench_b: 34, topiary_ball: 42, topiary_spiral: 48, hedge_long: 26, peonybed: 30, hydrangea: 40, crystalball: 40,
   lantern_gold: 76, lantern_blue: 76, owl_statue: 62, fox_statue: 62, flowerbed: 34, signpost2: 58, urn: 46, flowerbox: 26, gate_big: 170,
-  runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46 };   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
+  runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46, gal_rose: 84, gal_lamp: 84, gal_urn: 94 };   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
 // World 2 (cold mountain kingdom): the same composed territory, drawn with cave things instead of trees and flowers.
 // The world-1 layout names are mapped to cave sprites (null = nothing there); the pictures load into the same 'outdoor/<name>' keys.
 const OUT_H_W2 = { stalag_a: 168, stalag_b: 176, stalag_c: 160, mush_teal: 140, mush_violet: 128, crystal_big: 120, boulder: 40, rubble: 28, glowmush: 38, crystals: 40, ore: 36, minecart: 46, lantern: 76, runestone: 44, dwarf_statue: 64, gate_big: 200 };
@@ -2217,6 +2244,8 @@ function tintCopies(src) { return [0.17, 0.32].map((a) => { const c = document.c
 for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; if (OUT_H[n]) { const c = document.createElement('canvas'), k = 40 / im.naturalHeight; c.width = Math.max(4, Math.round(im.naturalWidth * k)); c.height = 40; const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(38,48,62)'; x.fillRect(0, 0, c.width, c.height); outSh[n] = c; } if (im.naturalHeight > 560) { const c = document.createElement('canvas'), k = 440 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 440; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outMid[n] = c; } if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } if (OUT_TREE.has(n) && outMid[n] && outLo[n]) outTint[n] = { mid: tintCopies(outMid[n]), lo: tintCopies(outLo[n]) }; }; im.src = `assets/parts/${OUT_DIR}/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
 let GRASS_ON = true, BG_OFF = false;
 const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+let garlandLo = null;   // a small copy: the 917-px picture shrunk to ~90 px every frame lost its colours
+if (WORLD === 1) { const im = new Image(); im.onload = () => { partsVer++; let src = im, w = im.naturalWidth; while (w > 300) { w = Math.round(w / 2); const c = document.createElement('canvas'); c.width = w; c.height = Math.round(im.naturalHeight * w / im.naturalWidth); const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, c.width, c.height); src = c; } garlandLo = src; }; im.src = 'assets/parts/outdoor/gal_garland.webp?v=1'; parts['outdoor/gal_garland'] = im; }   // court colonnade garlands (no shadow)
 let OUTDOOR = [], outKey = '', OUT_ON = true, entrancePath = null, entranceDecal = null, gardenDecal = null;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
 // Composed territory (her ruling: no random scatter; «продумай как оно должно быть, и их размеры»):
 //  - a forest of tree groves in a band 6..24 tiles away from every building (the school stands in a clearing),
@@ -2268,6 +2297,8 @@ function layoutOutdoor() {
       add(fx < 0.5 === fy < 0.5 ? 'blossom' : 'goldtree', x, y, 0.95); add('peonybed', x + 1.6, y + 0.6); add('hydrangea', x - 1.2, y + 1.4); add('topiary_ball', x + 0.4, y + 2.0);
     }
     for (const [dx, dy] of [[-5.2, 0], [5.2, 0], [0, -5.2], [0, 5.2]]) add('lantern_gold', c.x + dx + (dx ? 0 : 1.4), c.y + dy + (dy ? 0 : 1.4), 0.9);
+    for (const g of GAL || []) out.push({ n: g.n, x: g.x, y: g.y, th: 'outdoor', s: 1 });   // the colonnade (plan item 2)
+    for (const [a, b] of GAL_G || []) out.push({ n: 'gal_garland', x: (a.x + b.x) / 2 + 0.01, y: (a.y + b.y) / 2 + 0.01, th: 'outdoor', g: [a, b] });
   }
   if (SLOTS.GARDEN) { const g = SLOTS.GARDEN, X = g.x0, Y = g.y0;   // the graduates' garden: arch at the door, fountain plaza, founder statue, gazebo, benches, flowers
     for (const [n, dx, dy, fl] of [['flowerarch', 1.6, 0.5, false], ['crystalball', 3.55, 3.6], ['gazebo', 4.95, 1.1], ['bench_b', 2.5, 5.5], ['bench_a', 5.5, 3.3],   // calm layout (her «слишком много навалено деталей»): four big things far apart, one bench, two topiaries
@@ -2433,11 +2464,19 @@ function drawTreeGrounded(o, im, p, w, h) {   // false = not a grounded tree (dr
 }
 function drawOut(o) {
   let im = part('outdoor', o.n); if (!im) return;
+  if (o.g) return drawGarland(o, im);
   const p = P(o.x, o.y), h = (OUT_H[o.n] || 28) * (o.s || 1), w = h * im.naturalWidth / im.naturalHeight;
   { const dh = h * scale * dpr, lv = o.depth > 0.6 ? 1 : o.depth > 0.25 ? 0 : -1, t = lv >= 0 && outTint[o.n];   // nearest smaller copy (big downscales every frame are slow); deep trees use the tinted copies
     if (outLo[o.n] && dh < 230) im = t ? t.lo[lv] : outLo[o.n]; else if (outMid[o.n] && (dh < 430 || t)) im = t ? t.mid[lv] : outMid[o.n]; }
   if (!drawTreeGrounded(o, im, p, w, h)) ctx.drawImage(o.flip ? flipped(im) : im, p.x - w / 2, p.y + h * 0.05 - h, w, h);
   if (zoom >= 1.3) outFx(o, p, h);   // zoomed out the life is too small to see: save the iPhone's work
+}
+function drawGarland(o, im) {   // a garland swag hung between the tops of two columns: the picture's bow corners are pinned to the column tops
+  const top = (c) => { const p = P(c.x, c.y), h = OUT_H[c.n] || 84; return { x: p.x, y: p.y + h * 0.05 - h * (c.n === 'gal_urn' ? 0.62 : 0.9) }; };
+  let A = top(o.g[0]), B = top(o.g[1]); if (A.x > B.x) [A, B] = [B, A];
+  if (garlandLo && Math.hypot(B.x - A.x, B.y - A.y) * scale * dpr < garlandLo.width * 1.2) im = garlandLo;
+  const W = im.width || im.naturalWidth, H = im.height || im.naturalHeight, ux = (B.x - A.x) / W, uy = (B.y - A.y) / W, k = 1.3 * Math.hypot(B.x - A.x, B.y - A.y) / W, pin = 0.07 * H;   // a little deeper than the picture: thicker, reads better
+  ctx.save(); ctx.transform(ux, uy, 0, k, A.x, A.y - pin * k); ctx.drawImage(im, 0, 0); ctx.restore();
 }
 // ======================= corridors (roadmap step 2, last part; her «Да, можно коридоры делать. Да покрасивше») =======================
 // Herringbone parquet with star inlays on every inner corridor tile (the pink runner stays), free-standing furniture along the
