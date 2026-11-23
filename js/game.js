@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=312';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=312';
-import { initMinigame } from './minigame.js?v=312';
-import { initChests } from './chests.js?v=312';
+} from './data.js?v=313';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=313';
+import { initMinigame } from './minigame.js?v=313';
+import { initChests } from './chests.js?v=313';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 312;   // keep equal to the ?v= number in index.html
+const BUILD = 313;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -214,10 +214,27 @@ function answerMail(how, auto) {
   M.cur = null; dirtyPanel = true; if (!auto) S.stats.mails = (S.stats.mails || 0) + 1; save();   // mails: counted for the missions
   toast(auto ? '📭 Письмо родителей осталось без ответа' : mailResult.split(':')[0].split('!')[0]);
 }
+let mailRect = null;
+// The letter has its own window (build 311, tester «письмо в кабинете директора открывается в общем меню директора. Должно открываться
+// в отдельной своей менюшке, где ты конкретно по этому письму принимаешь решение по клику на пришедшее письмо»): the envelope over the
+// office, the letter card in the director's panel and Tikhon's report open it; after the answer it shows how it went.
+function mailPanel() {
+  const M = boss().mail;
+  if (!M.cur) return `<div class="sh-head"><span class="remoji big">✉️</span><div><h2>Письмо от родителей</h2><div class="muted">Ответ отправлен</div></div><button class="x" data-close>✕</button></div>
+    <p>${mailResult || 'Новых писем нет.'}</p><button class="btn wide" data-close>Хорошо</button>`;
+  const [e, t] = MAILS[M.cur.m] || MAILS[0];
+  return `<div class="sh-head"><span class="remoji big">✉️</span><div><h2>Письмо от родителей</h2><div class="muted">ученика ${M.cur.name}</div></div><button class="x" data-close>✕</button></div>
+    <div class="card up"><span class="remoji">${e}</span><div class="grow">«${t}»</div></div>
+    <p class="muted">Как ответить? От ответа зависят настроение учеников и репутация школы у родителей (сейчас ${(boss().rep || 0) > 0 ? '+' : ''}${boss().rep || 0}).</p>
+    <button class="btn wide" data-cost="${mailPayCost()}" data-act="mail" data-k="pay">💐 Извиниться и вернуть деньги <span class="cost">🪙${fmt(mailPayCost())}</span></button>
+    <button class="btn ghost wide" data-act="mail" data-k="lesson">🎓 Пригласить на открытый урок <span class="cost">60%</span></button>
+    <button class="btn ghost wide" data-act="mail" data-k="no">🙅 Отказать</button>`;
+}
 function drawMail() {   // a bobbing envelope over the director's office while a letter waits
   if (!bossOn() || !S.boss || !S.boss.mail || !S.boss.mail.cur || !SLOTS.DIR) return;
   const s = SLOTS.DIR, c = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), T = performance.now();
   const k = 1 + 0.1 * Math.sin(T / 200), y = c.y - 30 - 6 * Math.sin(T / 300);   // same look as the incident badge, so it is seen on the dark office wall
+  mailRect = { x0: c.x - 42, y0: y - 34, x1: c.x + 42, y1: y + 54, t: T };
   ctx.fillStyle = '#fff3c4'; ctx.beginPath(); ctx.arc(c.x, y, 30 * k, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#e0a100'; ctx.lineWidth = 3; ctx.stroke();
   emoji('✉️', c.x, y, 36 * k);
   ctx.fillStyle = '#ff4d6d'; rr(c.x - 40, y + 30, 80, 22, 11); ctx.fill(); text('Письмо!', c.x, y + 41, 11, '#ffffff');
@@ -226,10 +243,7 @@ function bossBlock() {   // the routine part of the director's panel
   const B = boss(), M = B.mail, cn = campNow(), w = campWait();
   let h = '';
   if (M.cur) { const [e, t] = MAILS[M.cur.m] || MAILS[0];
-    h += `<div class="card up"><span class="remoji">✉️</span><div class="grow"><b>Письмо от родителей ученика ${M.cur.name}</b><div>${e} «${t}»</div><div class="muted">Письмо подождёт, отвечай когда удобно</div></div></div>
-      <button class="btn wide" data-cost="${mailPayCost()}" data-act="mail" data-k="pay">💐 Извиниться и вернуть деньги <span class="cost">🪙${fmt(mailPayCost())}</span></button>
-      <button class="btn ghost wide" data-act="mail" data-k="lesson">🎓 Пригласить на открытый урок <span class="cost">60%</span></button>
-      <button class="btn ghost wide" data-act="mail" data-k="no">🙅 Отказать</button>`; }
+    h += `<div class="card up" style="border:2px solid #e8b923;background:#fff8dc"><span class="remoji">✉️</span><div class="grow"><b>Письмо от родителей ученика ${M.cur.name}</b><div class="muted">${e} ${t.length > 48 ? t.slice(0, 46) + '…' : t}</div></div><button class="btn small hot" data-mailopen>Открыть</button></div>`; }
   else if (mailResult) h += `<p class="muted">${mailResult}</p>`;
   const rep = B.rep || 0;
   h += `<p class="muted">Репутация у родителей: <b>${rep > 0 ? '+' : ''}${rep}</b> (от −${REP_MAX} до +${REP_MAX}), награда инспектора ${rep >= 0 ? '+' : '−'}${Math.abs(rep * 5)}%. Письма приходят раз в 8–15 минут игры.</p>`;
@@ -1153,7 +1167,8 @@ function stepRumble(dt, live) {
   if (!T.cur) {
     T.t -= dt;
     if (T.t <= RUMBLE_WARN && !T.warned) { T.warned = 1; toast('🌑 Из глубин доносится гул! Скоро тени полезут наверх'); hintOnce('rumble', '🌑', 'Гул из глубин', `Через ${RUMBLE_WARN} секунд из глубины горы полезут тени. Пока длится защита, каждый сданный урок в Зале стражей 🛡️ отбивает одну тень. Отбьёте сколько нужно — получите сундук с монетами и самоцветами. Не успеете — обвал закроет один зал, его надо будет расчистить нажатием.`); }
-    if (T.t <= 0) { T.cur = { left: rumbleLen(), need: rumbleNeed(), got: 0 }; T.warned = 0; toast(`🌑 Тени лезут из глубин! Отбейте ${T.cur.need} в Зале стражей 🛡️`); sfx('stars'); }
+    if (T.t <= 0) { T.cur = { left: rumbleLen(), need: rumbleNeed(), got: 0 }; T.warned = 0; if (S.inc) delete S.inc[guardsIdx()];   // the guards rally: their hall is cleared at once
+      toast(`🌑 Тени лезут из глубин! Отбейте ${T.cur.need} в Зале стражей 🛡️`); sfx('stars'); }
     return;
   }
   T.cur.left -= dt;
@@ -1466,7 +1481,7 @@ function stepIncidents(dt, live) {
   if (!live || S.stats.graduated < 5 || tourStep >= 0) return;   // never while the game is closed, nor for a brand-new school
   incT -= dt; if (incT > 0) return;
   incT = (INC_MIN + Math.random() * (INC_MAX - INC_MIN)) * (1 + 0.1 * dirLvl('keeper'));
-  const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !S.inc[i]);
+  const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !S.inc[i] && !(WORLD === 2 && S.w2 && S.w2.throne && (S.w2.throne.cur || S.w2.throne.warned) && CLASSES[i].id === THRONE_NEED));   // the guard hall is never hit while it defends
   if (Object.keys(S.inc).length >= INC_MAXN || !open.length) return;
   const i = rnd(open); S.inc[i] = { k: Math.random() < 0.3 ? 'g' : 'c', t: 0 }; sfx(incSound(i));
   const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`); try { navigator.vibrate?.(80); } catch (er) { /* no vibration */ }
@@ -2193,7 +2208,7 @@ function advReport() {   // [{hot, emo, text, go}] — go: [room id, selector] |
     if (fi > 0 && fo >= fi * 0.3) out.push({ hot: fo >= fi * 0.45, emo: '📉', text: `${fo >= fi ? 'Школа в минусе!' : 'Казна худеет:'} возвраты ушедшим и штрафы забирают ${Math.round(fo / fi * 100)}% дохода. ${dirLvl('refund') < DIR_UP.refund.max ? 'Улучши «Правила возврата» — ушедшим будем возвращать меньше.' : bedsLeft() ? 'Добавь кроватей, чтобы новички не уходили.' : 'Добавь парт в переполненные классы.'}`, go: dirLvl('refund') < DIR_UP.refund.max ? ['DIR', '[data-act="dir"][data-k="refund"]'] : bedsLeft() ? ['DORM', '[data-act="beds"]'] : null }); }
   const inc = Object.keys(S.inc || {});
   if (inc.length) out.push({ hot: true, emo: '💥', text: `В классе «${CLASSES[+inc[0]].name}» происшествие — урок стоит! Нажми на класс, чтобы всё починить.`, go: [CLASS_SLOT[+inc[0]], null] });
-  if (boss().mail.cur) out.push({ hot: true, emo: '✉️', text: 'Пришло письмо от родителей. Оно ниже — ответь, когда будет минутка.', go: null });
+  if (boss().mail.cur) out.push({ hot: true, emo: '✉️', text: 'Пришло письмо от родителей — ответь, когда будет минутка.', go: 'mail' });
   const ready = missionList().filter((x) => x.ok).length;
   if (ready) out.push({ hot: false, emo: '🎁', text: `Выполнено заданий: ${ready}. Забери награды!`, go: 'missions' });
   advCacheAt = performance.now(); advCache = out;
@@ -2251,7 +2266,7 @@ function drawTikhonBadge(p) {   // a scroll over his head while he has something
 let advTargets = [];
 function advisorBlock() {   // top of the director's panel
   const rep = advReport(); advTargets = rep.map((r) => r.go);
-  const items = rep.map((r, k) => `<div class="card up"${r.hot ? ' style="border:2px solid #ffb4a8"' : ''}><span class="remoji">${r.emo}</span><div class="grow">${r.text}</div>${r.go ? `<button class="btn small go" data-advgo="${k}">${r.go === 'missions' ? 'Задания' : 'Показать'}</button>` : ''}</div>`).join('');
+  const items = rep.map((r, k) => `<div class="card up"${r.hot ? ' style="border:2px solid #ffb4a8"' : ''}><span class="remoji">${r.emo}</span><div class="grow">${r.text}</div>${r.go ? `<button class="btn small go" data-advgo="${k}">${r.go === 'missions' ? 'Задания' : r.go === 'mail' ? 'Открыть' : 'Показать'}</button>` : ''}</div>`).join('');
   const quote = ADV_QUOTES[Math.floor(Date.now() / 60000) % ADV_QUOTES.length];
   return `<div class="card up" style="align-items:center">${tikhonPic(70)}<div class="grow"><b>${ADV_NAME}</b><div class="muted">советник директора и летописец школы</div><div>«${rep.length ? 'Директор, вот что я заметил:' : 'В школе всё спокойно, директор. ' + quote}»</div></div></div>
     ${items}
@@ -2260,6 +2275,7 @@ function advisorBlock() {   // top of the director's panel
 function advGo(k) {
   const g = advTargets[+k]; if (!g) return;
   if (g === 'missions') { openPanel(missionsPanel); return; }
+  if (g === 'mail') { openPanel(mailPanel); return; }
   goTarget(g);
 }
 // The fox shopkeeper (her choice 2026-11-21: a curiosity shop): hands over the treat while a student is shopping,
@@ -4529,6 +4545,7 @@ scroller.addEventListener('click', (e) => {
   const r = scroller.getBoundingClientRect();
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
+  const mr = mailRect; if (mr && performance.now() - mr.t < 600 && wx >= mr.x0 && wx <= mr.x1 && wy >= mr.y0 && wy <= mr.y1) { openPanel(mailPanel); return; }   // the envelope over the office opens the letter (build 311)
   const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { openRoom('DIR'); return; }   // Tikhon (or his scroll) opens his report, wherever he walks
   const sign = signRects.find((r) => wx >= r.x0 - 6 && wx <= r.x1 + 6 && wy >= r.y0 - 6 && wy <= r.y1 + 6);   // a sign always opens its room
   if (sign) { if (sign.id === 'FOUNT') openPanel(fountainPanel); else openRoom(sign.id); return; }
@@ -4614,6 +4631,7 @@ document.addEventListener('click', (e) => {
   if (d.reqcancel !== undefined) { reqCancel(d.reqcancel); return; }
   if (d.reqok !== undefined) { reqAnswer(d.reqok, true); return; }
   if (d.reqno !== undefined) { reqAnswer(d.reqno, false); return; }
+  if (d.mailopen !== undefined) { openPanel(mailPanel); return; }
   if (d.allykick !== undefined) { allyKick(d.allykick); return; }
   if (d.allylead !== undefined) { allyLead(d.allylead); return; }
   if (d.allyedit !== undefined) { allyEdit(); return; }
@@ -4665,7 +4683,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!dirBuilt() && S.coins >= DIR_COST && spendStars(DIR_STARS) && spend(DIR_COST)) { S.dirBuilt = true; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
   else if (d.act === 'plan') { if (PLANS[d.k]) { boss().plan = d.k; toast(`${PLANS[d.k].emo} Договор: ${PLANS[d.k].name}`); } }
   else if (d.act === 'camp') startCamp(d.k);
-  else if (d.act === 'mail') answerMail(d.k);
+  else if (d.act === 'mail') { answerMail(d.k); if (panel === mailPanel) refreshPanel(); }
   else if (d.act === 'dir') { const k = d.k; if (dirLvl(k) < DIR_UP[k].max && spend(dirCost(k))) { S.dir ||= {}; S.dir[k] = dirLvl(k) + 1; } }
   else if (d.act === 'libseats') { if (libSeats() < MAX_LIB_SEATS && spend(libSeatsCost())) libUp().seats++; }
   else if (d.act === 'libspeed') { if (libUp().speed < MAX_LIB_LVL && spend(libSpeedCost())) libUp().speed++; }
