@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=416';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=416';
-import { initMinigame } from './minigame.js?v=416';
-import { initChests } from './chests.js?v=416';
-import { initLore } from './lore.js?v=416';
-import { initAvatar } from './avatar.js?v=416';
+} from './data.js?v=417';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=417';
+import { initMinigame } from './minigame.js?v=417';
+import { initChests } from './chests.js?v=417';
+import { initLore } from './lore.js?v=417';
+import { initAvatar } from './avatar.js?v=417';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 416;   // keep equal to the ?v= number in index.html
+const BUILD = 417;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3358,7 +3358,7 @@ function hangIso(c, th, n, s, side, t0, lo) {
   c.save(); c.translate(m.x, m.y); if (side === 'y0') c.scale(-1, 1);
   c.shadowColor = 'rgba(55,35,80,0.35)'; c.shadowBlur = 3 * k; c.shadowOffsetX = (side === 'y0' ? -1.2 : 1.2) * k; c.shadowOffsetY = 1.8 * k;
   c.drawImage(im, -sw / 2, -sh / 2, sw, sh); c.restore();
-  if (n === 'bigwin') HERBS_WINS.set(Math.round(m.x) + ',' + Math.round(m.y), { x: m.x, y: m.y, sw, sh, flip: side === 'y0' });
+  if (n === 'bigwin') HERBS_WINS.set(Math.round(m.x) + ',' + Math.round(m.y), { x: m.x, y: m.y, sw, sh, flip: side === 'y0', side, tm, s0: s.x0 + ',' + s.y0 });
   return true;
 }
 function hang(c, th, n, s, side, t0, lo) {
@@ -3408,7 +3408,7 @@ function drawWallDecor(c, id) {
 // furniture of a themed class: corners at the back, a bookcase by the left wall, small things in the free strip in front
 // ---- redesigned rooms: built-in, staged furnishing items (stage 0 = not bought, 1 = lvl 1-9, 2 = 10-24, 3 = 25-39, 4 = 40)
 const ITEM_IMS = {};
-function itemIm(n) { let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=1`; } return im.complete && im.naturalWidth ? im : null; }
+function itemIm(n) { let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=2`; } return im.complete && im.naturalWidth ? im : null; }
 const stageOf = (lv) => (!lv ? 0 : lv < 10 ? 1 : lv < 25 ? 2 : lv < 40 ? 3 : 4);
 function itemDraw(n, x, y, h, o = {}) {   // a sprite standing on tile (x, y): bottom-centre on the floor point, lift = px above the floor
   const im = itemIm(n); if (!im) return null; const p = P(x, y), w = h * im.naturalWidth / im.naturalHeight, top = p.y + (o.down || 0) - (o.lift || 0) - h;
@@ -3423,8 +3423,10 @@ const ROOM_ART = {
     const depth = s.y1 - s.y0, W = s.x1 - s.x0, free = s.y0 + (frontFacing(i) ? 1.9 : 2.5) + (Math.ceil(maxDesksOf(i) / 3) - 1) * 1.2 + 1.0;
     const wallEnd = Math.min(s.y1 - 1.0, free);   // the left wall is free from the bookcase to the side table
     // sunbeams from the windows across the floor (day)
-    const dl = daylight(); if (dl > 0) add(s.x0 + 0.2, s.y0 + 0.2, () => { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.24 * dl;
-      for (const yb of [s.y0 + 1.2, s.y0 + Math.min(depth - 1.5, 3.6)]) { const a = P(s.x0, yb), b = P(s.x0, yb + 0.9), c = P(s.x0 + Math.min(W - 0.5, 4.5), yb + 1.6), d = P(s.x0 + Math.min(W - 0.5, 4.5), yb + 0.7); const g = ctx.createLinearGradient(a.x, a.y, c.x, c.y); g.addColorStop(0, 'rgba(255,220,150,1)'); g.addColorStop(1, 'rgba(255,220,150,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); }
+    const dl = daylight(); if (dl > 0) add(s.x0 + 0.05, s.y0 + 0.05, () => { ctx.save(); ctx.globalCompositeOperation = 'lighter';   // each window throws its own light onto the floor: two panes split by the bar, slanting into the room
+      for (const wv of HERBS_WINS.values()) { if (wv.s0 !== s.x0 + ',' + s.y0) continue; const hw = DECOR.bigwin.w / 2, len = Math.min(3.2, (wv.side === 'x0' ? W : depth) - 1), sk = 0.9;
+        for (const [u0, u1] of [[-hw * 0.85, -0.06], [0.06, hw * 0.85]]) { const Q = (u, v) => (wv.side === 'x0' ? P(s.x0 + v, wv.tm + u + v * sk * 0.35) : P(wv.tm + u + v * sk * 0.35, s.y0 + v)); const a = Q(u0, 0.05), b = Q(u1, 0.05), c = Q(u1, len), d = Q(u0, len);
+          const g = ctx.createLinearGradient(a.x, a.y, (c.x + d.x) / 2, (c.y + d.y) / 2); g.addColorStop(0, `rgba(255,224,160,${0.34 * dl})`); g.addColorStop(1, 'rgba(255,224,160,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); } }
       ctx.restore(); });
     // planters along the left wall
     const sp = stageOf(lv('pots')), plH = 46, units = [];
