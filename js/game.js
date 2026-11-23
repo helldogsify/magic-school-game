@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=400';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=400';
-import { initMinigame } from './minigame.js?v=400';
-import { initChests } from './chests.js?v=400';
-import { initLore } from './lore.js?v=400';
-import { initAvatar } from './avatar.js?v=400';
+} from './data.js?v=401';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=401';
+import { initMinigame } from './minigame.js?v=401';
+import { initChests } from './chests.js?v=401';
+import { initLore } from './lore.js?v=401';
+import { initAvatar } from './avatar.js?v=401';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 400;   // keep equal to the ?v= number in index.html
+const BUILD = 401;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2541,6 +2541,7 @@ function statKey() { return ['SHOP', 'TRADE', 'EXPED', 'DIR', 'TOWER', 'DORM2'].
 // ======================= territory (roadmap step 2, her wish 2026-11-22: «очень волшебные и красивые с большим количеством деталей») =======================
 // Grass and outdoor paths are iso textures; the lawn around the school is dotted with magic trees, bushes and small things,
 // placed by a fixed hash of the tile so the picture never changes between visits (only where nothing is built or planned).
+const OUT_V = { moontree: 2 };   // outdoor pictures redrawn under the same name get a new cache version (phones keep ?v=1 copies up to a day)
 const OUT_H = { moontree: 240, oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, toadhouse: 96, glowmush: 40, crystals: 44, berrybush: 44, fern: 38, hedge: 42, roses: 40, roses2: 40, boulder: 40, bells: 38,
   fountain: 100, flowerarch: 118, gazebo: 132, founder: 96, bench_a: 34, bench_b: 34, topiary_ball: 42, topiary_spiral: 48, hedge_long: 26, peonybed: 30, hydrangea: 40, crystalball: 40,
   lantern_gold: 76, lantern_blue: 76, owl_statue: 62, fox_statue: 62, flowerbed: 34, signpost2: 58, urn: 46, flowerbox: 26, gate_big: 170,
@@ -2566,7 +2567,7 @@ function tintCopies(src) { return [0.17, 0.32].map((a) => { const c = document.c
 for (const n of ['grass', 'path', ...Object.keys(OUT_H)]) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; if (OUT_H[n]) { const c = document.createElement('canvas'), k = 40 / im.naturalHeight; c.width = Math.max(4, Math.round(im.naturalWidth * k)); c.height = 40; const x = c.getContext('2d'); x.drawImage(im, 0, 0, c.width, c.height); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(38,48,62)'; x.fillRect(0, 0, c.width, c.height); outSh[n] = c; } if (im.naturalHeight > 560) { const c = document.createElement('canvas'), k = 440 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 440; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outMid[n] = c; } if (im.naturalHeight > 300) { const c = document.createElement('canvas'), k = 240 / im.naturalHeight; c.width = Math.round(im.naturalWidth * k); c.height = 240; c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); outLo[n] = c; } if (OUT_TREE.has(n) && outMid[n] && outLo[n]) outTint[n] = { mid: tintCopies(outMid[n]), lo: tintCopies(outLo[n]) }; }; im.src = `assets/parts/${OUT_DIR}/${n}.webp?v=2`; parts['outdoor/' + n] = im; }
 let GRASS_ON = true, BG_OFF = false;
 const hash2 = (x, y, k = 0) => { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-if (WORLD === 1) for (const n of ['honey', 'mosaic']) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/outdoor/${n}.webp?v=1`; parts['outdoor/' + n] = im; }   // paving art (art/parts/paving, SYNTX 4 tokens)
+if (WORLD === 1) for (const n of ['honey', 'mosaic']) { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/outdoor/${n}.webp?v=${OUT_V[n] || 1}`; parts['outdoor/' + n] = im; }   // paving art (art/parts/paving, SYNTX 4 tokens)
 let garlandLo = null;   // a small copy: the 917-px picture shrunk to ~90 px every frame lost its colours
 if (WORLD === 1) { const im = new Image(); im.onload = () => { partsVer++; let src = im, w = im.naturalWidth; while (w > 300) { w = Math.round(w / 2); const c = document.createElement('canvas'); c.width = w; c.height = Math.round(im.naturalHeight * w / im.naturalWidth); const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, c.width, c.height); src = c; } garlandLo = src; }; im.src = 'assets/parts/outdoor/gal_garland.webp?v=1'; parts['outdoor/gal_garland'] = im; }   // court colonnade garlands (no shadow)
 let OUTDOOR = [], outKey = '', OUT_ON = true, entrancePath = null, entranceDecal = null, gardenDecal = null;   // the random scatter is off (her verdict 2026-11-22: «понатыкано тыщу элементов», and it lagged)
