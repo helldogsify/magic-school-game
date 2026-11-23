@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=368';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=368';
-import { initMinigame } from './minigame.js?v=368';
-import { initChests } from './chests.js?v=368';
-import { initAvatar } from './avatar.js?v=368';
+} from './data.js?v=369';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=369';
+import { initMinigame } from './minigame.js?v=369';
+import { initChests } from './chests.js?v=369';
+import { initAvatar } from './avatar.js?v=369';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -22,7 +22,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 368;   // keep equal to the ?v= number in index.html
+const BUILD = 369;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5121,8 +5121,11 @@ async function anonToken() {   // an id token of this device's anonymous account
   try { return await anonBusy; } finally { anonBusy = null; }
 }
 let topSentAt = 0, topSentKey = '';
+// tests never reach the public top (her «В школах много тестовых стоит», 2026-11-23: two «Тестовая» schools came from a Claude test that
+// loaded her save on 127.0.0.1): no writes from a local or LAN server or an automated browser, unless the address has ?top=1
+const TOP_TEST = !/[?&]top=1/.test(location.search) && (!!navigator.webdriver || /^(localhost|127\.|0\.0\.0\.0|192\.168\.|10\.|\[::1\])/.test(location.hostname));
 async function topPush(force) {   // our line in the table (only with a school name); quietly does nothing offline
-  if (!S || !schoolName() || !(S.rating || S.stats.graduated)) return;
+  if (TOP_TEST || !S || !schoolName() || !(S.rating || S.stats.graduated)) return;
   const R = rating(), key = [schoolName(), playerNick(), myAl(), R.v.toFixed(2), R.n, S.stats.graduated, MG.weekBest(), MG.prevBest(), MG.flightBest(), MG.flightPrev()].join('|');
   if (!force && (key === topSentKey || Date.now() - topSentAt < TOP_EVERY * 1000)) return;
   topSentAt = Date.now();
