@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=381';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=381';
-import { initMinigame } from './minigame.js?v=381';
-import { initChests } from './chests.js?v=381';
-import { initLore } from './lore.js?v=381';
-import { initAvatar } from './avatar.js?v=381';
+} from './data.js?v=382';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=382';
+import { initMinigame } from './minigame.js?v=382';
+import { initChests } from './chests.js?v=382';
+import { initLore } from './lore.js?v=382';
+import { initAvatar } from './avatar.js?v=382';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 381;   // keep equal to the ?v= number in index.html
+const BUILD = 382;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1791,7 +1791,7 @@ function rankSection(i) {   // the class panel part about the rank exam held her
     <div class="card up"><span class="remoji">📈</span><div class="grow"><b>Опыт</b> <span class="muted">ур. ${xplLvl(i)}/${MAX_XPL_LVL}</span><div class="muted">за урок здесь карточка ученика получает +${1 + xplLvl(i)} опыта</div></div>
       ${xplLvl(i) >= MAX_XPL_LVL ? '<span class="done">макс.</span>' : costBtn('↑', xplCost(i), 'xpllvl', `data-i="${i}"`)}</div>`;
 }
-const formImg = (k) => { const [sp, rk, el] = k.split(':'); if (+rk === 5 && sprites[sp + '_m' + el]?.naturalWidth) return `assets/creatures/${sp}_m${el}.png?v=1`; const t = Math.min(4, +rk); return `assets/creatures/${sp}${t ? '_t' + t : ''}.png${t ? '?v=1' : ''}`; };
+const formImg = (k) => { const [sp, rk, el] = k.split(':'); if (+rk === 5 && sprites[sp + '_m' + el]?.naturalWidth) return `assets/creatures/${sp}_m${el}.png?v=1`; const t = Math.min(4, +rk); return `assets/creatures/${sp}${t ? '_t' + t : ''}.png${t ? '?v=' + (TIER_V[sp] || 1) : ''}`; };   // the album follows TIER_V too
 let albumSp = SPECIES[0];
 function formCounts() {   // how many of each form are in the school now: students, tower residents, helper mages
   const c = {}, inc = (k) => { c[k] = (c[k] || 0) + 1; };
@@ -2465,7 +2465,7 @@ const staffSprite = (f) => WORLD <= 2 && STAFF_OTHER.includes(f) && sprites['sta
 for (const [k, f] of Object.entries(WORLD === 2 ? STAFF_ART_W2 : STAFF_ART)) { const im = new Image(); im.src = `assets/staff/${f}.png?v=${STAFF_V[f] ? 10 + STAFF_V[f] : 3}`; sprites['staff_' + k] = im; }
 const M_ART_W2 = ['mossmole', 'owlbat', 'quartzhog', 'batbunny', 'geosnail', 'axolotl'];   // world-2 keepers drawn so far
 if (WORLD <= 2) for (const sp of (WORLD === 2 ? M_ART_W2 : SPECIES)) for (let e = 0; e < 4; e++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_m${e}${v}.png?v=1`; sprites[sp + '_m' + e + v] = im; }   // element masters (her «вау», 2026-11-22)
-const TIER_V = { owlbat: 2 };   // outfit pictures redrawn under the same names get a new cache version
+const TIER_V = { owlbat: 2, mothfox: 2, petalear: 2, fernhorn: 2 };   // + build of the paws fix: the Старший маг (t4) of mothfox, petalear and fernhorn had 5 limbs (her «рук больше чем нужно»)   // outfit pictures redrawn under the same names get a new cache version
 if (WORLD <= 2) for (const sp of SPECIES) for (let t = 1; t < 5; t++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_t${t}${v}.png?v=${TIER_V[sp] || 1}`; sprites[sp + '_t' + t + v] = im; }   // outfit stages (drawn later; missing ones fall back)
 for (const sp of SPECIES) for (const v of ['', '_back']) { const im = new Image(); im.src = `assets/creatures/${sp}${v}.png`; sprites[sp + v] = im; }   // front and back views
 // court poses (build 264, her pick «2»: real poses instead of icons; first test sheet: the moth fox without an outfit)
