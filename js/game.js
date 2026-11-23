@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=301';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=301';
-import { initMinigame } from './minigame.js?v=301';
+} from './data.js?v=302';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=302';
+import { initMinigame } from './minigame.js?v=302';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 301;   // keep equal to the ?v= number in index.html
+const BUILD = 302;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3959,7 +3959,7 @@ const UPS = {
   ...Object.fromEntries(Object.keys(DIR_UP).map((k) => ['dir_' + k, { g: 'dir', name: DIR_UP[k].name, on: () => bossOn(), lvl: () => dirLvl(k), max: () => DIR_UP[k].max, cost: () => dirCost(k), k: DIR_UP[k].k, go: () => ['DIR', `[data-act="dir"][data-k="${k}"]`] }])),
   ...Object.fromEntries([['seller', 'Продавец'], ['shelves', 'Витрины'], ['goods', 'Товары']].map(([k, name]) => ['shop_' + k, { g: 'shop', name: name + ' в лавке', on: () => shopOpen(), lvl: () => shopUp()[k], max: () => SHOP_MAX, cost: () => shopCost(k), k: 1.9, go: () => ['SHOP', `[data-act="shopup"][data-k="${k}"]`] }])),
   ...Object.fromEntries([['cook', 'Повар'], ['tables', 'Столы'], ['menu', 'Меню']].map(([k, name]) => ['cant_' + k, { g: 'cant', name: name + ' в столовой', on: () => cantOpen(), lvl: () => cantUp()[k], max: () => CANT_MAX[k], cost: () => cantCost(k), k: 1.9, go: () => ['CANT', `[data-act="cantup"][data-k="${k}"]`] }])),
-  towercap: { g: 'tower', name: 'Места в Башне мастеров', on: () => towerOpen(), lvl: () => towerUp().cap, max: () => TOWER_MAXUP, cost: () => towerCapCost(), k: 2.3, go: () => ['TOWER', '[data-act="towercap"]'] },
+  towercap: { g: 'tower', name: 'Места в Башне мастеров', show: (v) => v + TOWER_BASE, unit: 'мест', text: (t) => `Расширь Башню мастеров до ${t + TOWER_BASE} мест`, on: () => towerOpen(), lvl: () => towerUp().cap, max: () => TOWER_MAXUP, cost: () => towerCapCost(), k: 2.3, go: () => ['TOWER', '[data-act="towercap"]'] },
   towerprep: { g: 'tower', name: 'Подготовка мастеров', on: () => towerOpen(), lvl: () => retakeLvl(), max: () => RETAKE_MAX, cost: () => retakeCost(), k: 2.0, go: () => ['TOWER', '[data-act="towerprep"]'] },
   ads: { g: 'room', name: 'Объявления о школе', on: () => true, lvl: () => S.reception.ads, max: () => MAX_REC_LVL, cost: () => adsCost(), k: BAL.ads, go: () => ['REC', '[data-act="ads"]'] },
   libspeed: { g: 'room', name: 'Быстрее подготовка (библиотека)', on: () => true, lvl: () => libUp().speed, max: () => MAX_LIB_LVL, cost: () => libSpeedCost(), k: 1.5, go: () => ['LIB', '[data-act="libspeed"]'] },
@@ -4061,7 +4061,7 @@ function makeMission(onlyNew) {   // onlyNew: draw from the new kinds only (the 
   const nextPlot = S.classes.findIndex((c) => !c.built);
   const storyBuild = storyBuilds();   // Sonya's report 2026-11-22: the same class twice in the list
   if (nextPlot >= 0 && !storyBuild) add(() => ({ type: 'build', i: nextPlot, target: 1, text: `Построй класс «${CLASSES[nextPlot].name}»` }));
-  for (const [k, U] of Object.entries(UPS)) if (U.on() && U.lvl() < U.max()) add(() => { const t = Math.min(U.max(), U.lvl() + rint(1, 3)); return { type: 'up', k, target: t, text: `Улучши «${U.name}» до ур. ${t}` }; }, U.g === 'room' ? 1 : 2);
+  for (const [k, U] of Object.entries(UPS)) if (U.on() && U.lvl() < U.max()) add(() => { const t = Math.min(U.max(), U.lvl() + rint(1, 3)); return { type: 'up', k, target: t, text: U.text ? U.text(t) : `Улучши «${U.name}» до ур. ${t}` }; }, U.g === 'room' ? 1 : 2);
   for (const i of open) for (const [k, U] of Object.entries(CUPS)) if (U.on(i) && U.lvl(i) < U.max()) add(() => { const t = Math.min(U.max(), U.lvl(i) + (k === 'expand' ? 1 : rint(1, 3))); return { type: 'up', k, i, target: t, text: k === 'expand' ? `Расширь класс «${CLASSES[i].name}» 📐` : `Улучши «${U.name}» (${CLASSES[i].name}) до ур. ${t}` }; }, 0.5);
   for (const [k, K] of Object.entries(CNTS)) if (K.on()) add(() => { const n = K.n(); return { type: 'cnt', k, n, target: K.now() + n, text: K.text(n) }; }, k === 'pot' || k === 'gifts' ? 1.5 : 2.5);
   if (onlyNew && wts.some((w) => w >= 1.5)) for (let j = 0; j < wts.length; j++) if (wts[j] < 1.5) wts[j] = 0;
@@ -4108,7 +4108,7 @@ function dynProgress(m) {   // [now, target] for the progress counter
     case 'rec': return [S.reception.level, m.target];
     case 'beds': return [bedCount(), m.target];
     case 'lib': return [libSeats(), m.target];
-    case 'up': { const U = upOf(m); return U ? [U.lvl(), m.target] : null; }
+    case 'up': { const U = upOf(m); return U ? (U.show ? [U.show(U.lvl()), U.show(m.target)] : [U.lvl(), m.target]) : null; }   // build 302: places, not levels, where the panel shows places
     case 'cnt': { const K = CNTS[m.k]; return K ? [Math.max(0, K.now() - (m.target - m.n)), m.n] : null; }   // counted from the mission's start: «12/40»
     default: return null;
   }
@@ -4151,7 +4151,7 @@ function missionList() {   // [{key, text, reward, ok, prog}]
     S.dynList.push(m); made = true;
   }
   if (made) save();
-  S.dynList.forEach((m, k) => out.push({ key: 'd' + k, type: m.type, lk: m.type === 'up' ? (upOf(m) || {}).g : m.type === 'cnt' ? (CNTS[m.k] || {}).g : m.type, text: m.text, reward: m.reward, ok: dynDone(m), prog: dynProgress(m), go: missionGo(m) }));
+  S.dynList.forEach((m, k) => out.push({ key: 'd' + k, type: m.type, lk: m.type === 'up' ? (upOf(m) || {}).g : m.type === 'cnt' ? (CNTS[m.k] || {}).g : m.type, unit: m.type === 'up' ? (upOf(m) || {}).unit : undefined, text: m.type === 'up' && (upOf(m) || {}).text ? upOf(m).text(m.target) : m.text, reward: m.reward, ok: dynDone(m), prog: dynProgress(m), go: missionGo(m) }));
   return out;
 }
 // «Выполнить»: where a mission is done -> [room id, selector of the button to light up in its panel]
@@ -4200,6 +4200,7 @@ let mHint = null;
 function missionHintText(m, sel) {
   if (m.ok) return '✅ Задание выполнено — забери награду в «Заданиях»';
   const P0 = m.prog, LV = { item: 'ур.', teacher: 'учитель ур.', time: 'урок ур.', rec: 'секретарь ур.', up: 'ур.' }, CNT = { desk: 'парт', beds: 'кроватей', lib: 'мест' };
+  if (P0 && m.unit) return `📋 ${m.unit}: ${P0[0]} → ${P0[1]}`;
   if (P0 && LV[m.type]) return `📋 ${LV[m.type]} ${P0[0]} → ${P0[1]}`;
   if (P0 && CNT[m.type]) return `📋 ${CNT[m.type]}: ${P0[0]} → ${P0[1]}`;
   if (P0) return `📋 ${m.text} · осталось ${fmt(Math.max(0, P0[1] - P0[0]))}`;
