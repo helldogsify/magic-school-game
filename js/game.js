@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=305';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=305';
-import { initMinigame } from './minigame.js?v=305';
+} from './data.js?v=306';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=306';
+import { initMinigame } from './minigame.js?v=306';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 305;   // keep equal to the ?v= number in index.html
+const BUILD = 306;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1869,9 +1869,9 @@ function renderInsp() {
     : `<button class="ipill" data-insp>⭐ ${schoolStars()}</button>`;   // the warning itself is the banner below (iwarn)   // the warning names what will be checked (her report 2026-11-21)
   const warn = !c && !calm() && I.next ? `<button class="iwarn" data-insp>🧐 Через ${mmss(I.t)} придёт инспектор<br><b>Проверит: ${inspNextText(I.next)}</b></button>` : '';   // full text of what will be checked, 40 s ahead (her wish 2026-11-21)
   const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
-  // build 304 (her «Много кнопок на экране ... меню-раскладку»): rating, top, alliance, people and the album moved into the ✨ menu;
-  // her pick: stars/inspector, the mini-game, the worlds button and the world-2 resources stay on the screen
-  const all = html + MG.pill() + res + warn;
+  // build 304 (her «Много кнопок на экране ... меню-раскладку»): top, alliance and people live in the ✨ menu; build 306 (her «Миры повторяются,
+  // не нужно их в раскладке, зельеварка тоже, звезды тоже. Рейтинг верни ... вверху, а альбом ... внизу»): rating, mini-game, stars, worlds, album stay on screen
+  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button>` + MG.pill() + html + res + warn;   // build 306 (her «Рейтинг верни на прежнее место вверху»)
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }   // in-place update: icons are never re-created (they blinked)
   renderMenu();
 }
@@ -1884,19 +1884,12 @@ const menuExtra = [];
 function addMenuItem(it) { menuExtra.push(it); renderMenu(); }
 window.schoolMenu = { add: addMenuItem, close: () => setMenu(false) };   // for other modules (js/*.js), which cannot import game.js
 let menuOpen = false;
-const gamesWord = (n) => (n % 10 === 1 && n % 100 !== 11 ? 'игра' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'игры' : 'игр');
 function menuItems() {
-  const albumReady = FORM_KEYS.some((k) => formReady(k) && S.coins >= formCost(k));
   const ally = [allyGifts.length ? '🎁 ' + allyGifts.length : '', ownReqs.length ? '📩 ' + ownReqs.length : ''].filter(Boolean).join(' · ');
   const base = [
-    { attr: 'data-rating', icon: '🏅', label: 'Рейтинг', sub: ratingTxt() },
     { attr: 'data-top', icon: '🏆', label: 'Топ школ' },
     { attr: 'data-ally', icon: '🤝', label: 'Альянс', sub: ally, badge: allyGifts.length + ownReqs.length },
-    { attr: 'data-mg', icon: '🧪', label: 'Зельеварка', sub: MG.charges() + ' ' + gamesWord(MG.charges()) },
-    { attr: 'data-insp', icon: '⭐', label: 'Звёзды', sub: String(schoolStars()) },
     { attr: 'data-people', icon: '👥', label: 'Ученики', sub: String(inSchool().length) },
-    { attr: 'data-worlds', icon: '🗺️', label: 'Миры' },
-    { attr: 'data-species', icon: '🎓', label: 'Альбом', sub: albumReady ? 'можно улучшить' : '', glow: albumReady },
   ];
   for (const it of menuExtra) base.push({ attr: it.attr, icon: it.icon, label: it.label, sub: it.sub ? it.sub() : '', badge: it.badge ? it.badge() : 0, glow: it.glow ? it.glow() : false });
   return base;
@@ -4371,6 +4364,7 @@ function updateHud() {
   rt.textContent = (net < 0 ? '−' : '') + fmt(Math.abs(net)) + '/м'; rt.style.color = net < 0 ? '#d0304e' : '';
   document.querySelectorAll('[data-cost]').forEach((el) => el.classList.toggle('poor', S.coins < +el.dataset.cost));
   renderMission(); renderInsp();
+  const sb = $('#spbtn'); if (sb) sb.classList.toggle('ready', FORM_KEYS.some((k) => formReady(k) && S.coins >= formCost(k)));   // glows when a card level can be bought (back on the screen, build 306)
 }
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
 

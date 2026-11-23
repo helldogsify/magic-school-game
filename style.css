@@ -268,14 +268,13 @@ img.em { height: 1.15em; width: 1.15em; vertical-align: -0.2em; margin: 0 .03em;
 .fpic em img, .fpic em .em { width: 18px !important; height: 18px !important; }
 button.res { border: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }   /* the 📈 income pill opens «Казна школы» (build 275) */
 
-/* main-screen menu (build 304, her pick: one ✨ button, 3x3 tiles): bottom-left button, the worlds button next to it */
-#menubtn { position: absolute; left: 12px; bottom: calc(var(--safe-b) + 14px); z-index: 7; transition: transform .18s; }
+/* main-screen menu (build 304, her pick: one ✨ button, tiles; build 306: worlds and album back in their places, ✨ third in the bottom-left row) */
+#menubtn { position: absolute; left: 160px; bottom: calc(var(--safe-b) + 14px); z-index: 7; transition: transform .18s; }
 #menubtn.open { border-color: #8f6ef0; background: #efe7ff; font-size: 26px; }
-.wbtn { left: 86px; }
 #menudim { position: absolute; inset: 0; z-index: 5; background: #3a2f4a33; opacity: 0; pointer-events: none; transition: opacity .2s; }
 #menugrid { position: absolute; left: 10px; right: 10px; bottom: calc(var(--safe-b) + 92px); z-index: 6; max-width: 420px; background: #fffaffee; border: 3px solid #c9b8ee; border-radius: 24px; padding: 12px;
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; box-shadow: 0 6px 18px #3a2f4a40;
-  transform-origin: 30px calc(100% + 50px); transform: scale(.4); opacity: 0; pointer-events: none; transition: transform .22s cubic-bezier(.3,1.4,.5,1), opacity .16s; }
+  transform-origin: 181px calc(100% + 50px); transform: scale(.4); opacity: 0; pointer-events: none; transition: transform .22s cubic-bezier(.3,1.4,.5,1), opacity .16s; }
 #stage.menu-on #menugrid { transform: none; opacity: 1; pointer-events: auto; }
 #stage.menu-on #menudim { opacity: 1; pointer-events: auto; }
 .mtile { position: relative; min-height: 84px; background: #fff; border: 2px solid #e4d8f7; border-radius: 18px; padding: 8px 4px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
