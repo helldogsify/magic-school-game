@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=392';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=392';
-import { initMinigame } from './minigame.js?v=392';
-import { initChests } from './chests.js?v=392';
-import { initLore } from './lore.js?v=392';
-import { initAvatar } from './avatar.js?v=392';
+} from './data.js?v=393';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=393';
+import { initMinigame } from './minigame.js?v=393';
+import { initChests } from './chests.js?v=393';
+import { initLore } from './lore.js?v=393';
+import { initAvatar } from './avatar.js?v=393';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 392;   // keep equal to the ?v= number in index.html
+const BUILD = 393;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2245,6 +2245,8 @@ const conciergeAway = () => conU > 0.02;
 // The headmaster lion (her yes 2026-11-21): signs papers behind his desk, walks to the window and thinks, comes back and raises his scepter.
 const DIR_POSES = ['sign', 'think', 'walk', 'proud'];
 for (const f of DIR_POSES) { const im = new Image(); im.src = `assets/staff/${SP2}dir_${f}.png?v=2`; sprites['dir_' + f] = im; }
+if (WORLD === 1) for (const f of DIR_POSES) { const im = new Image(); im.src = `assets/staff/dirstar_${f}.png?v=1`; sprites['dirstar_' + f] = im; }   // «Звёздный директор» (final chapter prize)
+const dirSpr = (pose) => { const st = WORLD === 1 && S && S.lore && S.lore.prize && sprites['dirstar_' + pose]; return st && st.naturalWidth ? st : sprites['dir_' + pose]; };
 let dirU = 0, dirTrip = 0, dirClock = 0, dirHold = 0, dirLast = 0;
 function directorPos() {
   const now = performance.now() / 1000, dt = Math.min(0.2, now - (dirLast || now)); dirLast = now;
@@ -4122,7 +4124,7 @@ function render() {
     });
   }
   // library (themed): an armchair at every open reading place and a few things around
-  if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = sprites['dir_' + (dp.pose === 'walk' && WORLD === 1 ? 'proud' : dp.pose)]; if (WORLD <= 2 && im && im.naturalWidth) add(dp.x, dp.y, () => { teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, WORLD === 2 ? 58 : 64, dp.flip, dp.moving, WORLD === 2 ? 'step' : 'hover'); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
+  if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = dirSpr(dp.pose === 'walk' && WORLD === 1 && !(S.lore && S.lore.prize) ? 'proud' : dp.pose); if (WORLD <= 2 && im && im.naturalWidth) add(dp.x, dp.y, () => { teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, WORLD === 2 ? 58 : S.lore && S.lore.prize ? 84 : 64, dp.flip, dp.moving, WORLD === 2 ? 'step' : 'hover'); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
   if (tikhonOn()) { const tp = tikhonPos(), im = sprites['tikhon_' + tp.pose]; if (im && im.naturalWidth) add(tp.x, tp.y, () => { teacherGlow(tp, 60); drawPose(im, tp.x, tp.y, 60, !!tp.flip, !!tp.moving, tp.moving ? 'waddle' : 'hover'); drawTikhonBadge(tp); }); }   // Tikhon, the advisor (build 251)
   if (WORLD === 1 && SLOTS.DIR) { const s = SLOTS.DIR; add(s.x0 + 3.3, s.y0 + 2.4, drawCrown); }
   if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
