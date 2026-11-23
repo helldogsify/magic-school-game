@@ -198,7 +198,24 @@ body.lore-open #fx .toast { display: none; }
 `;
   document.head.appendChild(s);
 }
-export function open() { if (root || !S() || !A.on()) return; css(); page = null; root = el(html()); document.body.appendChild(root); root.addEventListener('click', onClick); document.body.classList.add('lore-open'); }
+// ---- the book's own melody (her «Хочу новую мелодию когда открываешь книгу лора. Напиши сама бесплатно»): a page rustle, then a
+// gentle music-box waltz in D major (~7 s) over a soft low drone; Web Audio synth, no files. Level measured offline (tools/_wk).
+export const LORE_DB = -3;
+export function loreTune(c, out, t0) {
+  const nz = c.createBuffer(1, Math.round(c.sampleRate * 0.5), c.sampleRate), d = nz.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+  const ns = c.createBufferSource(), bp = c.createBiquadFilter(), ng = c.createGain(); ns.buffer = nz; bp.type = 'bandpass'; bp.frequency.value = 2600; bp.Q.value = 0.8; ng.gain.value = 0.18;
+  ns.connect(bp); bp.connect(ng); ng.connect(out); ns.start(t0);   // the page turns
+  const bell = (f, t, dur, v) => { for (const [m, a] of [[1, 1], [2.01, 0.32], [3.98, 0.12]]) { const o = c.createOscillator(), g = c.createGain(); o.type = m === 1 ? 'triangle' : 'sine'; o.frequency.value = f * m;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v * a, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur * (m === 1 ? 1 : 0.5)); o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05); } };
+  const N = (n) => 440 * Math.pow(2, (n - 69) / 12), b = 0.36;   // midi -> Hz, beat 0.36 s (gentle waltz)
+  const mel = [[69, 0, 1], [74, 1, 1], [78, 2, 1], [81, 3, 2], [79, 5, 1], [78, 6, 1], [76, 7, 1], [74, 8, 2], [76, 10, 1], [78, 11, 1], [79, 12, 1], [83, 13, 2], [81, 15, 1], [78, 16, 1.5], [86, 17.5, 3]];
+  for (const [n, at, len] of mel) bell(N(n), t0 + 0.35 + at * b, Math.max(0.8, len * b * 2.2), 0.11);
+  for (const [n, at] of [[50, 0], [57, 3], [55, 6], [57, 9], [55, 12], [57, 15], [62, 17.5]]) bell(N(n), t0 + 0.35 + at * b, 1.6, 0.05);   // soft bass notes on the bars
+  const pad = c.createOscillator(), pg = c.createGain(), lp = c.createBiquadFilter(); pad.type = 'sine'; pad.frequency.value = N(38); lp.type = 'lowpass'; lp.frequency.value = 300;
+  pg.gain.setValueAtTime(0.0001, t0); pg.gain.linearRampToValueAtTime(0.05, t0 + 1.2); pg.gain.linearRampToValueAtTime(0.0001, t0 + 7.6); pad.connect(lp); lp.connect(pg); pg.connect(out); pad.start(t0); pad.stop(t0 + 7.8);
+}
+function tune() { const a = A.audioOut && A.audioOut(); if (!a) return; try { const g = a.c.createGain(); g.gain.value = Math.pow(10, LORE_DB / 20); g.connect(a.out); loreTune(a.c, g, a.c.currentTime + 0.02); } catch (e) { /* never break the game for a sound */ } }
+export function open() { if (root || !S() || !A.on()) return; css(); page = null; root = el(html()); document.body.appendChild(root); root.addEventListener('click', onClick); document.body.classList.add('lore-open'); tune(); }
 export function close() { if (!root) return; root.remove(); root = null; document.body.classList.remove('lore-open'); A.save(); A.onClose && A.onClose(); }
 function onClick(e) {
   const t = e.target.closest('[data-lochap],[data-lopage],[data-loback],[data-loclose]'); if (!t) return;
@@ -217,6 +234,6 @@ export function initLore(api) {
     window.schoolMenu.add({ attr: 'data-lore', icon: '📜', label: 'Летопись', sub: () => { if (!S()) return ''; const n = unread(); return n ? `новых: ${n}` : ''; }, badge: () => badge() });
   };
   setTimeout(reg, 0);
-  window.__lore = { open, close, PAGES, facts, unread };
+  window.__lore = { open, close, PAGES, facts, unread, loreTune, LORE_DB };
   return { open, close, badge, isOpen: () => !!root };
 }
