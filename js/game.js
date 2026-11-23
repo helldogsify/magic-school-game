@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=302';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=302';
-import { initMinigame } from './minigame.js?v=302';
+} from './data.js?v=303';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=303';
+import { initMinigame } from './minigame.js?v=303';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 302;   // keep equal to the ?v= number in index.html
+const BUILD = 303;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5201,7 +5201,7 @@ window.__sfx = sfx;   // test hook
 // ======================= background music (her wish 2026-11-21; Suno via SYNTX) =======================
 // Plays quietly in a loop over the playlist; starts on the first tap (phones allow sound only after a touch),
 // pauses while the game is in the background; on/off in settings (localStorage magicschool.music).
-const MUSIC = ['assets/music/cozy.mp3?v=1', 'assets/music/cozy-2.mp3?v=1'];
+const MUSIC = WORLD === 2 ? ['assets/music/dwarf.mp3?v=1', 'assets/music/dwarf-2.mp3?v=1'] : ['assets/music/cozy.mp3?v=1', 'assets/music/cozy-2.mp3?v=1'];   // world 2: dwarven hall music (Suno via SYNTX)
 const music = new Audio(); music.volume = 0.35; music.preload = 'none';
 let musicIdx = 0;
 const musicOn = () => localStorage.getItem('magicschool.music') !== '0';
