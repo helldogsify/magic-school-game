@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=283';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=283';
-import { initMinigame } from './minigame.js?v=283';
+} from './data.js?v=284';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=284';
+import { initMinigame } from './minigame.js?v=284';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -14,7 +14,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 283;   // keep equal to the ?v= number in index.html
+const BUILD = 284;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4544,7 +4544,7 @@ async function allyToggleOpen() {
     const A = await anonToken();
     const r = await fetch(`${ALLY_URL}/alliances/${a.id}?updateMask.fieldPaths=open`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify({ fields: { open: { booleanValue: !a.open } } }) });
     if (!r.ok) throw new Error(r.status);
-    a.open = !a.open; toast(a.open ? '🔓 Альянс открыт: вступить может любой' : '🔒 Альянс закрыт: вступить можно только по коду');
+    a.open = !a.open; toast(a.open ? '🔓 Альянс открыт: вступить может любой' : '🔒 Теперь вступают по заявкам — ты их принимаешь сам(а)');
   } catch (e) { toast('Не получилось — проверь интернет'); }
   refreshAlly();
 }
@@ -4561,7 +4561,7 @@ function allyPanel() {
   if (code) {
     const a = allyOf(code), mem = allyMembers(code).sort((x, y) => y.r - x.r), L = giftLog();
     const avg = mem.length ? mem.reduce((n, x) => n + x.r, 0) / mem.length : 0;
-    h += `<div class="card up"><span class="remoji big">${a ? a.emo : '🤝'}</span><div class="grow"><b>${a ? escTxt(a.name) : 'Альянс'}</b>${a && a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}${a && a.owner === anonUid() ? ' <span class="muted">👑 ты глава</span>' : ''}<div class="muted">код ${code} · ${a && a.open ? '🔓 открытый' : '🔒 по коду'} · школ ${mem.length}/${ALLY_MAX} · рейтинг 🏅 ${avg ? avg.toFixed(1).replace('.', ',') : '—'}</div></div><button class="btn small" data-allycopy>Код</button></div>`;
+    h += `<div class="card up"><span class="remoji big">${a ? a.emo : '🤝'}</span><div class="grow"><b>${a ? escTxt(a.name) : 'Альянс'}</b>${a && a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}${a && a.owner === anonUid() ? ' <span class="muted">👑 ты глава</span>' : ''}<div class="muted">код ${code} · ${a && a.open ? '🔓 вход свободный, без заявок' : '🔒 по заявкам'} · школ ${mem.length}/${ALLY_MAX} · рейтинг 🏅 ${avg ? avg.toFixed(1).replace('.', ',') : '—'}</div></div><button class="btn small" data-allycopy>Код</button></div>`;
     h += '<h3>Школы альянса</h3>' + (mem.length ? mem.map((x) => {
       const uid = x.id.replace(/_w\d$/, ''), gi = L.g[uid] || 0, bo = L.b[uid] || 0;
       return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY ? 'disabled' : ''}>🎁 ${GIFT_DAY - gi}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY ? 'disabled' : ''}>✨ ${BOOST_DAY - bo}</button>${a && a.owner === anonUid() ? `<button class="btn small ghost" data-allylead="${uid}" title="Сделать главой">👑</button><button class="btn small ghost" data-allykick="${uid}" title="Выгнать">🚪</button>` : ''}`}</div>`;
@@ -4573,7 +4573,7 @@ function allyPanel() {
       <input id="ally-motto" class="fb" maxlength="60" value="${escTxt(a.motto || '')}" placeholder="Девиз альянса (его видят все)">
       <div class="muted" style="margin-top:6px">Герб:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${ALLY_EMOS.map((e, k) => `<button class="btn small ${e === allyEmo ? '' : 'ghost'}" data-allyemo="${k}">${e}</button>`).join('')}</div>
       <button class="btn wide" data-allyedit>💾 Сохранить название, девиз и герб</button>`;
-    if (a && a.owner === anonUid()) h += `<button class="btn ghost wide" data-allyopen>${a.open ? '🔒 Сделать вход только по коду' : '🔓 Открыть вход для всех'}</button>`;
+    if (a && a.owner === anonUid()) h += `<button class="btn ghost wide" data-allyopen>${a.open ? '🔒 Принимать только по заявкам' : '🔓 Открыть вход для всех (без заявок)'}</button>`;
     if (a && a.owner === anonUid()) h += '<button class="btn ghost wide" data-allydisband>💥 Распустить альянс</button>';
     h += '<button class="btn ghost wide" data-allyleave>🚪 Выйти из альянса</button>';
     return h;
@@ -4585,7 +4585,7 @@ function allyPanel() {
     return `<div class="card up"><span class="remoji">${a.emo}</span><div class="grow"><b>${escTxt(a.name)}</b>${a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}<div class="muted">${a.open ? '🔓 вход свободный' : '🔒 по заявке'} · школ ${a.mem.length}/${ALLY_MAX} · 🏅 ${avg.toFixed(1).replace('.', ',')}</div></div>${a.open ? `<button class="btn small" data-allyjoinid="${a.id}">Вступить</button>` : asked(a.id) ? `<button class="btn small ghost" data-reqcancel="${a.id}">Заявка ✓ (отменить)</button>` : `<button class="btn small" data-reqsend="${a.id}">Подать заявку</button>`}</div>`; }).join('') : '<p class="muted">Альянсов пока нет — создай свой!</p>');
   h += `<h3>Создать свой альянс</h3><input id="ally-name" class="fb" maxlength="24" placeholder="Название альянса">
     <div class="muted" style="margin-top:6px">Герб:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${ALLY_EMOS.map((e, k) => `<button class="btn small ${e === allyEmo ? '' : 'ghost'}" data-allyemo="${k}">${e}</button>`).join('')}</div>
-    <label class="muted" style="display:block;margin:6px 0"><input type="checkbox" id="ally-open" checked> Вход для всех (иначе только по коду)</label>
+    <label class="muted" style="display:block;margin:6px 0"><input type="checkbox" id="ally-open" checked> Вход для всех, без заявок (иначе — по заявкам, ты принимаешь сам(а))</label>
     <button class="btn wide" data-allycreate>✨ Создать альянс</button>`;
   return h;
 }
