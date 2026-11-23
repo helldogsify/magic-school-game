@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=423';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=423';
-import { initMinigame } from './minigame.js?v=423';
-import { initChests } from './chests.js?v=423';
-import { initLore } from './lore.js?v=423';
-import { initAvatar } from './avatar.js?v=423';
+} from './data.js?v=424';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=424';
+import { initMinigame } from './minigame.js?v=424';
+import { initChests } from './chests.js?v=424';
+import { initLore } from './lore.js?v=424';
+import { initAvatar } from './avatar.js?v=424';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 423;   // keep equal to the ?v= number in index.html
+const BUILD = 424;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3412,7 +3412,7 @@ function drawWallDecor(c, id) {
 // furniture of a themed class: corners at the back, a bookcase by the left wall, small things in the free strip in front
 // ---- redesigned rooms: built-in, staged furnishing items (stage 0 = not bought, 1 = lvl 1-9, 2 = 10-24, 3 = 25-39, 4 = 40)
 const ITEM_IMS = {};
-function itemIm(n) { let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=2`; } return im.complete && im.naturalWidth ? im : null; }
+function itemIm(n) { let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=${n === 'pot_hearth' ? 3 : 2}`; } return im.complete && im.naturalWidth ? im : null; }
 const stageOf = (lv) => (!lv ? 0 : lv < 10 ? 1 : lv < 25 ? 2 : lv < 40 ? 3 : 4);
 function itemDraw(n, x, y, h, o = {}) {   // a sprite standing on tile (x, y): bottom-centre on the floor point, lift = px above the floor
   const im = itemIm(n); if (!im) return null; const p = P(x, y), w = h * im.naturalWidth / im.naturalHeight, top = p.y + (o.down || 0) - (o.lift || 0) - h;
@@ -3440,7 +3440,7 @@ const ROOM_ART = {
       if (dnDark) frameLamps.push({ pot: 1, x: r.x, y: r.top + h * 0.8, r: 8, liq: '150,240,170', ly: r.top + h * 0.6 }); }); }
     // candles -> iron sconces on the walls, more with each stage
     const sc = stageOf(lv('candles')); if (sc) { const wins = (sd) => [...HERBS_WINS.values()].filter((wv) => wv.s0 === me && wv.side === sd).map((wv) => wv.tm).sort((a, b) => a - b), gaps = (sd, a, b) => { const ws = wins(sd), out = []; let prev = a; for (const t of [...ws, b]) { if (t - prev > 1.7) out.push((prev + t) / 2); prev = t; } return out; };   // sconces only in the wall gaps between windows (her rule: nothing over a window)
-const gx = gaps('x0', s.y0 + 0.3, wallEnd), gy = gaps('y0', s.x0 + 0.3, (s.x0 + s.x1) / 2 - 1.5), all = []; for (let m = 0; m < Math.max(gx.length, gy.length); m++) { if (gx[m] != null) all.push(['x0', gx[m]]); if (gy[m] != null) all.push(['y0', gy[m]]); } const spots = all.slice(0, [0, 2, 3, 4, 5][sc]);
+const gx = gaps('x0', s.y0 + 0.3, wallEnd), gy = [], all = []; for (let m = 0; m < Math.max(gx.length, gy.length); m++) { if (gx[m] != null) all.push(['x0', gx[m]]); if (gy[m] != null) all.push(['y0', gy[m]]); } const spots = all.slice(0, [0, 2, 3, 4, 5][sc]);
       for (const [sd, t] of spots) add(sd === 'x0' ? s.x0 + 0.1 : t, sd === 'x0' ? t : s.y0 + 0.1, () => { const im = itemIm('pot_sconce'); if (!im) return; const b = up(sd === 'x0' ? P(s.x0, t) : P(t, s.y0), TALL_H() * 0.5), h = 24, w = h * im.naturalWidth / im.naturalHeight;
         ctx.save(); ctx.translate(b.x, b.y); if (sd === 'y0') ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h, w, h); ctx.restore();
         const f = 0.85 + 0.15 * Math.sin(T * 7 + t * 3); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (0.25 + (dnDark ? 0.25 : 0)) * f; ctx.drawImage(glowSprite('255,200,120'), b.x - 14 + (sd === 'y0' ? 3 : -3), b.y - h - 8, 28, 28); ctx.restore(); }); }   // each candle glows warm
