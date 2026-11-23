@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=289';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=289';
-import { initMinigame } from './minigame.js?v=289';
+} from './data.js?v=290';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=290';
+import { initMinigame } from './minigame.js?v=290';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 289;   // keep equal to the ?v= number in index.html
+const BUILD = 290;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3303,7 +3303,7 @@ const director = { sp: 'starwhisker', ph: 0.9, flip: true, path: [] };
 
 // ======================= guided tour =======================
 // Each step: camera focus in tile coords (null = stay), title and text (Russian UI).
-const TOUR = [
+const TOUR_W1 = [
   { at: () => [(SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 + 4], title: 'Привет, директор! 👋', text: 'Это твоя Школа магии. Сюда приходят маленькие волшебные зверьки, чтобы учиться. Школа работает сама, даже когда игра закрыта. Давай покажу, как тут всё устроено.' },
   { at: () => [GATE_TILE.x, GATE_TILE.y - 1], title: 'Ворота', text: 'Новые ученики приходят через ворота. Чем лучше «Объявления о школе» (улучшаются в приёмной), тем чаще они приходят.' },
   { at: () => [OFFICER.x + 0.3, OFFICER.y], title: 'Приёмная и секретарь', text: 'Секретарь в розовой шляпе записывает новичков. Они стоят к ней в очереди, оранжевый кружок над ней — запись идёт. За каждого записанного ты получаешь взнос 🪙. Нажми на приёмную, чтобы сделать секретаря быстрее.' },
@@ -3311,17 +3311,63 @@ const TOUR = [
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Класс и урок', text: 'В классе ученик садится за парту. Учитель в фиолетовой шляпе ведёт урок. Зелёный кружок над учеником — сколько осталось до конца урока.' },
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Экзамен', text: 'После урока экзамен. Сдал — платит за обучение 🪙 и идёт в следующий класс. Шанс сдать зависит от учителя и обстановки. Нажми на класс: там можно улучшить учителя, добавить парты, сократить урок и купить предметы.' },
   { at: () => [(SLOTS.LIB.x0 + SLOTS.LIB.x1) / 2, (SLOTS.LIB.y0 + SLOTS.LIB.y1) / 2], title: 'Библиотека 📚', text: 'Не сдал экзамен — идёт в библиотеку готовиться (жёлтый кружок). Потом возвращается в класс и пересдаёт. После подготовки урок у него короче, а шанс сдать выше.' },
-  { at: () => { const [, h] = slotOf(1).door; return [h[0] + 0.5, h[1] + 1]; }, title: 'Очередь у класса', text: 'У двери каждого класса может ждать до 6 учеников. Если все места за партами заняты и очередь полная, ученик расстраивается 😢 и идёт в спальню.' },
-  { at: () => [(SLOTS.DORM.x0 + SLOTS.DORM.x1) / 2, SLOTS.DORM.y0 + 3], title: 'Спальня и консьержка 🛏️', text: 'В спальне консьержка в зелёной шляпе записывает гостя, и он спит 💤, пока в его классе не освободится место. Если и кроватей нет — ученик уходит из школы 💔. Нажми на спальню, чтобы купить кровати.' },
+  { at: () => { const [, h] = slotOf(1).door; return [h[0] + 0.5, h[1] + 1]; }, title: 'Очередь у класса', text: 'У двери каждого класса может ждать до 6 учеников. Если все места за партами заняты и очередь полная, ученик идёт ждать в Волшебный двор ⛲.' },
+  { at: () => (COURT ? [courtC().x, courtC().y] : null), title: 'Волшебный двор ⛲', text: 'Посередине школы — двор с фонтаном. Здесь ждут свободной парты (настроение растёт) и отдыхают на переменах: гуляют, читают, бросают монетку в фонтан. Нажми на фонтан, чтобы поставить больше скамеек и прокачать фонтан.' },
+  { at: () => [(SLOTS.DORM.x0 + SLOTS.DORM.x1) / 2, SLOTS.DORM.y0 + 3], title: 'Спальня и консьержка 🛏️', text: 'Когда и во дворе нет места, ученик идёт в спальню. Консьержка в зелёной шляпе записывает гостя, и он спит 💤, пока в его классе не освободится место. Если и кроватей нет — ученик уходит из школы 💔. Нажми на спальню, чтобы купить кровати.' },
   { at: () => [14.5, SLOTS.EXAM.y0 + 3], title: 'Финальный экзамен 📜', text: 'Кто прошёл все открытые классы, идёт в Экзаменационный зал в самом конце коридора и сдаёт финальный экзамен. Не сдал — готовится в библиотеке и пересдаёт. Нажми на зал, чтобы улучшить экзаменатора и обстановку.' },
-  { at: () => [(SLOTS.GARDEN.x0 + SLOTS.GARDEN.x1) / 2, SLOTS.GARDEN.y0 + 3], title: 'Выпускники 🎓', text: 'Сдал финальный экзамен — выпускник! Он идёт в сад и улетает на своих крылышках. Число выпускников видно вверху экрана.' },
+  { at: () => [(SLOTS.GARDEN.x0 + SLOTS.GARDEN.x1) / 2, SLOTS.GARDEN.y0 + 3], title: 'Выпускники 🎓', text: 'Сдал финальный экзамен — выпускник! Он идёт в Сад выпускников и исчезает в волшебном огне ✨, а школе оставляет отзыв ⭐ — из отзывов складывается рейтинг школы 🏅. Число выпускников видно вверху экрана.' },
   { at: () => [(slotOf(2).x0 + slotOf(2).x1) / 2, (slotOf(2).y0 + slotOf(2).y1) / 2], title: 'Новые классы', text: 'На пустых местах можно построить новые классы — нажми на табличку с ценой. Чем больше классов, тем больше ученики платят за обучение.' },
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Происшествия 💥', text: 'Иногда в классе что-то случается: взорвался котёл, растения опутали парты, учитель простыл. Ученики носятся по классу, урок стоит, над классом горит «Нажми!». Нажми на класс — и всё снова в порядке. Если не трогать, через 10 минут пройдёт само, но школа потеряет монеты.' },
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Настроение 😊', text: 'Долгие очереди и ожидание в спальне огорчают учеников 😟, уроки и библиотека радуют 😄. Весёлые сдают экзамены лучше. Совсем грустный ученик 😭 может уйти домой. Добавляй парты и сокращай уроки, чтобы никто долго не ждал.' },
   { at: null, title: 'Инспектор и звёзды ⭐', text: 'Раз в 12 минут приходит инспектор 🧐 и проверяет что-то одно: настроение, очереди, происшествия, экзамены или заработок. За 40 секунд слева вверху появится жёлтая карточка — там написано, что он будет проверять. Прошла проверку — получаешь звезду школы: она даёт +3% к плате за уроки, а звёзды нужны для новых классов.' },
   { at: null, title: 'Спокойный режим 😌', text: 'Не хочется проверок? В ⚙️ можно включить спокойный режим — инспектор не будет приходить. Когда захочешь заработать звёзды, просто выключи его.' },
-  { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту, 🎓 выпускники. Слева под ними ⭐ звёзды школы и 👥 сколько учеников сейчас в школе (нажми — увидишь, где они). Справа внизу 📋 задания: кнопка «Выполнить» сама откроет нужную комнату. Слева внизу 🗺️ другие миры. Нажми на зверька — увидишь, что он делает. Повторить обучение можно в ⚙️. Удачи, директор!' },
+  { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту (нажми — «Казна школы»), 🎓 выпускники. Под ними: 🏅 рейтинг, 🏆 топ школ, 🤝 альянсы, 🧪 мини-игра «Зельеварка», ⭐ звёзды школы и 👥 ученики (нажми — увидишь, где они). Справа внизу 📋 задания от летописца Тихона: кнопка «Выполнить» сама откроет нужное место. Слева внизу 🗺️ другие миры и 🎓 альбом учеников. Нажми на зверька — увидишь, что он делает. Повторить обучение можно в ⚙️. Удачи, директор!' },
 ];
+const roomAt = (id, dy = 0) => () => { const s = SLOTS[id]; return s ? [(s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2 + dy] : null; };
+const clsAt = (id) => () => { const i = CLASSES.findIndex((c) => (id === 'final' ? c.final : c.id === id)); const s = i >= 0 && SLOTS[CLASS_SLOT[i]]; return s ? [(s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2] : null; };
+// world 2 had no tour at all (it showed the world-1 text from ⚙️)
+const TOUR_W2 = [
+  { at: roomAt('REC'), title: 'Добро пожаловать под гору! ⛏️', text: 'Это второй мир — гномья школа в пещере под горой. Сюда приходят пещерные зверьки учиться рунам и ремёслам. Многое устроено как в Школе магии, но здесь своё хозяйство: руда, изделия и караваны.' },
+  { at: roomAt('REC'), title: 'Привратный зал', text: 'Привратница записывает новичков, за каждого школа получает взнос 🪙. Нажми на зал, чтобы она работала быстрее, а «Объявления» звали учеников чаще.' },
+  { at: clsAt('runes'), title: 'Залы и уроки', text: 'Ученики проходят залы по порядку: урок, экзамен, плата за обучение 🪙. Нажми на зал: там учитель, парты, предметы и экзамен на звание.' },
+  { at: clsAt('mine'), title: 'Руда и Кузня ⚒️', text: 'В Штольне ⛏️ ученики добывают руду, она копится на складе (вверху ⛏️). В Кузне ⚒️ из 2 руды куют изделие. Без руды урок в Кузне приносит половину платы — следи за складом и расширяй его в Штольне.' },
+  { at: clsAt('gems'), title: 'Самоцветы 💎', text: 'В Гранильне ученики иногда гранят самоцвет — он стоит дорого и уезжает с караваном.' },
+  { at: roomAt('TRADE'), title: 'Торговый двор 🐐', text: 'Изделия ⚒️ и самоцветы 💎 грузятся в повозку. Полная повозка сама уходит с караваном и возвращается с монетами. Улучшай повозку, дорогу и цену.' },
+  { at: roomAt('DORM'), title: 'Кельи 🛏️', text: 'Если у зала нет места, ученик ждёт в Кельях. Когда заняты все кельи, новички не приходят — школа переполнена. Добавляй парты и кровати.' },
+  { at: clsAt('final'), title: 'Палата клятв и Зал славы 🎓', text: 'В конце — Палата клятв, финальный экзамен. Выпускник идёт в Зал славы и исчезает в свете кристалла.' },
+  { at: null, title: 'Последнее 💡', text: 'Вверху ⛏️ ⚒️ 💎 — руда, изделия и самоцветы. Справа внизу 📋 задания ведут по шагам. 🧪 Зельеварка, 🏅 рейтинг, 🏆 топ и 🤝 альянсы работают и здесь. В Школу магии можно вернуться через 🗺️ слева внизу. Обучение повторяется в ⚙️.' },
+];
+const TOUR = WORLD === 2 ? TOUR_W2 : TOUR_W1;
+// Short intros of the features added since build 237 (2026-11-23): shown once, when the feature opens, with the camera on it;
+// one at a time, never over a panel, the mini-game or the tour, at least INTRO_GAP s apart. The world-1 tour itself covers 'court'.
+const INTRO_GAP = 60;
+const INTROS = [
+  { key: 'court', when: () => WORLD === 1 && !!COURT && S.stats.graduated >= 3, steps: () => [TOUR_W1.find((t) => t.title.startsWith('Волшебный двор'))] },
+  { key: 'mg', when: () => S.stats.graduated >= 10, steps: () => [{ at: null, title: 'Зельеварка 🧪', text: 'Вверху есть кнопка 🧪 — мини-игра «Зельеварка». Меняй местами ингредиенты, собирай три в ряд и вари зелья по рецепту. За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждые 20 минут.' }] },
+  { key: 'dir', when: () => WORLD === 1 && (dirBuilt() || isOpen(2)), steps: () => [
+    { at: roomAt('DIR'), title: 'Кабинет директора 👑', text: dirBuilt() ? 'В кабинете директора ты выбираешь договор с учениками, запускаешь рекламные акции 📣, отвечаешь на письма родителей ✉️ и улучшаешь правила школы.' : `Здесь можно построить кабинет директора 👑 (🪙${fmt(DIR_COST)} и ⭐ ${DIR_STARS} звезды школы — их дают проверки инспектора). В нём выбирают договор с учениками, запускают рекламные акции и отвечают на письма родителей.` },
+    { at: roomAt('DIR'), title: 'Летописец Тихон 🐢', text: 'В кабинете живёт летописец Тихон. Он иногда гуляет по школе — нажми на него, и он расскажет, что в школе не так и что улучшить. Задания 📋 тоже от него.' }] },
+  { key: 'shop', when: () => WORLD === 1 && isOpen(2), steps: () => [
+    { at: roomAt('SHOP'), title: 'Лавка 🛍️', text: 'Между уроками ученики заходят в лавку за сладостями: школа получает монеты, а у ученика поднимается настроение. Нажми на лавку, чтобы её открыть и улучшить.' },
+    { at: roomAt('CANT'), title: 'Столовая 🍽️', text: 'После урока часть учеников идёт обедать к повару-дракончику. Обед — это монеты и настроение, а сытый ученик легче сдаёт следующий экзамен.' }] },
+  { key: 'tower', when: () => WORLD === 1 && isOpen(NCLS - 1), steps: () => [{ at: roomAt('TOWER'), title: 'Башня мастеров 🏰', text: 'Лучшие выпускники — Старшие маги и Мастера — могут остаться жить в Башне мастеров и приносить школе монеты. Старший маг из башни иногда пересдаёт экзамен на Мастера.' }] },
+  { key: 'social', when: () => ratingVal() > 0 && S.stats.graduated >= 30, steps: () => [
+    { at: null, title: 'Рейтинг и топ школ 🏆', text: 'Каждый выпускник оставляет отзыв, из них складывается рейтинг школы 🏅. Нажми 🏆 — там топ школ всех игроков. Впиши название школы и своё имя, чтобы попасть в таблицу.' },
+    { at: null, title: 'Альянсы 🤝', text: 'Кнопка 🤝 — альянсы: объединяйся с другими школами, дари друзьям подарки 🎁 и ✨ Вдохновение. Свой альянс можно создать или вступить в чужой.' }] },
+  { key: 'trade', when: () => WORLD === 2 && !!SLOTS.TRADE && CLASSES.some((c, i) => c.id === 'forge' && isOpen(i)), steps: () => [TOUR_W2.find((t) => t.title.startsWith('Торговый двор'))] },
+];
+let introT = 20, tourList = TOUR, introKey = '';
+function stepIntros(dt) {   // called from the frame loop while the game is on screen
+  if (!S || tourStep >= 0 || panel || MG.isOpen() || document.hidden) return;
+  introT -= dt; if (introT > 0) return; introT = 3;
+  S.hints ||= {};
+  if (!S.tourDone) return;
+  const it = INTROS.find((x) => !S.hints['i_' + x.key] && x.when());
+  if (!it) return;
+  S.hints['i_' + it.key] = 1; introT = INTRO_GAP; save();
+  const steps = it.steps().filter(Boolean); if (!steps.length) return;
+  tourList = steps; introKey = it.key; showTour(0);
+}
 let tourStep = -1;
 function focusTile(x, y, smooth = true) {   // the point goes to the middle of the free part of the screen (above the tour card)
   const p = P(x, y);
@@ -3335,11 +3381,11 @@ const tourAt = (st) => (typeof st.at === 'function' ? st.at() : st.at);
 function showTour(i) {
   tourStep = i;
   const el = $('#tour');
-  if (i < 0 || i >= TOUR.length) { el.classList.add('hidden'); tourStep = -1; S.tourDone = true; save(); return; }
-  const st = TOUR[i];
-  el.innerHTML = emojiHtml(`<div class="tour-card"><div class="tour-top"><b>${st.title}</b><span class="muted">${i + 1}/${TOUR.length}</span></div>
-    <p>${st.text}</p><div class="tour-btns"><button class="btn ghost small" data-tour-skip>Пропустить</button>
-    ${i > 0 ? '<button class="btn ghost small" data-tour-back>← Назад</button>' : ''}<button class="btn small" data-tour-next>${i === TOUR.length - 1 ? 'Понятно!' : 'Дальше →'}</button></div></div>`);
+  if (i < 0 || i >= tourList.length) { el.classList.add('hidden'); tourStep = -1; if (tourList === TOUR) { S.tourDone = true; S.hints ||= {}; S.hints[WORLD === 1 ? 'i_court' : 'i_trade'] = 1; } tourList = TOUR; introKey = ''; save(); return; }
+  const st = tourList[i];
+  el.innerHTML = emojiHtml(`<div class="tour-card"><div class="tour-top"><b>${st.title}</b>${tourList.length > 1 ? `<span class="muted">${i + 1}/${tourList.length}</span>` : ''}</div>
+    <p>${st.text}</p><div class="tour-btns">${tourList.length > 1 ? '<button class="btn ghost small" data-tour-skip>Пропустить</button>' : ''}
+    ${i > 0 ? '<button class="btn ghost small" data-tour-back>← Назад</button>' : ''}<button class="btn small" data-tour-next>${i === tourList.length - 1 ? 'Понятно!' : 'Дальше →'}</button></div></div>`);
   el.classList.remove('hidden');
   const at = tourAt(st); if (at) requestAnimationFrame(() => focusTile(at[0], at[1]));
 }
@@ -3560,7 +3606,7 @@ function render() {
   }
   drawIncidents();
   drawMail();
-  if (tourStep >= 0 && tourAt(TOUR[tourStep])) { const ta = tourAt(TOUR[tourStep]), f = P(ta[0], ta[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
+  if (tourStep >= 0 && tourList[tourStep] && tourAt(tourList[tourStep])) { const ta = tourAt(tourList[tourStep]), f = P(ta[0], ta[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
   for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
 }
 
@@ -3872,7 +3918,7 @@ function storyCur() {
   return MISSIONS.find((m) => !S.story[m.id]) || null;
 }
 const storyBuilds = () => { const c = storyCur(); return !!(c && c.build); };   // the story itself asks to build the next class
-window.__ms = { list: () => missionList(), make: () => makeMission(), go: (k) => goMission(k), claim: (k) => claimMission(k), story: () => storyCur(), goT: (g) => goTarget(g), hint: () => (document.getElementById('mhint') || {}).textContent || '', UPS, CNTS, CUPS };   // test hook
+window.__ms = { list: () => missionList(), make: () => makeMission(), go: (k) => goMission(k), claim: (k) => claimMission(k), story: () => storyCur(), goT: (g) => goTarget(g), hint: () => (document.getElementById('mhint') || {}).textContent || '', introNow: () => { introT = 0; }, tour: () => [tourStep, tourList.length, introKey], UPS, CNTS, CUPS };   // test hook
 // upgrades pay back REWARD_SHARE of what they cost; counting missions pay for the minutes they really take at the current pace
 const REWARD_SHARE = 0.3, TIME_SHARE = 0.25;
 const nice = (x) => { const e = Math.pow(10, Math.max(0, Math.floor(Math.log10(Math.max(1, x))) - 1)); return Math.round(x / e) * e; };
@@ -4334,7 +4380,7 @@ document.addEventListener('click', (e) => {
   if (d.backupRestore !== undefined) { restoreBackup(); return; }
   if (d.cloudCopy !== undefined) { navigator.clipboard?.writeText(cloudCode()).then(() => toast('Код скопирован'), () => window.prompt('Твой код:', cloudCode())); return; }
   if (d.cloudOff !== undefined) { if (confirm('Отключить облако на этом устройстве? Прогресс здесь останется, просто перестанет сохраняться в облако.')) { localStorage.removeItem(CODE_KEY); localStorage.setItem('magicschool.cloudOff', '1'); cloudState = ''; openPanel(settingsPanel); } return; }
-  if (d.tourAgain !== undefined) { closePanel(); showTour(0); return; }
+  if (d.tourAgain !== undefined) { closePanel(); tourList = TOUR; showTour(0); return; }
   if (d.tourNext !== undefined) { showTour(tourStep + 1); return; }
   if (d.tourBack !== undefined) { showTour(tourStep - 1); return; }
   if (d.tourSkip !== undefined) { showTour(-1); return; }
@@ -4908,6 +4954,7 @@ let renderMs = 0;   // average time of one render (test hook __test.renderMs)
 function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
   stepWorld(dt, true);
+  stepIntros(dt);   // feature intros (2026-11-23)
   secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; S.outEma = (S.outEma || 0) * 0.97 + (outThisSec / secT) * 0.03; outThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); allyTick(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
@@ -5158,7 +5205,7 @@ resize();
 { const h = P((SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
 updateHud();
-if (!S.tourDone && WORLD === 1) setTimeout(() => { closePanel(); showTour(0); }, 600);
+if (!S.tourDone && WORLD <= 2) setTimeout(() => { closePanel(); showTour(0); }, 600);   // world 2 has its own tour since 2026-11-23
 requestAnimationFrame(frame);
 window.__booted = true;   // the boot watchdog in index.html stays quiet
 if (localStorage.getItem('magicschool.forcePush')) { localStorage.removeItem('magicschool.forcePush'); cloudForce(); } else if (cloudCode()) cloudPull(); else cloudAuto();
