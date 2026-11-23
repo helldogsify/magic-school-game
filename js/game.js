@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=419';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=419';
-import { initMinigame } from './minigame.js?v=419';
-import { initChests } from './chests.js?v=419';
-import { initLore } from './lore.js?v=419';
-import { initAvatar } from './avatar.js?v=419';
+} from './data.js?v=420';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=420';
+import { initMinigame } from './minigame.js?v=420';
+import { initChests } from './chests.js?v=420';
+import { initLore } from './lore.js?v=420';
+import { initAvatar } from './avatar.js?v=420';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 419;   // keep equal to the ?v= number in index.html
+const BUILD = 420;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -791,8 +791,8 @@ function faceTeacher(a, i) { const tp = teacherPos(i); a.flip = (tp.x - tp.y) < 
 const sideHall = (i) => !!CLASSES[i].final && WORLD === 1;   // the exam hall faces its left wall
 function deskPos(i, d) {   // 3 columns across the room, rows from the board towards us: the first rows stay on the room picture
   if (sideHall(i)) { const s = slotOf(i), per = 3, gy = (s.y1 - s.y0 - 2.2) / (per - 1); return { x: s.x0 + 3.2 + Math.floor(d / per) * 1.95, y: s.y0 + 1.1 + (d % per) * gy }; }   // rows of 3 along the left wall, 7 rows deep into the hall
-  const s = slotOf(i), w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3, gap = (w - 2.2) / (cols - 1);
-  return { x: s.x0 + 1.1 + (d % cols) * gap, y: s.y0 + (frontFacing(i) ? 1.9 : 2.5) + Math.floor(d / cols) * (CLASSES[i].final ? 1.45 : 1.2) };   // exam rows wider apart: each student clearly sits at his own desk
+  const s = slotOf(i), w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3, lm = WORLD === 1 && CLASSES[i].id === 'herbs' ? 1.65 : 1.1, gap = (w - lm - 1.1) / (cols - 1);   // Herbology: the first column steps away from the planter boxes (her «Да» to moving the row)
+  return { x: s.x0 + lm + (d % cols) * gap, y: s.y0 + (frontFacing(i) ? 1.9 : 2.5) + Math.floor(d / cols) * (CLASSES[i].final ? 1.45 : 1.2) };   // exam rows wider apart: each student clearly sits at his own desk
 }
 const seatPos = (i, d) => { const p = deskPos(i, d);   // exam hall: desks stay in the sideHall rows, students sit as before (her ruling 2026-11-22)
   if (frontFacing(i)) return { x: p.x - 0.45, y: p.y + 0.4 };   // charms: beside the lectern, on its left on screen (her ruling 2026-11-21)
@@ -3259,7 +3259,7 @@ function drawEdge(c, e, capOnly = false) {
   if (side === 'y1') { a = P(x + 1, y + 1); b = P(x, y + 1); a2 = P(x + 1, y + 1 + TH); b2 = P(x, y + 1 + TH); }
   if (capOnly) { /* the room's picture is the face */ }
   else if (e.tall && (e.wallTheme || themeOf(e.id)) && texWall(c, e.wallTheme || themeOf(e.id), e, a, b, h)) {   // themed room: its wall texture, baseboard
-    poly(c, [a, b, up(b, 5), up(a, 5)], e.wallTheme ? '#8a6a8f' : shade(wallColor(e.id), -55));
+    poly(c, [a, b, up(b, 5), up(a, 5)], e.wallTheme ? '#8a6a8f' : WORLD === 1 && themeOf(e.id) === 'herbs' ? '#6e4a2e' : shade(wallColor(e.id), -55));   // Herbology: dark wooden skirting, not a green strip
   }
   else if (e.tall) {   // inner face painted in the room colour, darker on the left side
     const col = wallColor(e.id);
@@ -3349,7 +3349,7 @@ function texWall(c, th, e, a, b, h) {
 // iso_* sprites are drawn in the room's own angle for the back-left wall (with depth: shelves stick out, windows are set in);
 // on the back-right wall they are mirrored. They are placed as they are, not skewed.
 const ISO_W = { jar_shelf: 1.2, toy_rack: 1.3, owl_clock: 0.8, flying_books: 1.5, candles: 0.9, portrait: 1.3, certificates: 1.4, notice: 1.0, lantern: 0.6, garland: 2.6, moon_clock: 0.85, bookshelf: 1.5, bookshelf2: 1.4, lamp: 0.6, map: 1.2, banner: 1.1, sconce: 0.7, diploma: 0.9, el_poster: 1.6, torch: 0.75, planter: 1.35, wing_poster: 1.8, birds: 1.5, circle: 1.8, mirror: 0.95, wand_rack: 1.4, chart: 1.9, painting: 0.95, poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
-DECOR.bigwin = { w: 1.25, lo: 0.14, deep: 0.6 }; ISO_W.bigwin = 1.45;
+DECOR.bigwin = { w: 1.25, lo: 0.3, deep: 0.6 };   // windows sit higher, above the planter boxes like in the concept ISO_W.bigwin = 1.45;
 const HERBS_WINS = new Map();   // where the big windows were hung (world px), for the night glass drawn every frame
 function hangIso(c, th, n, s, side, t0, lo) {
   const im = part(th, 'iso_' + n); if (!im) return false;
@@ -3424,19 +3424,18 @@ const ROOM_ART = {
     const depth = s.y1 - s.y0, W = s.x1 - s.x0, free = s.y0 + (frontFacing(i) ? 1.9 : 2.5) + (Math.ceil(maxDesksOf(i) / 3) - 1) * 1.2 + 1.0;
     const wallEnd = Math.min(s.y1 - 1.0, free);   // the left wall is free from the bookcase to the side table
     // sunbeams from the windows across the floor (day)
-    const dl = daylight(); if (dl > 0) add(s.x0 + 0.05, s.y0 + 0.05, () => { ctx.save(); ctx.globalCompositeOperation = 'lighter';   // each window throws its own light onto the floor: two panes split by the bar, slanting into the room
-      for (const wv of HERBS_WINS.values()) { if (wv.s0 !== s.x0 + ',' + s.y0) continue; const hw = DECOR.bigwin.w / 2, len = Math.min(3.4, (wv.side === 'x0' ? W : depth) - 1), sk = 0.9;   // her «Лучи солнца от окна должны быть более рассеянный»: 5 widening soft layers instead of two sharp panes
-        const Q = (u, v) => (wv.side === 'x0' ? P(s.x0 + v, wv.tm + u + v * sk * 0.35) : P(wv.tm + u + v * sk * 0.35, s.y0 + v));
-        for (let k = 0; k < 5; k++) { const sp = 0.1 + k * 0.16, gr = 1 + k * 0.08, a = Q(-hw * 0.8 - sp * 0.5, 0.02), b = Q(hw * 0.8 + sp * 0.5, 0.02), c = Q(hw * 0.8 + sp * gr, len * (0.75 + k * 0.08)), d = Q(-hw * 0.8 - sp * gr, len * (0.75 + k * 0.08));
-          const g = ctx.createLinearGradient(a.x, a.y, (c.x + d.x) / 2, (c.y + d.y) / 2); g.addColorStop(0, `rgba(255,226,165,${0.15 * dl})`); g.addColorStop(0.6, `rgba(255,226,165,${0.075 * dl})`); g.addColorStop(1, 'rgba(255,226,165,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); }
-        if (zoom >= 1.1) for (let m = 0; m < 14; m++) { const sd = (m * 0.6180339 + wv.tm * 0.37) % 1, v = ((T * 0.025 + sd) % 1) * len * 0.9, u = (((sd * 7.31) % 1) - 0.5) * hw * 1.6 + Math.sin(T * 0.4 + m) * 0.12, q = Q(u, v), z = TALL_H() * 0.55 * (1 - v / len) * (0.35 + ((sd * 13.7) % 1) * 0.65) + Math.sin(T * 0.7 + m * 1.9) * 3;   // dust motes floating in the light (her «летать пылинки на свету»)
-          const tw = 0.45 + 0.55 * Math.abs(Math.sin(T * 1.3 + m * 2.3)); ctx.globalAlpha = 0.75 * dl * tw * Math.min(1, (1 - v / len) * 3); ctx.fillStyle = '#fff6d8'; ctx.beginPath(); ctx.arc(q.x, q.y - z, 0.7 + ((sd * 5.3) % 1) * 0.9, 0, Math.PI * 2); ctx.fill(); }
-        ctx.globalAlpha = 1; }
+    const dl = daylight(); if (dl > 0) add(s.x0 + 0.05, s.y0 + 0.05, () => { ctx.save();   // like the concept (her «сделай так, как на картинке»): each window lays a soft pale-gold patch of its own shape on the floor in front of it, two panes split by the bar; no haze, no dust
+      for (const wv of HERBS_WINS.values()) { if (wv.s0 !== s.x0 + ',' + s.y0) continue; const hw = DECOR.bigwin.w / 2, sk = 0.45;
+        const Q = (u, v) => (wv.side === 'x0' ? P(s.x0 + v, wv.tm + u + v * sk) : P(wv.tm + u + v * sk, s.y0 + v));
+        for (const [g0, g1] of [[-hw * 0.82, -0.05], [0.05, hw * 0.82]]) for (let k = 0; k < 3; k++) { const e = 0.07 * (2 - k), a = Q(g0 - e, 0.12 - e), b = Q(g1 + e, 0.12 - e), c = Q(g1 + e, 1.25 + e), d = Q(g0 - e, 1.25 + e);   // three nested layers = soft edges
+          ctx.fillStyle = `rgba(255,238,195,${0.075 * dl})`; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); } }
       ctx.restore(); });
     // planters along the left wall
-    const sp = stageOf(lv('pots')), plH = 46, units = [];
-    if (sp) { units.push([sp === 1 ? 'herbs_planter1' : 'herbs_planter2', s.y0 + 3.15]); if (sp >= 3 && wallEnd - s.y0 >= 5.6) units.push(['herbs_planter2', s.y0 + 5.15]); }
-    for (const [n, y] of units) add(s.x0 + 0.42, y, () => { itemDraw(n, s.x0 + 0.42, y, plH, { shadow: 1, dx: -6 }); });
+    const sp = stageOf(lv('pots')), units = [], wall0 = s.y0 + 2.3;   // big boxes on the floor along the window wall, as long as the wall allows
+    const PL = { herbs_planter1: 2.8, herbs_planter2: 3.6 };   // length along the wall in tiles at full size (h = 70 px)
+    if (sp) { let at = wall0; const want = sp === 1 ? ['herbs_planter1'] : sp === 2 ? ['herbs_planter2'] : ['herbs_planter2', 'herbs_planter1'];
+      for (const n of want) { const left = wallEnd - at; if (left < 1.6) break; const k = Math.min(1, left / PL[n]); units.push([n, at + PL[n] * k / 2, 70 * k]); at += PL[n] * k + 0.15; } }
+    for (const [n, y, h] of units) add(s.x0 + 0.4, y, () => { const im = itemIm(n); if (!im) return; const w = h * im.naturalWidth / im.naturalHeight, L = w / HW, c = P(s.x0 + 0.5, y + L / 2); ctx.drawImage(im, c.x - 2, c.y - h * 0.985, w, h); });   // the sprite's left-bottom (the box's front-left floor corner) stands on the floor at the box's far end, so the box sits flat against the wall
     if (sp >= 4) add(s.x0 + 0.5, s.y0 + 3.3, () => { for (let k = 0; k < 3; k++) { const q = P(s.x0 + 0.5, s.y0 + 2.6 + k * 0.9), an = T * 1.3 + k * 2.1; emoji('🦋', q.x + Math.cos(an) * 10, q.y - 54 + Math.sin(an * 1.7) * 6, 9); } });   // butterflies over a full planter
     // the seed cabinet against the board wall
     const ss = stageOf(lv('seeds')); if (ss) { const cx = s.x0 + 2.35, cy = s.y0 + 0.32, h = [0, 34, 42, 62, 62][ss]; add(cx, cy, () => { const r = itemDraw('herbs_cabinet' + Math.min(3, ss), cx, cy, h, { shadow: ss >= 3, down: ss < 3 ? -26 : 0 });
@@ -3450,7 +3449,7 @@ const ROOM_ART = {
     // the sun lamp hanging from the ceiling over the desks
     const sl = stageOf(lv('sunlamp')); if (sl) { const lx = s.x0 + W * 0.5, ly = s.y0 + Math.min(depth * 0.45, 3.6), k = [0, 0.55, 0.75, 1, 1.15][sl]; add(lx + 0.6, ly + 0.6, () => {
       const p = P(lx, ly), h = 30 * k, lift = 58, topY = p.y - lift - 55; ctx.strokeStyle = 'rgba(110,80,50,0.9)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(p.x, topY); ctx.lineTo(p.x, p.y - lift - h * 0.75); ctx.stroke();   // the cord from the ceiling
-      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (0.18 + 0.12 * sl / 4) * (dnDark ? 1.3 : 1); ctx.drawImage(glowSprite('255,214,130'), p.x - 34 * k * 2, p.y - 14 * k * 2, 68 * k * 2, 28 * k * 2);   // a warm pool of light on the desks
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (0.1 + 0.06 * sl / 4) * (dnDark ? 1.6 : 1); ctx.drawImage(glowSprite('255,214,130'), p.x - 26 * k, p.y - 10 * k, 52 * k, 20 * k);   // a small soft pool right under the lamp   // a warm pool of light on the desks
       ctx.globalAlpha = 0.35; ctx.drawImage(glowSprite('255,225,150'), p.x - h, p.y - lift - h * 1.3, h * 2, h * 2); ctx.restore();
       itemDraw('herbs_sun', lx, ly, h, { lift: lift - h * 0.25 });
       if (sl >= 4) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.1 + 0.04 * Math.sin(T); ctx.fillStyle = 'rgba(255,220,150,1)'; ctx.beginPath(); ctx.moveTo(p.x - 6, p.y - lift - h * 0.4); ctx.lineTo(p.x + 6, p.y - lift - h * 0.4); ctx.lineTo(p.x + 46, p.y); ctx.lineTo(p.x - 46, p.y); ctx.closePath(); ctx.fill(); ctx.restore(); }   // a cone of light at the top level
