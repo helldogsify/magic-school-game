@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=273';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=273';
+} from './data.js?v=274';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=274';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 273;   // keep equal to the ?v= number in index.html
+const BUILD = 274;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1885,6 +1885,8 @@ function stepAdvisor(dt, live) {
   advSampleT -= dt; if (advSampleT > 0) return; advSampleT = 10;
   advLog.push(leftNow()); if (advLog.length > 19) advLog.shift();
 }
+const prestigeOn = () => !!(S.boss && S.boss.plan === 'prestige');
+const bedsLeft = () => bedCount() < maxBeds();
 const pupils = (n) => (n % 10 === 1 && n % 100 !== 11 ? 'ученик' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'ученика' : 'учеников');
 const advLeft = () => (advLog.length > 1 ? advLog[advLog.length - 1] - advLog[0] : 0);
 let advCache = null, advCacheAt = 0;
@@ -1896,11 +1898,14 @@ function advReport() {   // [{hot, emo, text, go}] — go: [room id, selector] |
   if (b >= 0 && bn >= 12) {
     const desk = S.classes[b].desks < maxDesksOf(b), time = S.classes[b].time < MAX_TIME_LEVEL, nm = CLASSES[b].name;
     if (desk || time) out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}. ${desk ? 'Поставь там ещё парту' : 'Сократи там урок'} — очередь станет короче.`, go: [CLASS_SLOT[b], desk ? '[data-act="desk"]' : '[data-act="time"]'] });
-    else out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}, а он уже улучшен до предела. Учеников приходит больше, чем школа может выучить: «Престижный» договор приведёт меньше учеников, зато они платят больше.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
+    else if (!prestigeOn()) out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}, а он уже улучшен до предела. Учеников приходит больше, чем школа может выучить: «Престижный» договор приведёт меньше учеников, зато они платят больше.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
+    else out.push({ hot: false, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}. Он улучшен до предела, и «Престижный» договор уже выбран — больше тут ничего не сделать. ${bedsLeft() ? 'Пусть ждут в спальне, а не уходят: добавь кроватей.' : 'Ученики подождут во дворе и в спальне.'}`, go: bedsLeft() ? ['DORM', '[data-act="beds"]'] : null });   // her report: «Тихон предлагает престижный договор дважды, но у меня и так престижный договор выбран»
   }
   if (!dormFree()) out.push({ hot: true, emo: '🛏️', text: 'Все кровати в спальне заняты: новичкам негде подождать, и они уходят домой. Добавь кровати.', go: ['DORM', '[data-act="beds"]'] });
   const lv = advLeft();
-  if (lv >= 5) out.push({ hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. Если учеников приходит больше, чем школа успевает учить, попробуй «Престижный» договор.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
+  if (lv >= 5 && !prestigeOn()) out.push({ hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. Если учеников приходит больше, чем школа успевает учить, попробуй «Престижный» договор.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
+  else if (lv >= 5) { const care = dirLvl('care') < DIR_UP.care.max;
+    out.push({ hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. ${bedsLeft() ? 'Добавь кроватей в спальне, чтобы новичкам было где подождать.' : care ? 'Улучши «Заботу об учениках» — в очередях будут грустить медленнее.' : 'Престижный договор уже выбран, кровати и забота на максимуме — школа делает всё, что может.'}`, go: bedsLeft() ? ['DORM', '[data-act="beds"]'] : care ? ['DIR', '[data-act="dir"][data-k="care"]'] : null }); }
   const m = avgMood();
   if (m < 50) out.push({ hot: m < 35, emo: '😟', text: `Ученики грустят: настроение ${Math.round(m)}%. Их радуют библиотека, магазин и столовая, а «Забота об учениках» помогает в очередях.`, go: ['DIR', '[data-act="dir"][data-k="care"]'] });
   const inc = Object.keys(S.inc || {});
@@ -4096,6 +4101,10 @@ document.addEventListener('click', (e) => {
   if (d.reqcancel !== undefined) { reqCancel(d.reqcancel); return; }
   if (d.reqok !== undefined) { reqAnswer(d.reqok, true); return; }
   if (d.reqno !== undefined) { reqAnswer(d.reqno, false); return; }
+  if (d.allykick !== undefined) { allyKick(d.allykick); return; }
+  if (d.allylead !== undefined) { allyLead(d.allylead); return; }
+  if (d.allyedit !== undefined) { allyEdit(); return; }
+  if (d.allydisband !== undefined) { allyDisband(); return; }
   if (d.allyemo !== undefined) { allyEmo = ALLY_EMOS[+d.allyemo] || '🦄'; refreshAlly(); return; }   // an index: emojiHtml turns an emoji inside an attribute into an <img> and broke 6 of the 12 buttons (her «не все гербы нажимаются»)
   if (d.schoolName !== undefined) { saveSchoolName(); return; }
   if (d.cloudLoad !== undefined) { cloudLoad(); return; }
@@ -4247,13 +4256,15 @@ const allyOf = (code) => (allyList || []).find((a) => a.id === code);
 const anonUid = () => { try { return (JSON.parse(localStorage.getItem(ANON_KEY)) || {}).uid || ''; } catch (e) { return ''; } };
 const today = () => new Date().toISOString().slice(0, 10);
 function giftLog() { const g = (S.giftLog ||= { day: today(), g: {}, b: {} }); if (g.day !== today()) { g.day = today(); g.g = {}; g.b = {}; } return g; }
-function allyMembers(code) { return (topList || []).filter((x) => x.w === WORLD && x.al === code); }
+function allyMembers(code) { const a = allyOf(code), k = (a && a.kick) || []; return (topList || []).filter((x) => x.w === WORLD && x.al === code && !k.includes(x.id.replace(/_w\d$/, ''))); }   // kicked schools drop out at once (build 270)
 async function allyLoad() {
   try {
     const r = await fetch(ALLY_URL + '/alliances?pageSize=300', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
     const d = await r.json(), v = (f) => (f ? f.stringValue ?? (f.booleanValue ?? +(f.integerValue ?? 0)) : '');
-    allyList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: v(x.fields.name) || '?', emo: v(x.fields.emo) || '🦄', open: !!v(x.fields.open), owner: v(x.fields.owner), w: +v(x.fields.w) || 1 }));
-  } catch (e) { allyMsg = 'Не получилось загрузить альянсы — проверь интернет'; }
+    allyList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: v(x.fields.name) || '?', emo: v(x.fields.emo) || '🦄', open: !!v(x.fields.open), owner: v(x.fields.owner), w: +v(x.fields.w) || 1,
+      motto: v(x.fields.motto) || '', kick: ((x.fields.kick && x.fields.kick.arrayValue && x.fields.kick.arrayValue.values) || []).map((k) => k.stringValue) }));
+    allyMsg = ''; return true;
+  } catch (e) { allyMsg = 'Не получилось загрузить альянсы — проверь интернет'; return false; }
 }
 async function allyPoll() {   // gifts sent to me (any world; claimed in the world they were sent for)
   if (!schoolName()) return;
@@ -4263,6 +4274,10 @@ async function allyPoll() {   // gifts sent to me (any world; claimed in the wor
       body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'gifts' }], where: { fieldFilter: { field: { fieldPath: 'to' }, op: 'EQUAL', value: { stringValue: A.uid } } } } }) });
     if (!r.ok) return;
     const d = await r.json();
+    if (await allyLoad() && myAl()) {   // build 270: the founder may kick a school or disband the alliance; the player leaves by himself
+      const a = allyOf(myAl());
+      if (!a || (a.kick || []).includes(A.uid)) { const nm = a ? a.name : ''; S.al = ''; save(); topPush(true); toast(a ? `🚪 Тебя исключили из альянса «${nm}»` : '💥 Альянс распущен'); }
+    }
     await reqPoll(A);
     allyGifts = d.filter((x) => x.document).map((x) => ({ id: x.document.name.split('/').pop(), fname: x.document.fields.fname?.stringValue || '?', kind: x.document.fields.kind?.stringValue, w: +(x.document.fields.w?.integerValue || 1) })).filter((g) => g.w === WORLD);
     updateHud(); if (panel === allyPanel) refreshAlly();
@@ -4318,6 +4333,8 @@ async function allyJoin(code) {
   try {
     const r = await fetch(`${ALLY_URL}/alliances/${code}`, { cache: 'no-store' });
     if (!r.ok) { toast('Такого альянса нет — проверь код'); return; }
+    if (!allyList) await allyLoad();
+    if (((allyOf(code) || {}).kick || []).includes(anonUid())) { toast('Тебя исключили из этого альянса — вступить снова нельзя'); return; }
     if (allyMembers(code).filter((x) => x.id !== anonUid() + '_w' + WORLD).length >= ALLY_MAX) { toast(`В альянсе уже ${ALLY_MAX} школ`); return; }
     S.al = code; save(); await topPush(true); await allyLoad(); await topLoad();
     const a = allyOf(code); toast(`${a ? a.emo + ' ' : ''}Ты в альянсе${a ? ' «' + a.name + '»' : ''}!`);
@@ -4377,6 +4394,43 @@ async function reqAnswer(id, ok) {
   } catch (e) { toast('Не получилось — проверь интернет'); }
   updateHud(); refreshAlly();
 }
+// ---- founder's tools (build 270, her «как создатель альянса должна мочь выгнать из альянса, может ещё какие-то подобные действия»):
+// kick a school (its uid goes to the alliance's kick list; the player leaves by himself and cannot join again), hand the
+// leadership to a member, edit name / crest / motto, disband (delete the alliance; members leave on their next poll).
+async function allyPatch(fields, mask) {
+  const A = await anonToken();
+  const r = await fetch(`${ALLY_URL}/alliances/${myAl()}?${mask.map((m) => 'updateMask.fieldPaths=' + m).join('&')}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify({ fields }) });
+  if (!r.ok) throw new Error(r.status);
+}
+async function allyKick(uid) {
+  const a = allyOf(myAl()), m = allyMembers(myAl()).find((x) => x.id.startsWith(uid + '_w')); if (!a) return;
+  if (!confirm(`Выгнать «${m ? m.name : 'школу'}» из альянса? Вернуться в него она уже не сможет.`)) return;
+  try { const k = [...new Set([...(a.kick || []), uid])].slice(-50); await allyPatch({ kick: { arrayValue: { values: k.map((v) => ({ stringValue: v })) } } }, ['kick']); a.kick = k; toast(`🚪 «${m ? m.name : 'Школа'}» исключена из альянса`); }
+  catch (e) { toast('Не получилось — проверь интернет'); }
+  refreshAlly();
+}
+async function allyLead(uid) {
+  const a = allyOf(myAl()), m = allyMembers(myAl()).find((x) => x.id.startsWith(uid + '_w')); if (!a || !m) return;
+  if (!confirm(`Передать главенство в альянсе «${m.name}»? Управлять альянсом будет она, а ты останешься участником.`)) return;
+  try { await allyPatch({ owner: { stringValue: uid } }, ['owner']); a.owner = uid; ownReqs = []; toast(`👑 Глава альянса теперь «${m.name}»`); }
+  catch (e) { toast('Не получилось — проверь интернет'); }
+  refreshAlly();
+}
+async function allyEdit() {
+  const a = allyOf(myAl()); if (!a) return;
+  const name = cleanName(document.getElementById('ally-ename')?.value) || a.name, motto = cleanName(document.getElementById('ally-motto')?.value || '').slice(0, 60);
+  try { await allyPatch({ name: { stringValue: name }, emo: { stringValue: allyEmo }, motto: { stringValue: motto } }, ['name', 'emo', 'motto']); Object.assign(a, { name, emo: allyEmo, motto }); toast(`${allyEmo} Альянс обновлён`); }
+  catch (e) { toast('Не получилось — проверь интернет'); }
+  refreshAlly();
+}
+async function allyDisband() {
+  const a = allyOf(myAl()); if (!a) return;
+  if (!confirm(`Распустить альянс «${a.name}»? Все школы выйдут из него, вернуть его будет нельзя.`)) return;
+  try { const A = await anonToken(); const r = await fetch(`${ALLY_URL}/alliances/${a.id}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + A.tok } }); if (!r.ok) throw new Error(r.status);
+    allyList = (allyList || []).filter((x) => x !== a); S.al = ''; save(); await topPush(true); await topLoad(); toast('💥 Альянс распущен'); }
+  catch (e) { toast('Не получилось — проверь интернет'); }
+  refreshAlly();
+}
 async function allyToggleOpen() {
   const a = allyOf(myAl()); if (!a) return;
   try {
@@ -4387,8 +4441,8 @@ async function allyToggleOpen() {
   } catch (e) { toast('Не получилось — проверь интернет'); }
   refreshAlly();
 }
-function refreshAlly() { if (panel !== allyPanel) return; const keep = {}; ['ally-name', 'ally-code'].forEach((k) => { const e = document.getElementById(k); if (e) keep[k] = e.value; }); const ck = document.getElementById('ally-open')?.checked; refreshPanel(); for (const [k, v] of Object.entries(keep)) { const e = document.getElementById(k); if (e) e.value = v; } const c = document.getElementById('ally-open'); if (c && ck !== undefined) c.checked = ck; }
-function openAlly() { openPanel(allyPanel); Promise.all([allyLoad(), topLoad(), allyPoll()]).finally(refreshAlly); }
+function refreshAlly() { if (panel !== allyPanel) return; const keep = {}; ['ally-name', 'ally-code', 'ally-ename', 'ally-motto'].forEach((k) => { const e = document.getElementById(k); if (e) keep[k] = e.value; }); const ck = document.getElementById('ally-open')?.checked; refreshPanel(); for (const [k, v] of Object.entries(keep)) { const e = document.getElementById(k); if (e) e.value = v; } const c = document.getElementById('ally-open'); if (c && ck !== undefined) c.checked = ck; }
+function openAlly() { openPanel(allyPanel); Promise.all([allyLoad(), topLoad(), allyPoll()]).finally(() => { const a = allyOf(myAl()); if (a) allyEmo = a.emo; refreshAlly(); }); }
 function allyPanel() {
   const head = `<div class="sh-head"><span class="remoji big">🤝</span><div><h2>Альянс</h2><div class="muted">Союз школ: подарки друг другу и общий рейтинг</div></div><button class="x" data-close>✕</button></div>`;
   if (!schoolName()) return head + '<p>Чтобы вступить в альянс, сначала придумай название своей школы.</p><button class="btn wide" data-top>🏆 Придумать название</button>';
@@ -4400,14 +4454,20 @@ function allyPanel() {
   if (code) {
     const a = allyOf(code), mem = allyMembers(code).sort((x, y) => y.r - x.r), L = giftLog();
     const avg = mem.length ? mem.reduce((n, x) => n + x.r, 0) / mem.length : 0;
-    h += `<div class="card up"><span class="remoji big">${a ? a.emo : '🤝'}</span><div class="grow"><b>${a ? escTxt(a.name) : 'Альянс'}</b><div class="muted">код ${code} · ${a && a.open ? '🔓 открытый' : '🔒 по коду'} · школ ${mem.length}/${ALLY_MAX} · рейтинг 🏅 ${avg ? avg.toFixed(1).replace('.', ',') : '—'}</div></div><button class="btn small" data-allycopy>Код</button></div>`;
+    h += `<div class="card up"><span class="remoji big">${a ? a.emo : '🤝'}</span><div class="grow"><b>${a ? escTxt(a.name) : 'Альянс'}</b>${a && a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}${a && a.owner === anonUid() ? ' <span class="muted">👑 ты глава</span>' : ''}<div class="muted">код ${code} · ${a && a.open ? '🔓 открытый' : '🔒 по коду'} · школ ${mem.length}/${ALLY_MAX} · рейтинг 🏅 ${avg ? avg.toFixed(1).replace('.', ',') : '—'}</div></div><button class="btn small" data-allycopy>Код</button></div>`;
     h += '<h3>Школы альянса</h3>' + (mem.length ? mem.map((x) => {
       const uid = x.id.replace(/_w\d$/, ''), gi = L.g[uid] || 0, bo = L.b[uid] || 0;
-      return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY ? 'disabled' : ''}>🎁 ${GIFT_DAY - gi}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY ? 'disabled' : ''}>✨ ${BOOST_DAY - bo}</button>`}</div>`;
+      return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY ? 'disabled' : ''}>🎁 ${GIFT_DAY - gi}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY ? 'disabled' : ''}>✨ ${BOOST_DAY - bo}</button>${a && a.owner === anonUid() ? `<button class="btn small ghost" data-allylead="${uid}" title="Сделать главой">👑</button><button class="btn small ghost" data-allykick="${uid}" title="Выгнать">🚪</button>` : ''}`}</div>`;
     }).join('') : '<p class="muted">Загружаю…</p>');
     h += `<p class="muted">🎁 Волшебный подарок: союзник получит монеты — столько, сколько его школа зарабатывает за 3 минуты. ✨ Вдохновение: +10% к плате за уроки на 10 минут. Каждому союзнику в день — ${GIFT_DAY} подарка и ${BOOST_DAY} вдохновение, у тебя при этом ничего не убывает.</p>`;
     if (a && a.owner === anonUid()) h += '<h3>📩 Заявки на вступление</h3>' + (ownReqs.length ? ownReqs.map((q) => `<div class="card up" style="border:2px solid #b9a4f0"><div class="grow"><b>${escTxt(q.fname)}</b>${q.nick ? `<div>👤 ${escTxt(q.nick)}</div>` : ''}<div class="muted">🏅 ${q.r.toFixed(1).replace('.', ',')}</div></div><button class="btn small hot" data-reqok="${q.id}">Принять</button><button class="btn small ghost" data-reqno="${q.id}">Нет</button></div>`).join('') : '<p class="muted">Новых заявок нет. Заявку может подать любая школа из списка альянсов.</p>');
+    if (a && a.owner === anonUid()) h += `<h3>👑 Управление альянсом</h3><p class="muted">У каждой школы: 👑 — передать главенство, 🚪 — выгнать.</p>
+      <input id="ally-ename" class="fb" maxlength="24" value="${escTxt(a.name)}" placeholder="Название альянса">
+      <input id="ally-motto" class="fb" maxlength="60" value="${escTxt(a.motto || '')}" placeholder="Девиз альянса (его видят все)">
+      <div class="muted" style="margin-top:6px">Герб:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${ALLY_EMOS.map((e, k) => `<button class="btn small ${e === allyEmo ? '' : 'ghost'}" data-allyemo="${k}">${e}</button>`).join('')}</div>
+      <button class="btn wide" data-allyedit>💾 Сохранить название, девиз и герб</button>`;
     if (a && a.owner === anonUid()) h += `<button class="btn ghost wide" data-allyopen>${a.open ? '🔒 Сделать вход только по коду' : '🔓 Открыть вход для всех'}</button>`;
+    if (a && a.owner === anonUid()) h += '<button class="btn ghost wide" data-allydisband>💥 Распустить альянс</button>';
     h += '<button class="btn ghost wide" data-allyleave>🚪 Выйти из альянса</button>';
     return h;
   }
@@ -4415,7 +4475,7 @@ function allyPanel() {
   const asked = (id) => myReqs.some((q) => q.al === id && q.st === 'wait');
   h += `<h3>Вступить по коду</h3><input id="ally-code" class="fb" maxlength="10" placeholder="Например: A7K2QM9X"><button class="btn wide" data-allyjoin>🤝 Вступить</button>`;
   h += '<h3>Альянсы</h3>' + (!allyList ? '<p class="muted">Загружаю…</p>' : open.length ? open.map((a) => { const avg = a.mem.reduce((n, x) => n + x.r, 0) / a.mem.length;
-    return `<div class="card up"><span class="remoji">${a.emo}</span><div class="grow"><b>${escTxt(a.name)}</b><div class="muted">${a.open ? '🔓 вход свободный' : '🔒 по заявке'} · школ ${a.mem.length}/${ALLY_MAX} · 🏅 ${avg.toFixed(1).replace('.', ',')}</div></div>${a.open ? `<button class="btn small" data-allyjoinid="${a.id}">Вступить</button>` : asked(a.id) ? `<button class="btn small ghost" data-reqcancel="${a.id}">Заявка ✓ (отменить)</button>` : `<button class="btn small" data-reqsend="${a.id}">Подать заявку</button>`}</div>`; }).join('') : '<p class="muted">Альянсов пока нет — создай свой!</p>');
+    return `<div class="card up"><span class="remoji">${a.emo}</span><div class="grow"><b>${escTxt(a.name)}</b>${a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}<div class="muted">${a.open ? '🔓 вход свободный' : '🔒 по заявке'} · школ ${a.mem.length}/${ALLY_MAX} · 🏅 ${avg.toFixed(1).replace('.', ',')}</div></div>${a.open ? `<button class="btn small" data-allyjoinid="${a.id}">Вступить</button>` : asked(a.id) ? `<button class="btn small ghost" data-reqcancel="${a.id}">Заявка ✓ (отменить)</button>` : `<button class="btn small" data-reqsend="${a.id}">Подать заявку</button>`}</div>`; }).join('') : '<p class="muted">Альянсов пока нет — создай свой!</p>');
   h += `<h3>Создать свой альянс</h3><input id="ally-name" class="fb" maxlength="24" placeholder="Название альянса">
     <div class="muted" style="margin-top:6px">Герб:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${ALLY_EMOS.map((e, k) => `<button class="btn small ${e === allyEmo ? '' : 'ghost'}" data-allyemo="${k}">${e}</button>`).join('')}</div>
     <label class="muted" style="display:block;margin:6px 0"><input type="checkbox" id="ally-open" checked> Вход для всех (иначе только по коду)</label>
