@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=391';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=391';
-import { initMinigame } from './minigame.js?v=391';
-import { initChests } from './chests.js?v=391';
-import { initLore } from './lore.js?v=391';
-import { initAvatar } from './avatar.js?v=391';
+} from './data.js?v=392';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=392';
+import { initMinigame } from './minigame.js?v=392';
+import { initChests } from './chests.js?v=392';
+import { initLore } from './lore.js?v=392';
+import { initAvatar } from './avatar.js?v=392';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 391;   // keep equal to the ?v= number in index.html
+const BUILD = 392;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2135,6 +2135,7 @@ function stepWorld(dt, live = false) {
   stepAdvisor(dt, live);
   stepRefund(dt);
   stepTrade(dt);
+  stepMoon();
   stepExped();
   stepRumble(dt, live);
   arrivalT -= dt;
@@ -2537,7 +2538,7 @@ function statKey() { return ['SHOP', 'TRADE', 'EXPED', 'DIR', 'TOWER', 'DORM2'].
 // ======================= territory (roadmap step 2, her wish 2026-11-22: «очень волшебные и красивые с большим количеством деталей») =======================
 // Grass and outdoor paths are iso textures; the lawn around the school is dotted with magic trees, bushes and small things,
 // placed by a fixed hash of the tile so the picture never changes between visits (only where nothing is built or planned).
-const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, toadhouse: 96, glowmush: 40, crystals: 44, berrybush: 44, fern: 38, hedge: 42, roses: 40, roses2: 40, boulder: 40, bells: 38,
+const OUT_H = { moontree: 240, oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, toadhouse: 96, glowmush: 40, crystals: 44, berrybush: 44, fern: 38, hedge: 42, roses: 40, roses2: 40, boulder: 40, bells: 38,
   fountain: 100, flowerarch: 118, gazebo: 132, founder: 96, bench_a: 34, bench_b: 34, topiary_ball: 42, topiary_spiral: 48, hedge_long: 26, peonybed: 30, hydrangea: 40, crystalball: 40,
   lantern_gold: 76, lantern_blue: 76, owl_statue: 62, fox_statue: 62, flowerbed: 34, signpost2: 58, urn: 46, flowerbox: 26, gate_big: 170,
   runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46, gal_rose: 84, gal_lamp: 84, gal_urn: 94,
@@ -2606,6 +2607,7 @@ function layoutOutdoor() {
       ['flowerbox', L - 1.6, gy - 2.3, 1], ['urn', L - 0.5, gy + 6.4, 1], ['urn', R + 0.9, gy + 6.4, 1], ['signpost2', R + 2.6, gy + 5.2, 1], ['roses', L - 2.6, gy + 2.6, 0.9], ['roses2', R + 2.8, gy - 1.6, 0.9],
       ['founder', L - 4.6, gy + 4.4, 1], ['hydrangea', L - 3.6, gy + 6.2, 1], ['peonybed', L - 5.8, gy + 2.6, 1], ['crystalball', R + 4.4, gy + 3.4, 1], ['hydrangea', R + 5.2, gy + 1.8, 0.9]])   // moved here from the garden (her «поставь в другом месте просто. У входа например»)
       if (put(n, x, y, 1, sc)) keep.push([x, y]);
+    if (WORLD === 1) { MOON_AT.x = L - 6.4; MOON_AT.y = gy + 6.8; out.push({ n: 'moontree', x: MOON_AT.x, y: MOON_AT.y, th: 'outdoor', s: 1 }); keep.push([MOON_AT.x, MOON_AT.y]); }   // the Moon Tree (tester №73po7zf1, her pick)
     entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + (WORLD === 1 ? 22.5 : 8.5) };   // world 1: the path comes out of the forest
     if (WORLD === 1) for (let k = 0; k < 3; k++) { const y = gy + 10 + k * 4; if (put('lantern_gold', L - 0.3, y, 1, 0.75)) keep.push([L - 0.3, y]); if (put('lantern_gold', R + 0.3, y, 1, 0.75)) keep.push([R + 0.3, y]); } }
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
@@ -2792,8 +2794,57 @@ function outShadow(c, o) {   // the cast shadow of an outdoor object on the gras
 // per tree picture (measured on the sprites at 160 px): cut = share of the height cut from the bottom (where the roots spread),
 // x = trunk centre at the cut (0..1 of the width), mw = mound width (share of the tree width)
 const TREE_GROUND = { oak: { cut: 0.17, x: 0.52, mw: 0.5 }, fir: { cut: 0.14, x: 0.5, mw: 0.4 }, willow: { cut: 0.17, x: 0.49, mw: 0.42 },
-  blossom: { cut: 0.18, x: 0.47, mw: 0.46 }, goldtree: { cut: 0.18, x: 0.55, mw: 0.44 } };
+  blossom: { cut: 0.18, x: 0.47, mw: 0.46 }, goldtree: { cut: 0.18, x: 0.55, mw: 0.44 }, moontree: { cut: 0.17, x: 0.565, mw: 0.42 } };
 const SOIL = [0, 1].map((k) => { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/outdoor/soil_${k}.webp?v=1`; return im; });
+// ======================= the Moon Tree by the gate (tester «землитексту рко» №73po7zf1: «Возле входа у главных ворот школы нужно поставить
+// особенное красивое дерево ... на нём могут вырастать плоды иногда»; Maria's pick «3» Лунное древо, look «Справа в виде луны») =======================
+// Fruits ripen only at night by the phone's clock (21:30-5:30), one every MOON_EVERY s, at most MOON_MAX; the night counts even while the
+// game is closed (timestamps). A tap collects them: each is worth MOON_PAY s of the steady income. Daytime tap = a hint when they ripen.
+const MOON_AT = { x: 0, y: 0 }, MOON_EVERY = 300, MOON_MAX = 3, MOON_PAY = 180;
+const moonNightAt = (t) => { const d = new Date(t), h = d.getHours() + d.getMinutes() / 60; return h >= 21.5 || h < 5.5; };
+const moonNight = () => { const h = window.__hour; return h != null ? (h >= 21.5 || h < 5.5) : moonNightAt(Date.now()); };
+const moonSt = () => (S.moon ||= { f: 0, acc: 0, last: Date.now() });
+function stepMoon() {   // growth from the night minutes since the last look (cheap: at most once every 5 s)
+  if (WORLD !== 1) return; const M = moonSt(), now = Date.now();
+  if (now - M.last < 5000) return;
+  let t = Math.max(M.last, now - 86400000);
+  if (window.__hour != null) { if (moonNight()) M.acc += (now - M.last) / 1000; }
+  else for (; t < now; t += 60000) if (moonNightAt(t)) M.acc += Math.min(60, (now - t) / 1000);
+  M.last = now;
+  while (M.acc >= MOON_EVERY && M.f < MOON_MAX) { M.f++; M.acc -= MOON_EVERY; if (!ffwd) dirtyPanel = true; }
+  if (M.f >= MOON_MAX) M.acc = 0;
+}
+let moonRect = null;
+const MOON_FRUIT = [[0.33, 0.2], [0.56, 0.1], [0.8, 0.19]];   // spots in the crown (share of the picture's width / height)
+let moonFx = null;   // where the tree was drawn this frame: its glow and fruits go on top after the night tint (drawMoonFx)
+function drawMoonTree(o, p, w, h) {
+  const top = p.y + h * 0.05 - h;
+  moonRect = { x0: p.x - w * 0.45, y0: top, x1: p.x + w * 0.45, y1: p.y, t: performance.now() };
+  moonFx = { p, w, h, top };
+}
+function drawMoonFx() {   // after drawDayNight: the moon disc glows at night, ripe fruits shine in the crown (day or night)
+  const f = moonFx; moonFx = null; if (!f || WORLD !== 1) return;
+  const { p, w, h, top } = f, T = performance.now() / 1000, D = dayTint(), tt = D.sun.map((v, i) => (v + D.shade[i]) / 2), L = Math.min(1, Math.max(0, 1 - (tt[0] + tt[1] + tt[2]) / 765) * 2.2);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  if (L > 0.05) { ctx.globalAlpha = L * (0.55 + 0.12 * Math.sin(T * 1.3)); const r = w * 0.5; ctx.drawImage(glowSprite('150,185,255'), p.x - w / 2 + 0.58 * w - r, top + 0.4 * h - r, r * 2, r * 2); }
+  const n = (S.moon && S.moon.f) || 0, rr = Math.max(4, w * 0.045);
+  for (let k = 0; k < n; k++) { const [u, v] = MOON_FRUIT[k], x = p.x - w / 2 + u * w, y = top + v * h; ctx.globalAlpha = 0.75 + 0.2 * Math.sin(T * 2 + k * 2); ctx.drawImage(glowSprite('190,215,255'), x - rr * 3.5, y - rr * 3.5, rr * 7, rr * 7); }
+  ctx.restore();
+  for (let k = 0; k < n; k++) { const [u, v] = MOON_FRUIT[k]; emoji('🌙', p.x - w / 2 + u * w, top + v * h + Math.sin(T * 1.6 + k * 2) * 1.5, rr * 2.4); }
+}
+function tapMoon() {
+  stepMoon(); const M = moonSt(), n = M.f;
+  if (!n) {
+    if (moonNight()) toast(`🌙 Лунный плод созреет через ${mmss(Math.max(1, MOON_EVERY - M.acc))}`);
+    else toast('🌙 Лунное древо: плоды созревают только ночью, с 21:30 до 5:30. Загляни ночью!');
+    return;
+  }
+  const v = Math.max(50, Math.round(n * MOON_PAY * (steadyRate() || S.ema || 1)));
+  M.f = 0; S.stats.moon = (S.stats.moon || 0) + n;
+  earn(v, MOON_AT.x, MOON_AT.y - 2, '#7f9cff', 70); popup(n > 1 ? `🌙×${n}` : '🌙', MOON_AT.x + 0.4, MOON_AT.y - 3, '#7f9cff', 60);
+  hintOnce('moon', '🌙', 'Лунное древо', `Это Лунное древо у ворот. Его плоды созревают только ночью, с 21:30 до 5:30: каждые ${MOON_EVERY / 60} минут по одному, до ${MOON_MAX} сразу. Ночь идёт, даже когда игра закрыта, — загляни утром и собери. Каждый плод стоит ${MOON_PAY / 60} минуты дохода школы.`);
+  save();
+}
 function drawTreeGrounded(o, im, p, w, h) {   // false = not a grounded tree (draw as usual)
   const g = WORLD === 1 && TREE_GROUND[o.n], soil = SOIL[(Math.round(o.x * 7 + o.y * 13) & 1)];
   if (!g || !soil.naturalWidth) return false;
@@ -2811,6 +2862,7 @@ function drawOut(o) {
   { const dh = h * scale * dpr, lv = o.depth > 0.6 ? 1 : o.depth > 0.25 ? 0 : -1, t = lv >= 0 && outTint[o.n];   // nearest smaller copy (big downscales every frame are slow); deep trees use the tinted copies
     if (outLo[o.n] && dh < 230) im = t ? t.lo[lv] : outLo[o.n]; else if (outMid[o.n] && (dh < 430 || t)) im = t ? t.mid[lv] : outMid[o.n]; }
   if (!drawTreeGrounded(o, im, p, w, h)) ctx.drawImage(o.flip ? flipped(im) : im, p.x - w / 2, p.y + h * 0.05 - h, w, h);
+  if (o.n === 'moontree') drawMoonTree(o, p, w, h);
   if (zoom >= 1.3 || o.n === 'fountain') outFx(o, p, h);   // the fountain's water shows at every zoom (it grows with its upgrades)   // zoomed out the life is too small to see: save the iPhone's work
 }
 // ======================= day and night (her pick from the location review, 2026-11-23) =======================
@@ -4170,7 +4222,8 @@ function render() {
   ctx.globalAlpha = 0.38;
   if (zoom >= 1.1) for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) (a._ghost = true, drawCreature(a, gx, gy, 30), a._ghost = false); }
   ctx.globalAlpha = 1;
-  if (WORLD === 1) drawDayNight(); else if (WORLD === 2) drawHallDark();   // day and night (signs stay bright: drawn after)
+  if (WORLD === 1) drawDayNight(); else if (WORLD === 2) drawHallDark();
+  drawMoonFx();   // the Moon Tree glow and fruits stay bright at night   // day and night (signs stay bright: drawn after)
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
   if (WORLD === 1 && COURT) {   // build 279: the fountain has a sign too: it opens the court's upgrades
@@ -4931,6 +4984,7 @@ scroller.addEventListener('click', (e) => {
   const mr = mailRect; if (mr && performance.now() - mr.t < 600 && wx >= mr.x0 && wx <= mr.x1 && wy >= mr.y0 && wy <= mr.y1) { openPanel(mailPanel); return; }   // the envelope over the office opens the letter (build 311)
   const mh = window.__moonHit; if (mh && performance.now() - mh.t < 600 && Math.hypot(wx - mh.x, wy - mh.y) < mh.r) { LORE.event('moon'); return; }   // the director's riddle, line 1
   const cr = window.__crownRect; if (cr && performance.now() - cr.t < 600 && wx >= cr.x0 && wx <= cr.x1 && wy >= cr.y0 && wy <= cr.y1 && LORE.event('crown')) return;   // line 5
+  { const m = moonRect; if (WORLD === 1 && m && performance.now() - m.t < 600 && wx >= m.x0 && wx <= m.x1 && wy >= m.y0 && wy <= m.y1) { tapMoon(); return; } }   // the Moon Tree
   const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { if (TK.on && LORE.event('tikhon')) return; openPanel(tikhonPanel); return; }   // walking Tikhon at dusk talks (line 3)   // Tikhon (or his scroll) opens his own report window, wherever he walks
   const sign = signRects.find((r) => wx >= r.x0 - 6 && wx <= r.x1 + 6 && wy >= r.y0 - 6 && wy <= r.y1 + 6);   // a sign always opens its room
   if (sign) { if (sign.id === 'FOUNT') openPanel(fountainPanel); else openRoom(sign.id); return; }
