@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=393';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=393';
-import { initMinigame } from './minigame.js?v=393';
-import { initChests } from './chests.js?v=393';
-import { initLore } from './lore.js?v=393';
-import { initAvatar } from './avatar.js?v=393';
+} from './data.js?v=394';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=394';
+import { initMinigame } from './minigame.js?v=394';
+import { initChests } from './chests.js?v=394';
+import { initLore } from './lore.js?v=394';
+import { initAvatar } from './avatar.js?v=394';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 393;   // keep equal to the ?v= number in index.html
+const BUILD = 394;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1253,7 +1253,7 @@ function thronePanel() {
     <p class="muted">Пока идёт защита, каждый сданный урок в Зале стражей отбивает одну тень. Больше парт и сильнее учитель в Зале стражей — быстрее защита. С каждой победой теней становится больше.</p>`;
   for (const [k, u] of Object.entries(THRONE_UP)) {
     const l = T[k] || 0;
-    h += `<div class="card up"><span class="remoji">${u.emo}</span><div class="grow"><b>${u.name}</b> <span class="muted">ур. ${l}/${THRONE_MAX}</span><div class="muted">${u.desc(l)}</div></div>
+    h += `<div class="card up"><span class="remoji">${u.emo}</span><div class="grow"><b>${u.name}</b> <span class="muted">ур. ${l}/${THRONE_MAX}</span><div class="muted">сейчас: ${u.desc(l)}${l < THRONE_MAX ? `<br>станет: ${u.desc(l + 1)}` : ''}</div></div>
       ${l >= THRONE_MAX ? '<span class="done">макс.</span>' : costBtn('↑', thCost(k), 'throneup', `data-k="${k}"`)}</div>`;
   }
   return h;
@@ -1296,7 +1296,8 @@ function expedPanel() {
     h += `<div class="card up"><span class="remoji">${D.emo}</span><div class="grow"><b>${D.name}</b><div class="muted">${tripMin(d)} мин · нужно 🎒 ${D.need} · реликвия ${Math.round(D.relic * 100)}% · 💎 ${D.gems[0]}–${D.gems[1]}</div></div>
       <button class="btn" data-act="exped" data-k="${d}" ${can ? '' : 'disabled'}>Отправить</button></div>`; });
   h += '<h3>Реликвии</h3><div class="stats3" style="flex-wrap:wrap">' + RELICS.map(([e, nm], k) => `<div style="min-width:30%"><span>${E.relics[k] ? `<img src="assets/relics/r${k}.webp" alt="" style="width:44px;height:44px;object-fit:contain">` : '❔'}</span><i>${E.relics[k] ? nm : '???'}</i></div>`).join('') + '</div>';
-  for (const [k, emo, nm, txt] of [['gear', '🪢', 'Снаряжение', '−8% времени похода'], ['camp', '⛺', 'Лагерь искателей', '+25 мест для искателей']]) { const l = E[k] || 0;
+  for (const [k, emo, nm, txt0] of [['gear', '🪢', 'Снаряжение', '−8% за уровень'], ['camp', '⛺', 'Лагерь искателей', '+25 за уровень']]) { const l = E[k] || 0, b = (d) => { E[k] = (E[k] || 0) + d; }, mx = l >= EXPED_MAX;
+    const txt = (k === 'gear' ? nn('первый поход', tripMin(0) + ' мин', peek(b, () => tripMin(0)) + ' мин', mx) : nn('мест для искателей', seekCap(), peek(b, seekCap), mx)) + ` (${txt0})`;
     h += `<div class="card up"><span class="remoji">${emo}</span><div class="grow"><b>${nm}</b> <span class="muted">ур. ${l}/${EXPED_MAX}</span><div class="muted">${txt}</div></div>
       ${l >= EXPED_MAX ? '<span class="done">макс.</span>' : costBtn('↑', exCostUp(k), 'expedup', `data-k="${k}"`)}</div>`; }
   return h;
@@ -1304,7 +1305,7 @@ function expedPanel() {
 function w2Section(i) {
   const id = w2Id(i), w = WORLD === 2 ? W2() : null; if (!w) return '';
   if (id === 'mine') return `<h3>Склад руды</h3><p class="muted">Каждый сданный урок здесь приносит ⛏️ 1 руду. Руду забирает Кузня: из 2 руды выходит 1 изделие ⚒️.</p>
-    <div class="card up"><span class="remoji">📦</span><div class="grow"><b>Склад: ${fmt(w.ore)}/${fmt(oreCap())}</b> <span class="muted">ур. ${w.store}/${MAX_STORE}</span><div class="muted">${w.ore >= oreCap() ? 'склад полон — руда не добывается' : 'больше места для руды'}</div></div>
+    <div class="card up"><span class="remoji">📦</span><div class="grow"><b>Склад: ${fmt(w.ore)}/${fmt(oreCap())}</b> <span class="muted">ур. ${w.store}/${MAX_STORE}</span><div class="muted">${w.ore >= oreCap() ? 'склад полон — руда не добывается. ' : ''}${nn('вмещает', fmt(oreCap()), fmt(peek((d) => { w.store += d; }, oreCap)), w.store >= MAX_STORE)}</div></div>
       ${w.store >= MAX_STORE ? '<span class="done">макс.</span>' : costBtn('↑', storeCost(), 'store')}</div>`;
   if (id === 'forge') return `<h3>Руда и изделия</h3><p class="muted">Каждый сданный урок забирает ⛏️ 2 руды из Штольни и даёт ⚒️ 1 изделие. Без руды урок платит вдвое меньше.</p>
     <div class="stats3"><div><span>⛏️</span><b>${fmt(w.ore)}</b><i>руда</i></div><div><span>⚒️</span><b>${fmt(w.items)}</b><i>изделия</i></div><div><span>💎</span><b>${fmt(w.gems)}</b><i>самоцветы</i></div></div>`;
@@ -1534,7 +1535,7 @@ const lightCost = (i) => paced(CLASSES[i].tuition * 20 * Math.pow(1.9, lightLvl(
 function lightHtml(i) {
   if (WORLD !== 2) return '';
   const l = lightLvl(i), dk = hallDark(i), mood = 0.8 - DARK_MOOD * dk;
-  return `<div class="card up"><span class="remoji">🕯️</span><div class="grow"><b>Светильники</b> <span class="muted">ур. ${l}/${LIGHT_MAX}</span><div class="muted">${dk > 0 ? `темнота ${Math.round(dk * 100)}% · ${mood < 0 ? 'на уроке ученики грустят' : 'на уроке ученикам пока неуютно'}` : 'в зале светло · на уроке ученики радуются'} · каждый уровень −${Math.round(LIGHT_STEP * 100)}% темноты</div></div>
+  return `<div class="card up"><span class="remoji">🕯️</span><div class="grow"><b>Светильники</b> <span class="muted">ур. ${l}/${LIGHT_MAX}</span><div class="muted">${dk > 0 ? `${nn('темнота', Math.round(dk * 100) + '%', Math.max(0, Math.round(peek((d) => { S.w2.light ||= {}; S.w2.light[i] = lightLvl(i) + d; if (!S.w2.light[i]) delete S.w2.light[i]; }, () => hallDark(i)) * 100)) + '%', l >= LIGHT_MAX)} · ${mood < 0 ? 'на уроке ученики грустят' : 'на уроке ученикам пока неуютно'}` : 'в зале светло · на уроке ученики радуются'} (−${Math.round(LIGHT_STEP * 100)}% темноты за уровень)</div></div>
     ${dk <= 0 || l >= LIGHT_MAX ? '<span class="done">светло</span>' : costBtn('↑', lightCost(i), 'light', `data-i="${i}"`)}</div>`;
 }
 function stepMood(a, dt, live) {
@@ -1790,9 +1791,9 @@ function rankSection(i) {   // the class panel part about the rank exam held her
     : `<div><span>🌟</span><b>${pct(ch)}</b><i>сдают</i></div><div><span>🎯</span><b>${fmt(st.rkPass || 0)}</b><i>получили</i></div><div><span>💰</span><b>×${RANK_MUL[T]}</b><i>плата</i></div>`;
   return `<h3>Экзамен на звание</h3><p class="muted">После урока его пробуют только ученики со званием «${RANKS[T - 1]}»: <b>${who}</b>.</p>
     <div class="stats3${T === 5 ? ' four' : ''}">${cells}</div>
-    <div class="card up"><span class="remoji">🌟</span><div class="grow"><b>Шанс экзамена</b> <span class="muted">ур. ${exLvl(i)}/${MAX_EX_LVL}</span><div class="muted">+${RANK_STEP[T] * 100}% к экзамену на звание</div></div>
+    <div class="card up"><span class="remoji">🌟</span><div class="grow"><b>Шанс экзамена</b> <span class="muted">ур. ${exLvl(i)}/${MAX_EX_LVL}</span><div class="muted">${nn('шанс', pc1(ch), pc1(peek((d) => { st.ex = exLvl(i) + d; }, () => rankChance(i))), exLvl(i) >= MAX_EX_LVL)} (+${pc1(RANK_STEP[T])} за уровень)</div></div>
       ${exLvl(i) >= MAX_EX_LVL ? '<span class="done">макс.</span>' : costBtn('↑', exCost(i), 'exlvl', `data-i="${i}"`)}</div>
-    <div class="card up"><span class="remoji">📈</span><div class="grow"><b>Опыт</b> <span class="muted">ур. ${xplLvl(i)}/${MAX_XPL_LVL}</span><div class="muted">за урок здесь карточка ученика получает +${1 + xplLvl(i)} опыта</div></div>
+    <div class="card up"><span class="remoji">📈</span><div class="grow"><b>Опыт</b> <span class="muted">ур. ${xplLvl(i)}/${MAX_XPL_LVL}</span><div class="muted">${nn('опыт карточке ученика за урок', '+' + (1 + xplLvl(i)), '+' + (2 + xplLvl(i)), xplLvl(i) >= MAX_XPL_LVL)}</div></div>
       ${xplLvl(i) >= MAX_XPL_LVL ? '<span class="done">макс.</span>' : costBtn('↑', xplCost(i), 'xpllvl', `data-i="${i}"`)}</div>`;
 }
 const formImg = (k) => { const [sp, rk, el] = k.split(':'); if (+rk === 5 && sprites[sp + '_m' + el]?.naturalWidth) return `assets/creatures/${sp}_m${el}.png?v=1`; const t = Math.min(4, +rk); return `assets/creatures/${sp}${t ? '_t' + t : ''}.png${t ? '?v=' + (TIER_V[sp] || 1) : ''}`; };   // the album follows TIER_V too
@@ -1974,7 +1975,7 @@ function towerPanel() {
     ${r.away || r.mc ? '' : `<button class="btn ghost" data-act="towerfree" data-k="${k}">Отпустить <span class="cost">🎁 ${fmt(releaseReward(r))}</span></button>`}</div>`).join('');
   const elders = T.res.filter((r) => r.rk === 4).length, away = T.res.find((r) => r.away);
   const retake = `<h3>Пересдача на ${TW.masterA}</h3><p class="muted">${!elders ? `Когда ${TW.inS} живёт ${TW.elder}, он время от времени ходит ${W2T ? 'в Палату клятв' : 'в Экзаменационный зал'} пересдавать экзамен на ${TW.masterA}.` : away ? `Сейчас <b>${away.name}</b> пересдаёт экзамен.` : `Следующий ${TW.elder} пойдёт на пересдачу через <b>${mmss(Math.max(0, T.rt ?? retakeInterval()))}</b>. Шанс стать ${W2T ? 'Хранителем' : 'Мастером'}: ${(rankChance(CLASSES.findIndex((c) => c.final)) * 100).toFixed(1)}%.`}</p>
-    <div class="card up"><span class="remoji">📜</span><div class="grow"><b>${W2T ? 'Подготовка хранителей' : 'Подготовка мастеров'}</b> <span class="muted">ур. ${retakeLvl()}/${RETAKE_MAX}</span><div class="muted">пересдача раз в ${mmss(retakeInterval())}</div></div>
+    <div class="card up"><span class="remoji">📜</span><div class="grow"><b>${W2T ? 'Подготовка хранителей' : 'Подготовка мастеров'}</b> <span class="muted">ур. ${retakeLvl()}/${RETAKE_MAX}</span><div class="muted">${nn('пересдача раз в', mmss(retakeInterval()), mmss(peek((d) => { towerUp().prep = retakeLvl() + d; }, retakeInterval)), retakeLvl() >= RETAKE_MAX)}</div></div>
       ${retakeLvl() >= RETAKE_MAX ? '<span class="done">макс.</span>' : costBtn('↑', retakeCost(), 'towerprep')}</div>`;
   const wait = T.wait.map((r, k) => `<div class="card up locked">${pic(r)}<div class="grow"><b>${r.name}</b> <span class="muted">${resTitle(r)}</span><div class="muted">ждёт места у двери</div></div>
     <button class="btn ghost" data-act="towerno" data-k="${k}">Не брать</button></div>`).join('');
@@ -4283,6 +4284,11 @@ function refreshPanel() {   // re-render only when the content really changed (a
   updateHud();
 }
 
+// upgrade cards say «now -> next» (her «Подобную работу проведи со всеми комнатами, чтобы было понятно», 2026-11-23: cards showed only the per-level step and looked as if nothing changed)
+function peek(bump, f) { bump(1); try { return f(); } finally { bump(-1); } }   // the value one level up: raise the level, read, put it back
+const nn = (label, a, b, mx) => (mx ? `${label} ${a}` : `${label} ${a} → ${b}`);
+const pc1 = (x) => String(Math.round(x * 1000) / 10).replace('.', ',') + '%';
+const nnC = (label, a, b, mx) => { const f = fmt(a) === fmt(b) && a !== b ? (v) => Math.round(v).toLocaleString('ru-RU') : fmt; return nn(label, '🪙' + f(a), '🪙' + f(b), mx); };   // 1,9K -> 1,9K hid a +2% step: exact numbers then
 function classPanel(i) {
   return () => {
     const C = CLASSES[i], st = S.classes[i];
@@ -4294,13 +4300,13 @@ function classPanel(i) {
       <div class="stats3"><div><span>🪙</span><b>${fmt(tuition(i))}</b><i>плата</i></div><div><span>🎯</span><b>${pct(success(i))}</b><i>сдают экзамен</i></div><div><span>⏱️</span><b>${sec(lessonTime(i))}</b><i>урок</i></div></div>
       ${overflow(i) > 0 ? `<p class="muted">🎯 Шанс уже максимальный (${Math.round(BAL.maxChance * 100)}%). Всё, что сверху (+${Math.round(overflow(i) * 100)}%), превращается в плату: <b>+${Math.round(overflow(i) * 200)}%</b>.</p>` : ''}
       <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>${rankSection(i)}${helpersHtml(i)}`;
-    h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · +5% платы и +1,5% к экзамену</div></div>
+    h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · ${(() => { const mx = st.teacher >= MAX_TEACHER_LEVEL, b = (d) => { st.teacher += d; }; return `${nnC('плата', tuition(i), peek(b, () => tuition(i)), mx)} · ${nn('сдают', pct(success(i)), pct(peek(b, () => success(i))), mx)}`; })()} (+5% платы и +1,5% к экзамену за уровень)</div></div>
       ${st.teacher >= MAX_TEACHER_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', teacherCost(i), 'teacher', `data-i="${i}"`)}</div>`;
     h += `<div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Парты: ${st.desks}/${maxDesksOf(i)}</b><div class="muted">больше учеников за раз</div></div>
       ${st.desks >= maxDesksOf(i) ? `<span class="done">${sizeOf(i) < MAX_SIZE && !C.final ? 'расширь класс' : 'макс.'}</span>` : costBtn('+1', deskCost(i), 'desk', `data-i="${i}"`)}</div>
     ${C.final ? '' : `<div class="card up"><span class="remoji">📐</span><div class="grow"><b>Расширить класс</b> <span class="muted">${['маленький', 'средний', 'большой'][sizeOf(i) - 1]}</span><div class="muted">${sizeOf(i) < MAX_SIZE ? `комната станет больше: до ${6 + 4 * sizeOf(i)} парт` : 'класс уже самый большой'}</div></div>
       ${sizeOf(i) >= MAX_SIZE ? '<span class="done">макс.</span>' : costBtn('↑', expandCost(i), 'expand', `data-i="${i}"`)}</div>`}`;
-    h += `<div class="card up"><span class="remoji">⏱️</span><div class="grow"><b>Урок короче</b><div class="muted">ур. ${st.time}/${MAX_TIME_LEVEL} · −8% времени</div></div>
+    h += `<div class="card up"><span class="remoji">⏱️</span><div class="grow"><b>Урок короче</b><div class="muted">ур. ${st.time}/${MAX_TIME_LEVEL} · ${nn('урок', sec(lessonTime(i)), sec(peek((d) => { st.time += d; }, () => lessonTime(i))), st.time >= MAX_TIME_LEVEL)} (−8% за уровень)</div></div>
       ${st.time >= MAX_TIME_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', timeCost(i), 'time', `data-i="${i}"`)}</div>`;
     h += lightHtml(i);
     h += w2Section(i);
@@ -4308,7 +4314,8 @@ function classPanel(i) {
     C.items.forEach((it, k) => {
       const lv = st.items[k];
       h += `<div class="card up"><span class="remoji">${it.emoji}</span><div class="grow"><b>${it.name}</b> <span class="muted">ур. ${lv}</span>
-        <div class="muted">${it.kind === 'tuition' ? '+8% платы' : rawSuccess(i) >= BAL.maxChance ? `+2% платы (шанс уже ${Math.round(BAL.maxChance * 100)}%)` : '+1% к экзамену'} за уровень</div><div class="lvbar"><i style="width:${lv / MAX_ITEM_LEVEL * 100}%"></i></div></div>
+        <div class="muted">${(() => { const mx = lv >= MAX_ITEM_LEVEL, b = (d) => { st.items[k] += d; }, pay = it.kind === 'tuition' || rawSuccess(i) >= BAL.maxChance;
+          return (pay ? nnC('плата', tuition(i), peek(b, () => tuition(i)), mx) : nn('сдают', pct(success(i)), pct(peek(b, () => success(i))), mx)) + ' · '; })()}${it.kind === 'tuition' ? '+8% платы' : rawSuccess(i) >= BAL.maxChance ? `+2% платы (шанс уже ${Math.round(BAL.maxChance * 100)}%)` : '+1% к экзамену'} за уровень</div><div class="lvbar"><i style="width:${lv / MAX_ITEM_LEVEL * 100}%"></i></div></div>
         ${lv >= MAX_ITEM_LEVEL ? '<span class="done">макс.</span>' : costBtn(lv ? '↑' : 'Купить', itemCost(i, k), 'item', `data-i="${i}" data-k="${k}"`)}</div>`;
     });
     return h;
@@ -4318,11 +4325,11 @@ function fountainPanel() {
   const u = courtUp(), n = courtList.filter((a) => !a.goal.brk).length, b = courtList.length - n;
   return `<div class="sh-head"><span class="remoji big">⛲</span><div><h2>Волшебный двор</h2><div class="muted">Здесь ждут свободной парты и отдыхают на перемене</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🪑</span><b>${courtList.length}/${courtCap()}</b><i>места во дворе</i></div><div><span>😊</span><b>+${Math.round(COURT_MOOD * fountMoodK() * 60)}</b><i>настроения в минуту</i></div><div><span>🍀</span><b>${coinLuck() ? '+' + (Math.round(coinLuck() * 1000) / 10) + '%' : '—'}</b><i>монетка к экзамену</i></div></div>
-    <div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Больше скамеек</b> <span class="muted">ур. ${u.bench}/${MAX_BENCH}</span><div class="muted">+3 места во дворе: ждут здесь, а не в спальне</div></div>
+    <div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Больше скамеек</b> <span class="muted">ур. ${u.bench}/${MAX_BENCH}</span><div class="muted">${nn('мест во дворе', courtCap(), peek((d) => { u.bench += d; }, courtCap), u.bench >= MAX_BENCH)} (+3 за уровень): ждут здесь, а не в спальне</div></div>
       ${u.bench >= MAX_BENCH ? '<span class="done">макс.</span>' : costBtn('↑', benchCost(), 'cbench')}</div>
-    <div class="card up"><span class="remoji">⛲</span><div class="grow"><b>Волшебный фонтан</b> <span class="muted">ур. ${u.fount}/${MAX_FOUNT}</span><div class="muted">+20% к тому, как быстро во дворе растёт настроение</div></div>
+    <div class="card up"><span class="remoji">⛲</span><div class="grow"><b>Волшебный фонтан</b> <span class="muted">ур. ${u.fount}/${MAX_FOUNT}</span><div class="muted">${nn('настроение во дворе', '+' + Math.round(COURT_MOOD * fountMoodK() * 60), '+' + Math.round(COURT_MOOD * peek((d) => { u.fount += d; }, fountMoodK) * 60), u.fount >= MAX_FOUNT)} в минуту (+20% за уровень)</div></div>
       ${u.fount >= MAX_FOUNT ? '<span class="done">макс.</span>' : costBtn('↑', fountCost(), 'cfount')}</div>
-    <div class="card up"><span class="remoji">🍀</span><div class="grow"><b>Монетка на счастье</b> <span class="muted">ур. ${u.coin}/${MAX_COIN}</span><div class="muted">${u.coin ? 'бросил монетку в фонтан — +' + (Math.round(coinLuck() * 1000) / 10) + '% к следующему экзамену, дальше +0,5% за уровень' : 'бросил монетку в фонтан — +5% к следующему экзамену'}</div></div>
+    <div class="card up"><span class="remoji">🍀</span><div class="grow"><b>Монетка на счастье</b> <span class="muted">ур. ${u.coin}/${MAX_COIN}</span><div class="muted">бросил монетку в фонтан — ${u.coin ? nn('к следующему экзамену', '+' + pc1(coinLuck()), '+' + pc1(peek((d) => { u.coin += d; }, coinLuck)), u.coin >= MAX_COIN) + ' (+0,5% за уровень)' : '+5% к следующему экзамену'}</div></div>
       ${u.coin >= MAX_COIN ? '<span class="done">макс.</span>' : costBtn(u.coin ? '↑' : 'Открыть', coinCost(), 'ccoin')}</div>
     <p class="muted">Ждут места: <b>${n}</b> · на перемене: <b>${b}</b></p>`;
 }
@@ -4337,7 +4344,7 @@ function dormPanel() {
       ${dorm2Built() ? '<span class="done">✓ есть</span>' : costBtn('Построить', DORM2_COST, 'dorm2')}</div>
     ${[1, 2].filter((k) => k === 1 || dorm2Built()).map((k) => `<div class="card up"><span class="remoji">📐</span><div class="grow"><b>Расширить ${k === 1 ? 'первую' : 'вторую'} спальню</b> <span class="muted">${['маленькая', 'средняя', 'большая'][dormSize(k) - 1]}</span><div class="muted">${dormSize(k) < 3 ? `место до ${4 * (dormRows(k) + 2)} кроватей` : 'уже самая большая'}</div></div>
       ${dormSize(k) >= 3 ? '<span class="done">макс.</span>' : costBtn('↑', dormExpandCost(k), 'dormexp', `data-k="${k}"`)}</div>`).join('')}
-    <div class="card up"><span class="remoji">🗝️</span><div class="grow"><b>Консьержка быстрее</b> <span class="muted">ур. ${u.conc}/${MAX_CONC}</span><div class="muted">−15% времени на запись</div></div>
+    <div class="card up"><span class="remoji">🗝️</span><div class="grow"><b>Консьержка быстрее</b> <span class="muted">ур. ${u.conc}/${MAX_CONC}</span><div class="muted">${nn('запись', sec(checkinTime()), sec(peek((d) => { u.conc += d; }, checkinTime)), u.conc >= MAX_CONC)} (−15% за уровень)</div></div>
       ${u.conc >= MAX_CONC ? '<span class="done">макс.</span>' : costBtn('↑', concCost(), 'conc')}</div>
     <p class="muted">У консьержки в очереди: ${dormLine.length}</p>
     ${CLASSES.map((C, i) => [C, sleepersFor(i)]).filter((x) => x[1]).map(([C, n]) => `<p class="muted">Ждут место в классе ${C.emoji} ${C.name}: <b>${n}</b></p>`).join('')}`;
@@ -4348,9 +4355,9 @@ function libPanel() {
     <div class="stats3"><div><span>📖</span><b>${used}/${libSeats()}</b><i>места</i></div><div><span>⏱️</span><b>${sec(libTime())}</b><i>подготовка</i></div><div><span>🎯</span><b>+${Math.round(libBonus() * 100)}%</b><i>к пересдаче</i></div></div>
     <div class="card up"><span class="remoji">📖</span><div class="grow"><b>Больше мест</b> <span class="muted">${libSeats()}/${MAX_LIB_SEATS}</span><div class="muted">+1 стол: больше учеников готовятся сразу</div></div>
       ${libSeats() >= MAX_LIB_SEATS ? '<span class="done">макс.</span>' : costBtn('+1', libSeatsCost(), 'libseats')}</div>
-    <div class="card up"><span class="remoji">⏳</span><div class="grow"><b>Быстрее подготовка</b> <span class="muted">ур. ${u.speed}/${MAX_LIB_LVL}</span><div class="muted">−12% времени за книгами</div></div>
+    <div class="card up"><span class="remoji">⏳</span><div class="grow"><b>Быстрее подготовка</b> <span class="muted">ур. ${u.speed}/${MAX_LIB_LVL}</span><div class="muted">${nn('подготовка', sec(libTime()), sec(peek((d) => { u.speed += d; }, libTime)), u.speed >= MAX_LIB_LVL)} (−12% за уровень)</div></div>
       ${u.speed >= MAX_LIB_LVL ? '<span class="done">макс.</span>' : costBtn('↑', libSpeedCost(), 'libspeed')}</div>
-    <div class="card up"><span class="remoji">💡</span><div class="grow"><b>Лучше подготовка</b> <span class="muted">ур. ${u.bonus}/${MAX_LIB_LVL}</span><div class="muted">+3% к шансу сдать после библиотеки</div></div>
+    <div class="card up"><span class="remoji">💡</span><div class="grow"><b>Лучше подготовка</b> <span class="muted">ур. ${u.bonus}/${MAX_LIB_LVL}</span><div class="muted">${nn('к шансу сдать после библиотеки', '+' + Math.round(libBonus() * 100) + '%', '+' + Math.round(peek((d) => { u.bonus += d; }, libBonus) * 100) + '%', u.bonus >= MAX_LIB_LVL)} (+3% за уровень)</div></div>
       ${u.bonus >= MAX_LIB_LVL ? '<span class="done">макс.</span>' : costBtn('↑', libBonusCost(), 'libbonus')}</div>
     <p class="muted">После библиотеки урок у ученика в 2 раза короче, а шанс сдать выше на ${Math.round(libBonus() * 100)}%.</p>`;
 }
@@ -4363,9 +4370,10 @@ function cantPanel() {
   const row = (k, emo, name, desc) => `<div class="card up"><span class="remoji">${emo}</span><div class="grow"><b>${name}</b> <span class="muted">ур. ${u[k]}/${CANT_MAX[k]}</span><div class="muted">${desc}</div></div>${u[k] >= CANT_MAX[k] ? '<span class="done">макс.</span>' : costBtn('↑', cantCost(k), 'cantup', `data-k="${k}"`)}</div>`;
   return `${head(`Накормлено: ${fmt(S.stats.cant || 0)}`)}
     <div class="stats3"><div><span>🪙</span><b>${fmt(cantPrice())}</b><i>за обед</i></div><div><span>🚶</span><b>${Math.round(cantChance() * 100)}%</b><i>заходят</i></div><div><span>⏱️</span><b>${sec(cantServe())}</b><i>раздача</i></div></div>
-    ${row('cook', '🐲', 'Повар', 'раздаёт еду быстрее')}
-    ${row('tables', '🪑', 'Столы', `столов: ${cantTables()}, больше учеников заходят (+3%)`)}
-    ${row('menu', '📜', 'Меню', `обед дороже (+15% взноса), настроение +2%. Сейчас: ${cantDishes().join(' ')}`)}
+    ${(() => { const b = (k) => (d) => { u[k] += d; }, mx = (k) => u[k] >= CANT_MAX[k];
+      return row('cook', '🐲', 'Повар', `${nn('раздача', sec(cantServe()), sec(peek(b('cook'), cantServe)), mx('cook'))} (быстрее на 12% за уровень)`)
+        + row('tables', '🪑', 'Столы', `${nn('столов', cantTables(), peek(b('tables'), cantTables), mx('tables'))} · ${nn('заходят', Math.round(cantChance() * 100) + '%', Math.round(peek(b('tables'), cantChance) * 100) + '%', mx('tables'))}`)
+        + row('menu', '📜', 'Меню', `${nnC('обед', cantPrice(), peek(b('menu'), cantPrice), mx('menu'))} · ${nn('настроение', '+' + cantMood() + '%', '+' + peek(b('menu'), cantMood) + '%', mx('menu'))}. Сейчас: ${cantDishes().join(' ')}`); })()}
     <p class="muted">Обед поднимает настроение на ${cantMood()}%. Сытый ученик сдаёт следующий экзамен на ${Math.round(FED_BONUS * 100)}% легче.</p>${WORLD === 2 ? `<div class="card up"><span class="remoji">🐟</span><div class="grow"><b>Светящаяся рыба: ${(S.w2 && S.w2.fish) || 0}/${FISH_MAX}</b><div class="muted">её ловят на уроках в Озёрном зале. Ужин из рыбы стоит вдвое дороже и поднимает настроение ещё на 10%</div></div></div>` : ''}`;
 }
 function shopPanel() {
@@ -4376,9 +4384,10 @@ function shopPanel() {
   const row = (k, emo, name, lvl, desc) => `<div class="card up"><span class="remoji">${emo}</span><div class="grow"><b>${name}</b> <span class="muted">ур. ${lvl}/${SHOP_MAX}</span><div class="muted">${desc}</div></div>${lvl >= SHOP_MAX ? '<span class="done">макс.</span>' : costBtn('↑', shopCost(k), 'shopup', `data-k="${k}"`)}</div>`;
   return `<div class="sh-head"><span class="remoji big">🛍️</span><div><h2>${WORLD === 2 ? 'Самоцветная лавка' : 'Лавка'}</h2><div class="muted">Продано: ${fmt(S.stats.shop || 0)}</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🪙</span><b>${fmt(shopPrice())}</b><i>за покупку</i></div><div><span>🚶</span><b>${Math.round(shopChance() * 100)}%</b><i>заходят</i></div><div><span>⏱️</span><b>${sec(shopTime())}</b><i>обслуживание</i></div></div>
-    ${row('seller', '🧑‍🍳', 'Продавец', u.seller, 'обслуживает быстрее')}
-    ${row('shelves', '🧺', 'Витрины', u.shelves, 'больше учеников заходят (+3%)')}
-    ${row('goods', '🍭', 'Товары', u.goods, 'покупка дороже (+15% взноса)')}
+    ${(() => { const b = (k) => (d) => { u[k] += d; }, mx = (k) => u[k] >= SHOP_MAX;
+      return row('seller', '🧑‍🍳', 'Продавец', u.seller, `${nn('обслуживание', sec(shopTime()), sec(peek(b('seller'), shopTime)), mx('seller'))} (быстрее на 12% за уровень)`)
+        + row('shelves', '🧺', 'Витрины', u.shelves, `${nn('заходят', Math.round(shopChance() * 100) + '%', Math.round(peek(b('shelves'), shopChance) * 100) + '%', mx('shelves'))} (+3% за уровень)`)
+        + row('goods', '🍭', 'Товары', u.goods, `${nnC('покупка', shopPrice(), peek(b('goods'), shopPrice), mx('goods'))} (+15% взноса за уровень)`); })()}
     <p class="muted">Покупка поднимает настроение ученика на 15%.</p>`;
 }
 function dirBuildPanel() {
@@ -4394,7 +4403,7 @@ function dirPanel() {
     <p class="muted">Взнос новичка сейчас 🪙${fmt(entryFee())}. Кто уходит расстроенным, получает его назад: ${Math.round(refundRate() * 100)}%. Уже вернули: 🪙${fmt(S.stats.refunded || 0)}.</p>` + bossBlock();
   for (const [k, u] of Object.entries(DIR_UP)) {
     const l = dirLvl(k);
-    h += `<div class="card up"><span class="remoji">${u.emo}</span><div class="grow"><b>${u.name}</b> <span class="muted">ур. ${l}/${u.max}</span><div class="muted">${u.desc(l)}</div></div>
+    h += `<div class="card up"><span class="remoji">${u.emo}</span><div class="grow"><b>${u.name}</b> <span class="muted">ур. ${l}/${u.max}</span><div class="muted">сейчас: ${u.desc(l)}${l < u.max ? `<br>станет: ${u.desc(l + 1)}` : ''}${k === 'refund' ? ' <i>(чем меньше, тем выгоднее школе)</i>' : ''}</div></div>
       ${l >= u.max ? '<span class="done">макс.</span>' : costBtn('↑', dirCost(k), 'dir', `data-k="${k}"`)}</div>`;
   }
   return h;
@@ -4402,8 +4411,8 @@ function dirPanel() {
 function receptionPanel() {
   return `<div class="sh-head"><span class="remoji big">🛎️</span><div><h2>Приёмная</h2><div class="muted">Здесь новые ученики поступают в школу</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🪙</span><b>${entryFee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${sec(procTime())}</b><i>оформление</i></div><div><span>🚶</span><b>${sec(arrivalInterval())}</b><i>новый ученик</i></div></div>
-    <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${recLvl()}/${MAX_REC_LVL}</span><div class="muted">быстрее оформляет, взнос больше</div></div>${S.reception.level >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', recCost(), 'rec')}</div>
-    <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${adsLvl()}/${MAX_REC_LVL}</span><div class="muted">ученики приходят чаще</div></div>${S.reception.ads >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', adsCost(), 'ads')}</div>
+    <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${recLvl()}/${MAX_REC_LVL}</span><div class="muted">${(() => { const mx = S.reception.level >= MAX_REC_LVL, b = (d) => { S.reception.level += d; }; return `${nn('оформление', sec(procTime()), sec(peek(b, procTime)), mx)}${peek(b, entryFee) !== entryFee() ? ' · ' + nnC('взнос', entryFee(), peek(b, entryFee), mx) : mx ? ' · взнос 🪙' + fmt(entryFee()) : ''}`; })()}</div></div>${S.reception.level >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', recCost(), 'rec')}</div>
+    <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${adsLvl()}/${MAX_REC_LVL}</span><div class="muted">${nn('новый ученик раз в', sec(arrivalInterval()), sec(peek((d) => { S.reception.ads += d; }, arrivalInterval)), S.reception.ads >= MAX_REC_LVL)}</div></div>${S.reception.ads >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', adsCost(), 'ads')}</div>
     <p class="muted">Настроение учеников: <b>${moodFace(avgMood())} ${Math.round(avgMood())}%</b>. Долгие очереди огорчают, уроки и библиотека радуют. Весёлые сдают экзамен лучше, а совсем грустные уходят домой (ушли от тоски: ${S.stats.gaveUp || 0}).</p>
     <p class="muted">Всего поступило: ${S.stats.enrolled} · выпускников: ${S.stats.graduated} · ушли расстроенными: ${S.stats.left || 0}</p>`;
 }
