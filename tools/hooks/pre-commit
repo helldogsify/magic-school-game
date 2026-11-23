@@ -1,0 +1,7 @@
+#!/bin/sh
+# Image standard of the project (tools/img_opt.py): every PNG committed under assets/ gets its WebP sibling in the same commit.
+# Never blocks a commit. Install: cp tools/hooks/pre-commit .git/hooks/pre-commit
+files=$(git diff --cached --name-only --diff-filter=AM -- 'assets/' | grep -i '\.png$' | grep -v '^assets/emoji/')
+[ -z "$files" ] && exit 0
+python tools/img_opt.py --staged $files || echo "img_opt: WebP not made (commit goes on); run: python tools/img_opt.py"
+exit 0
