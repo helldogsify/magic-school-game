@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=297';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=297';
-import { initMinigame } from './minigame.js?v=297';
+} from './data.js?v=298';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=298';
+import { initMinigame } from './minigame.js?v=298';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 297;   // keep equal to the ?v= number in index.html
+const BUILD = 298;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -52,7 +52,7 @@ function save() {
 
 // ---- balance (rebalance 2026-11-22, her goal: world 1 in ~1.5 weeks, first master on ~day 5; tuned with tools/sim_driver.js) ----
 const BAL_NEW = { chance0: 0.45, maxChance: 0.8, item: 1.5, teacher: 1.6, expand: 600, expandK: 4, desk: 3.0, examDesk: 1.8, time: 2.0, rec: 1.5, ads: 1.55,
-  build: [0, 2000, 50000, 1000000, 60000000, 150000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000, pay: 0.55, lesson: 2 };   // lesson: length multiplier of every lesson (build 184, her «ученики слишком быстро сменяются»: 2.6 s at max level was shorter than the walk)   // pay 0.45 since build 178 (0.5 in 177): the queue fix (build 176) nearly doubled the flow; sim back to Elements ~4.2 d, first master ~5 d
+  build: [0, 2000, 50000, 1000000, 60000000, 150000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000, pay: 0.55, lesson: 2, floorM: 0.5, floorG: 1.08 };   // pace floor (build 297, her pick «Мягкая планка»): 0.5 min of income for the 1st level, x1.08 per level   // lesson: length multiplier of every lesson (build 184, her «ученики слишком быстро сменяются»: 2.6 s at max level was shorter than the walk)   // pay 0.45 since build 178 (0.5 in 177): the queue fix (build 176) nearly doubled the flow; sim back to Elements ~4.2 d, first master ~5 d
 const BAL_OLD = { pay: 1, chance0: 0.6, maxChance: 0.85, item: 1.25, teacher: 1.35, expand: 120, expandK: 3, desk: 2.3, examDesk: 1.6, time: 1.6, rec: 1.4, ads: 1.45, build: [], buildTime: [], tower: 500000 };
 BAL_NEW.lessonLate = { charms: 1.4, flight: 1.4, elements: 1.4 };   // build 237, her pick «1 вариант для стихий» (42 waiting for Elements): these classes x1.4 instead of BAL.lesson x2; Flight too, else the queue only moved to Flight (her save: 40 waiting there); sim all classes 4.7 d, first master 5.2 d
 const BAL = { ...BAL_NEW };   // live since build 153 (tuned with the pacing simulation; BAL_OLD kept for comparison runs)
@@ -67,19 +67,29 @@ const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance 
 const W2_PAY = 0.7;   // world 2 pays 30% less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
 const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY : 1) * boostK());   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time);
-const itemCost = (i, k) => Math.round(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, S.classes[i].items[k]));
-const teacherCost = (i) => Math.round(CLASSES[i].tuition * 6 * Math.pow(BAL.teacher, S.classes[i].teacher - 1));
-const expandCost = (i) => Math.round(CLASSES[i].tuition * BAL.expand * Math.pow(BAL.expandK, sizeOf(i) - 1));
-const deskCost = (i) => Math.round(CLASSES[i].tuition * 15 * Math.pow(CLASSES[i].final ? BAL.examDesk : BAL.desk, S.classes[i].desks - 2));   // exam desks grow slower: there are 21 of them
-const timeCost = (i) => Math.round(CLASSES[i].tuition * 10 * Math.pow(BAL.time, S.classes[i].time));
+const itemCost = (i, k) => paced(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, S.classes[i].items[k]), S.classes[i].items[k] + 1);
+const teacherCost = (i) => paced(CLASSES[i].tuition * 6 * Math.pow(BAL.teacher, S.classes[i].teacher - 1), S.classes[i].teacher);
+const expandCost = (i) => paced(CLASSES[i].tuition * BAL.expand * Math.pow(BAL.expandK, sizeOf(i) - 1), sizeOf(i));
+const deskCost = (i) => paced(CLASSES[i].tuition * 15 * Math.pow(CLASSES[i].final ? BAL.examDesk : BAL.desk, S.classes[i].desks - 2), S.classes[i].desks - 1);   // exam desks grow slower: there are 21 of them
+const timeCost = (i) => paced(CLASSES[i].tuition * 10 * Math.pow(BAL.time, S.classes[i].time), S.classes[i].time + 1);
 const MAX_REC_LVL = 40;   // both reception upgrades stop at level 40
 const recLvl = () => Math.min(MAX_REC_LVL, S.reception.level), adsLvl = () => Math.min(MAX_REC_LVL, S.reception.ads);
 const procTime = () => 3.5 * Math.pow(0.92, recLvl() - 1) / bossProcK();   // bossProcK: an ad campaign brings a helper to the reception (build 238)
 // entry fee: grows with the school (half the lesson price of the most expensive open class); upset leavers get it back x refundRate()
 const fee = () => { let mx = 0; for (let i = 0; i < CLASSES.length; i++) if (!CLASSES[i].final && isOpen(i)) mx = Math.max(mx, tuition(i)); return Math.max(3 + recLvl(), Math.round(mx * 0.5)); };
+// ---- pace floor (her rulings 2026-11-23: «покупки должны всегда соответствовать темпу игры», «Нужно всё перевести на такой формат.
+// Чтобы старичкам тоже было сложно качаться, а не только новичкам»): an upgrade level never costs less than paceMin(n) minutes of the
+// school's income (slow average S.paceEma, ~5 min), n = the number of that purchase (1 = first level). The usual price stays when it
+// is higher, so the normal path does not change; what was dirt cheap for a big school (the first levels of a newly opened class, a new
+// feature, catching up after a break) now costs real time. PACE_FREE: the first hour of a new school pays the old prices.
+// Buildings (classes, shop, canteen, director, tower, trading yard, 2nd dorm) keep fixed prices: they are the timing gates.
+const PACE_FREE = 2000;   // coins per minute of income not counted
+const paceMin = (n) => (BAL.floorM || 0) * Math.pow(BAL.floorG || 1, Math.max(0, n - 1));
+const paceInc = () => Math.max(0, ((S && (S.paceEma ?? S.ema)) || 0) * 60 - PACE_FREE);
+const paced = (price, n) => Math.round(Math.max(price, paceInc() * paceMin(n)));
 const arrivalInterval = () => 5 * Math.pow(0.9, adsLvl() - 1) / bossArrK();   // bossArrK: the director's contract tariff and ad campaigns (build 238, tester Ruslan's idea)
-const recCost = () => Math.round(20 * Math.pow(BAL.rec, S.reception.level - 1));
-const adsCost = () => Math.round(30 * Math.pow(BAL.ads, S.reception.ads - 1));
+const recCost = () => paced(20 * Math.pow(BAL.rec, S.reception.level - 1), S.reception.level);
+const adsCost = () => paced(30 * Math.pow(BAL.ads, S.reception.ads - 1), S.reception.ads);
 
 // ======================= director's office (Ruslan's idea, Maria's choices 2026-11-21) =======================
 const DIR_UP = {
@@ -95,7 +105,7 @@ const shopOpen = () => WORLD === 1 && !!(S && S.shop && S.shop.built);
 const shopChance = () => 0.12 + 0.03 * (shopUp().shelves - 1);                 // share of students who drop in after a lesson
 const shopTime = () => 2.2 * Math.pow(0.88, shopUp().seller - 1);              // seconds to serve one
 const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1))));
-const shopCost = (k) => Math.round(SHOP_COST * 0.4 * Math.pow(1.9, shopUp()[k] - 1));
+const shopCost = (k) => paced(SHOP_COST * 0.4 * Math.pow(1.9, shopUp()[k] - 1), shopUp()[k]);
 const SHOP_SPOTS = (s) => [0, 1, 2, 3, 4, 5].map((k) => ({ x: s.x0 + 2.75, y: s.y0 + 1.6 + k * 0.62 }));   // a line in front of the counter: the first is served, the rest wait (her ask)
 // ---- the canteen (her choices 2026-11-22: its own house on the lawn between Charms and the masters' tower; a snack after a lesson
 // for coins and mood, a fed student passes the next lesson a little easier; the cook is a little dragon) ----
@@ -110,7 +120,7 @@ const CANT_EAT = 4;                                                         // s
 const cantPrice = () => Math.max(5, Math.round(fee() * (0.6 + 0.15 * (cantUp().menu - 1))));
 const cantMood = () => 20 + 2 * (cantUp().menu - 1);
 const FED_BONUS = 0.05;                                                     // a fed student: +5% on the next exam
-const cantCost = (k) => Math.round(CANT_COST * 0.4 * Math.pow(1.9, cantUp()[k] - 1));
+const cantCost = (k) => paced(CANT_COST * 0.4 * Math.pow(1.9, cantUp()[k] - 1), cantUp()[k]);
 const CANT_DISHES = ['🥣', '🍲', '🥞', '🍝', '🥗', '🥧', '🍰', '🍪', '🍩', '🧁', '🍵'];
 const cantDishes = () => CANT_DISHES.slice(0, Math.min(CANT_DISHES.length, cantUp().menu + 1));
 const cantTables = () => cantUp().tables + 1;                               // 2..6 tables, 2 seats each
@@ -121,7 +131,7 @@ const CANT_COOK = (s) => ({ x: s.x0 + 4.6, y: s.y0 + 0.75 });
 const DIR_COST = 50000, DIR_STARS = 2;
 const dirBuilt = () => !!(S && S.dirBuilt);
 const dirLvl = (k) => (S && S.dir && S.dir[k]) || 0;
-const dirCost = (k) => Math.round(DIR_UP[k].base * Math.pow(DIR_UP[k].k, dirLvl(k)));
+const dirCost = (k) => paced(DIR_UP[k].base * Math.pow(DIR_UP[k].k, dirLvl(k)), dirLvl(k) + 1);
 const refundRateAt = (l) => 3 - 0.25 * l;                 // 300% -> 100%
 const refundRate = () => (WORLD === 2 ? 1 : refundRateAt(dirLvl('refund')));   // world 2 has no director to lower the penalty: just the fee back (her report 2026-11-22: coins drained to 0 by refunds)
 // world 2 (her report 2026-11-22: «прямо перед глазами в 0 ушли деньги»): newcomers kept arriving every 5 s while the
@@ -813,7 +823,7 @@ dormSpots();
 // concierge: everybody checks in at her desk before going to bed
 let CONCIERGE = { x: DS.x0 - 0.55, y: DS.y0 + 1.1 };
 const MAX_CONC = 10, DORM2_COST = 1500;
-const dormExpandCost = (k) => Math.round(2500 * Math.pow(3, dormSize(k) - 1) * (k === 2 ? 1.5 : 1));
+const dormExpandCost = (k) => paced(2500 * Math.pow(3, dormSize(k) - 1) * (k === 2 ? 1.5 : 1), dormSize(k));
 const dorm2Built = () => !!(S && S.dormUp && S.dormUp.room2);
 const cap1 = () => 4 * dormRows(1), cap2 = () => 4 * dormRows(2);
 const maxBeds = () => cap1() + (dorm2Built() ? cap2() : 0);
@@ -823,8 +833,8 @@ const beds2 = () => (dorm2Built() ? Math.min(cap2(), 9 + Math.max(0, 8 + dormUp(
 const bedCount = () => beds1() + beds2();
 const bedExists = (b) => (b < DORM_STRIDE ? b < beds1() : b - DORM_STRIDE < beds2());
 const checkinTime = () => 2 * Math.pow(0.85, dormUp().conc - 1);
-const bedsCost = () => Math.round(150 * Math.pow(1.6, dormUp().beds - 1));
-const concCost = () => Math.round(100 * Math.pow(1.5, dormUp().conc - 1));
+const bedsCost = () => paced(150 * Math.pow(1.6, dormUp().beds - 1), dormUp().beds);
+const concCost = () => paced(100 * Math.pow(1.5, dormUp().conc - 1), dormUp().conc);
 const dormLineSpot = (k) => ({ x: DS.x0 - 1.5, y: DS.y0 + 1.5 + k * 0.6 });   // the check-in line waits in the reception, by the dorm door
 let dormLine = [], checkin = null, checkinT = 0;
 const DORM_CAP = DORM_SPOTS.length;
@@ -1040,7 +1050,7 @@ function seat(a, i, d) {
 // sometimes cut a gem (4% a lesson). Items and gems go to the caravans (Торговый двор, next step).
 const W2 = () => (S.w2 ||= { ore: 0, items: 0, gems: 0, store: 1 });
 const oreCap = () => Math.round(40 * Math.pow(1.8, W2().store - 1));
-const storeCost = () => Math.round(tuition(2) * 120 * Math.pow(2.0, W2().store - 1));
+const storeCost = () => paced(tuition(2) * 120 * Math.pow(2.0, W2().store - 1), W2().store);
 const MAX_STORE = 15, ORE_FORGE = 2, GEM_CHANCE = 0.04;
 const w2Id = (i) => (WORLD === 2 ? CLASSES[i].id : '');
 const w2Pay = (i) => (w2Id(i) === 'forge' && W2().ore < ORE_FORGE ? 0.5 : 1);   // a forge lesson without ore pays half
@@ -1059,7 +1069,7 @@ const wagonCap = () => 20 + 10 * (trade().wagon - 1);
 const tripTime = () => Math.round(180 * Math.pow(0.9, trade().road - 1));
 const itemPrice = () => Math.round(tuition(1) * 1.4 * (1 + 0.12 * (trade().price - 1)));
 const gemPrice = () => Math.round(tuition(3) * 4 * (1 + 0.12 * (trade().price - 1)));
-const tupCost = (k) => Math.round(TRADE_COST * 0.6 * Math.pow(k === 'wagon' ? 2.6 : 2.4, trade()[k] - 1));   // steeper (sim: all 15 levels were bought by day ~4)
+const tupCost = (k) => paced(TRADE_COST * 0.6 * Math.pow(k === 'wagon' ? 2.6 : 2.4, trade()[k] - 1), trade()[k]);   // steeper (sim: all 15 levels were bought by day ~4)
 const loadValue = () => trade().load * itemPrice() + trade().gems * gemPrice();
 let tradeAcc = 0;
 function sendCaravan() { const T = trade(); if (T.away || !(T.load + T.gems)) return; T.value = loadValue(); T.away = tripTime(); T.trip = T.away; T.load = 0; T.gems = 0; if (!ffwd) toast(`🐐 Караван ушёл: вернётся через ${mmss(T.away)} с 🪙${fmt(T.value)}`); }
@@ -1113,9 +1123,9 @@ const libUp = () => (S.libUp ||= { seats: 1, speed: 1, bonus: 1 });
 const libSeats = () => Math.min(MAX_LIB_SEATS, 7 + libUp().seats);           // 8 seats at level 1
 const libTime = () => 6 * Math.pow(0.88, libUp().speed - 1);
 const libBonus = () => 0.15 + 0.03 * (libUp().bonus - 1);
-const libSeatsCost = () => Math.round(200 * Math.pow(1.6, libUp().seats - 1));
-const libSpeedCost = () => Math.round(150 * Math.pow(1.5, libUp().speed - 1));
-const libBonusCost = () => Math.round(250 * Math.pow(1.55, libUp().bonus - 1));
+const libSeatsCost = () => paced(200 * Math.pow(1.6, libUp().seats - 1), libUp().seats);
+const libSpeedCost = () => paced(150 * Math.pow(1.5, libUp().speed - 1), libUp().speed);
+const libBonusCost = () => paced(250 * Math.pow(1.55, libUp().bonus - 1), libUp().bonus);
 const lib = Array(LIB_SPOTS.length).fill(null);
 const libSeat = () => { for (let k = 0; k < libSeats(); k++) if (!lib[k]) return k; return -1; };
 const libFree = () => libSeat() >= 0;
@@ -1485,8 +1495,8 @@ const FORM_BASE = [10000, 40000, 250000, 1200000, 6000000, 30000000];   // first
 const MAX_EX_LVL = 20, MAX_XPL_LVL = 10, FORM_MAX = 20;
 const exLvl = (i) => S.classes[i].ex || 0, xplLvl = (i) => S.classes[i].xpl || 0;
 const rankChance = (i) => RANK_BASE[RANK_AT(i)] + RANK_STEP[RANK_AT(i)] * exLvl(i) + helpBonus(i);
-const exCost = (i) => Math.round(CLASSES[i].tuition * 300 * Math.pow(2.0, exLvl(i)));
-const xplCost = (i) => Math.round(CLASSES[i].tuition * 200 * Math.pow(1.8, xplLvl(i)));
+const exCost = (i) => paced(CLASSES[i].tuition * 300 * Math.pow(2.0, exLvl(i)), exLvl(i) + 1);
+const xplCost = (i) => paced(CLASSES[i].tuition * 200 * Math.pow(1.8, xplLvl(i)), xplLvl(i) + 1);
 const fkey = (sp, rk, el) => sp + ':' + rk + (rk === 5 ? ':' + el : '');
 const FORM_KEYS = SPECIES.flatMap((sp) => [0, 1, 2, 3, 4].map((rk) => fkey(sp, rk)).concat([0, 1, 2, 3].map((el) => fkey(sp, 5, el))));
 const formSt = (k) => { S.forms ||= {}; return (S.forms[k] ||= { lvl: 1, xp: 0, seen: k.split(':')[1] === '0' }); };
@@ -1495,7 +1505,7 @@ const formRank = (k) => +k.split(':')[1];
 const formTitle = (k) => { const [, rk, el] = k.split(':'); return +rk === 5 ? 'Мастер ' + ELEMS[el].name : RANKS[rk]; };
 const formName = (k) => `${SP_NAMES[k.split(':')[0]]} — ${formTitle(k)}`;
 const formNeed = (l) => Math.round(25 * Math.pow(1.6, l - 1));
-const formCost = (k) => Math.round(FORM_BASE[formRank(k)] * Math.pow(2.1, formSt(k).lvl - 1));
+const formCost = (k) => paced(FORM_BASE[formRank(k)] * Math.pow(2.1, formSt(k).lvl - 1), formSt(k).lvl);
 const payMul = (a) => (SPECIES.includes(a.sp) ? RANK_MUL[a.rk || 0] * (1 + 0.05 * (formSt(formOf(a)).lvl - 1)) : 1);
 const formReady = (k) => { const f = formSt(k); return f.seen && f.lvl < FORM_MAX && f.xp >= formNeed(f.lvl); };
 function migrateForms() {   // build 149: the old per-species levels (builds 143-148) move into the album, nothing is lost
@@ -1577,7 +1587,7 @@ const towerUp = () => (S.tower ||= { built: false, cap: 0, res: [], wait: [] });
 const towerOpen = () => WORLD === 1 && !!(S && S.tower && S.tower.built);
 const towerCap = () => TOWER_BASE + towerUp().cap;
 const towerCost = () => BAL.tower;
-const towerCapCost = () => Math.round(BAL.tower * 0.4 * Math.pow(2.3, towerUp().cap));
+const towerCapCost = () => paced(BAL.tower * 0.4 * Math.pow(2.3, towerUp().cap), towerUp().cap + 1);
 const RES_K = { 4: 0.015, 5: 0.05 };   // coins per second = tuition of the last class x this
 const resRate = (r) => { const li = NCLS - 1; return isOpen(li) ? tuition(li) * (RES_K[r.rk] || 0) : 0; };
 const towerRate = () => (towerOpen() ? towerUp().res.reduce((n, r) => n + resRate(r), 0) : 0);
@@ -1615,7 +1625,7 @@ function stepTower(dt) {
 const RETAKE_MAX = 10;
 const retakeLvl = () => towerUp().prep || 0;
 const retakeInterval = () => Math.round(300 * Math.pow(0.85, retakeLvl()));   // 5 min -> ~1 min at level 10
-const retakeCost = () => Math.round(BAL.tower * 0.15 * Math.pow(2.0, retakeLvl()));
+const retakeCost = () => paced(BAL.tower * 0.15 * Math.pow(2.0, retakeLvl()), retakeLvl() + 1);
 function stepRetake(dt) {
   const T = towerUp(), FI = CLASSES.findIndex((c) => c.final);
   const helpers = []; for (const [ci, l] of Object.entries(S.helpers || {})) l.forEach((h) => { h.id ||= S.nextId++; helpers.push([+ci, h]); });
@@ -5009,7 +5019,7 @@ function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
   stepWorld(dt, true);
   stepIntros(dt);   // feature intros (2026-11-23)
-  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; S.outEma = (S.outEma || 0) * 0.97 + (outThisSec / secT) * 0.03; outThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); allyTick(); }
+  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; S.paceEma = (S.paceEma ?? S.ema) * 0.997 + S.ema * 0.003; earnedThisSec = 0; S.outEma = (S.outEma || 0) * 0.97 + (outThisSec / secT) * 0.03; outThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); allyTick(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
   if (!MG.isOpen()) { const t0 = performance.now(); render(); renderMs = renderMs * 0.95 + (performance.now() - t0) * 0.05; }
