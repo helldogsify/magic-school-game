@@ -21,7 +21,7 @@ const PAGES = [
   P({ id: 'lion', ch: 'world', title: 'Директор Арсений Львович', img: 'assets/staff/dir_proud.png', layers: [   // her name pick 2026-11-23
     { t: 'Как выглядит', x: 'Белый лев с длинной гривой, заплетённой в косички с золотыми бусинами, в бело-золотой мантии и маленькой короне. Крылья у него маленькие, но он ими очень гордится.' },
     { img: 'assets/staff/dir_walk.png', t: 'Ученик', x: 'Когда-то он сам учился в этой школе. Тихон тогда записал: «Старательный. Добрый. Делится обедом с теми, кто забыл свой». Однокурсники его обожали.', need: (f) => f.grads >= 20, hint: 'когда школа выпустит 20 учеников' },
-    { t: 'Годы вдали', x: 'После выпуска Арсений Львович ушёл путешествовать, и много лет о нём ничего не было слышно. В летописи об этом времени пустые страницы: Тихон не знал, что писать.', need: (f) => f.grads >= 100, hint: 'когда школа выпустит 100 учеников' },
+    { t: 'Годы вдали', x: 'После выпуска Арсений Львович ушёл путешествовать, и много лет о нём ничего не было слышно. В летописи об этом времени пустые страницы: Тихон не знал, что писать.\n\n[[empty]]', need: (f) => f.grads >= 100, hint: 'когда школа выпустит 100 учеников' },
     { t: 'Возвращение', x: 'Когда прежний директор исчез, на его место пришли кандидаты из разных краёв. Арсений Львович вернулся — и победил. Экзаменатор Сова до сих пор называет его «тот вежливый мальчик».', need: (f) => f.has('dir'), hint: 'когда будет построен Кабинет директора' },
     { img: 'assets/staff/dir_sign.png', t: 'Привычки', x: 'Каждое утро обходит школу и здоровается с каждым учеником по имени. Подписывает бумаги, высунув кончик языка.\n\nСлабость: ужасно стесняется, когда его хвалят, — особенно когда хвалит Тихон. Тогда грива у него встаёт дыбом.', need: (f) => f.has('dir') && f.grads >= 300, hint: 'когда школа выпустит 300 учеников' },
     { img: 'assets/staff/dir_think.png', t: 'Любимая фраза', x: '«Ну что ж… за работу! ТИХОН! Вы там опять пишете обо мне?..»', need: (f) => f.has('dir') && f.masters >= 1, hint: 'когда в школе появится первый Мастер' },
@@ -30,6 +30,21 @@ const PAGES = [
     { img: 'assets/lore/note.webp', wide: 1, t: 'Та ночь', x: 'Прежний директор школы исчез в одну звёздную ночь. Он не попрощался и ничего не взял с собой — оставил только записку на столе. Записка оказалась загадкой.', need: (f) => f.masters >= 1, hint: 'когда в школе появится первый Мастер' },
     { img: 'assets/lore/lion.webp', wide: 1, t: 'Новый директор', x: 'На место директора пришли кандидаты из разных краёв. Победил Арсений Львович — когда-то он сам учился в этой школе. Тихон записал этот день очень подробно. Пожалуй, даже слишком подробно.', need: (f) => f.masters >= 1 && f.has('dir'), hint: 'когда в школе появится первый Мастер и будет построен Кабинет директора' },
     { riddle: 1, t: 'Загадка записки', x: 'Записка директора — загадка из пяти строк. Тихон спрятал их по разным страницам летописи, и каждая проступает только за особое событие в твоей школе. Собери все пять — и узнаешь, куда исчез директор.', need: (f) => f.masters >= 1, hint: 'когда в школе появится первый Мастер' },   // her «Мы будем разгадывать загадку? Тогда надо как то это указать»: the riddle is named plainly; lines come in the next stage
+  ] }),
+  P({ id: 'lastnight', ch: 'world', title: 'Последняя ночь', icon: '⭐', night: 1, layers: [
+    { t: 'Тихон', x: 'Я обещал звезде только записывать. Я держал это обещание много лет. Сегодня я впервые записываю то, о чём молчал.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { img: 'assets/lore/hill.webp', wide: 1, t: 'Холм', x: 'В ту ночь он постучал ко мне поздно. Он был очень стар — старше, чем многие знали, — и сказал: «Пойдём, посмотрим на звёзды. В последний раз вместе». Мы поднялись на холм, где когда-то упала первая звезда. Он шёл медленно и держался за моё плечо.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { t: 'Разговор', x: 'Он сказал, что не хочет, чтобы ученики запомнили его слабым. Что школа справится. Что он уже знает, кто придёт после него: тот вежливый мальчик, который когда-то делился обедом, вернётся домой. Я спросил, откуда он знает. Он улыбнулся: «Хорошие ученики всегда возвращаются».', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { t: 'Записка', x: 'Он отдал мне сложенный листок и попросил оставить его на столе утром. Одну строчку он не дописал при мне: «То, что я не успел сказать, хранит тот, кто молчит». Я понял, о ком это.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { img: 'assets/lore/dawn.webp', wide: 1, t: 'Рассвет', x: 'Я сидел рядом с ним до самого утра. Он смотрел вверх и что-то тихо считал — звёзды или годы. Когда небо порозовело, его уже не было с нами. А над холмами зажглась звезда, которой раньше не было. Она горит до сих пор.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { t: 'Что я не смог', x: 'Я мог бы его удержать. Я знаю слова, которые продлевают жизнь, — ведь сам живу на одном таком обещании. Но я обещал звезде не вершить историю. Я только записал её. Иногда мне кажется, что это самое тяжёлое, что я делал.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { t: 'Последние строки', x: 'С той ночи я боюсь привязываться. Все, кого я записываю, однажды уходят, а я остаюсь со страницами. И всё же есть один, о ком я пишу чаще, чем следует. Каждое утро он здоровается со мной первым. Я делаю вид, что занят. Пусть эта строчка останется последней в этой главе. Он и так уже слишком часто спрашивает, что я о нём пишу.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
+  ] }),
+  P({ id: 'tnotes', ch: 'world', hand: 1, title: 'Записи на полях', sub: 'то, что Тихон пишет об Арсении Львовиче', img: 'assets/staff/tikhon_read.png', layers: [
+    { t: 'День третий', x: 'Директор сегодня опять пришёл первым и поздоровался со всеми, даже с Совой, хотя Сова не ответил. Записываю, потому что я летописец. Больше ни по какой причине.', need: (f) => f.days >= 3, hint: 'на третий день с тех пор, как ты открыла летопись' },
+    { img: 'assets/lore/tea.webp', wide: 1, t: 'День седьмой', x: 'Он принёс мне чай. Сказал, что заварил лишнюю чашку. Он никогда не заваривает лишнюю чашку. Чай был с мятой, как я люблю. Не знаю, откуда он это знает.', need: (f) => f.days >= 7, hint: 'на седьмой день' },
+    { t: 'День четырнадцатый', x: '~~Сегодня он улыбнулся, когда я вошёл, и я забыл, зачем пришёл.~~\n\n~~У него очень тёплый голос, когда он говорит с учениками.~~\n\n~~Я бы хотел, чтобы…~~\n\nСегодня я зачеркнул три строчки о нём и переписал заново. Летописец не должен так делать. Но первые три выходили слишком… тёплыми.', need: (f) => f.days >= 14, hint: 'на четырнадцатый день' },
+    { t: 'День тридцатый', x: 'Он спросил, что я пишу. Я сказал: «Историю школы». Он посмотрел на меня долго-долго и сказал: «Хорошо. Только пишите правду». Я не знаю, что ответить ему, если однажды правда будет в том, что…[[blot]]', need: (f) => f.days >= 30, hint: 'на тридцатый день' },
   ] }),
   // races (approved texts)
   P({ id: 'mothfox', ch: 'races', title: 'Лисички-мотыльки', sub: '«Хранители пыльцы»', img: 'assets/creatures/mothfox.png', sp: 'mothfox', layers: [
@@ -118,10 +133,64 @@ PAGES.push(
 );
 const CHAPTERS = [['world', '🏰', 'Мир'], ['races', '🌸', 'Расы'], ['teachers', '🧙', 'Учителя'], ['school', '📖', 'Школа']];
 
+// ---- the director's note (stage 3)
+const RIDDLE = ['Не ищите меня на дорогах — ищите над холмами.', 'Я оставил вам больше, чем ушло со мной.', 'То, что я не успел сказать, хранит тот, кто молчит.',
+  'Сто монет на дне фонтана — сто моих «спасибо».', 'Корону я оставил на столе. Она дождётся того, кто однажды вернётся домой.'];
+const HINTS = [
+  ['Он не ушёл далеко. Он просто стал выше.', 'Его видно, когда школа спит. Над тёмным лесом.', 'Ночью подними глаза над северным лесом. Он ответит на прикосновение.'],
+  ['Он строил, пока мог. Остальное оставил нам.', 'Школа ещё не целая. Ему было бы больно видеть пустые места.', 'Пусть в каждом классе, о котором он мечтал, зазвучат уроки.'],
+  ['Молчаливый тоже устаёт молчать. Но не днём.', 'Когда солнце уходит, а звёзды ещё не пришли, летописец гуляет и становится разговорчивее.', 'Поймай летописца на прогулке в сумерках. Он сдастся, если попросить много раз.'],
+  ['Желания тонут, но не исчезают.', 'Вода во дворе помнит каждое желание. Ей нужна сотня.', 'Пусть ученики загадают сто счастливых желаний у фонтана.'],
+  ['То, что ждёт хозяина, просыпается с солнцем.', 'В комнате того, кто вернулся домой, утром что-то блестит.', 'Знающий мир найдёт ответ утром на столе директора.'],
+];
+const TK_LINES = ['М? Я просто гуляю…', 'Нет-нет, ничего такого. Просто вечер хороший.', 'Вы что-то хотели спросить?.. Не стоит.', 'Я обещал только записывать. Только записывать…',
+  'Вы ведь не отстанете, да?', 'Он… он очень любил такие вечера.', '(вздыхает и достаёт из-за пазухи сложенный листок) Возьмите. Я хранил его слишком долго.'];
+const DAY = 86400000, HINT_EVERY = 2 * DAY, TK_RESET = 18000;
+const hourNow = () => { const d = new Date(); return window.__hour ?? d.getHours() + d.getMinutes() / 60; };
+const isNight = () => { const h = hourNow(); return h >= 22 || h < 5; }, isDusk = () => { const h = hourNow(); return h >= 19 && h < 22; }, isMorning = () => { const h = hourNow(); return h >= 6 && h < 10; };
+const RD = () => { const l = LS(); return (l.rd ||= { found: [], hint: [0, 0, 0, 0, 0], start: 0, coins: 0, lastHint: 0 }); };
+const dayKey = (t) => { const d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
+const canFind = (k) => { const r = RD(); return r.start && r.found.length === k && (!k || dayKey(r.found[k - 1]) < dayKey(Date.now())); };   // in order, one line a day
+function findLine(k) {
+  const r = RD(); if (!canFind(k)) return false;
+  r.found.push(Date.now()); r.lastHint = Date.now(); A.save();
+  say(`📜 Найдена строчка записки (${r.found.length} из 5): «${RIDDLE[k]}»`);
+  return true;
+}
+function say(t, ms = 4500) {   // a longer note than the game's 2-s toast: Tikhon's words and found lines must be readable
+  const d = document.createElement('div'); d.className = 'lo-say'; d.textContent = t; document.body.appendChild(d);
+  if (!document.getElementById('lore-say-css')) { const st = document.createElement('style'); st.id = 'lore-say-css'; st.textContent = '.lo-say{position:fixed;left:50%;top:calc(var(--safe-t,0px) + 110px);transform:translateX(-50%);z-index:30;max-width:calc(100vw - 32px);width:max-content;padding:10px 16px;border-radius:16px;background:#fff6e2f2;color:#4a3420;border:2px solid #c9a46a;font:600 15px/1.35 Georgia,serif;text-align:center;box-shadow:0 6px 18px #0003;animation:losay '+ '4.5s ease forwards;pointer-events:none}@keyframes losay{0%{opacity:0;transform:translate(-50%,8px)}8%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}'; document.head.appendChild(st); }
+  setTimeout(() => d.remove(), ms);
+}
+let tkTaps = 0, tkLast = 0;
+export function event(kind) {   // called by game.js; true = handled (the game does nothing else for this tap)
+  if (!S() || !A.on()) return false;
+  const r = RD();
+  if (kind === 'moon') { if (isNight() && canFind(0)) { findLine(0); A.flash && A.flash('moon'); } else say(isNight() ? '🌙 Луна тихо светит над лесом.' : '🌙'); return true; }
+  if (kind === 'coin') { if (r.start && r.found.length === 3) { r.coins++; if (r.coins >= 100 && canFind(3)) findLine(3); } return true; }
+  if (kind === 'crown') { if (crownWanted() && !LS().prize) { if (isMorning() && (QS().world || {}).done && canFind(4)) { findLine(4); return true; } } return !!LS().prize; }
+  if (kind === 'tikhon') {
+    if (!isDusk() || !r.start || r.found.length !== 2) return false;
+    const now = Date.now(); if (now - tkLast > TK_RESET && tkTaps) { tkTaps = 0; say('Тихон: «Хм? О чём это я…»'); tkLast = now; return true; }
+    tkLast = now; const k = Math.min(tkTaps, TK_LINES.length - 1); tkTaps++;
+    say('Тихон: «' + TK_LINES[k] + '»');
+    if (tkTaps >= TK_LINES.length && canFind(2)) { findLine(2); tkTaps = 0; }
+    return true;
+  }
+  return false;
+}
+const crownWanted = () => RD().found.length === 4;
+export const crown = () => !!(S() && A.on() && (LS().prize || (crownWanted() && isMorning() && (QS().world || {}).done && canFind(4))));
+function riddleTick() {   // all classes built -> line 2; every 2 days without a new line Tikhon clarifies one random hint by one step
+  if (!S() || !A.on()) return; const r = RD(); if (!r.start) return;
+  if (r.found.length === 1 && canFind(1) && A.facts().allBuilt) findLine(1);
+  const since = Math.max(r.lastHint || 0, r.start, r.found.length ? r.found[r.found.length - 1] : 0);
+  if (r.found.length < 5 && Date.now() - since >= HINT_EVERY) { const open = [0, 1, 2, 3, 4].filter((k) => k >= r.found.length && r.hint[k] < 2); if (open.length) { const k = open[Math.floor(Math.random() * open.length)]; r.hint[k]++; } r.lastHint = Date.now(); A.save(); }
+}
 // ---- Tikhon's exam: 6 questions per chapter (her «Давай», 2026-11-23); answer 0 is the right one (shuffled on screen)
 const QUIZ = {
   world: [['Как называется край, где стоит школа?', 'Мотыльковые холмы', 'Звёздная поляна', 'Тихая долина'], ['Кто основал школу?', 'Тихон', 'Лев', 'Экзаменатор Сова'],
-    ['Кто Тихон по природе?', 'Очень древняя черепаха', 'Старый ёжик', 'Мудрый филин'], ['Кому Тихон дал обещание?', 'Первой звезде', 'Льву', 'Прежнему директору'],
+    ['Что звезда подарила Тихону взамен на обещание?', 'Долгую жизнь', 'Умение летать', 'Волшебное перо'], ['Кому Тихон дал обещание?', 'Первой звезде', 'Льву', 'Прежнему директору'],
     ['Что пообещал Тихон?', 'Только записывать историю, а не вершить её', 'Никогда не покидать школу', 'Научить всех летать'], ['Что оставил исчезнувший директор?', 'Записку-загадку', 'Ключ от школы', 'Свою шляпу']],
   races: [['Почему у лисичек-мотыльков светятся крылья?', 'На них осела пыльца упавшей звезды', 'Их раскрашивает Мастер Искра', 'Они едят светящиеся грибы'],
     ['Что ушастики делают вместо прощания?', 'Касаются друг друга кончиками ушей', 'Машут хвостом', 'Дарят засушенный листок'],
@@ -177,7 +246,8 @@ function quizBlock(f) {
 // ---- progress
 function facts() {
   const f = A.facts();
-  return { ...f, rank: (sp, rk) => Object.keys(f.forms).some((k) => k.startsWith(sp + ':') && +k.split(':')[1] >= rk && f.forms[k].seen),
+  const l = LS(); l.t0 ||= Date.now();
+  return { ...f, days: Math.floor((Date.now() - l.t0) / DAY), rank: (sp, rk) => Object.keys(f.forms).some((k) => k.startsWith(sp + ':') && +k.split(':')[1] >= rk && f.forms[k].seen),
     master: (sp) => Object.keys(f.forms).some((k) => k.startsWith(sp + ':5') && f.forms[k].seen) };
 }
 const openN = (p, f) => p.layers.filter((l) => !l.need || l.need(f)).length;
@@ -187,7 +257,7 @@ export const badge = () => (S() && A.on() ? unread() : 0);
 
 // ---- view
 const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-const para = (t) => esc(t).split('\n\n').map((x) => `<p>${x}</p>`).join('');
+const para = (t) => esc(t).split('\n\n').map((x) => `<p>${x.replace(/~~(.+?)~~/g, '<s class="lo-strike">$1</s>').replace(/\[\[blot\]\]/g, '<span class="lo-blot"></span>').replace(/\[\[empty\]\]/g, '<span class="lo-empty"></span><span class="lo-empty"></span><span class="lo-empty"></span>')}</p>`).join('');   // ~~crossed out~~, [[blot]] ink blot, [[empty]] empty lines
 function pic(p, locked) { return p.img ? `<img class="lo-pic${locked ? ' lock' : ''}" src="${p.img}" alt="">` : `<span class="lo-ico">${p.icon || '📜'}</span>`; }
 function listHtml(f) {
   const tabs = CHAPTERS.map(([k, ic, nm]) => { const n = PAGES.filter((p) => p.ch === k && openN(p, f) > (LS().seen[p.id] || 0)).length;
@@ -198,11 +268,13 @@ function listHtml(f) {
   return `<div class="lo-tabs">${tabs}</div><div class="lo-list">${cards}</div>${quizBlock(f)}`;
 }
 function pageHtml(p, f) {
+  if (p.night && openN(p, f) && !isNight()) return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-head">${pic(p)}<div><h3>${esc(p.title)}</h3></div></div><div class="lo-sec faded"><p>Строки на этой странице едва видны. Они проступают только при звёздах — с 22:00 до 5:00.</p></div>`;
+  if (p.night && openN(p, f) === p.layers.length && !LS().prize) { LS().prize = Date.now(); A.save(); A.onPrize && A.onPrize(); }   // the big prize for reading «Последняя ночь»
   const n = openN(p, f), secs = p.layers.map((l, k) => (k < n || !l.need || l.need(f))
-    ? l.riddle ? `<div class="lo-sec riddle"><h4>🔎 ${esc(l.t)}</h4>${para(l.x)}<div class="lo-lines">${[1, 2, 3, 4, 5].map((n) => `<div class="lo-line">${n}. <span>· · · строка ещё не найдена · · ·</span></div>`).join('')}</div><div class="lo-cnt">Найдено строк: 0 из 5</div></div>`
+    ? l.riddle ? (() => { const r = RD(); return `<div class="lo-sec riddle"><h4>🔎 ${esc(l.t)}</h4>${para(l.x)}<div class="lo-lines">${RIDDLE.map((t, k) => k < r.found.length ? `<div class="lo-line got">${k + 1}. «${esc(t)}»</div>` : `<div class="lo-line">${k + 1}. <span>· · · ? · · ·</span><em>Пометка Тихона: ${esc(HINTS[k][r.hint[k]])}</em></div>`).join('')}</div><div class="lo-cnt">Найдено строк: ${r.found.length} из 5${r.found.length < 5 ? ' · не больше одной в день' : ''}${r.found.length === 3 ? ` · желаний в фонтане: ${Math.min(100, r.coins)} из 100` : ''}</div></div>`; })()
     : `<div class="lo-sec${l.wide ? ' wide' : ''}">${l.img && l.wide ? `<img class="lo-ill" src="${l.img}" alt="" onerror="this.remove()">` : ''}<h4>${esc(l.t)}</h4>${l.img && !l.wide && l.img !== p.img ? `<img class="lo-pose ${k % 2 ? 'l' : 'r'}" src="${l.img}" alt="" onerror="this.remove()">` : ''}${para(l.x)}<div class="lo-clr"></div></div>${k < p.layers.length - 1 ? '<div class="lo-orn">✦ ❧ ✦</div>' : ''}`
     : `<div class="lo-sec locked"><h4>🔒 ${esc(l.t)}</h4><p>Откроется, ${esc(l.hint || '')}.</p></div>`).join('');
-  return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-head">${pic(p)}<div><h3>${esc(p.title)}</h3>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div></div>${secs}`;
+  return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-pg${p.hand ? ' hand' : ''}${p.night ? ' night' : ''}"><div class="lo-head">${pic(p)}<div><h3>${esc(p.title)}</h3>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div></div>${secs}${p.night && LS().prize ? '</div><div class="lo-reward">🎁 Награда: звезда директора навсегда горит над холмами, его корона лежит на столе в кабинете, доход школы +10% навсегда.</div>' : '</div>'}`;
 }
 function html() {
   const f = facts(), body = quiz ? quizHtml() : page ? pageHtml(PAGES.find((p) => p.id === page), f) : listHtml(f);
@@ -255,6 +327,8 @@ function css() {
 #lore .lo-sec.riddle { background: #fff3dc; border: 2px dashed #c9a46a; }
 #lore .lo-line { font-family: Georgia, serif; font-size: 14.5px; color: #8a6f4c; padding: 5px 0; border-bottom: 1px dotted #d9c19a; }
 #lore .lo-line span { color: #b9a17c; font-style: italic; }
+#lore .lo-line.got { color: #4a3420; font-style: normal; }
+#lore .lo-line em { display: block; font-size: 13px; color: #9a6a3a; margin-top: 2px; font-family: 'Segoe Script', 'Bradley Hand', cursive; }
 #lore .lo-cnt { margin-top: 6px; font-weight: 800; color: #7a5528; font-size: 13.5px; }
 #lore .lo-exam { display: block; width: 100%; margin: 12px 0 6px; border: 0; border-radius: 16px; padding: 12px; background: linear-gradient(#8a5a2b, #6b4220); color: #fff7e6; font: 800 16px Georgia, serif; text-align: center; box-shadow: 0 3px 0 #4f3417; }
 #lore .lo-exam small { display: block; font: 600 12.5px ui-rounded, sans-serif; margin-top: 4px; opacity: .9; }
@@ -269,6 +343,18 @@ function css() {
 #lore .lo-opt { display: block; width: 100%; margin: 7px 0; border: 2px solid #e2cfa9; border-radius: 14px; padding: 11px 10px; background: #fff; color: #3d2f22; font: 700 15px ui-rounded, sans-serif; }
 #lore .lo-opt:active { background: #f3e3c3; }
 #lore .lo-reward { margin-top: 8px; padding: 10px; border-radius: 14px; background: #fff1c9; font-weight: 800; color: #6b4a22; }
+#lore .lo-sec.faded p { color: #c9b28c; font-style: italic; text-align: center; }
+#lore .lo-strike { text-decoration: line-through; text-decoration-color: #5a3b1c; text-decoration-thickness: 2px; color: #8a7a68; }
+#lore .lo-blot { display: inline-block; width: 46px; height: 22px; margin-left: 4px; vertical-align: middle; border-radius: 50% 40% 55% 45%; background: radial-gradient(circle at 40% 45%, #2b2140 0 35%, #2b214099 50%, transparent 72%); filter: blur(1px); }
+#lore .lo-empty { display: block; height: 22px; border-bottom: 1px dashed #d8c39c; }
+#lore .lo-pg.hand .lo-sec p, #lore .lo-pg.hand .lo-sec h4 { font-family: 'Segoe Script', 'Bradley Hand', 'Snell Roundhand', cursive; }
+#lore .lo-pg.hand .lo-sec { background: repeating-linear-gradient(#fffaf0 0 27px, #e8d9bb 27px 28px); }
+#lore .lo-pg.hand .lo-sec p::first-letter { all: unset; }
+#lore .lo-pg.night { background: radial-gradient(circle at 70% 0%, #3b3f7a, #1c1d3d 70%); border-radius: 18px; padding: 10px 8px; margin-top: 4px; }
+#lore .lo-pg.night .lo-head h3 { color: #f3e7c4; }
+#lore .lo-pg.night .lo-sec { background: #262a55ee; color: #ece3ff; box-shadow: none; }
+#lore .lo-pg.night .lo-sec h4 { color: #f2cf7a; }
+#lore .lo-pg.night + .lo-reward, #lore .lo-pg.night ~ .lo-reward { margin-top: 10px; }
 #lore .lo-orn { text-align: center; color: #b8925a; letter-spacing: .4em; font-size: 13px; margin: 2px 0; }
 #lore .lo-sec.locked p { font-family: inherit; font-size: 13.5px; }
 body.lore-open #fx .toast { display: none; }
@@ -323,7 +409,7 @@ function onClick(e) {
   if (d.loclose !== undefined) { quiz = null; close(); }
   else if (d.loback !== undefined) { page = null; redraw(); }
   else if (d.lochap) { chap = d.lochap; page = null; quiz = null; redraw(); }
-  else if (d.lopage) { page = d.lopage; const p = PAGES.find((q) => q.id === page); LS().seen[page] = Math.max(LS().seen[page] || 0, openN(p, facts())); A.save(); redraw(); root.querySelector('.lo-body').scrollTop = 0; }
+  else if (d.lopage) { page = d.lopage; if (page === 'director' && facts().masters >= 1 && !RD().start) { RD().start = Date.now(); A.save(); } const p = PAGES.find((q) => q.id === page); LS().seen[page] = Math.max(LS().seen[page] || 0, openN(p, facts())); A.save(); redraw(); root.querySelector('.lo-body').scrollTop = 0; }
 }
 export function initLore(api) {
   A = api;
@@ -334,6 +420,7 @@ export function initLore(api) {
     window.schoolMenu.add({ attr: 'data-lore', icon: '📜', label: 'Летопись', sub: () => { if (!S()) return ''; const n = unread(); return n ? `новых: ${n}` : ''; }, badge: () => badge() });
   };
   setTimeout(reg, 0);
-  window.__lore = { open, close, PAGES, facts, unread, loreTune, LORE_DB };
-  return { open, close, badge, isOpen: () => !!root };
+  setInterval(riddleTick, 5000);
+  window.__lore = { open, close, PAGES, facts, unread, loreTune, LORE_DB, event, crown, RD };
+  return { open, close, badge, isOpen: () => !!root, event, crown };
 }

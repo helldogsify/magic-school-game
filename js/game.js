@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=387';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=387';
-import { initMinigame } from './minigame.js?v=387';
-import { initChests } from './chests.js?v=387';
-import { initLore } from './lore.js?v=387';
-import { initAvatar } from './avatar.js?v=387';
+} from './data.js?v=388';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=388';
+import { initMinigame } from './minigame.js?v=388';
+import { initChests } from './chests.js?v=388';
+import { initLore } from './lore.js?v=388';
+import { initAvatar } from './avatar.js?v=388';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -23,14 +23,14 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () => WORLD === 1,
   music: { on: () => musicOn(), pause: () => music.pause(), resume: () => musicStart() },
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; }, onClose: () => { renderInsp(); updateHud(); },   // «Летопись» (her wish 2026-11-23)
-  facts: () => ({ grads: S.stats.graduated || 0, masters: (S.stats.ranks || [])[5] || 0, forms: S.forms || {},
+  facts: () => ({ allBuilt: S.classes.every((c, i) => isOpen(i)), grads: S.stats.graduated || 0, masters: (S.stats.ranks || [])[5] || 0, forms: S.forms || {},
     cls: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return i < 0 ? { built: false, lvl: 0 } : { built: isOpen(i), lvl: S.classes[i].teacher || 1 }; },
     has: (id) => (id === 'cant' ? cantBuilt() : id === 'shop' ? shopOpen() : id === 'dir' ? dirBuilt() : id === 'tower' ? towerOpen() : true) }) });
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 387;   // keep equal to the ?v= number in index.html
+const BUILD = 388;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -80,7 +80,7 @@ const rawSuccess = (i) => BAL.chance0 + 0.015 * (S.classes[i].teacher - 1) + 0.0
 const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
 const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance above the cap is not wasted: each 1% gives +2% tuition
 const W2_PAY = 0.7;   // world 2 pays 30% less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
-const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY * relicK() : 1) * boostK());   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
+const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY * relicK() : 1) * boostK() * (WORLD === 1 && S && S.lore && S.lore.prize ? 1.1 : 1));   // «Последняя ночь» prize   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time) * (loreQ('teachers') ? 0.97 : 1);
 const itemCost = (i, k) => paced(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, Math.min(25, S.classes[i].items[k])) * Math.pow(BAL.itemHi, Math.max(0, S.classes[i].items[k] - 25)), S.classes[i].items[k] + 1);   // levels 26..40 (build 299, her pick «Предметы в классах 25→40»): x2.5 per level, sim keeps all classes ~4.5 d
 const teacherCost = (i) => paced(CLASSES[i].tuition * 6 * Math.pow(BAL.teacher, S.classes[i].teacher - 1), S.classes[i].teacher);
@@ -1120,7 +1120,7 @@ function courtFx(a, x, y) {   // what each court activity shows (render only; ev
 function stepCourt(a, dt) {
   a.t += dt; if (a.t < a.dur) return;
   if (a.act === 'tag' && a.laps-- > 0) { const v = courtSpots().tag, p = rnd(v); a.state = 'walk'; walk(a, p.x, p.y, () => courtArrive(a)); return; }
-  if (a.act === 'coin') { const c = courtC(); popup(coinLuck() ? '🍀✨' : '🪙✨', c.x, c.y, '#d4a017', 50); if (coinLuck()) a.luck = coinLuck(); }   // «Монетка на счастье»: luck for the next exam
+  if (a.act === 'coin') { const c = courtC(); popup(coinLuck() ? '🍀✨' : '🪙✨', c.x, c.y, '#d4a017', 50); if (coinLuck()) { a.luck = coinLuck(); LORE.event('coin'); } }   // «Монетка на счастье»: luck for the next exam
   if (a.goal.brk && (a.acts = (a.acts || 0) + 1) >= 2) { a.acts = 0; leaveCourt(a); route(a, a.goal.i); return; }   // a break = two activities, then on to the next class
   courtAct(a);
 }
@@ -2378,6 +2378,12 @@ function tikhonPos() {   // by the window side of the desk; a pose at least 3 s 
   return { x: s.x0 + 1.25, y: s.y0 + 3.7, pose };   // left of the desk, by the bookcase: never over the director's walk to the window
 }
 let tikhonRect = null;   // build 278 (tester's report «Тихон когда ходит по школе он не кликабельный ... иконка с бумагой ... должна открывать меню Тихона»): his body and scroll badge are tappable, wherever he walks
+function drawCrown() {   // the old director's crown on the desk: shown when the riddle wants it (morning) and forever after the prize
+  if (WORLD !== 1 || !SLOTS.DIR || !dirBuilt() || !LORE.crown()) { window.__crownRect = null; return; }
+  const s = SLOTS.DIR, m = up(P(s.x0 + 3.3, s.y0 + 2.3), 40), T = performance.now(); emoji('👑', m.x, m.y + Math.sin(T / 600) * 2, 15);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + 0.15 * Math.sin(T / 400); ctx.drawImage(glowSprite('255,214,120'), m.x - 18, m.y - 18, 36, 36); ctx.restore();
+  window.__crownRect = { x0: m.x - 22, y0: m.y - 22, x1: m.x + 22, y1: m.y + 22, t: T };
+}
 function drawTikhonBadge(p) {   // a scroll over his head while he has something important to report
   const c = P(p.x, p.y), T = performance.now(), hot = advHot();
   tikhonRect = { x0: c.x - 30, y0: c.y - (hot ? 118 : 70), x1: c.x + 30, y1: c.y + 6, t: T };
@@ -2851,7 +2857,8 @@ function drawSky(T, L) {
   const a = Math.max(0, Math.min(1, (L - 0.3) / 0.4)); if (a <= 0) return;
   for (const st of DN_STARS) { if (st.x < VIEW.x0 - 10 || st.x > VIEW.x1 + 10 || st.y < VIEW.y0 - 10 || st.y > VIEW.y1 + 10) continue; const tw = 0.45 + 0.55 * Math.abs(Math.sin(T * 0.9 + st.ph)); fxStar(st.x, st.y, st.r * 1.6, a * tw, st.ph > 4.5 ? '200,220,255' : '255,250,225'); }
   const mr = 22 / scale, mx = VIEW.x1 - 70 / scale, my = VIEW.y0 + 150 / scale, o0 = P(0, 0), top = o0.y + Math.abs(mx - o0.x) * HH / HW - WALLH - 60;   // the moon hangs in the sky (screen-fixed); the school's top edge under it
-  const north = Math.max(0, Math.min(1, (top - (my + mr)) / (60 / scale))); if (north <= 0) return; const a0 = a; { const a = a0 * north;   // only over forest, never over a room
+  const north = Math.max(0, Math.min(1, (top - (my + mr)) / (60 / scale))); if (north <= 0) return; window.__moonHit = { x: mx, y: my, r: mr * 1.8, t: performance.now() }; const a0 = a; { const a = a0 * north;
+  if (S && S.lore && S.lore.prize) { const sx = mx - mr * 3, sy = my + mr * 0.9, tw = 0.75 + 0.25 * Math.sin(T * 1.7); fxStar(sx, sy, mr * 0.45 * tw, a * north, '255,236,170'); }   // the director's star (final prize)   // only over forest, never over a room
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45 * a; ctx.drawImage(glowSprite('190,205,255'), mx - mr * 4, my - mr * 4, mr * 8, mr * 8); ctx.restore();
   ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#fbf3d6'; ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'rgba(214,200,170,0.55)'; for (const [dx, dy, r] of [[-8, -6, 6], [7, 4, 4.5], [-2, 10, 3.5], [10, -9, 3]]) { ctx.beginPath(); ctx.arc(mx + dx * mr / 26, my + dy * mr / 26, r * mr / 26, 0, Math.PI * 2); ctx.fill(); } ctx.restore(); }
@@ -4062,6 +4069,7 @@ function render() {
   // library (themed): an armchair at every open reading place and a few things around
   if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = sprites['dir_' + (dp.pose === 'walk' && WORLD === 1 ? 'proud' : dp.pose)]; if (WORLD <= 2 && im && im.naturalWidth) add(dp.x, dp.y, () => { teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, WORLD === 2 ? 58 : 64, dp.flip, dp.moving, WORLD === 2 ? 'step' : 'hover'); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
   if (tikhonOn()) { const tp = tikhonPos(), im = sprites['tikhon_' + tp.pose]; if (im && im.naturalWidth) add(tp.x, tp.y, () => { teacherGlow(tp, 60); drawPose(im, tp.x, tp.y, 60, !!tp.flip, !!tp.moving, tp.moving ? 'waddle' : 'hover'); drawTikhonBadge(tp); }); }   // Tikhon, the advisor (build 251)
+  if (WORLD === 1 && SLOTS.DIR) { const s = SLOTS.DIR; add(s.x0 + 3.3, s.y0 + 2.4, drawCrown); }
   if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR', 'SHOP', 'TOWER', 'CANT']) {
     const th = themeOf(rid); if (!th || !SLOTS[rid] || (rid === 'CANT' && !cantOpen()) || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt()) || (rid === 'SHOP' && !shopOpen()) || (rid === 'TOWER' && !towerOpen())) continue;
@@ -4918,7 +4926,9 @@ scroller.addEventListener('click', (e) => {
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
   const mr = mailRect; if (mr && performance.now() - mr.t < 600 && wx >= mr.x0 && wx <= mr.x1 && wy >= mr.y0 && wy <= mr.y1) { openPanel(mailPanel); return; }   // the envelope over the office opens the letter (build 311)
-  const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { openPanel(tikhonPanel); return; }   // Tikhon (or his scroll) opens his own report window, wherever he walks
+  const mh = window.__moonHit; if (mh && performance.now() - mh.t < 600 && Math.hypot(wx - mh.x, wy - mh.y) < mh.r) { LORE.event('moon'); return; }   // the director's riddle, line 1
+  const cr = window.__crownRect; if (cr && performance.now() - cr.t < 600 && wx >= cr.x0 && wx <= cr.x1 && wy >= cr.y0 && wy <= cr.y1 && LORE.event('crown')) return;   // line 5
+  const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { if (TK.on && LORE.event('tikhon')) return; openPanel(tikhonPanel); return; }   // walking Tikhon at dusk talks (line 3)   // Tikhon (or his scroll) opens his own report window, wherever he walks
   const sign = signRects.find((r) => wx >= r.x0 - 6 && wx <= r.x1 + 6 && wy >= r.y0 - 6 && wy <= r.y1 + 6);   // a sign always opens its room
   if (sign) { if (sign.id === 'FOUNT') openPanel(fountainPanel); else openRoom(sign.id); return; }
   if (WORLD === 1 && COURT) for (const lift of [0, 20, 40, 60]) {   // build 279: a tap on the fountain opens the court's upgrades
