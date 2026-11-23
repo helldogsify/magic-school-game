@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=265';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=265';
+} from './data.js?v=266';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=266';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 265;   // keep equal to the ?v= number in index.html
+const BUILD = 266;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4049,7 +4049,7 @@ document.addEventListener('click', (e) => {
   if (d.allyjoin !== undefined) { allyJoin(document.getElementById('ally-code')?.value); return; }
   if (d.allyjoinid !== undefined) { allyJoin(d.allyjoinid); return; }
   if (d.allycreate !== undefined) { allyCreate(); return; }
-  if (d.allyemo !== undefined) { allyEmo = d.allyemo; refreshAlly(); return; }
+  if (d.allyemo !== undefined) { allyEmo = ALLY_EMOS[+d.allyemo] || '🦄'; refreshAlly(); return; }   // an index: emojiHtml turns an emoji inside an attribute into an <img> and broke 6 of the 12 buttons (her «не все гербы нажимаются»)
   if (d.schoolName !== undefined) { saveSchoolName(); return; }
   if (d.cloudLoad !== undefined) { cloudLoad(); return; }
   if (d.backupRestore !== undefined) { restoreBackup(); return; }
@@ -4314,7 +4314,7 @@ function allyPanel() {
   h += `<h3>Вступить по коду</h3><input id="ally-code" class="fb" maxlength="10" placeholder="Например: A7K2QM9X"><button class="btn wide" data-allyjoin>🤝 Вступить</button>`;
   h += '<h3>Открытые альянсы</h3>' + (!allyList ? '<p class="muted">Загружаю…</p>' : open.length ? open.map((a) => `<div class="card up"><span class="remoji">${a.emo}</span><div class="grow"><b>${escTxt(a.name)}</b><div class="muted">школ ${a.mem.length}/${ALLY_MAX}</div></div><button class="btn small" data-allyjoinid="${a.id}">Вступить</button></div>`).join('') : '<p class="muted">Открытых альянсов пока нет — создай свой!</p>');
   h += `<h3>Создать свой альянс</h3><input id="ally-name" class="fb" maxlength="24" placeholder="Название альянса">
-    <div class="muted" style="margin-top:6px">Герб:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${ALLY_EMOS.map((e) => `<button class="btn small ${e === allyEmo ? '' : 'ghost'}" data-allyemo="${e}">${e}</button>`).join('')}</div>
+    <div class="muted" style="margin-top:6px">Герб:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${ALLY_EMOS.map((e, k) => `<button class="btn small ${e === allyEmo ? '' : 'ghost'}" data-allyemo="${k}">${e}</button>`).join('')}</div>
     <label class="muted" style="display:block;margin:6px 0"><input type="checkbox" id="ally-open" checked> Вход для всех (иначе только по коду)</label>
     <button class="btn wide" data-allycreate>✨ Создать альянс</button>`;
   return h;
