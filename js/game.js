@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=417';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=417';
-import { initMinigame } from './minigame.js?v=417';
-import { initChests } from './chests.js?v=417';
-import { initLore } from './lore.js?v=417';
-import { initAvatar } from './avatar.js?v=417';
+} from './data.js?v=418';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=418';
+import { initMinigame } from './minigame.js?v=418';
+import { initChests } from './chests.js?v=418';
+import { initLore } from './lore.js?v=418';
+import { initAvatar } from './avatar.js?v=418';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 417;   // keep equal to the ?v= number in index.html
+const BUILD = 418;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3424,9 +3424,13 @@ const ROOM_ART = {
     const wallEnd = Math.min(s.y1 - 1.0, free);   // the left wall is free from the bookcase to the side table
     // sunbeams from the windows across the floor (day)
     const dl = daylight(); if (dl > 0) add(s.x0 + 0.05, s.y0 + 0.05, () => { ctx.save(); ctx.globalCompositeOperation = 'lighter';   // each window throws its own light onto the floor: two panes split by the bar, slanting into the room
-      for (const wv of HERBS_WINS.values()) { if (wv.s0 !== s.x0 + ',' + s.y0) continue; const hw = DECOR.bigwin.w / 2, len = Math.min(3.2, (wv.side === 'x0' ? W : depth) - 1), sk = 0.9;
-        for (const [u0, u1] of [[-hw * 0.85, -0.06], [0.06, hw * 0.85]]) { const Q = (u, v) => (wv.side === 'x0' ? P(s.x0 + v, wv.tm + u + v * sk * 0.35) : P(wv.tm + u + v * sk * 0.35, s.y0 + v)); const a = Q(u0, 0.05), b = Q(u1, 0.05), c = Q(u1, len), d = Q(u0, len);
-          const g = ctx.createLinearGradient(a.x, a.y, (c.x + d.x) / 2, (c.y + d.y) / 2); g.addColorStop(0, `rgba(255,224,160,${0.34 * dl})`); g.addColorStop(1, 'rgba(255,224,160,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); } }
+      for (const wv of HERBS_WINS.values()) { if (wv.s0 !== s.x0 + ',' + s.y0) continue; const hw = DECOR.bigwin.w / 2, len = Math.min(3.4, (wv.side === 'x0' ? W : depth) - 1), sk = 0.9;   // her «Лучи солнца от окна должны быть более рассеянный»: 5 widening soft layers instead of two sharp panes
+        const Q = (u, v) => (wv.side === 'x0' ? P(s.x0 + v, wv.tm + u + v * sk * 0.35) : P(wv.tm + u + v * sk * 0.35, s.y0 + v));
+        for (let k = 0; k < 5; k++) { const sp = 0.1 + k * 0.16, gr = 1 + k * 0.08, a = Q(-hw * 0.8 - sp * 0.5, 0.02), b = Q(hw * 0.8 + sp * 0.5, 0.02), c = Q(hw * 0.8 + sp * gr, len * (0.75 + k * 0.08)), d = Q(-hw * 0.8 - sp * gr, len * (0.75 + k * 0.08));
+          const g = ctx.createLinearGradient(a.x, a.y, (c.x + d.x) / 2, (c.y + d.y) / 2); g.addColorStop(0, `rgba(255,226,165,${0.15 * dl})`); g.addColorStop(0.6, `rgba(255,226,165,${0.075 * dl})`); g.addColorStop(1, 'rgba(255,226,165,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); }
+        if (zoom >= 1.1) for (let m = 0; m < 14; m++) { const sd = (m * 0.6180339 + wv.tm * 0.37) % 1, v = ((T * 0.025 + sd) % 1) * len * 0.9, u = (((sd * 7.31) % 1) - 0.5) * hw * 1.6 + Math.sin(T * 0.4 + m) * 0.12, q = Q(u, v), z = TALL_H() * 0.55 * (1 - v / len) * (0.35 + ((sd * 13.7) % 1) * 0.65) + Math.sin(T * 0.7 + m * 1.9) * 3;   // dust motes floating in the light (her «летать пылинки на свету»)
+          const tw = 0.45 + 0.55 * Math.abs(Math.sin(T * 1.3 + m * 2.3)); ctx.globalAlpha = 0.75 * dl * tw * Math.min(1, (1 - v / len) * 3); ctx.fillStyle = '#fff6d8'; ctx.beginPath(); ctx.arc(q.x, q.y - z, 0.7 + ((sd * 5.3) % 1) * 0.9, 0, Math.PI * 2); ctx.fill(); }
+        ctx.globalAlpha = 1; }
       ctx.restore(); });
     // planters along the left wall
     const sp = stageOf(lv('pots')), plH = 46, units = [];
