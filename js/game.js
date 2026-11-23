@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=365';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=365';
-import { initMinigame } from './minigame.js?v=365';
-import { initChests } from './chests.js?v=365';
-import { initAvatar } from './avatar.js?v=365';
+} from './data.js?v=366';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=366';
+import { initMinigame } from './minigame.js?v=366';
+import { initChests } from './chests.js?v=366';
+import { initAvatar } from './avatar.js?v=366';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -22,7 +22,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 365;   // keep equal to the ?v= number in index.html
+const BUILD = 366;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1507,10 +1507,22 @@ function giveUp(a) {   // too sad to keep waiting: frees its place and goes home
   popup('😭', a.x, a.y, '#c0436b', 44);
   leaveSchool(a);
 }
+// ---- darkness and light (world 2)
+const LIGHT_MAX = 10, LIGHT_STEP = 0.09, DARK_MOOD = 2.2;
+const DARK0 = { runes: 0.35, forge: 0.25, mine: 0.6, gems: 0.45, guards: 0.55, lake: 0.75, final: 0.3 };   // deeper halls are darker; the forge has its own fire
+const lightLvl = (i) => (WORLD === 2 && S.w2 && S.w2.light && S.w2.light[i]) || 0;
+const hallDark = (i) => (WORLD === 2 && i >= 0 && CLASSES[i] ? Math.max(0, (DARK0[CLASSES[i].id] || 0) - LIGHT_STEP * lightLvl(i)) : 0);
+const lightCost = (i) => paced(CLASSES[i].tuition * 20 * Math.pow(1.9, lightLvl(i)), lightLvl(i) + 1);
+function lightHtml(i) {
+  if (WORLD !== 2) return '';
+  const l = lightLvl(i), dk = hallDark(i), mood = 0.8 - DARK_MOOD * dk;
+  return `<div class="card up"><span class="remoji">🕯️</span><div class="grow"><b>Светильники</b> <span class="muted">ур. ${l}/${LIGHT_MAX}</span><div class="muted">${dk > 0 ? `темнота ${Math.round(dk * 100)}% · ${mood < 0 ? 'на уроке ученики грустят' : 'на уроке ученикам пока неуютно'}` : 'в зале светло · на уроке ученики радуются'} · каждый уровень −${Math.round(LIGHT_STEP * 100)}% темноты</div></div>
+    ${dk <= 0 || l >= LIGHT_MAX ? '<span class="done">светло</span>' : costBtn('↑', lightCost(i), 'light', `data-i="${i}"`)}</div>`;
+}
 function stepMood(a, dt, live) {
   let d = 0;
   if (a.goal && a.goal.t === 'k') d = COURT_MOOD * fountMoodK();   // build 259: waiting in the court cheers them up
-  else if (a.state === 'study') d = incOf(a.c) ? -1.5 : 0.8;
+  else if (a.state === 'study') d = incOf(a.c) ? -1.5 : 0.8 - DARK_MOOD * hallDark(a.c);
   else if (a.state === 'read') d = 1.2;
   else if (a.state === 'nap') d = 1;   // dorm roles: a nap cheers them up
   else if (MOOD_DROP[a.state] !== undefined) d = -MOOD_DROP[a.state] * (a.state === 'sleep' ? 1 - 0.05 * (dormUp().conc - 1) : 1) * careK(dirLvl('care'));   // a better dorm and the director's care keep them calmer
@@ -2821,6 +2833,24 @@ function drawSky(T, L) {
   ctx.fillStyle = 'rgba(214,200,170,0.55)'; for (const [dx, dy, r] of [[-8, -6, 6], [7, 4, 4.5], [-2, 10, 3.5], [10, -9, 3]]) { ctx.beginPath(); ctx.arc(mx + dx * mr / 26, my + dy * mr / 26, r * mr / 26, 0, Math.PI * 2); ctx.fill(); } ctx.restore(); }
 }
 function lampGlow(l, T, L) { const f = 0.85 + 0.15 * Math.sin(T * 5.3 + l.x * 0.7 + l.y), r = l.r * 3.2; ctx.globalAlpha = 0.55 * L * f; ctx.drawImage(glowSprite('255,190,100'), l.x - r, l.y - r, r * 2, r * 2); ctx.globalAlpha = 0.85 * L * f; ctx.drawImage(glowSprite('255,235,170'), l.x - l.r, l.y - l.r, l.r * 2, l.r * 2); }
+function drawHallDark() {   // world 2: dark halls (multiply), their lamps glow brighter with every level of «Светильники»
+  const k = scale * dpr, ox = scroller.scrollLeft * dpr, oy = scroller.scrollTop * dpr, S2 = (m) => [m.x * k - ox, m.y * k - oy], T = performance.now() / 1000, rooms = [];
+  for (let i = 0; i < CLASSES.length; i++) {
+    const id = CLASS_SLOT[i], s = SLOTS[id]; if (!s || !isOpen(i)) continue;
+    const a = P(s.x0, s.y1), b = P(s.x0, s.y0), c = P(s.x1, s.y0), d = P(s.x1, s.y1); if (!onScreen(b.x, b.y, 600, 600) && !onScreen(d.x, d.y, 600, 600)) continue;
+    const tall = (sd) => EDGES.some((e) => e.id === id && e.side === sd && e.tall), hx = tall('x0') ? WALLH : 14, hy = tall('y0') ? WALLH : 14;   // low knee walls: do not darken the corridor above them
+    rooms.push({ i, id, s, dk: hallDark(i), q: [up(a, hx), up(b, hx), up(b, hy), up(c, hy), c, d, a].map(S2) });
+  }
+  if (!rooms.length) return;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'multiply';
+  for (const r of rooms) { if (r.dk <= 0.005) continue; ctx.fillStyle = `rgb(${Math.round(255 - 175 * r.dk)},${Math.round(255 - 160 * r.dk)},${Math.round(255 - 105 * r.dk)})`; ctx.beginPath(); r.q.forEach(([x, y], n) => (n ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill(); }
+  ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const r of rooms) { const l = lightLvl(r.i) / LIGHT_MAX, s = r.s, W = s.x1 - s.x0, D = s.y1 - s.y0, L = 0.25 + 0.75 * l;
+    if (l > 0) { const pool = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), pr = Math.max(W, D) * HW * 0.7; ctx.globalAlpha = 0.2 * l; ctx.drawImage(glowSprite('255,190,110'), pool.x - pr, pool.y - pr * 0.6, pr * 2, pr * 1.2); }
+    const rc = roomCache[r.id]; for (const lp of (rc && rc.lamps) || []) lampGlow(lp, T, L); }
+  ctx.restore();
+}
 function drawDayNight() {
   const D = dayTint(), t = D.sun.map((v, i) => (v + D.shade[i]) / 2), dark = 1 - (t[0] + t[1] + t[2]) / 765; dnDark = dark > 0.035; if (dark < 0.02) return;
   const L = Math.min(1, dark * 2.2), lit = L >= 0.08 ? litRooms() : [];   // her «в комнатах конечно должен гореть свет тоже»: built rooms keep their light at night
@@ -4098,7 +4128,7 @@ function render() {
   ctx.globalAlpha = 0.38;
   if (zoom >= 1.1) for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) (a._ghost = true, drawCreature(a, gx, gy, 30), a._ghost = false); }
   ctx.globalAlpha = 1;
-  if (WORLD === 1) drawDayNight();   // day and night (signs stay bright: drawn after)
+  if (WORLD === 1) drawDayNight(); else if (WORLD === 2) drawHallDark();   // day and night (signs stay bright: drawn after)
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
   if (WORLD === 1 && COURT) {   // build 279: the fountain has a sign too: it opens the court's upgrades
@@ -4175,6 +4205,7 @@ function classPanel(i) {
       ${sizeOf(i) >= MAX_SIZE ? '<span class="done">макс.</span>' : costBtn('↑', expandCost(i), 'expand', `data-i="${i}"`)}</div>`}`;
     h += `<div class="card up"><span class="remoji">⏱️</span><div class="grow"><b>Урок короче</b><div class="muted">ур. ${st.time}/${MAX_TIME_LEVEL} · −8% времени</div></div>
       ${st.time >= MAX_TIME_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', timeCost(i), 'time', `data-i="${i}"`)}</div>`;
+    h += lightHtml(i);
     h += w2Section(i);
     h += '<h3>Обстановка класса</h3>';
     C.items.forEach((it, k) => {
@@ -4420,6 +4451,7 @@ const UPS = {
 const CUPS = {   // per class (m.i)
   ex: { g: 'rank', name: 'Шанс экзамена на звание', on: (i) => RANK_AT(i) > 0, lvl: (i) => exLvl(i), max: () => MAX_EX_LVL, cost: (i) => exCost(i), k: 2.0, act: 'exlvl' },
   xpl: { g: 'rank', name: 'Опыт за урок', on: (i) => RANK_AT(i) > 0, lvl: (i) => xplLvl(i), max: () => MAX_XPL_LVL, cost: (i) => xplCost(i), k: 1.8, act: 'xpllvl' },
+  light: { g: 'w2', name: 'Светильники', on: (i) => WORLD === 2 && hallDark(i) > 0, lvl: (i) => lightLvl(i), max: () => LIGHT_MAX, cost: (i) => lightCost(i), k: 1.9, act: 'light' },
   expand: { g: 'room', name: 'Расширить класс', on: (i) => !CLASSES[i].final, lvl: (i) => sizeOf(i), max: () => MAX_SIZE, cost: (i) => expandCost(i), k: BAL.expandK, act: 'expand' },
 };
 const upOf = (m) => { const U = m.i >= 0 && CUPS[m.k] ? CUPS[m.k] : UPS[m.k]; return U ? { ...U, on: () => U.on(m.i), lvl: () => U.lvl(m.i), cost: () => U.cost(m.i), go: () => (U.go ? U.go() : [CLASS_SLOT[m.i], `[data-act="${U.act}"]`]) } : null; };
@@ -4966,6 +4998,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'desk') { if (st.desks < maxDesksOf(i) && spend(deskCost(i))) { st.desks++; pullWaiting(i); } }
   else if (d.act === 'expand') { if (sizeOf(i) < MAX_SIZE && spend(expandCost(i))) { st.size = sizeOf(i) + 1; relayout(); toast(`📐 ${CLASSES[i].name}: класс расширен!`); } }
   else if (d.act === 'time') { if (spend(timeCost(i))) st.time++; }
+  else if (d.act === 'light') { if (WORLD === 2 && lightLvl(i) < LIGHT_MAX && hallDark(i) > 0 && spend(lightCost(i))) { const W = W2(); W.light ||= {}; W.light[i] = lightLvl(i) + 1; } }
   else if (d.act === 'item') { if (spend(itemCost(i, +d.k))) st.items[+d.k]++; }
   else if (d.act === 'rec') { if (S.reception.level < MAX_REC_LVL && spend(recCost())) S.reception.level++; }
   else if (d.act === 'ads') { if (S.reception.ads < MAX_REC_LVL && spend(adsCost())) S.reception.ads++; }
