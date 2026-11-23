@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=345';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=345';
-import { initMinigame } from './minigame.js?v=345';
-import { initChests } from './chests.js?v=345';
-import { initAvatar } from './avatar.js?v=345';
+} from './data.js?v=346';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=346';
+import { initMinigame } from './minigame.js?v=346';
+import { initChests } from './chests.js?v=346';
+import { initAvatar } from './avatar.js?v=346';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -21,7 +21,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 345;   // keep equal to the ?v= number in index.html
+const BUILD = 346;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1689,7 +1689,8 @@ const inSchool = () => agents.filter((a) => a.state !== 'fly' && a.state !== 'va
 // and the card level is bought with coins: +5% pay from every student in that form.
 const SP_NAMES = { mothfox: 'Лисичка-мотылёк', petalear: 'Ушастик', fernhorn: 'Рогатик', starwhisker: 'Звёздный котик',
   mossmole: 'Мшистик', owlbat: 'Сумрачный совёнок', quartzhog: 'Кварцевый ёжик', batbunny: 'Медный крольчонок', geosnail: 'Улитка-жеода', axolotl: 'Пещерный тритон' };
-const SP_H = { geosnail: 0.72, axolotl: 0.85, owlbat: 1.05 };   // world-2 creatures: wide ones are drawn lower so they do not look huge
+const SP_H = { geosnail: 0.72, axolotl: 0.85, owlbat: 1.05 };
+const CRAWLERS = { geosnail: 1 }, FACES_LEFT = { geosnail: 1 };   // her «Все улитки двигаются задом наперед ... не прыгали а ползали» (2026-11-23)   // world-2 creatures: wide ones are drawn lower so they do not look huge
 const SP_GLOW = { owlbat: 1, quartzhog: 1, mossmole: 1 };      // dark creatures get a soft rim light in the dark halls
 // world 2 has dwarven ranks, not mages (her remark 2026-11-22: «наверное же уже тут не маги»)
 const RANKS = WORLD === 2 ? ['Новичок', 'Подмастерье', 'Мастеровой', 'Умелец', 'Старший мастер', 'Хранитель'] : ['Новичок', 'Ученик', 'Младший маг', 'Маг', 'Старший маг', 'Мастер'];
@@ -3545,11 +3546,13 @@ function drawCreature(a, x, y, h, extra) {
   const bk = a.back && sprites[a.sp + '_back'], im = cpose ? cpose : a._tierImg ? a._tierImg : bk && bk.complete && bk.naturalWidth ? bk : sprites[a.sp];
   const s = P(x, y);
   const walking = (a.path && a.path.length > 0 && !(a.pauseT > 0)) || a._panic;
-  const bob = walking ? Math.abs(Math.sin(a.ph * 9)) * 2 : Math.sin(a.ph * 2) * 0.6;
+  const crawl = CRAWLERS[sp0], cr = crawl && walking ? Math.sin(a.ph * 5) : 0;   // a snail does not hop: its body stretches and pulls up as it crawls
+  const bob = crawl ? 0 : walking ? Math.abs(Math.sin(a.ph * 9)) * 2 : Math.sin(a.ph * 2) * 0.6, sx = 1 + 0.07 * cr, sy = 1 - 0.045 * cr;
+  const fl = FACES_LEFT[sp0] && (a._tierImg || im !== bk) ? !a.flip : a.flip;   // the snail pictures look left (all but the plain back view), the code expects right
   const z = a.z || 0;
   if (!a._ghost) ctx.drawImage(creatureShadow(), s.x - h * 0.3, s.y - h * 0.12, h * 0.6, h * 0.24);   // cached oval (was a path fill per creature per frame)
   if (SP_GLOW[sp0] && !a._ghost) { ctx.globalAlpha = 0.32; const gs = h * 1.5; ctx.drawImage(glowSprite('185,205,255'), s.x - gs / 2, s.y - bob - z - h * 0.55 - gs / 2, gs, gs); ctx.globalAlpha = 1; }   // rim light: dark creatures stay visible in the cave
-  if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; const sm = sized(im, h * scale * dpr); ctx.drawImage(a.flip ? flipped(sm) : sm, s.x - w / 2, s.y - bob - z - h, w, h); 
+  if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; const sm = sized(im, h * scale * dpr); ctx.drawImage(fl ? flipped(sm) : sm, s.x - w * sx / 2, s.y - bob - z - h * sy, w * sx, h * sy); 
     if (sp0 === 'mossmole' && !a._tierImg) { const lg = glowSprite('255,240,170'), r = h * 0.32; ctx.globalAlpha = 0.75; for (const fx of [0.1, 0.9]) ctx.drawImage(lg, s.x - w / 2 + w * (a.flip ? 1 - fx : fx) - r / 2, s.y - bob - z - h * 0.985 - r / 2, r, r); ctx.globalAlpha = 1; } }   // the lanterns on its antennae glow   // no save/restore per creature, a small copy of the sprite (build 207)
   else { ctx.fillStyle = '#ffd6e8'; ctx.beginPath(); ctx.ellipse(s.x, s.y - bob - z - h / 2, h / 2.6, h / 2.2, 0, 0, Math.PI * 2); ctx.fill(); }
   if (rk === 5) {   // twinkling sparks of the element orbit a master: rarity you can see from afar
