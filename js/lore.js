@@ -157,7 +157,7 @@ function css() {
 #lore .lo-x { width: 40px; height: 40px; border-radius: 14px; background: #fff8eaee; box-shadow: 0 3px 0 #d8c29a; font: 800 18px inherit; color: #7a5528; border: 0; }
 #lore .lo-sub { font-size: 13px; color: #8a6f4c; margin: 4px 0 6px; }
 #lore .lo-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 12px; }
-#lore .lo-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+#lore .lo-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; padding-top: 9px; }   /* her phone shot: the tab badges were cut at the top of the scroll area */
 #lore .lo-tab { position: relative; border: 0; border-radius: 12px; padding: 7px 10px; background: #fff7e6; color: #6b4a22; font: 800 13.5px inherit; box-shadow: 0 2px 0 #dcc49a; }
 #lore .lo-tab.on { background: #7a5528; color: #fff7e6; box-shadow: 0 2px 0 #4f3417; }
 #lore .lo-dot { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; border-radius: 9px; background: #e0245e; color: #fff; font-size: 11px; line-height: 18px; }
