@@ -224,11 +224,11 @@ function bookMusic(on) {
     if (!A.music.on()) return true;   // music switched off: stay silent
     if (!bm) { bm = new Audio(); bm.preload = 'auto'; bm.addEventListener('ended', () => { bmIdx = (bmIdx + 1) % LORE_MUSIC.length; bm.src = LORE_MUSIC[bmIdx]; bm.play().catch(() => {}); }); }
     window.__bookMusicOn = true; A.music.pause(); clearInterval(fadeT); bm.src = LORE_MUSIC[bmIdx]; bm.volume = 0; bm.play().catch(() => {});
-    fadeT = setInterval(() => { bm.volume = Math.min(0.4, bm.volume + 0.04); if (bm.volume >= 0.4) clearInterval(fadeT); }, 80);
+    let k = 0; fadeT = setInterval(() => { k++; try { bm.volume = Math.min(0.4, k * 0.04); } catch (e) {} if (k >= 10) clearInterval(fadeT); }, 80);   // counted steps: on iPhone audio.volume is read-only and stays 1
     return true;
   }
   if (!bm) { window.__bookMusicOn = false; return true; } clearInterval(fadeT);
-  fadeT = setInterval(() => { bm.volume = Math.max(0, bm.volume - 0.05); if (bm.volume <= 0.001) { clearInterval(fadeT); bm.pause(); bmIdx = (bmIdx + 1) % LORE_MUSIC.length; window.__bookMusicOn = false; A.music.resume(); } }, 60);
+  let k = 8; fadeT = setInterval(() => { k--; try { bm.volume = Math.max(0, k * 0.05); } catch (e) {} if (k <= 0) { clearInterval(fadeT); bm.pause(); bmIdx = (bmIdx + 1) % LORE_MUSIC.length; window.__bookMusicOn = false; A.music.resume(); } }, 60);   // stops after 8 steps even where volume cannot change (iPhone): the old loop never ended there, so the book music kept playing after closing
   return true;
 }
 document.addEventListener('visibilitychange', () => { if (!bm || !root) return; if (document.hidden) bm.pause(); else if (A.music && A.music.on()) bm.play().catch(() => {}); });
