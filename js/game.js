@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=337';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=337';
-import { initMinigame } from './minigame.js?v=337';
-import { initChests } from './chests.js?v=337';
+} from './data.js?v=338';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=338';
+import { initMinigame } from './minigame.js?v=338';
+import { initChests } from './chests.js?v=338';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 337;   // keep equal to the ?v= number in index.html
+const BUILD = 338;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2772,8 +2772,10 @@ function litRooms() {   // screen polygons (device px) of every built room: floo
   }
   return out;
 }
+let dnDark = false;
+function lampGlow(l, T, L) { const f = 0.85 + 0.15 * Math.sin(T * 5.3 + l.x * 0.7 + l.y), r = l.r * 3.2; ctx.globalAlpha = 0.55 * L * f; ctx.drawImage(glowSprite('255,190,100'), l.x - r, l.y - r, r * 2, r * 2); ctx.globalAlpha = 0.85 * L * f; ctx.drawImage(glowSprite('255,235,170'), l.x - l.r, l.y - l.r, l.r * 2, l.r * 2); }
 function drawDayNight() {
-  const t = dayTint(), dark = 1 - (t[0] + t[1] + t[2]) / 765; if (dark < 0.02) return;
+  const t = dayTint(), dark = 1 - (t[0] + t[1] + t[2]) / 765; dnDark = dark > 0.035; if (dark < 0.02) return;
   const L = Math.min(1, dark * 2.2), lit = L >= 0.08 ? litRooms() : [];   // her «в комнатах конечно должен гореть свет тоже»: built rooms keep their light at night
   const W0 = ctx.canvas.width, H0 = ctx.canvas.height, mc = dnMask, mx = mc.getContext('2d'); if (mc.width !== W0 || mc.height !== H0) { mc.width = W0; mc.height = H0; }
   mx.globalCompositeOperation = 'copy'; mx.fillStyle = `rgb(${t[0]},${t[1]},${t[2]})`; mx.fillRect(0, 0, W0, H0);
@@ -2790,8 +2792,8 @@ function drawDayNight() {
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const q of lit) { const s = q.s, W = s.x1 - s.x0, D = s.y1 - s.y0;   // lamps in the rooms: sconces along both back walls, a soft pool of light on the floor
     const pool = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), pr = Math.max(W, D) * HW * 0.75; ctx.globalAlpha = 0.22 * L; ctx.drawImage(glowSprite('255,190,110'), pool.x - pr, pool.y - pr * 0.6, pr * 2, pr * 1.2);
-    const sc = (x, y, k) => { const m = up(P(x, y), WALLH * 0.62), f = 0.85 + 0.15 * Math.sin(T * 3.1 + k * 1.7 + s.x0); ctx.globalAlpha = 0.6 * L * f; ctx.drawImage(glowSprite('255,205,120'), m.x - 16, m.y - 16, 32, 32); ctx.globalAlpha = 0.9 * L * f; ctx.drawImage(glowSprite('255,240,200'), m.x - 5, m.y - 5, 10, 10); };
-    for (let k = 1; k * 3 < W; k++) sc(s.x0 + k * 3, s.y0, k); for (let k = 1; k * 3 < D; k++) sc(s.x0, s.y0 + k * 3, k + 7); }
+    const rc = roomCache[Object.keys(SLOTS).find((k) => SLOTS[k] === s)]; for (const l of (rc && rc.lamps) || []) lampGlow(l, T, L); }   // her pick «1»: the lamps painted in the room light up
+  for (const l of frameLamps) lampGlow(l, T, L);   // candles, braziers, cauldron fires standing on the floor
   for (const a of agents) { if (a.state === 'fly' || a.state === 'vanish') continue; const rg = regAt(Math.floor(a.x), Math.floor(a.y)); if (rg && rg !== 'hall' && rg !== 'path') continue;   // the little lantern each student carries outside
     const m = P(a.x, a.y); if (!onScreen(m.x, m.y)) continue; const f = 0.85 + 0.15 * Math.sin(T * 4 + a.id), lx = m.x + (a.flip ? -9 : 9), ly = m.y - 12 - (a.z || 0); ctx.globalAlpha = 0.8 * L * f; ctx.drawImage(glowSprite('255,225,150'), lx - 4, ly - 4, 8, 8); }
   for (const o of OUTDOOR) { const d = DN_LIGHT[o.n]; if (!d || o.px === undefined || o.px < VIEW.x0 - 80 || o.px > VIEW.x1 + 80 || o.py < VIEW.y0 - 40 || o.py > VIEW.y1 + 200) continue;
@@ -3194,6 +3196,7 @@ function drawProp(o) {
   const p = P(o.x, o.y), h = ((THEMES[o.th] && THEMES[o.th].h) || {})[o.n] || PROP_H[o.n] || 30, w = h * im.naturalWidth / im.naturalHeight;
   if (zoom >= 1.2) { const rx = Math.min(w * 0.34, h * 0.5), cy = p.y - h * 0.02; ctx.drawImage(propShadow(), p.x - rx, cy - rx * 0.42, rx * 2, rx * 0.84); }   // soft contact shadow right under the object's footprint (her report: shadows looked detached)
   ctx.drawImage(o.flip ? flipped(im) : im, p.x - w / 2, p.y + h * 0.08 - (o.lift || 0) - h, w, h);
+  if (dnDark && isLightIm(im)) for (const sp of lightSpots(im)) frameLamps.push({ x: p.x - w / 2 + (o.flip ? 1 - sp.u : sp.u) * w, y: p.y + h * 0.08 - (o.lift || 0) - h + sp.v * h, r: Math.max(4, Math.min(14, Math.sqrt(sp.n) * w / 64)) });   // night lamps
 }
 function drawRugAt(c, th, s) {   // rooms without desks (library): a rug in the middle
   const im = THEMES[th].rug && part(th, THEMES[th].rug); if (!im) return;
@@ -3235,6 +3238,33 @@ function warmRooms() {   // prepares one stale room picture per frame in advance
   for (const id of Object.keys(SLOTS)) if (cachedRoom(id)) { const rc = roomCache[id]; if (!rc || rc.key !== roomKey(id)) { buildRoom(id); return; } }
 }
 let roomBuilds = 0;
+// ---- night lamps: flame spots of light-source sprites (scanned once per picture)
+const LIGHT_RE = /candle|sconce|lamp|lantern|brazier|torch|fire|stove|hearth|chandel|cauldron|furnace/, LIGHT_KEY = /^potions[/]station_/;   // + the Potions desks (a fire under each cauldron)
+let lightIms = null, frameLamps = [];
+function isLightIm(im) {
+  if (!lightIms) { lightIms = new WeakSet(); for (const k in parts) if (LIGHT_RE.test(k.split('/')[1] || '') || LIGHT_KEY.test(k)) lightIms.add(parts[k]); }
+  return lightIms.has(im);
+}
+function lightSpots(im) {   // normalized centres of the bright warm (flame) blobs of a picture, max 8
+  if (im._ls) return im._ls;
+  const W = 64, H = Math.max(8, Math.round(64 * im.naturalHeight / im.naturalWidth)), c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, W, H); let d; try { d = x.getImageData(0, 0, W, H).data; } catch (e) { return (im._ls = []); }
+  const hot = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) { const r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2], a = d[i * 4 + 3]; hot[i] = a > 150 && r > 225 && g > 150 && b < 200 && r - b > 55 ? 1 : 0; }
+  const out = [], seen = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) { if (!hot[i] || seen[i]) continue; let n = 0, sx = 0, sy = 0; const st = [i]; seen[i] = 1;
+    while (st.length) { const j = st.pop(), px = j % W, py = (j / W) | 0; n++; sx += px; sy += py; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const qx = px + dx, qy = py + dy, k = qy * W + qx; if (qx >= 0 && qy >= 0 && qx < W && qy < H && hot[k] && !seen[k]) { seen[k] = 1; st.push(k); } } }
+    if (n >= 2) out.push({ u: (sx / n + 0.5) / W, v: (sy / n + 0.5) / H, n }); }
+  out.sort((a, b) => b.n - a.n); return (im._ls = out.slice(0, 8));
+}
+function recordLamps(c, list, x0, y0, q) {   // while a cached room is drawn: every light sprite's flames -> world points
+  const orig = c.drawImage;
+  c.drawImage = function (im, ...a) {
+    if (im && im.naturalWidth && isLightIm(im) && a.length >= 4) { const [dx, dy, dw, dh] = a.length >= 8 ? a.slice(4, 8) : a, T = this.getTransform();
+      for (const sp of lightSpots(im)) { const lx = dx + sp.u * dw, ly = dy + sp.v * dh, X = T.a * lx + T.c * ly + T.e, Y = T.b * lx + T.d * ly + T.f; list.push({ x: X / q + x0, y: Y / q + y0, r: Math.max(4, Math.min(14, Math.sqrt(sp.n) * dw / 64)) }); } }
+    return orig.call(this, im, ...a);
+  };
+  return () => { delete c.drawImage; };
+}
 function buildRoom(id) {
   const key = roomKey(id); let rc = roomCache[id];
   if (!rc || (rc.key !== key && !pinching)) {
@@ -3247,10 +3277,12 @@ function buildRoom(id) {
     const c = cv.getContext('2d'); c._q = q;
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height);
     c.setTransform(q, 0, 0, q, -x0 * q, -y0 * q);
+    const lamps = [], stop = recordLamps(c, lamps, x0, y0, q);
     drawSlot(c, id);
     for (const e of EDGES) if (e.id === id && e.tall) drawEdge(c, e);
     drawWallDecor(c, id);
-    rc = roomCache[id] = { key, cv, x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    stop();
+    rc = roomCache[id] = { key, cv, x: x0, y: y0, w: x1 - x0, h: y1 - y0, lamps };
   }
   return rc;
 }
@@ -3854,7 +3886,7 @@ function render() {
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
   const list = [];
-  agentById = new Map(agents.map((a) => [a.id, a])); fxTop = []; fxCometDone = new Set();
+  agentById = new Map(agents.map((a) => [a.id, a])); fxTop = []; frameLamps.length = 0; fxCometDone = new Set();
   const zone = (x, y) => { const id = regAt(Math.floor(x), Math.floor(y)); if (id && id !== 'hall' && SLOTS[id]) { const s = SLOTS[id]; return (s.x0 + s.x1 + s.y0 + s.y1) / 2; } return x + y; };
   const add = (x, y, draw, bias = 0) => { const m = P(x, y); if (onScreen(m.x, m.y)) list.push({ k1: zone(x, y), k2: x + y + bias, draw }); };   // off-screen things are skipped
   VIEW = { x0: scroller.scrollLeft / scale, y0: scroller.scrollTop / scale, x1: (scroller.scrollLeft + scroller.clientWidth) / scale, y1: (scroller.scrollTop + scroller.clientHeight) / scale };
