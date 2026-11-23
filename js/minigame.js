@@ -40,7 +40,12 @@ const st = () => A.state();
 function mg() {
   const S = st();
   if (!S.mg) S.mg = { ch: CH_MAX, t: Date.now(), best: 0, wk: 0, wb: 0, n: 0, pot: 0 };
-  return S.mg;
+  const m = S.mg, wk = weekKey();
+  if (m.wk !== wk) {   // a new week: last week's best is kept as pw/pm (weekly prizes and the winners list read it)
+    if (m.wk === wk - 1 && m.wb > 0) { m.pw = m.wk; m.pm = m.wb; } else if (m.pw !== wk - 1) { m.pw = 0; m.pm = 0; }
+    m.wk = wk; m.wb = 0;
+  }
+  return m;
 }
 export function charges() {
   const m = mg(), now = Date.now();
@@ -212,7 +217,9 @@ function newRecipe(n) {
 }
 
 export function isOpen() { return !!root; }
-export function weekBest() { const S = st(); if (!S || !S.mg) return 0; return S.mg.wk === weekKey() ? S.mg.wb || 0 : 0; }   // for the weekly table in the top
+export function weekBest() { const S = st(); if (!S || !S.mg) return 0; return mg().wb || 0; }
+export function prevBest() { const S = st(); if (!S || !S.mg) return 0; const m = mg(); return m.pw === weekKey() - 1 ? m.pm || 0 : 0; }   // last week's best (0 if none)
+export function prizeDue() { const S = st(); if (!S || !S.mg) return false; const m = mg(), w = weekKey() - 1; return m.pw === w && m.pm > 0 && m.claimed !== w && Date.now() - (w + 1) * 7 * 86400000 + 3 * 86400000 > 15 * 60000; }   // 15 min after the week ends: everyone had time to send the last scores   // for the weekly table in the top
 export function pill() {
   const n = charges();
   return `<button class="ipill mg" data-mg aria-label="Мини-игра">🧪 ${n}</button>`;
@@ -649,5 +656,5 @@ export function initMinigame(api) {
   A = api;
   addEventListener('resize', () => { if (R && cv) layout(); });
   window.__mg = { open, close, charges, get R() { return R; }, resolveStep, findGroups, findMove, setLeft: (s) => { if (R) R.left = s; }, setScore: (s) => { if (R) R.score = s; }, SND, SND_DB, STAR };
-  return { open, isOpen, pill, charges, weekBest, weekKey };
+  return { open, isOpen, pill, charges, weekBest, weekKey, prevBest, prizeDue, claim: () => { mg().claimed = weekKey() - 1; A.save(); } };
 }
