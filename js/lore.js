@@ -131,7 +131,14 @@ PAGES.push(
     'Странствующий торговец: пришёл в школу с тележкой сладостей и остался, потому что ученики скупили всё за один день.',
     'Полирует прилавок до блеска и знает, кто какие сладости любит. Иногда даёт конфету в долг — но всё записывает.', 'хитрый, но добрый: не может отказать грустному ученику и отдаёт сладость бесплатно.', '«Сладкое — лучшее заклинание от грусти!»', ['assets/staff/fox_carry.png', 'assets/staff/fox_polish.png', 'assets/staff/fox_coins.png']),
 );
-const CHAPTERS = [['world', '🏰', 'Мир'], ['races', '🌸', 'Расы'], ['teachers', '🧙', 'Учителя'], ['school', '📖', 'Школа']];
+// ---- stage 4: secrets (special time / special action -> a page). S.lore.sec = { id: time found }
+const SEC = () => (LS().sec ||= {});
+PAGES.push(
+  P({ id: 'dew', ch: 'secrets', secret: 1, title: 'Роса', sub: 'секрет Профессора Мха', img: 'assets/staff/moss_water.png', layers: [   // her pick «1», text approved 2026-11-23
+    { img: 'assets/staff/moss_read.png', t: 'Как я проснулся', x: 'Я никогда не рассказывал, как проснулся. Помню только шёпот: «Проснись». Тихий-тихий, ушастиковый. Открыл глаза — а рядом никого. Только мокрая от росы трава и маленькие следы, уходящие к холмам.\n\nС тех пор прошло очень много лет. Тот малыш давно вырос. Может, учился у меня. Может, сидел на последней парте и боялся котла Мадам Пузырь. А я так и не знаю, кто это был.\n\nПоэтому я поливаю всех. Цветы, учеников, иногда Тихона. Вдруг на кого-то попаду — а он вспомнит и скажет: «Это был я».\n\nПока никто не сказал. Но я не тороплюсь. Корни глубже, чем кажутся.\n\n— записано со слов Профессора Мха', need: () => !!SEC().dew, hint: 'Сад выпускников просыпается раньше всех. Кто-то там очень рано встаёт.' },
+  ] }),
+);
+const CHAPTERS = [['world', '🏰', 'Мир'], ['races', '🌸', 'Расы'], ['teachers', '🧙', 'Учителя'], ['school', '📖', 'Школа'], ['secrets', '🔮', 'Тайны']];
 
 // ---- the director's note (stage 3)
 const RIDDLE = ['Не ищите меня на дорогах — ищите над холмами.', 'Я оставил вам больше, чем ушло со мной.', 'То, что я не успел сказать, хранит тот, кто молчит.',
@@ -149,6 +156,7 @@ const TK_LINES = ['М? Я просто гуляю…', 'Нет-нет, ниче�
   'Вы ведь не отстанете, да?', 'Он… он очень любил такие вечера.', '(вздыхает и достаёт из-за пазухи сложенный листок) Возьмите. Я хранил его слишком долго.'];
 const DAY = 86400000, HINT_EVERY = 2 * DAY, TK_RESET = 18000;
 const hourNow = () => { const d = new Date(); return window.__hour ?? d.getHours() + d.getMinutes() / 60; };
+const isDawn = () => { const h = hourNow(); return h >= 5 && h < 7; };   // secret «Роса»
 const isNight = () => { const h = hourNow(); return h >= 22 || h < 5; }, isDusk = () => { const h = hourNow(); return h >= 19 && h < 22; }, isMorning = () => { const h = hourNow(); return h >= 6 && h < 10; };
 const RD = () => { const l = LS(); return (l.rd ||= { found: [], hint: [0, 0, 0, 0, 0], start: 0, coins: 0, lastHint: 0 }); };
 const dayKey = (t) => { const d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
@@ -170,6 +178,11 @@ let tkTaps = 0, tkLast = 0;
 export function event(kind) {   // called by game.js; true = handled (the game does nothing else for this tap)
   if (!S() || !A.on()) return false;
   const r = RD();
+  if (kind === 'dew') {   // secret «Роса»: dawn dew in the graduates' garden
+    if (!isDawn()) return false; const sc = SEC(); if (sc.dew) { say('💧', 1500); return true; }
+    sc.dew = Date.now(); A.save(); say('Профессор Мох: «А?.. Ты тоже рано встаёшь. Ладно, раз уж ты здесь, скажу тебе одну вещь».', 5000);
+    setTimeout(() => say('🔮 Новая страница в Летописи: «Роса»', 4000), 5200); return true;
+  }
   if (kind === 'moon') { if (isNight() && canFind(0)) { findLine(0); A.flash && A.flash('moon'); } else say(isNight() ? '🌙 Луна тихо светит над лесом.' : '🌙'); return true; }
   if (kind === 'coin') { if (r.start && !has(3)) { r.coins++; if (r.coins >= 100 && canFind(3)) findLine(3); } return true; }
   if (kind === 'crown') { if (crownWanted() && !LS().prize) { if (isMorning() && (QS().world || {}).done && canFind(4)) { findLine(4); return true; } } return !!LS().prize; }
@@ -184,6 +197,7 @@ export function event(kind) {   // called by game.js; true = handled (the game d
   return false;
 }
 const crownWanted = () => !has(4);
+export const dew = () => !!(S() && A.on() && isDawn());   // game.js draws the dew drops
 export const crown = () => !!(S() && A.on() && (LS().prize || (crownWanted() && isMorning() && (QS().world || {}).done && canFind(4))));
 function riddleTick() {   // all classes built -> line 2; every 2 days without a new line Tikhon clarifies one random hint by one step
   if (!S() || !A.on()) return; const r = RD(); if (!r.start) return;
@@ -240,6 +254,7 @@ function answer(i) {
   A.save();
 }
 function quizBlock(f) {
+  if (chap === 'secrets') return '';   // no exam for the secrets
   const st = QS()[chap] || {}, name = (CHAPTERS.find((c) => c[0] === chap) || [])[2];
   if (st.done) return `<div class="lo-seal">🎓 Сдано · <i>подпись: Тихон</i><small>${esc(REWARD[chap])}</small></div>`;
   if (!chapterRead(chap, f)) return `<div class="lo-exam lock">🎓 Экзамен Тихона по главе «${name}»<small>Откроется, когда все страницы главы будут открыты и прочитаны целиком.</small></div>`;
@@ -267,7 +282,7 @@ function listHtml(f) {
   const tabs = CHAPTERS.map(([k, ic, nm]) => { const n = PAGES.filter((p) => p.ch === k && openN(p, f) > (LS().seen[p.id] || 0)).length;
     return `<button class="lo-tab${k === chap ? ' on' : ''}" data-lochap="${k}">${(QS()[k] || {}).done ? '🎓' : ic} ${nm}${n ? `<span class="lo-dot">${n}</span>` : ''}</button>`; }).join('');
   const cards = PAGES.filter((p) => p.ch === chap).map((p) => { const n = openN(p, f), all = p.layers.length, fresh = n > (LS().seen[p.id] || 0);
-    if (!n) return `<div class="lo-card locked">${pic(p, true)}<div class="lo-ct"><b>???</b><small>🔒 Откроется, ${esc(p.layers[0].hint || '')}</small></div></div>`;
+    if (!n) return `<div class="lo-card locked">${pic(p, true)}<div class="lo-ct"><b>???</b><small>🔒 ${p.secret ? '' : 'Откроется, '}${esc(p.layers[0].hint || '')}</small></div></div>`;
     return `<button class="lo-card" data-lopage="${p.id}">${pic(p)}<div class="lo-ct"><b>${esc(p.title)}</b>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}<small>Открыто ${n} из ${all}</small></div>${fresh ? '<span class="lo-new">новое</span>' : ''}</button>`; }).join('');
   return `<div class="lo-tabs">${tabs}</div><div class="lo-list">${cards}</div>${quizBlock(f)}`;
 }
@@ -430,6 +445,6 @@ export function initLore(api) {
   };
   setTimeout(reg, 0);
   setInterval(riddleTick, 5000);
-  window.__lore = { open, close, PAGES, facts, unread, loreTune, LORE_DB, event, crown, RD };
-  return { open, close, badge, isOpen: () => !!root, event, crown };
+  window.__lore = { open, close, PAGES, facts, unread, loreTune, LORE_DB, event, crown, dew, RD };
+  return { open, close, badge, isOpen: () => !!root, event, crown, dew };
 }

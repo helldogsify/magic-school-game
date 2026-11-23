@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=397';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=397';
-import { initMinigame } from './minigame.js?v=397';
-import { initChests } from './chests.js?v=397';
-import { initLore } from './lore.js?v=397';
-import { initAvatar } from './avatar.js?v=397';
+} from './data.js?v=398';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=398';
+import { initMinigame } from './minigame.js?v=398';
+import { initChests } from './chests.js?v=398';
+import { initLore } from './lore.js?v=398';
+import { initAvatar } from './avatar.js?v=398';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 397;   // keep equal to the ?v= number in index.html
+const BUILD = 398;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2835,6 +2835,16 @@ function drawMoonFx() {   // after drawDayNight: the moon disc glows at night, r
   ctx.restore();
   for (let k = 0; k < n; k++) { const [u, v] = MOON_FRUIT[k]; emoji('🌙', p.x - w / 2 + u * w, top + v * h + Math.sin(T * 1.6 + k * 2) * 1.5, rr * 2.4); }
 }
+const DEW_AT = [[1.0, 4.5], [1.5, 5.0], [4.5, 1.0], [5.0, 1.5], [4.4, 4.9], [4.9, 4.3]];   // lawn spots inside the hedge, clear of the gazebo's circle
+function drawDewFx() {   // secret «Роса»: dawn dew in the graduates' garden, bright over the morning tint
+  if (WORLD !== 1 || !SLOTS.GARDEN || !LORE.dew()) { window.__dewHit = null; return; }
+  const g = SLOTS.GARDEN, T = performance.now() / 1000, pts = DEW_AT.map(([dx, dy]) => { const m = P(g.x0 + dx, g.y0 + dy); return [m.x, m.y - 4]; });
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  pts.forEach(([x, y], k) => { ctx.globalAlpha = 0.55 + 0.25 * Math.sin(T * 1.7 + k * 1.3); ctx.drawImage(glowSprite('190,235,255'), x - 16, y - 16, 32, 32); });
+  ctx.restore();
+  pts.forEach(([x, y], k) => { emoji('💧', x, y + Math.sin(T * 1.2 + k) * 1.2, 13); const tw = Math.max(0, Math.sin(T * 2.3 + k * 2.1)); if (tw > 0.2) fxStar(x + 4, y - 6, 4.5 * tw, tw, '235,250,255'); });
+  window.__dewHit = { pts, t: performance.now() };
+}
 function tapMoon() {
   stepMoon(); const M = moonSt(), n = M.f;
   if (!n) {
@@ -4226,6 +4236,7 @@ function render() {
   if (zoom >= 1.1) for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish') { const pn = panicPos(a), gx = pn ? pn.x : a.x, gy = pn ? pn.y : a.y, m = P(gx, gy); if (onScreen(m.x, m.y)) (a._ghost = true, drawCreature(a, gx, gy, 30), a._ghost = false); }
   ctx.globalAlpha = 1;
   if (WORLD === 1) drawDayNight(); else if (WORLD === 2) drawHallDark();
+  drawDewFx();   // secret «Роса» (lore stage 4): dawn dew in the graduates' garden
   drawMoonFx();   // the Moon Tree glow and fruits stay bright at night   // day and night (signs stay bright: drawn after)
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
@@ -4993,6 +5004,7 @@ scroller.addEventListener('click', (e) => {
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
   const mr = mailRect; if (mr && performance.now() - mr.t < 600 && wx >= mr.x0 && wx <= mr.x1 && wy >= mr.y0 && wy <= mr.y1) { openPanel(mailPanel); return; }   // the envelope over the office opens the letter (build 311)
+  const dw = window.__dewHit; if (dw && performance.now() - dw.t < 600 && dw.pts.some(([x, y]) => Math.hypot(wx - x, wy - y) < 26) && LORE.event('dew')) return;   // secret «Роса»
   const mh = window.__moonHit; if (mh && performance.now() - mh.t < 600 && Math.hypot(wx - mh.x, wy - mh.y) < mh.r) { LORE.event('moon'); return; }   // the director's riddle, line 1
   const cr = window.__crownRect; if (cr && performance.now() - cr.t < 600 && wx >= cr.x0 && wx <= cr.x1 && wy >= cr.y0 && wy <= cr.y1 && LORE.event('crown')) return;   // line 5
   { const m = moonRect; if (WORLD === 1 && m && performance.now() - m.t < 600 && wx >= m.x0 && wx <= m.x1 && wy >= m.y0 && wy <= m.y1) { tapMoon(); return; } }   // the Moon Tree
