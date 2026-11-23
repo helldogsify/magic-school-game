@@ -11,6 +11,7 @@ const STAR = [2000, 3500, 5500];  // score for 1/2/3 stars (calibrated with tool
 const MAX_MIN = 10;               // the best round pays 10 minutes of the school's income
 const BOOST = [0, 0, 5, 10];      // minutes of «Вдохновение» per stars
 const BOOST_CAP_MIN = 60;         // same cap as gifts (BOOST_MAX_MIN in game.js)
+import { runFlight, loadFlightArt } from './flight.js?v=1';   // bump when flight.js changes
 const ART_V = 2;   // 2: pink crystal (her «два значка синего цвета, путаешь их»)
 
 export const ING = [   // ingredient tiles; art: assets/minigame/ing_<i>.png (falls back to the emoji until the art exists)
@@ -39,14 +40,20 @@ export const weekKey = (t = Date.now()) => Math.floor((t / 86400000 + 3) / 7);  
 
 let A = null;   // API from game.js
 const st = () => A.state();
-function mg() {
-  const S = st();
-  if (!S.mg) S.mg = { ch: CH_MAX, t: Date.now(), best: 0, wk: 0, wb: 0, n: 0, pot: 0 };
-  const m = S.mg, wk = weekKey();
-  if (m.wk !== wk) {   // a new week: last week's best is kept as pw/pm (weekly prizes and the winners list read it)
+function rollWeek(m) {   // a new week: last week's best is kept as pw/pm (weekly prizes and the winners list read it)
+  const wk = weekKey();
+  if (m.wk !== wk) {
     if (m.wk === wk - 1 && m.wb > 0) { m.pw = m.wk; m.pm = m.wb; } else if (m.pw !== wk - 1) { m.pw = 0; m.pm = 0; }
     m.wk = wk; m.wb = 0;
   }
+  return m;
+}
+const fl = () => { const m = mg(); m.f ||= { wk: weekKey(), wb: 0, best: 0, n: 0 }; return rollWeek(m.f); };   // «Полёт через кольца» records
+export const F_STAR = [80, 200, 400];   // score for 1/2/3 stars in the flight (8 / 20 / 40 rings); first guess, tune by her feedback
+function mg() {
+  const S = st();
+  if (!S.mg) S.mg = { ch: CH_MAX, t: Date.now(), best: 0, wk: 0, wb: 0, n: 0, pot: 0 };
+  const m = S.mg; rollWeek(m);
   return m;
 }
 export function charges() {
@@ -290,6 +297,15 @@ function css() {
 #mg .mg-bst .mg-bi { font-size: 24px; height: 30px; display: flex; align-items: center; }
 #mg .mg-bst .mg-bi img { width: 30px; height: 30px; }
 #mg .mg-bst .mg-bc { color: #8a5a00; font-weight: 800; }
+#mg .mg-pick { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin: 8px 0; padding: 12px; border-radius: 18px; background: #f6f0ff; border: 2px solid #e2d6f8; color: #3a2f4a; font-size: 15px; }
+#mg .mg-pick .mg-pi { width: 54px; height: 54px; flex: none; display: flex; align-items: center; justify-content: center; }
+#mg .mg-pick .mg-pi img { max-width: 54px; max-height: 54px; width: auto; height: auto; }
+#mg .fl-who { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-height: 220px; overflow-y: auto; }
+#mg .fl-w { width: 82px; display: flex; flex-direction: column; align-items: center; padding: 6px 4px; border-radius: 14px; background: #f6f0ff; border: 2px solid #e2d6f8; font: 700 11px ui-rounded, "Nunito", sans-serif; color: #4a3a6b; }
+#mg .fl-w.on { background: #fff4c7; border-color: #e8b923; }
+#mg .fl-w img { width: 60px; height: 60px; object-fit: contain; }
+#mg .fl-box { flex: 1; width: 100%; max-width: 520px; margin-top: 8px; border-radius: 20px; overflow: hidden; min-height: 0; }
+#mg .fl-cv { display: block; touch-action: none; }
 @keyframes mgbob { 50% { transform: translateY(-4px) rotate(-1.5deg); } }
 @keyframes mgpuff { 30% { transform: scale(1.18); filter: brightness(1.3); } }
 @keyframes mgpulse { 50% { transform: scale(1.07); } }
@@ -308,10 +324,22 @@ export function open() {
   root.addEventListener('click', onClick);
   emaSnap = st().ema || 0;   // prices and rewards use the income of the moment the mini-game was opened
   A.onOpen && A.onOpen();
-  showStart();
+  loadFlightArt();
+  showChooser();
+}
+function showChooser() {   // the 🧪 pill: choose a mini-game (tries are shared)
+  const n = charges(), m = mg(), f = fl();
+  root.innerHTML = A.emojiHtml(`<div class="mg-card">
+    <h2>Мини-игры</h2>
+    <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}<br><span class="muted">общие для всех мини-игр</span></p>
+    <button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button>
+    <button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=1" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>
+    <button class="btn wide ghost" data-mgback>В школу</button>
+  </div>`);
 }
 function close() {
   if (R && R.live) finish(true);
+  if (FL) { if (FL.live) flEnd(FL.h.state, true); FL.h.stop(); FL = null; }
   cancelAnimationFrame(raf); raf = 0; R = null;
   if (root) root.remove(); root = null; cv = null;
   A.onClose && A.onClose();
@@ -319,7 +347,11 @@ function close() {
 function onClick(e) {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
-  if (d.mgx !== undefined) { if (R && R.live) finish(false); else close(); return; }
+  if (d.mgx !== undefined) { if (FL && FL.live) { FL.h.crash(); return; } if (R && R.live) finish(false); else close(); return; }
+  if (d.mgpick !== undefined) { if (d.mgpick === 'f') showFlightStart(); else showStart(); return; }
+  if (d.mgchoose !== undefined) { if (FL) { FL.h.stop(); FL = null; } showChooser(); return; }
+  if (d.flwho !== undefined) { const w = A.flyers ? A.flyers() : []; if (w[+d.flwho]) { mg().fly = w[+d.flwho].k; showFlightStart(); } return; }
+  if (d.flplay !== undefined) { startFlight(); return; }
   if (d.mgplay !== undefined) { start(); return; }
   if (d.mgagain !== undefined) { showStart(); return; }   // «Ещё раз» goes through the start screen: boosters can be chosen again
   if (d.mgb !== undefined) { const b = BOOSTS[+d.mgb]; if (!b) return;
@@ -342,7 +374,7 @@ function showStart() {
     <div class="mg-boosts">${BOOSTS.map((b, k) => `<button class="mg-bst${bsel.has(b.id) ? ' on' : ''}" data-mgb="${k}"><span class="mg-bi">${b.ico()}</span><span class="mg-bn">${b.name}</span><span class="mg-bc">🪙 ${A.fmt(boostCost(b))}</span></button>`).join('')}</div>
     ${bsel.size ? `<p class="muted">Бонусы: 🪙 ${A.fmt(bTotal())} спишутся при старте</p>` : ''}
     <button class="btn wide" data-mgplay>${n > 0 ? '▶️ Играть (1 попытка)' : '▶️ Играть без награды'}</button>
-    <button class="btn wide ghost" data-mgback>В школу</button>
+    <button class="btn wide ghost" data-mgchoose>← Другие мини-игры</button>
   </div>`);
 }
 
@@ -621,6 +653,71 @@ function drawBeams(C, d) {   // light of the specials: a beam along a row / colu
   cx.restore();
 }
 
+// ======================= «Полёт через кольца» shell =======================
+let FL = null;   // { live, rewarded, h (runFlight handle) }
+function flyerList() { return (A.flyers && A.flyers()) || []; }
+function showFlightStart() {
+  if (FL) { FL.h.stop(); FL = null; }
+  const n = charges(), f = fl(), w = flyerList(), cur = w.find((x) => x.k === mg().fly) || w[0];
+  root.innerHTML = A.emojiHtml(`<div class="mg-card">
+    <div class="mg-pot"><img class="mgi" src="assets/flight/ring.webp?v=1" alt="" style="width:44px;height:70px"></div><h2>Полёт через кольца</h2>
+    <p>Нажми и держи палец — ученик взлетает, отпусти — плавно опускается. Пролетай сквозь кольца, собирай искорки и не задевай тучки: первая тучка — конец полёта.</p>
+    <p class="muted">Кольцо +10, точно по центру ещё +5, искорка +2. Золотое перо спасает от одной тучки.</p>
+    <div class="mg-bh">Кто летит</div>
+    <div class="fl-who">${w.map((x, k) => `<button class="fl-w${cur && x.k === cur.k ? ' on' : ''}" data-flwho="${k}"><img src="${x.src}" alt=""><span>${x.name}</span></button>`).join('') || '<p class="muted">Пока некому лететь</p>'}</div>
+    <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
+    <p class="muted">Награда: монеты (до ${MAX_MIN} минут дохода школы), за 2–3 ⭐ ещё ✨ Вдохновение. Рекорд недели: ${num(f.wb || 0)}${f.best ? ` · за всё время: ${num(f.best)}` : ''}</p>
+    <button class="btn wide" data-flplay${cur ? '' : ' disabled'}>${n > 0 ? '▶️ Лететь (1 попытка)' : '▶️ Лететь без награды'}</button>
+    <button class="btn wide ghost" data-mgchoose>← Другие мини-игры</button>
+  </div>`);
+}
+function startFlight() {
+  const w = flyerList(), cur = w.find((x) => x.k === mg().fly) || w[0]; if (!cur) return;
+  const rewarded = charges() > 0;
+  if (rewarded) { const m = mg(); if (m.ch >= CH_MAX) m.t = Date.now(); m.ch--; }
+  fl().n++; A.save();
+  root.innerHTML = A.emojiHtml(`<div class="mg-top"><button class="mg-x" data-mgx aria-label="Закончить">✕</button><div class="mg-chip"><img class="mgi" src="assets/flight/ring.webp?v=1" alt="" style="width:14px;height:22px"> <span class="fl-r">0</span></div><div class="mg-chip score">✨ <span class="fl-s">0</span></div></div>
+    <div class="fl-box"></div>`);
+  const box = root.querySelector('.fl-box');
+  FL = { live: true, rewarded, h: null };
+  FL.h = runFlight(box, { img: cur.src, faceLeft: !!cur.faceLeft, snd,
+    onScore: (sc, rings) => { const a = root.querySelector('.fl-s'), b = root.querySelector('.fl-r'); if (a) a.textContent = num(sc); if (b) b.textContent = rings; },
+    onEnd: (res) => flEnd(res, false) });
+}
+function flEnd(res, silent) {
+  if (!FL || !FL.live) return;
+  FL.live = false;
+  const S = st(), f = fl(), score = res.score || 0, stars = score >= F_STAR[2] ? 3 : score >= F_STAR[1] ? 2 : score >= F_STAR[0] ? 1 : 0;
+  const recW = score > (f.wb || 0), recAll = score > (f.best || 0);
+  f.wb = Math.max(f.wb || 0, score); f.best = Math.max(f.best || 0, score);
+  let coins = 0, boost = 0;
+  if (FL.rewarded && score > 0) {
+    const min = Math.min(MAX_MIN, MAX_MIN * score / F_STAR[2]);
+    coins = Math.max(10, Math.round(Math.max(min * 60 * incomeNow(), min * 30) / 10) * 10);
+    A.earn(coins);
+    boost = BOOST[stars];
+    if (boost) { const now = Date.now(); S.boostEnd = Math.min(now + BOOST_CAP_MIN * 60000, Math.max(now, S.boostEnd || 0) + boost * 60000); }
+  }
+  A.save();
+  A.onFinish && A.onFinish(score);
+  if (silent) return;
+  snd('end');
+  const n = charges();
+  root.appendChild(el(`<div class="mg-card">
+    <h2>${score >= F_STAR[0] ? 'Отличный полёт!' : 'Ой, тучка!'}</h2>
+    <div class="mg-stars">${[0, 1, 2].map((k) => `<span class="${k < stars ? '' : 'off'}">⭐</span>`).join('')}</div>
+    <div class="mg-big">${num(score)}</div>
+    <p class="muted">колец: ${res.rings || 0} · искорок: ${res.sparks || 0}${recW ? ' · 🏅 рекорд недели!' : ''}${recAll && !recW ? ' · 🏅 рекорд!' : ''}</p>
+    ${FL.rewarded ? `<div class="mg-prize">Награда: 🪙 ${A.fmt(coins)}${boost ? `<br>✨ Вдохновение +${boost} мин (уроки +10%)` : ''}</div>` : '<p class="muted">Полёт без награды — только рекорд.</p>'}
+    <p class="muted">${stars < 3 ? `До ${stars + 1} ⭐ — ${num(F_STAR[stars])} очков. ` : ''}Попытки с наградой: ${n} из ${CH_MAX}${n < CH_MAX ? `, следующая через ${mmss(nextIn())}` : ''}</p>
+    <button class="btn wide" data-mgpick="f">${n > 0 ? '🔁 Ещё полёт (1 попытка)' : '🔁 Ещё полёт без награды'}</button>
+    <button class="btn wide ghost" data-mgback>В школу</button>
+  </div>`));
+}
+export function flightBest() { const S = st(); if (!S || !S.mg) return 0; return fl().wb || 0; }
+export function flightPrev() { const S = st(); if (!S || !S.mg) return 0; const f = fl(); return f.pw === weekKey() - 1 ? f.pm || 0 : 0; }
+export function flightPrizeDue() { const S = st(); if (!S || !S.mg) return false; const f = fl(), w = weekKey() - 1; return f.pw === w && f.pm > 0 && f.claimed !== w && Date.now() - (w + 1) * 7 * 86400000 + 3 * 86400000 > 15 * 60000; }
+
 // ---- end of round ----
 function finish(silent) {
   if (!R || !R.live) return;
@@ -659,5 +756,7 @@ export function initMinigame(api) {
   A = api;
   addEventListener('resize', () => { if (R && cv) layout(); });
   window.__mg = { open, close, charges, get R() { return R; }, resolveStep, findGroups, findMove, setLeft: (s) => { if (R) R.left = s; }, setScore: (s) => { if (R) R.score = s; }, SND, SND_DB, STAR };
-  return { open, isOpen, pill, charges, weekBest, weekKey, prevBest, prizeDue, claim: () => { mg().claimed = weekKey() - 1; A.save(); } };
+  window.__fl = { get FL() { return FL; }, F_STAR, start: () => { showFlightStart(); startFlight(); } };
+  return { open, isOpen, pill, charges, weekBest, weekKey, prevBest, prizeDue, claim: () => { mg().claimed = weekKey() - 1; A.save(); },
+    flightBest, flightPrev, flightPrizeDue, claimFlight: () => { fl().claimed = weekKey() - 1; A.save(); } };
 }

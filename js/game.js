@@ -2,16 +2,17 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=363';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=363';
-import { initMinigame } from './minigame.js?v=363';
-import { initChests } from './chests.js?v=363';
-import { initAvatar } from './avatar.js?v=363';
+} from './data.js?v=364';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=364';
+import { initMinigame } from './minigame.js?v=364';
+import { initChests } from './chests.js?v=364';
+import { initAvatar } from './avatar.js?v=364';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
   onOpen: () => { if (S.inc && Object.keys(S.inc).length) { S.inc = {}; dirtyPanel = true; } },   // a running incident is fixed quietly: the class cannot be tapped from the mini-game
   onFinish: () => { topPush(true); },   // a new weekly best goes to the top at once
+  flyers: () => FORM_KEYS.filter((k) => S.forms && S.forms[k] && S.forms[k].seen).map((k) => ({ k, src: formImg(k), name: formTitle(k), faceLeft: !!FACES_LEFT[k.split(':')[0]] })),   // who may fly in «Полёт через кольца»: every look opened in the album
   onClose: () => { incT = Math.max(incT, 30); renderInsp(); updateHud(); } });   // no incident the very second the player comes back
 // daily chests (js/chests.js, Maria 2026-11-23 «Ежедневные сундучки надо»): a tile in the ✨ menu, own overlay, state S.chest per world
 const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml,
@@ -21,7 +22,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 363;   // keep equal to the ?v= number in index.html
+const BUILD = 364;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4927,6 +4928,7 @@ document.addEventListener('click', (e) => {
   if (d.fbDel !== undefined) { fbPics.splice(+d.fbDel, 1); drawFbPics(); return; }
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
   if (d.top !== undefined) { openTop(); return; }
+  if (d.mgsub !== undefined) { mgSub = d.mgsub; const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; return; }
   if (d.toptab !== undefined) { topTab = d.toptab; const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; return; }
   if (d.ally !== undefined) { openAlly(); return; }
   if (d.mg !== undefined) { MG.open(); return; }
@@ -5071,13 +5073,13 @@ async function anonToken() {   // an id token of this device's anonymous account
 let topSentAt = 0, topSentKey = '';
 async function topPush(force) {   // our line in the table (only with a school name); quietly does nothing offline
   if (!S || !schoolName() || !(S.rating || S.stats.graduated)) return;
-  const R = rating(), key = [schoolName(), playerNick(), myAl(), R.v.toFixed(2), R.n, S.stats.graduated, MG.weekBest(), MG.prevBest()].join('|');
+  const R = rating(), key = [schoolName(), playerNick(), myAl(), R.v.toFixed(2), R.n, S.stats.graduated, MG.weekBest(), MG.prevBest(), MG.flightBest(), MG.flightPrev()].join('|');
   if (!force && (key === topSentKey || Date.now() - topSentAt < TOP_EVERY * 1000)) return;
   topSentAt = Date.now();
   try {
     const A = await anonToken();
     const I = (v) => ({ integerValue: String(Math.round(v || 0)) });
-    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), ...(myAl() ? { al: { stringValue: myAl() } } : {}), w: I(WORLD), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), mg: I(MG.weekBest()), mw: I(MG.weekKey()), ...(MG.prevBest() ? { pm: I(MG.prevBest()), pw: I(MG.weekKey() - 1) } : {}), build: I(BUILD), updated: I(Date.now()) } };   // mg/mw: «Зельеварка» best of this week
+    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), ...(myAl() ? { al: { stringValue: myAl() } } : {}), w: I(WORLD), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), mg: I(MG.weekBest()), mw: I(MG.weekKey()), ...(MG.prevBest() ? { pm: I(MG.prevBest()), pw: I(MG.weekKey() - 1) } : {}), fl: I(MG.flightBest()), flw: I(MG.weekKey()), ...(MG.flightPrev() ? { fpm: I(MG.flightPrev()), fpw: I(MG.weekKey() - 1) } : {}), build: I(BUILD), updated: I(Date.now()) } };   // mg/mw: «Зельеварка» best of this week
     const r = await fetch(`${TOP_URL}/${A.uid}_w${WORLD}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify(body) });
     if (r.ok) topSentKey = key;
   } catch (e) { /* offline: next time */ }
@@ -5087,7 +5089,7 @@ async function topLoad() {
   try {
     const r = await fetch(TOP_URL + '?pageSize=300', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
     const d = await r.json(), num = (f) => (f ? +(f.integerValue ?? f.doubleValue ?? 0) : 0);
-    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', al: (x.fields.al || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), g: num(x.fields.g), gold: num(x.fields.gold), mg: num(x.fields.mg), mw: num(x.fields.mw), pm: num(x.fields.pm), pw: num(x.fields.pw) }));
+    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', al: (x.fields.al || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), g: num(x.fields.g), gold: num(x.fields.gold), mg: num(x.fields.mg), mw: num(x.fields.mw), pm: num(x.fields.pm), pw: num(x.fields.pw), fl: num(x.fields.fl), flw: num(x.fields.flw), fpm: num(x.fields.fpm), fpw: num(x.fields.fpw) }));
     topErr = ''; topLoadedAt = Date.now(); mgPrizeCheck();
   } catch (e) { topErr = 'Не получилось загрузить топ — проверь интернет'; }
   await AV.load();   // approved avatars (every 5 min at most)
@@ -5364,44 +5366,55 @@ function topPanel() {
   return `<div class="sh-head"><span class="remoji big">🏆</span><div><h2>Топ школ</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'} · по рейтингу 🏅</div></div><button class="x" data-close>✕</button></div>
     ${schoolName() ? `<p>Твоя школа «<b>${escTxt(schoolName())}</b>»${playerNick() ? ` (👤 ${escTxt(playerNick())})` : ''}: рейтинг 🏅 ${ratingTxt()}${myPlace >= 0 ? `, <b>${myPlace + 1}-е место</b>` : rating().n < TOP_MIN ? ` — в топ попадёт после ${TOP_MIN} отзывов (сейчас ${fmt(rating().n)})` : ''}.</p>` : '<p><b>Придумай название школы</b> и впиши своё имя, чтобы школа появилась в топе. Их увидят все игроки.</p>'}
     ${nameBox}${AV.myBox()}${AV.modBox()}
-    <div style="display:flex;gap:6px;margin:10px 0"><button class="btn ${topTab === 's' ? '' : 'ghost'}" data-toptab="s">🏫 Школы</button><button class="btn ${topTab === 'a' ? '' : 'ghost'}" data-toptab="a">🤝 Альянсы</button><button class="btn ${topTab === 'm' ? '' : 'ghost'}" data-toptab="m">🧪 Зелья</button></div>
+    <div style="display:flex;gap:6px;margin:10px 0"><button class="btn ${topTab === 's' ? '' : 'ghost'}" data-toptab="s">🏫 Школы</button><button class="btn ${topTab === 'a' ? '' : 'ghost'}" data-toptab="a">🤝 Альянсы</button><button class="btn ${topTab === 'm' ? '' : 'ghost'}" data-toptab="m">🎮 Игры</button></div>
     ${topTab === 'm' ? mgTopHtml(mine) : topTab === 'a' ? '<h3>Лучшие альянсы</h3><p class="muted">Место альянса — по силе 💪: это сумма рейтингов всех его школ. Каждая школа добавляет альянсу силы.</p>' + allyTopRows() : topErr ? `<p class="muted">${topErr}</p>` : !topList ? '<p class="muted">Загружаю топ…</p>' : rows ? '<h3>Лучшие школы</h3>' + rows : '<p class="muted">Пока в топе никого нет — стань первой школой!</p>'}
     ${topTab === 'm' ? '' : wait.length ? `<p class="muted">Ещё набирают отзывы: ${wait.length} ${wait.length === 1 ? 'школа' : 'школ'}.</p>` : ''}
     ${topTab === 'm' ? '' : `<p class="muted">Места — по рейтингу 🏅 с точностью до сотых; при равном рейтинге выше та школа, у которой больше золотых отзывов. В топ попадают школы, у которых не меньше ${TOP_MIN} отзывов. Рейтинг обновляется раз в минуту, пока игра открыта.</p>`}`;
 }
-// ---- weekly prizes of «Зельеварка» (build 358, her pick «Призы за неделю») ----
+// ---- weekly tables and prizes of the mini-games (build 358 potions, flight added later; her picks «Призы за неделю», «Полёт через кольца») ----
 const MG_PRIZE = [60, 30, 15];   // minutes of «Вдохновение» for places 1-3 of last week (capped at 60 like every boost)
-function mgLastWeek() {   // last week's table of this world: an entry still in that week (mw) or already moved on (pw/pm)
-  const w = MG.weekKey() - 1;
-  return (topList || []).filter((x) => x.w === WORLD).map((x) => ({ ...x, lw: x.mw === w ? x.mg : x.pw === w ? x.pm : 0 })).filter((x) => x.lw > 0).sort((a, b) => b.lw - a.lw);
+const MG_GAMES = {
+  p: { cur: 'mg', w: 'mw', pm: 'pm', pw: 'pw', title: 'Зельеварка', icon: '🧪', mark: ' 🏆', best: () => MG.weekBest(), prev: () => MG.prevBest(), due: () => MG.prizeDue(), claim: () => MG.claim() },
+  f: { cur: 'fl', w: 'flw', pm: 'fpm', pw: 'fpw', title: 'Полёт через кольца', icon: '🪽', mark: ' 🪽', best: () => MG.flightBest(), prev: () => MG.flightPrev(), due: () => MG.flightPrizeDue(), claim: () => MG.claimFlight() },
+};
+let mgSub = 'p';
+function mgLastWeek(g = 'p') {   // last week's table of this world: an entry still in that week or already moved on (previous-week fields)
+  const G = MG_GAMES[g], w = MG.weekKey() - 1;
+  return (topList || []).filter((x) => x.w === WORLD).map((x) => ({ ...x, lw: x[G.w] === w ? x[G.cur] : x[G.pw] === w ? x[G.pm] : 0 })).filter((x) => x.lw > 0).sort((a, b) => b.lw - a.lw);
 }
-const mgChamp = (x) => { const l = topList ? mgLastWeek() : []; return l.length && l[0].id === x.id ? ' 🏆' : ''; };   // last week's potion champion
+const mgChamp = (x) => (topList ? Object.keys(MG_GAMES).map((g) => { const l = mgLastWeek(g); return l.length && l[0].id === x.id ? MG_GAMES[g].mark : ''; }).join('') : '');   // last week's champions
 function mgPrizeCheck() {
-  if (!S || !MG.prizeDue() || !schoolName()) return;
+  if (!S || !schoolName()) return;
   let me = ''; try { me = (JSON.parse(localStorage.getItem(ANON_KEY)) || {}).uid || ''; } catch (e) { /* none */ }
   if (!me) return;
-  const place = mgLastWeek().findIndex((x) => x.id === me + '_w' + WORLD);
-  MG.claim();
-  if (place < 0 || place > 2) return;
-  const min = MG_PRIZE[place], now = Date.now();
-  S.boostEnd = Math.min(now + BOOST_MAX_MIN * 60000, Math.max(now, S.boostEnd || 0) + min * 60000); save(); updateHud();
-  const medal = ['🥇', '🥈', '🥉'][place];
-  openPanel(() => `<div class="sh-head"><span class="remoji big">${medal}</span><div><h2>${place + 1}-е место в Зельеварке!</h2><div class="muted">Итоги прошлой недели</div></div><button class="x" data-close>✕</button></div>
-    <p>Твоя школа «<b>${escTxt(schoolName())}</b>» заняла <b>${place + 1}-е место</b> в турнире «Зельеварки» с результатом <b>${MG.prevBest().toLocaleString('ru-RU')}</b>!</p>
-    <p>Приз: ✨ <b>Вдохновение на ${min} минут</b> — плата за уроки +10%.${place === 0 ? ' А ещё всю эту неделю у названия твоей школы в топе горит 🏆.' : ''}</p>
-    <button class="btn wide" data-close>Ура!</button>`);
+  for (const g of Object.keys(MG_GAMES)) {
+    const G = MG_GAMES[g]; if (!G.due()) continue;
+    const place = mgLastWeek(g).findIndex((x) => x.id === me + '_w' + WORLD), prev = G.prev();
+    G.claim();
+    if (place < 0 || place > 2) continue;
+    const min = MG_PRIZE[place], now = Date.now();
+    S.boostEnd = Math.min(now + BOOST_MAX_MIN * 60000, Math.max(now, S.boostEnd || 0) + min * 60000); save(); updateHud();
+    const medal = ['🥇', '🥈', '🥉'][place];
+    openPanel(() => `<div class="sh-head"><span class="remoji big">${medal}</span><div><h2>${place + 1}-е место: ${G.title}!</h2><div class="muted">Итоги прошлой недели</div></div><button class="x" data-close>✕</button></div>
+      <p>Твоя школа «<b>${escTxt(schoolName())}</b>» заняла <b>${place + 1}-е место</b> в турнире «${G.title}» с результатом <b>${prev.toLocaleString('ru-RU')}</b>!</p>
+      <p>Приз: ✨ <b>Вдохновение на ${min} минут</b> — плата за уроки +10%.${place === 0 ? ` А ещё всю эту неделю у названия твоей школы в топе горит${G.mark}.` : ''}</p>
+      <button class="btn wide" data-close>Ура!</button>`);
+    return;   // one panel at a time; the other game's prize comes with the next top load
+  }
 }
-setTimeout(() => { try { if (MG.prizeDue()) topLoad(); } catch (e) { /* not ready */ } }, 25000);   // the new week's prize does not wait for the top to be opened
-function mgTopHtml(mine) {   // weekly table of the mini-game: every named school of this world with a score this week (no review minimum)
+setTimeout(() => { try { if (MG.prizeDue() || MG.flightPrizeDue()) topLoad(); } catch (e) { /* not ready */ } }, 25000);   // the new week's prize does not wait for the top to be opened
+function mgTopHtml(mine) {   // weekly table of a mini-game: every named school of this world with a score this week (no review minimum)
+  const G = MG_GAMES[mgSub] || MG_GAMES.p;
   const wk = MG.weekKey(), end = ((wk + 1) * 7 - 3) * 86400000, left = Math.max(0, end - Date.now());
   const d = Math.floor(left / 86400000), h = Math.floor(left % 86400000 / 3600000);
-  const list = (topList || []).filter((x) => x.w === WORLD && x.mw === wk && x.mg > 0).sort((a, b) => b.mg - a.mg);
-  const rows = list.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span>${AV.img(x.id)}<div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${mgChamp(x)}${x.al && allyOf(x.al) ? ' ' + allyOf(x.al).emo : ''}${mine(x) ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🧪 ${x.mg.toLocaleString('ru-RU')} очков</div></div></div>`).join('');
-  const my = MG.weekBest(), place = list.findIndex(mine);
-  return `<h3>🧪 Зельеварка: рекорды недели</h3><p class="muted">Лучший раунд каждой школы за эту неделю. Призы: 🥇 ✨ 60 мин Вдохновения и 🏆 у названия на неделю, 🥈 30 мин, 🥉 15 мин. Новая неделя начнётся через ${d ? d + ' д ' : ''}${h} ч.</p>
+  const list = (topList || []).filter((x) => x.w === WORLD && x[G.w] === wk && x[G.cur] > 0).sort((a, b) => b[G.cur] - a[G.cur]);
+  const rows = list.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span>${AV.img(x.id)}<div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${mgChamp(x)}${x.al && allyOf(x.al) ? ' ' + allyOf(x.al).emo : ''}${mine(x) ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">${G.icon} ${x[G.cur].toLocaleString('ru-RU')} очков</div></div></div>`).join('');
+  const my = G.best(), place = list.findIndex(mine), lw = mgLastWeek(mgSub).slice(0, 3);
+  return `<div style="display:flex;gap:6px;margin:4px 0 8px">${Object.keys(MG_GAMES).map((g) => `<button class="btn small ${mgSub === g ? '' : 'ghost'}" data-mgsub="${g}">${MG_GAMES[g].icon} ${MG_GAMES[g].title}</button>`).join('')}</div>
+    <h3>${G.icon} ${G.title}: рекорды недели</h3><p class="muted">Лучший результат каждой школы за эту неделю. Призы: 🥇 ✨ 60 мин Вдохновения и${G.mark} у названия на неделю, 🥈 30 мин, 🥉 15 мин. Новая неделя начнётся через ${d ? d + ' д ' : ''}${h} ч.</p>
     <p>Твой рекорд недели: <b>${my.toLocaleString('ru-RU')}</b>${place >= 0 ? ` — <b>${place + 1}-е место</b>` : my && !schoolName() ? ' (впиши название школы, чтобы попасть в таблицу)' : ''}</p>
-    <button class="btn wide" data-mg>🧪 Играть в Зельеварку</button>
-    ${(() => { const l = mgLastWeek().slice(0, 3); return l.length ? `<h3>Победители прошлой недели</h3>${l.map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k]}</span><div class="grow"><b>${escTxt(x.name)}</b>${mine(x) ? ' <span class="muted">(ты)</span>' : ''}<div class="muted">🧪 ${x.lw.toLocaleString('ru-RU')} очков · приз ✨ ${MG_PRIZE[k]} мин Вдохновения</div></div></div>`).join('')}<h3>Эта неделя</h3>` : ''; })()}
+    <button class="btn wide" data-mg>${G.icon} Играть</button>
+    ${lw.length ? `<h3>Победители прошлой недели</h3>${lw.map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k]}</span><div class="grow"><b>${escTxt(x.name)}</b>${mine(x) ? ' <span class="muted">(ты)</span>' : ''}<div class="muted">${G.icon} ${x.lw.toLocaleString('ru-RU')} очков · приз ✨ ${MG_PRIZE[k]} мин Вдохновения</div></div></div>`).join('')}<h3>Эта неделя</h3>` : ''}
     ${topErr ? `<p class="muted">${topErr}</p>` : !topList ? '<p class="muted">Загружаю…</p>' : rows || '<p class="muted">На этой неделе ещё никто не играл — стань первой!</p>'}`;
 }
 topPanel.still = true;   // has the name field: no automatic re-render while typing
