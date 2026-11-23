@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=315';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=315';
-import { initMinigame } from './minigame.js?v=315';
-import { initChests } from './chests.js?v=315';
+} from './data.js?v=316';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=316';
+import { initMinigame } from './minigame.js?v=316';
+import { initChests } from './chests.js?v=316';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 315;   // keep equal to the ?v= number in index.html
+const BUILD = 316;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2470,7 +2470,7 @@ function layoutOutdoor() {
   const G = GATE_TILE;
   if (WORLD === 1 && COURT) {   // the magic court (her «место игровое с фонтаном, тусовкой учеников»): fountain in the middle, benches round the plaza, trees and flowers in the lawn corners, lanterns on the paths
     const c = courtC(), R = 3.6, W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, add = (n, x, y, sc = 1, fl = false) => { for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (regAt(Math.floor(x) + dx, Math.floor(y) + dy) !== 'hall') return; out.push({ n, x, y, th: 'outdoor', s: sc, flip: fl }); keep.push([x, y]); };
-    add('fountain', c.x + 0.5, c.y + 0.6, 1.45);
+    add('fountain', c.x + 0.89, c.y + 0.89, 1.45);   // her «Не по центру»: the basin's ground centre lands on the mosaic centre
     for (const b of courtBenches()) add(b.f ? 'bench_a' : 'bench_b', b.x, b.y, 1.1);   // 4 round the plaza + one per bench level on the lawns
     for (const [fx, fy] of [[0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // the back-left quarter holds the graduates' garden (centred there since her «по центру»)   // a corner garden in each quarter of the lawn
       const x = COURT.x0 + W * fx, y = COURT.y0 + H * fy;
@@ -3853,7 +3853,7 @@ function render() {
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
   if (WORLD === 1 && COURT) {   // build 279: the fountain has a sign too: it opens the court's upgrades
-    const c = courtC(), q = up(P(c.x + 0.5, c.y + 0.6), 92), pl = signPill(signLabel('⛲ Двор'), '#d6f0ff', 12, 22, '#ffffff', '#2e2340');
+    const c = courtC(), q = up(P(c.x + 0.89, c.y + 0.89), 92), pl = signPill(signLabel('⛲ Двор'), '#d6f0ff', 12, 22, '#ffffff', '#2e2340');
     if (onScreen(q.x, q.y, 160, 40)) ctx.drawImage(pl.cv, q.x - pl.w / 2, q.y - pl.h / 2, pl.w, pl.h);
     signRects.push({ id: 'FOUNT', x0: q.x - pl.tw / 2, y0: q.y - pl.hh, x1: q.x + pl.tw / 2, y1: q.y + pl.hh });
   }
