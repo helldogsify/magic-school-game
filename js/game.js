@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=296';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=296';
-import { initMinigame } from './minigame.js?v=296';
+} from './data.js?v=297';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=297';
+import { initMinigame } from './minigame.js?v=297';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 296;   // keep equal to the ?v= number in index.html
+const BUILD = 297;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2174,6 +2174,7 @@ for (const sp of SPECIES) for (const v of ['', '_back']) { const im = new Image(
 const COURT_POSE = { bench: 'sit', tag: 'run', coin: 'coin', read: 'read', sparks: 'wand', birds: 'birds' };
 const COURT_POSE_ART = SPECIES.flatMap((sp) => [sp, sp + '_t1', sp + '_t2', sp + '_t3', sp + '_t4']);   // every world-1 look (build 273, her «Делай»); a missing picture falls back to the standing sprite
 if (WORLD === 1) for (const k of COURT_POSE_ART) for (const p of Object.values(COURT_POSE)) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${k}_k_${p}.png?v=2`; sprites[k + '_k_' + p] = im; }
+const COURT_POSE_K = 1.2;   // plan item 6, her pick «1»: students busy in the court are drawn 1.2x bigger (small at the normal zoom)
 function courtPose(a) {   // the pose picture of a student busy in the court, or null (then the usual sprite and the icons)
   if (WORLD !== 1 || !a.goal || a.goal.t !== 'k' || !COURT_POSE[a.act]) return null;
   if (!(a.state === 'court' || (a.act === 'tag' && a.path && a.path.length))) return null;
@@ -3104,7 +3105,7 @@ function shade(hex, d) { const n = parseInt(hex.slice(1), 16); const f = (v) => 
 
 function drawCreature(a, x, y, h, extra) {
   const sp0 = a.sp; h *= SP_H[sp0] || 1;   // world-2 wide creatures (snail, salamander) are drawn lower
-  const cpose = courtPose(a); if (cpose) h *= cpose.naturalHeight / 420 * 1.18;   // pose sheets keep their sizes relative to the tallest pose (420 px)
+  const cpose = courtPose(a); if (cpose) h *= cpose.naturalHeight / 420 * 1.18 * COURT_POSE_K;   // pose sheets keep their sizes relative to the tallest pose (420 px)
   const rk = SPECIES.includes(a.sp) ? (a.rk || 0) : 0, tr = Math.min(4, rk), mf = rk === 5 && sprites[a.sp + '_m' + (a.el || 0) + (a.back ? '_back' : '')];
   const tf = mf && mf.complete && mf.naturalWidth ? mf : tr && sprites[a.sp + '_t' + tr + (a.back ? '_back' : '')];
   if (rk === 5) {   // master of an element: a glow in the element's colour (until the masters get their own art)
