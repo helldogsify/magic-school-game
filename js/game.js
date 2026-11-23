@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=405';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=405';
-import { initMinigame } from './minigame.js?v=405';
-import { initChests } from './chests.js?v=405';
-import { initLore } from './lore.js?v=405';
-import { initAvatar } from './avatar.js?v=405';
+} from './data.js?v=406';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=406';
+import { initMinigame } from './minigame.js?v=406';
+import { initChests } from './chests.js?v=406';
+import { initLore } from './lore.js?v=406';
+import { initAvatar } from './avatar.js?v=406';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 405;   // keep equal to the ?v= number in index.html
+const BUILD = 406;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1596,7 +1596,7 @@ function hintOnce(key, emo, title, text) {   // a short explanation the first ti
 function stepIncidents(dt, live) {
   S.inc ||= {};
   if (MG.isOpen()) return;   // build 278 (tester Соня): the school is quiet while the player brews potions
-  for (const [i, x] of Object.entries(S.inc)) { x.t = (x.t || 0) + dt; if (x.t > INC_AUTO_AT(dirLvl('keeper'))) delete S.inc[i]; }
+  for (const [i, x] of Object.entries(S.inc)) { x.t = (x.t || 0) + dt; if (x.t > (live ? INC_AUTO_AT(dirLvl('keeper')) : Math.min(30, INC_AUTO_AT(dirLvl('keeper'))))) delete S.inc[i]; }   // away (catch-up) the caretaker fixes it within 30 s: an incident left open stopped its class for 10 min of the catch-up and emptied the rating (tester О-Дин: 3.9 -> 1.9 after 15 min away)
   if (!live || S.stats.graduated < 5 || tourStep >= 0) return;   // never while the game is closed, nor for a brand-new school
   incT -= dt; if (incT > 0) return;
   incT = (INC_MIN + Math.random() * (INC_MAX - INC_MIN)) * (1 + 0.1 * dirLvl('keeper'));
