@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=343';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=343';
-import { initMinigame } from './minigame.js?v=343';
-import { initChests } from './chests.js?v=343';
-import { initAvatar } from './avatar.js?v=343';
+} from './data.js?v=344';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=344';
+import { initMinigame } from './minigame.js?v=344';
+import { initChests } from './chests.js?v=344';
+import { initAvatar } from './avatar.js?v=344';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -21,7 +21,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 343;   // keep equal to the ?v= number in index.html
+const BUILD = 344;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1327,7 +1327,12 @@ function finishReading(a) {
   route(a, a.goal.i);
 }
 const shopLine = [];
-function shopPlace(a) { const k = shopLine.indexOf(a), sp = SHOP_SPOTS(SLOTS.SHOP)[Math.min(k, 5)]; a.state = 'walk'; walk(a, sp.x, sp.y, () => { a.state = k === 0 ? 'shopping' : 'shopwait'; a.t = 0; a.dur = shopTime(); a.back = true; }); }
+function lineSort(line, place) {   // students who reached the line go ahead of those still walking there
+  const before = line.slice(), sorted = line.filter((a) => a.inLine).concat(line.filter((a) => !a.inLine));
+  if (sorted.every((a, k) => a === before[k])) return; line.length = 0; line.push(...sorted);
+  sorted.forEach((a, k) => { if (a !== before[k]) place(a); });
+}
+function shopPlace(a) { const k = shopLine.indexOf(a), sp = SHOP_SPOTS(SLOTS.SHOP)[Math.min(k, 5)]; a.state = 'walk'; walk(a, sp.x, sp.y, () => { a.inLine = true; if (lineSort(shopLine, shopPlace), shopLine.indexOf(a) !== k) return; a.state = k === 0 ? 'shopping' : 'shopwait'; a.t = 0; a.dur = shopTime(); a.back = true; }); }
 function goShop(a, next) {
   if (shopLine.length >= 6) { route(a, next); return; }   // the line is full: maybe next time
   a.goal = { t: 'shop', n: next }; a.c = -1; shopLine.push(a); shopPlace(a);
@@ -1336,11 +1341,11 @@ function finishShopping(a) {
   const gem = WORLD === 2 && S.w2 && S.w2.gems > 0; if (gem) S.w2.gems--;   // world 2: an amulet with a gem sells for x3
   const p = shopPrice() * (gem ? 3 : 1); earn(p, a.x, a.y, '#d96b9f', 44); if (gem && !ffwd) popup('💎', a.x + 0.3, a.y - 0.5, '#7b5cd6', 50); S.stats.shop = (S.stats.shop || 0) + 1;
   a.mood = Math.min(100, (a.mood ?? 80) + 15); popup(rnd(['🍭', '🧁', '🪶', '📜', '🍬']), a.x - 0.3, a.y - 0.3, '#d96b9f', 60);
-  a.back = false; const k = shopLine.indexOf(a); if (k >= 0) shopLine.splice(k, 1); route(a, a.goal.n);
+  a.back = false; a.inLine = false; const k = shopLine.indexOf(a); if (k >= 0) shopLine.splice(k, 1); route(a, a.goal.n);
   shopLine.forEach(shopPlace);   // the line moves up
 }
 const cantLine = [], cantSeats = Array(12).fill(null);
-function cantPlace(a) { const k = cantLine.indexOf(a), sp = CANT_SPOTS(SLOTS.CANT)[Math.min(k, 5)]; a.state = 'walk'; walk(a, sp.x, sp.y, () => { a.state = k === 0 ? 'cantbuy' : 'cantwait'; a.t = 0; a.dur = cantServe(); a.back = true; }); }
+function cantPlace(a) { const k = cantLine.indexOf(a), sp = CANT_SPOTS(SLOTS.CANT)[Math.min(k, 5)]; a.state = 'walk'; walk(a, sp.x, sp.y, () => { a.inLine = true; if (lineSort(cantLine, cantPlace), cantLine.indexOf(a) !== k) return; a.state = k === 0 ? 'cantbuy' : 'cantwait'; a.t = 0; a.dur = cantServe(); a.back = true; }); }
 function goCanteen(a, next) {
   if (cantLine.length >= 6) { route(a, next); return; }   // the line is full: maybe next time
   a.goal = { t: 'cant', n: next }; a.c = -1; cantLine.push(a); cantPlace(a);
@@ -1350,7 +1355,7 @@ function cantServed(a) {   // the tray is ready: pay, take a seat (or wait at th
   const k = freeCantSeat(); if (k < 0) { a.t = a.dur; return; }
   earn(cantPrice(), a.x, a.y, '#e08a3d', 44); S.stats.cant = (S.stats.cant || 0) + 1;
   a.dish = rnd(cantDishes()); a.cseat = k; cantSeats[k] = a;
-  a.back = false; const i = cantLine.indexOf(a); if (i >= 0) cantLine.splice(i, 1);
+  a.back = false; a.inLine = false; const i = cantLine.indexOf(a); if (i >= 0) cantLine.splice(i, 1);
   const p = cantSeatPos(k); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'eat'; a.t = 0; a.dur = CANT_EAT; a.flip = p.flip; a.back = false; });
   cantLine.forEach(cantPlace);   // the line moves up
 }
