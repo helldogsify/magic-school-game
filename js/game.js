@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=346';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=346';
-import { initMinigame } from './minigame.js?v=346';
-import { initChests } from './chests.js?v=346';
-import { initAvatar } from './avatar.js?v=346';
+} from './data.js?v=347';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=347';
+import { initMinigame } from './minigame.js?v=347';
+import { initChests } from './chests.js?v=347';
+import { initAvatar } from './avatar.js?v=347';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -21,7 +21,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 346;   // keep equal to the ?v= number in index.html
+const BUILD = 347;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -136,9 +136,10 @@ const CANT_SPOTS = (s) => [0, 1, 2, 3, 4, 5].map((k) => ({ x: s.x0 + 4.7, y: s.y
 const CANT_COOK = (s) => ({ x: s.x0 + 4.6, y: s.y0 + 0.75 });
 const DIR_COST = 50000, DIR_STARS = 2;
 const bReady = (o) => !!(o && o.built && Date.now() >= (o.end || 0));   // built and the construction time is over
-const BTIME = { SHOP: 600, TRADE: 600, DIR: 1800, EXPED: 1800 };
-const bObj = (id) => (id === 'SHOP' ? S.shop : id === 'TRADE' ? S.w2 && S.w2.trade : id === 'EXPED' ? S.w2 && S.w2.exped : id === 'DIR' && WORLD === 2 ? S.w2 && S.w2.throne : null);
-const dirBuilt = () => !!(S && (WORLD === 2 ? S.w2 && bReady(S.w2.throne) : S.dirBuilt));
+const BTIME = { SHOP: 600, TRADE: 600, DIR: 1800, EXPED: 1800, TOWER: 1800, DORM2: 600 };
+const bObj = (id) => (id === 'SHOP' ? S.shop : id === 'TRADE' ? S.w2 && S.w2.trade : id === 'EXPED' ? S.w2 && S.w2.exped : id === 'DIR' ? (WORLD === 2 ? S.w2 && S.w2.throne : { built: S.dirBuilt, end: S.dirEnd })
+  : id === 'TOWER' ? S.tower : id === 'DORM2' ? S.dormUp && { built: S.dormUp.room2, end: S.dormUp.room2End } : null);
+const dirBuilt = () => !!(S && (WORLD === 2 ? S.w2 && bReady(S.w2.throne) : S.dirBuilt && Date.now() >= (S.dirEnd || 0)));
 const dirLvl = (k) => (S && S.dir && S.dir[k]) || 0;
 const dirCost = (k) => paced(DIR_UP[k].base * Math.pow(DIR_UP[k].k, dirLvl(k)), dirLvl(k) + 1);
 const refundRateAt = (l) => 3 - 0.25 * l;                 // 300% -> 100%
@@ -896,7 +897,7 @@ dormSpots();
 let CONCIERGE = { x: DS.x0 - 0.55, y: DS.y0 + 1.1 };
 const MAX_CONC = 10, DORM2_COST = 1500;
 const dormExpandCost = (k) => paced(2500 * Math.pow(3, dormSize(k) - 1) * (k === 2 ? 1.5 : 1), dormSize(k));
-const dorm2Built = () => !!(S && S.dormUp && S.dormUp.room2);
+const dorm2Built = () => !!(S && S.dormUp && S.dormUp.room2 && Date.now() >= (S.dormUp.room2End || 0));
 const cap1 = () => 4 * dormRows(1), cap2 = () => 4 * dormRows(2);
 const maxBeds = () => cap1() + (dorm2Built() ? cap2() : 0);
 const dormUp = () => (S.dormUp ||= { beds: 1, conc: 1 });
@@ -1795,7 +1796,7 @@ const TOWER_BASE = 4, TOWER_MAXUP = 16, TOWER_WAIT = 3;
 const TW = WORLD === 2 ? { name: 'Чертог Хранителей', emo: '🗝️', inN: 'в Чертоге Хранителей', inS: 'в Чертоге', elder: 'Старший мастер', elders: 'Старшие мастера', eldersD: 'Старшим мастерам', elderI: 'Старшим мастером', master: 'Хранитель', masterA: 'Хранителя', masters: 'Хранители', mastersG: 'Хранителей', masterTitle: 'Хранитель ', mage: 'Умелец', helpers: 'Помощники-умельцы', craft: 'своё ремесло' }
   : { name: 'Башня мастеров', emo: '🏰', inN: 'в Башне мастеров', inS: 'в башне', elder: 'Старший маг', elders: 'Старшие маги', eldersD: 'Старшим магам', elderI: 'Старшим магом', master: 'Мастер', masterA: 'Мастера', masters: 'Мастера', mastersG: 'Мастеров', masterTitle: 'Мастер ', mage: 'Маг', helpers: 'Помощники-маги', craft: 'магию' };   // tower texts per world
 const towerUp = () => (S.tower ||= { built: false, cap: 0, res: [], wait: [] });
-const towerOpen = () => WORLD <= 2 && !!(S && S.tower && S.tower.built);
+const towerOpen = () => WORLD <= 2 && !!(S && bReady(S.tower));
 const towerCap = () => TOWER_BASE + towerUp().cap;
 const towerCost = () => BAL.tower;
 const towerCapCost = () => paced(BAL.tower * 0.4 * Math.pow(2.3, towerUp().cap), towerUp().cap + 1);
@@ -2491,7 +2492,7 @@ const up = (p, h) => ({ x: p.x, y: p.y - h });
 const stat = document.createElement('canvas'); const sctx = stat.getContext('2d');
 let staticKey = '', staticN = 0;
 const statQ = () => Math.sqrt(12e6 / (SW * SH));   // px per world unit: always the iOS canvas limit, so zooming never redraws the whole ground (it froze the game on every pinch, her report build 211)
-function statKey() { return ['SHOP', 'TRADE', 'EXPED', 'DIR'].map((k) => { const o = bObj(k); return o && o.built ? (bReady(o) ? 'R' : 'b') : '-'; }).join('') + (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + statQ().toFixed(2); }
+function statKey() { return ['SHOP', 'TRADE', 'EXPED', 'DIR', 'TOWER', 'DORM2'].map((k) => { const o = bObj(k); return o && o.built ? (bReady(o) ? 'R' : 'b') : '-'; }).join('') + (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + statQ().toFixed(2); }
 // ======================= territory (roadmap step 2, her wish 2026-11-22: «очень волшебные и красивые с большим количеством деталей») =======================
 // Grass and outdoor paths are iso textures; the lawn around the school is dotted with magic trees, bushes and small things,
 // placed by a fixed hash of the tile so the picture never changes between visits (only where nothing is built or planned).
@@ -4011,7 +4012,7 @@ function render() {
     T.res.forEach((r, k) => { if (r.away || r.mc) return; const p = towerPos(k); add(p.x, p.y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: p.flip, path: p.moving ? [1] : [], ph: k * 1.7 + performance.now() / 1000 }, p.x, p.y, 30)); });
     T.wait.forEach((r, k) => { const s = SLOTS.TOWER, x = s.x0 + 2.4 + k * 0.7, y = s.y0 - 0.5; add(x, y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: true, path: [], ph: k }, x, y, 30, (sx, sy) => emoji('⏳', sx + 12, sy - 34, 12))); });
   }
-  for (const id of ['SHOP', 'TRADE', 'EXPED', 'DIR']) { const o = bObj(id), s = SLOTS[id]; if (!s || !o || !o.built || Date.now() >= (o.end || 0)) continue;
+  for (const id of ['SHOP', 'TRADE', 'EXPED', 'DIR', 'TOWER', 'DORM2']) { const o = bObj(id), s = SLOTS[id]; if (!s || !o || !o.built || Date.now() >= (o.end || 0)) continue;
     const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2, c = P(cx, cy), left = Math.ceil((o.end - Date.now()) / 1000);
     add(cx, cy, () => { emoji('🏗️', c.x, c.y - 14, 30); ctx.fillStyle = '#fffaf2ee'; rr(c.x - 40, c.y + 8, 80, 18, 9); ctx.fill(); text(mmss(left), c.x, c.y + 17, 11, '#5a3fb0'); }); }
   if (cantBuilt() && SLOTS.CANT) {   // canteen: counter with pots, tables; the cook stands behind the counter (dragon art comes later)
@@ -4934,7 +4935,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'ccoin') { if (courtUp().coin < MAX_COIN && spend(coinCost())) courtUp().coin++; }
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
-  else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
+  else if (d.act === 'dorm2') { if (!(S.dormUp && S.dormUp.room2) && spend(DORM2_COST)) { dormUp().room2 = true; dormUp().room2End = Date.now() + BTIME.DORM2 * 1000; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
   else if (d.act === 'formlvl') { const f = formSt(d.k); if (formReady(d.k) && spend(formCost(d.k))) { f.xp -= formNeed(f.lvl); f.lvl++; toast(`✨ ${formName(d.k)}: уровень ${f.lvl}!`); } }
   else if (d.act === 'thronebuild') { const gi = guardsIdx(); if (!throne().built && gi >= 0 && isOpen(gi) && spend(THRONE_COST)) { throne().built = true; throne().end = Date.now() + BTIME.DIR * 1000; staticKey = ''; toast('👑 Трон старейшины готов! Слушайте гул из глубин'); } }
   else if (d.act === 'throneup') { const k = d.k; if ((throne()[k] || 0) < THRONE_MAX && spend(thCost(k))) throne()[k] = (throne()[k] || 0) + 1; }
@@ -4947,8 +4948,8 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'store') { if (W2().store < MAX_STORE && spend(storeCost())) { W2().store++; toast('📦 Склад руды больше!'); } }
   else if (d.act === 'exlvl') { if (exLvl(i) < MAX_EX_LVL && spend(exCost(i))) st.ex = exLvl(i) + 1; }
   else if (d.act === 'xpllvl') { if (xplLvl(i) < MAX_XPL_LVL && spend(xplCost(i))) st.xpl = xplLvl(i) + 1; }
-  else if (d.act === 'shopbuild') { if (!shopOpen() && spend(SHOP_COST)) { shopUp().built = true; S.shop.end = Date.now() + BTIME.SHOP * 1000; staticKey = ''; toast(WORLD === 2 ? '💎 Самоцветная лавка открыта!' : '🛍️ Лавка открыта!'); panel = shopPanel; } }
-  else if (d.act === 'towerbuild') { if (!towerOpen() && isOpen(NCLS - 1) && spend(towerCost())) { towerUp().built = true; staticKey = ''; toast(WORLD === 2 ? '🗝️ Чертог Хранителей построен!' : '🏰 Башня мастеров построена!'); panel = towerPanel; } }
+  else if (d.act === 'shopbuild') { if (!(S.shop && S.shop.built) && spend(SHOP_COST)) { shopUp().built = true; S.shop.end = Date.now() + BTIME.SHOP * 1000; staticKey = ''; toast(WORLD === 2 ? '💎 Самоцветная лавка открыта!' : '🛍️ Лавка открыта!'); panel = shopPanel; } }
+  else if (d.act === 'towerbuild') { if (!(S.tower && S.tower.built) && isOpen(NCLS - 1) && spend(towerCost())) { towerUp().built = true; S.tower.end = Date.now() + BTIME.TOWER * 1000; staticKey = ''; toast(WORLD === 2 ? '🗝️ Чертог Хранителей построен!' : '🏰 Башня мастеров построена!'); panel = towerPanel; } }
   else if (d.act === 'towerprep') { if (retakeLvl() < RETAKE_MAX && spend(retakeCost())) { towerUp().prep = retakeLvl() + 1; towerUp().rt = Math.min(towerUp().rt ?? 1e9, retakeInterval()); } }
   else if (d.act === 'towercap') { if (towerUp().cap < TOWER_MAXUP && spend(towerCapCost())) { towerUp().cap++; towerPull(); } }
   else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && !r.away && confirm(`Отпустить ${r.name} (${resTitle(r)})? Школа получит 🎁 ${fmt(releaseReward(r))}.`)) { earn(releaseReward(r)); T.res.splice(+d.k, 1); towerPull(); toast(`🎁 ${r.name} отправился в большое путешествие`); } }
@@ -4957,7 +4958,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'cantbuild') { if (!cantBuilt() && isOpen(CANT_NEED) && spend(CANT_COST)) { const u = cantUp(); u.built = true; u.end = Date.now() + CANT_TIME * 1000; staticKey = ''; toast(WORLD === 2 ? '🏗️ Пиршественный зал строится!' : '🏗️ Столовая строится!'); panel = cantPanel; } }
   else if (d.act === 'cantup') { const k = d.k; if (cantUp()[k] < CANT_MAX[k] && spend(cantCost(k))) cantUp()[k]++; }
   else if (d.act === 'shopup') { const k = d.k; if (shopUp()[k] < SHOP_MAX && spend(shopCost(k))) shopUp()[k]++; }
-  else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!dirBuilt() && S.coins >= DIR_COST && spendStars(DIR_STARS) && spend(DIR_COST)) { S.dirBuilt = true; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
+  else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!S.dirBuilt && S.coins >= DIR_COST && spendStars(DIR_STARS) && spend(DIR_COST)) { S.dirBuilt = true; S.dirEnd = Date.now() + BTIME.DIR * 1000; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
   else if (d.act === 'plan') { if (PLANS[d.k]) { boss().plan = d.k; toast(`${PLANS[d.k].emo} Договор: ${PLANS[d.k].name}`); } }
   else if (d.act === 'camp') startCamp(d.k);
   else if (d.act === 'mail') { answerMail(d.k); if (panel === mailPanel) refreshPanel(); }
