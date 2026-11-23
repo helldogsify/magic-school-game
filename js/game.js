@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=344';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=344';
-import { initMinigame } from './minigame.js?v=344';
-import { initChests } from './chests.js?v=344';
-import { initAvatar } from './avatar.js?v=344';
+} from './data.js?v=345';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=345';
+import { initMinigame } from './minigame.js?v=345';
+import { initChests } from './chests.js?v=345';
+import { initAvatar } from './avatar.js?v=345';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -21,7 +21,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 344;   // keep equal to the ?v= number in index.html
+const BUILD = 345;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -107,7 +107,7 @@ const DIR_UP = {
 // ---- the school shop (her ruling 2026-11-21): between lessons some students drop in to buy a treat; coins + mood ----
 const SHOP_COST = 150000, SHOP_MAX = 10;
 const shopUp = () => (S.shop ||= { built: false, seller: 1, shelves: 1, goods: 1 });
-const shopOpen = () => WORLD <= 2 && !!(S && S.shop && S.shop.built);
+const shopOpen = () => WORLD <= 2 && !!(S && bReady(S.shop));
 const shopChance = () => 0.12 + 0.03 * (shopUp().shelves - 1);                 // share of students who drop in after a lesson
 const shopTime = () => 2.2 * Math.pow(0.88, shopUp().seller - 1);              // seconds to serve one
 const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1))));
@@ -135,7 +135,10 @@ const cantSeatPos = (k) => { const t = CANT_TABLES(SLOTS.CANT)[k >> 1]; return {
 const CANT_SPOTS = (s) => [0, 1, 2, 3, 4, 5].map((k) => ({ x: s.x0 + 4.7, y: s.y0 + 2.0 + k * 0.62 }));   // the line in front of the counter
 const CANT_COOK = (s) => ({ x: s.x0 + 4.6, y: s.y0 + 0.75 });
 const DIR_COST = 50000, DIR_STARS = 2;
-const dirBuilt = () => !!(S && (WORLD === 2 ? S.w2 && S.w2.throne && S.w2.throne.built : S.dirBuilt));
+const bReady = (o) => !!(o && o.built && Date.now() >= (o.end || 0));   // built and the construction time is over
+const BTIME = { SHOP: 600, TRADE: 600, DIR: 1800, EXPED: 1800 };
+const bObj = (id) => (id === 'SHOP' ? S.shop : id === 'TRADE' ? S.w2 && S.w2.trade : id === 'EXPED' ? S.w2 && S.w2.exped : id === 'DIR' && WORLD === 2 ? S.w2 && S.w2.throne : null);
+const dirBuilt = () => !!(S && (WORLD === 2 ? S.w2 && bReady(S.w2.throne) : S.dirBuilt));
 const dirLvl = (k) => (S && S.dir && S.dir[k]) || 0;
 const dirCost = (k) => paced(DIR_UP[k].base * Math.pow(DIR_UP[k].k, dirLvl(k)), dirLvl(k) + 1);
 const refundRateAt = (l) => 3 - 0.25 * l;                 // 300% -> 100%
@@ -1150,7 +1153,7 @@ function w2Lesson(i, p) {
 // and comes back after the trip with coins. Works offline (stepWorld). Her plan 2026-11-22: about a third of world-2 income.
 const TRADE_COST = 20000, MAX_TUP = 15;
 const trade = () => { const w = W2(); return (w.trade ||= { built: false, wagon: 1, road: 1, price: 1, load: 0, gems: 0, away: 0, value: 0 }); };
-const tradeOpen = () => WORLD === 2 && !!(S && S.w2 && S.w2.trade && S.w2.trade.built);
+const tradeOpen = () => WORLD === 2 && !!(S && S.w2 && bReady(S.w2.trade));
 const wagonCap = () => 20 + 10 * (trade().wagon - 1);
 const tripTime = () => Math.round(180 * Math.pow(0.9, trade().road - 1));
 const itemPrice = () => Math.round(tuition(1) * 1.4 * (1 + 0.12 * (trade().price - 1)));
@@ -1245,7 +1248,7 @@ const DEPTHS = [{ name: 'Ближние штольни', emo: '⛏️', min: 30,
   { name: 'Корни горы', emo: '🔥', min: 480, need: 40, relic: 1, pool: 12, gems: [8, 12] }];
 const EXPED_MAX = 10;
 const exped = () => { const w = W2(); return (w.exped ||= { built: false, seekers: 0, gear: 0, camp: 0, cur: null, relics: {}, trips: 0 }); };
-const expedOpen = () => WORLD === 2 && !!(S && S.w2 && S.w2.exped && S.w2.exped.built);
+const expedOpen = () => WORLD === 2 && !!(S && S.w2 && bReady(S.w2.exped));
 const seekCap = () => 50 + 25 * (exped().camp || 0);
 const tripMin = (d) => Math.round(DEPTHS[d].min * Math.pow(0.92, exped().gear || 0));
 const exCostUp = (k) => paced(EXPED_COST * 0.15 * Math.pow(2.0, exped()[k] || 0), (exped()[k] || 0) + 1);
@@ -2487,7 +2490,7 @@ const up = (p, h) => ({ x: p.x, y: p.y - h });
 const stat = document.createElement('canvas'); const sctx = stat.getContext('2d');
 let staticKey = '', staticN = 0;
 const statQ = () => Math.sqrt(12e6 / (SW * SH));   // px per world unit: always the iOS canvas limit, so zooming never redraws the whole ground (it froze the game on every pinch, her report build 211)
-function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + statQ().toFixed(2); }
+function statKey() { return ['SHOP', 'TRADE', 'EXPED', 'DIR'].map((k) => { const o = bObj(k); return o && o.built ? (bReady(o) ? 'R' : 'b') : '-'; }).join('') + (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.classes.map((c, i) => (c.built ? (isOpen(i) ? 'o' : 'b') : (S.classes.findIndex((q) => !q.built) === i ? 'n' : 'l'))).join('') + statQ().toFixed(2); }
 // ======================= territory (roadmap step 2, her wish 2026-11-22: «очень волшебные и красивые с большим количеством деталей») =======================
 // Grass and outdoor paths are iso textures; the lawn around the school is dotted with magic trees, bushes and small things,
 // placed by a fixed hash of the tile so the picture never changes between visits (only where nothing is built or planned).
@@ -4005,6 +4008,9 @@ function render() {
     T.res.forEach((r, k) => { if (r.away || r.mc) return; const p = towerPos(k); add(p.x, p.y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: p.flip, path: p.moving ? [1] : [], ph: k * 1.7 + performance.now() / 1000 }, p.x, p.y, 30)); });
     T.wait.forEach((r, k) => { const s = SLOTS.TOWER, x = s.x0 + 2.4 + k * 0.7, y = s.y0 - 0.5; add(x, y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: true, path: [], ph: k }, x, y, 30, (sx, sy) => emoji('⏳', sx + 12, sy - 34, 12))); });
   }
+  for (const id of ['SHOP', 'TRADE', 'EXPED', 'DIR']) { const o = bObj(id), s = SLOTS[id]; if (!s || !o || !o.built || Date.now() >= (o.end || 0)) continue;
+    const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2, c = P(cx, cy), left = Math.ceil((o.end - Date.now()) / 1000);
+    add(cx, cy, () => { emoji('🏗️', c.x, c.y - 14, 30); ctx.fillStyle = '#fffaf2ee'; rr(c.x - 40, c.y + 8, 80, 18, 9); ctx.fill(); text(mmss(left), c.x, c.y + 17, 11, '#5a3fb0'); }); }
   if (cantBuilt() && SLOTS.CANT) {   // canteen: counter with pots, tables; the cook stands behind the counter (dragon art comes later)
     const s = SLOTS.CANT;
     if (!cantOpen()) { const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2, c = P(cx, cy), left = Math.max(0, Math.ceil((S.cant.end - Date.now()) / 1000));
@@ -4841,6 +4847,7 @@ function openRoom(id) {
     if (id === 'GARDEN') { toast(`🎓 Выпускников: ${S.stats.graduated}`); return; }
     if (id === 'LIB') { openPanel(libPanel); return; }
     if (id === 'DIR') { openPanel(WORLD === 2 ? (dirBuilt() ? thronePanel : throneBuildPanel) : dirBuilt() ? dirPanel : dirBuildPanel); return; }
+    { const o = bObj(id); if (o && o.built && Date.now() < (o.end || 0)) { toast(`🏗️ Идёт стройка: ещё ${mmss((o.end - Date.now()) / 1000)}`); return; } }
     if (id === 'SHOP') { openPanel(shopPanel); return; }
     if (id === 'CANT') { openPanel(cantPanel); return; }
     if (id === 'TOWER') { openPanel(towerPanel); return; }
@@ -4926,18 +4933,18 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
   else if (d.act === 'formlvl') { const f = formSt(d.k); if (formReady(d.k) && spend(formCost(d.k))) { f.xp -= formNeed(f.lvl); f.lvl++; toast(`✨ ${formName(d.k)}: уровень ${f.lvl}!`); } }
-  else if (d.act === 'thronebuild') { const gi = guardsIdx(); if (!throne().built && gi >= 0 && isOpen(gi) && spend(THRONE_COST)) { throne().built = true; staticKey = ''; toast('👑 Трон старейшины готов! Слушайте гул из глубин'); } }
+  else if (d.act === 'thronebuild') { const gi = guardsIdx(); if (!throne().built && gi >= 0 && isOpen(gi) && spend(THRONE_COST)) { throne().built = true; throne().end = Date.now() + BTIME.DIR * 1000; staticKey = ''; toast('👑 Трон старейшины готов! Слушайте гул из глубин'); } }
   else if (d.act === 'throneup') { const k = d.k; if ((throne()[k] || 0) < THRONE_MAX && spend(thCost(k))) throne()[k] = (throne()[k] || 0) + 1; }
-  else if (d.act === 'expedbuild') { const gi = CLASSES.findIndex((c) => c.id === EXPED_NEED); if (!exped().built && gi >= 0 && isOpen(gi) && spend(EXPED_COST)) { exped().built = true; corrKey = ''; staticKey = ''; toast('🕳️ Врата глубин открыты! Выпускники станут искателями'); } }
+  else if (d.act === 'expedbuild') { const gi = CLASSES.findIndex((c) => c.id === EXPED_NEED); if (!exped().built && gi >= 0 && isOpen(gi) && spend(EXPED_COST)) { exped().built = true; exped().end = Date.now() + BTIME.EXPED * 1000; corrKey = ''; staticKey = ''; toast('🕳️ Врата глубин открыты! Выпускники станут искателями'); } }
   else if (d.act === 'exped') { sendExped(+d.k); }
   else if (d.act === 'expedup') { const k = d.k; if ((exped()[k] || 0) < EXPED_MAX && spend(exCostUp(k))) exped()[k] = (exped()[k] || 0) + 1; }
-  else if (d.act === 'tradebuild') { const fi = CLASSES.findIndex((c) => c.id === 'forge'); if (!trade().built && fi >= 0 && isOpen(fi) && spend(TRADE_COST)) { trade().built = true; corrKey = ''; staticKey = ''; toast('🐐 Торговый двор построен!'); } }
+  else if (d.act === 'tradebuild') { const fi = CLASSES.findIndex((c) => c.id === 'forge'); if (!trade().built && fi >= 0 && isOpen(fi) && spend(TRADE_COST)) { trade().built = true; trade().end = Date.now() + BTIME.TRADE * 1000; corrKey = ''; staticKey = ''; toast('🐐 Торговый двор построен!'); } }
   else if (d.act === 'caravan') sendCaravan();
   else if (d.act === 'tup') { const k = d.k; if (trade()[k] < MAX_TUP && spend(tupCost(k))) trade()[k]++; }
   else if (d.act === 'store') { if (W2().store < MAX_STORE && spend(storeCost())) { W2().store++; toast('📦 Склад руды больше!'); } }
   else if (d.act === 'exlvl') { if (exLvl(i) < MAX_EX_LVL && spend(exCost(i))) st.ex = exLvl(i) + 1; }
   else if (d.act === 'xpllvl') { if (xplLvl(i) < MAX_XPL_LVL && spend(xplCost(i))) st.xpl = xplLvl(i) + 1; }
-  else if (d.act === 'shopbuild') { if (!shopOpen() && spend(SHOP_COST)) { shopUp().built = true; staticKey = ''; toast(WORLD === 2 ? '💎 Самоцветная лавка открыта!' : '🛍️ Лавка открыта!'); panel = shopPanel; } }
+  else if (d.act === 'shopbuild') { if (!shopOpen() && spend(SHOP_COST)) { shopUp().built = true; S.shop.end = Date.now() + BTIME.SHOP * 1000; staticKey = ''; toast(WORLD === 2 ? '💎 Самоцветная лавка открыта!' : '🛍️ Лавка открыта!'); panel = shopPanel; } }
   else if (d.act === 'towerbuild') { if (!towerOpen() && isOpen(NCLS - 1) && spend(towerCost())) { towerUp().built = true; staticKey = ''; toast(WORLD === 2 ? '🗝️ Чертог Хранителей построен!' : '🏰 Башня мастеров построена!'); panel = towerPanel; } }
   else if (d.act === 'towerprep') { if (retakeLvl() < RETAKE_MAX && spend(retakeCost())) { towerUp().prep = retakeLvl() + 1; towerUp().rt = Math.min(towerUp().rt ?? 1e9, retakeInterval()); } }
   else if (d.act === 'towercap') { if (towerUp().cap < TOWER_MAXUP && spend(towerCapCost())) { towerUp().cap++; towerPull(); } }
