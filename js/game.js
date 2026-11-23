@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=272';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=272';
+} from './data.js?v=273';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=273';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 272;   // keep equal to the ?v= number in index.html
+const BUILD = 273;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -851,7 +851,7 @@ const courtCap = () => (WORLD === 1 && COURT ? COURT_CAP0 : 0);
 const courtRoom = () => courtList.length < courtCap();
 const courtFor = (i) => courtList.reduce((n, a) => n + (a.goal && a.goal.i === i && !a.goal.brk ? 1 : 0), 0);
 const COURT_MOOD = 0.6;   // mood per second while waiting in the court
-const COURT_BREAK = 0.2;  // share of students who take a short break in the court after a lesson (the court stays alive when nobody waits)
+const COURT_BREAK = 0.3;  // share of students who take a short break in the court after a lesson (the court stays alive when nobody waits)
 const courtBreakOk = () => courtCap() > 0 && courtList.length < courtCap() - 4;   // breaks leave room for those who really wait
 const COURT_ACTS = ['bench', 'bench', 'tag', 'coin', 'sparks', 'birds', 'read'];
 function courtSpots() {   // fixed points per activity (a small fixed set keeps the path cache warm)
@@ -878,8 +878,11 @@ function goCourt(a, i, brk = false) {
 }
 function leaveCourt(a) { const k = courtList.indexOf(a); if (k >= 0) courtList.splice(k, 1); a.act = null; }
 function courtAct(a) {   // pick the next activity and walk to its spot
-  const v = courtSpots(); let act = rnd(COURT_ACTS); if (!v[act] || !v[act].length) act = 'tag';
-  const l = v[act] || []; if (!l.length) { a.state = 'court'; a.act = 'idle'; a.t = 0; a.dur = 3; return; }
+  const v = courtSpots(), near = (q) => Math.hypot(q.x - a.x, q.y - a.y) < 7;
+  // build 273: the next activity is one with a spot close by (in her demo they spent most of the time crossing the court)
+  const acts = inCourt(Math.floor(a.x), Math.floor(a.y)) ? COURT_ACTS.filter((k) => (v[k] || []).some(near)) : [];
+  let act = rnd(acts.length ? acts : COURT_ACTS); if (!v[act] || !v[act].length) act = 'tag';
+  const l0 = v[act] || [], l = l0.some(near) && acts.length ? l0.filter(near) : l0; if (!l.length) { a.state = 'court'; a.act = 'idle'; a.t = 0; a.dur = 3; return; }
   let p = rnd(l);
   if (act === 'bench') { const free = l.filter((q) => !courtList.some((o) => o !== a && o.act === 'bench' && o.spot === q)); if (!free.length) { act = 'tag'; p = rnd(v.tag); } else p = rnd(free); }   // one sitter per bench
   a.act = act; a.spot = p; a.laps = act === 'tag' ? 3 + Math.floor(Math.random() * 3) : 0;
@@ -890,7 +893,7 @@ function courtArrive(a) {
   if (!(a.goal && a.goal.t === 'k')) return;
   a.state = 'court'; a.t = 0;
   if (a.act === 'tag') { a.dur = 0.35; return; }   // a short stop, then on round the fountain
-  a.dur = 2.6 + Math.random() * 2.4;
+  a.dur = 4.5 + Math.random() * 4;   // build 273: longer in each pose (her demo: half the time they were walking between spots)
   if (a.act === 'coin') { const c = courtC(); a.flip = (c.x - c.y) < (a.x - a.y); a.back = (c.x + c.y) < (a.x + a.y); }
   else a.back = false;
 }
@@ -908,7 +911,7 @@ function stepCourt(a, dt) {
   a.t += dt; if (a.t < a.dur) return;
   if (a.act === 'tag' && a.laps-- > 0) { const v = courtSpots().tag, p = rnd(v); a.state = 'walk'; walk(a, p.x, p.y, () => courtArrive(a)); return; }
   if (a.act === 'coin') { const c = courtC(); popup('🪙✨', c.x, c.y, '#d4a017', 50); }
-  if (a.goal.brk) { leaveCourt(a); route(a, a.goal.i); return; }   // the break is over: on to the next class
+  if (a.goal.brk && (a.acts = (a.acts || 0) + 1) >= 2) { a.acts = 0; leaveCourt(a); route(a, a.goal.i); return; }   // a break = two activities, then on to the next class
   courtAct(a);
 }
 function goClass(a, i) {
@@ -2033,8 +2036,8 @@ if (WORLD === 1) for (const sp of SPECIES) for (let t = 1; t < 5; t++) for (cons
 for (const sp of SPECIES) for (const v of ['', '_back']) { const im = new Image(); im.src = `assets/creatures/${sp}${v}.png`; sprites[sp + v] = im; }   // front and back views
 // court poses (build 264, her pick «2»: real poses instead of icons; first test sheet: the moth fox without an outfit)
 const COURT_POSE = { bench: 'sit', tag: 'run', coin: 'coin', read: 'read', sparks: 'wand', birds: 'birds' };
-const COURT_POSE_ART = ['mothfox'];   // looks that have a pose sheet: species or species_tN
-if (WORLD === 1) for (const k of COURT_POSE_ART) for (const p of Object.values(COURT_POSE)) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${k}_k_${p}.png?v=1`; sprites[k + '_k_' + p] = im; }
+const COURT_POSE_ART = SPECIES.flatMap((sp) => [sp, sp + '_t1', sp + '_t2', sp + '_t3', sp + '_t4']);   // every world-1 look (build 273, her «Делай»); a missing picture falls back to the standing sprite
+if (WORLD === 1) for (const k of COURT_POSE_ART) for (const p of Object.values(COURT_POSE)) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${k}_k_${p}.png?v=2`; sprites[k + '_k_' + p] = im; }
 function courtPose(a) {   // the pose picture of a student busy in the court, or null (then the usual sprite and the icons)
   if (WORLD !== 1 || !a.goal || a.goal.t !== 'k' || !COURT_POSE[a.act]) return null;
   if (!(a.state === 'court' || (a.act === 'tag' && a.path && a.path.length))) return null;
