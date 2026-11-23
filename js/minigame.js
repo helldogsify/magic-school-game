@@ -24,6 +24,15 @@ export const ING = [   // ingredient tiles; art: assets/minigame/ing_<i>.png (fa
 const T = ING.length, RAINBOW = -1;
 const POTIONS = ['Зелье смеха', 'Эликсир крылышек', 'Настой сладких снов', 'Зелье храбрости', 'Лунный отвар', 'Искристый эликсир', 'Зелье пушистости', 'Отвар звездопада', 'Чай вдохновения', 'Капли удачи'];
 
+// boosters before a round: price in minutes of the school's income (min 100 coins); chosen on the start screen
+const BOOSTS = [
+  { id: 'time', name: '+15 секунд', min: 1, ico: () => '⏱️' },
+  { id: 'star', name: 'Звёздочка на поле', min: 1.5, ico: () => ingImg(RAINBOW) },
+  { id: 'x2', name: 'Зелья ×2 очков', min: 1.5, ico: () => FLASK },
+];
+const bsel = new Set();   // chosen boosters (kept between rounds while affordable)
+const boostCost = (b) => Math.max(100, Math.round(((st().ema || 0) * 60 * b.min) / 10) * 10);
+const bTotal = () => BOOSTS.reduce((a, b) => a + (bsel.has(b.id) ? boostCost(b) : 0), 0);
 export const weekKey = (t = Date.now()) => Math.floor((t / 86400000 + 3) / 7);   // weeks start on Monday 00:00 UTC
 
 let A = null;   // API from game.js
@@ -265,6 +274,13 @@ function css() {
 #mg .mg-bubs i:nth-child(1) { left: 36%; animation-delay: 0s; } #mg .mg-bubs i:nth-child(2) { left: 50%; animation-delay: .5s; width: 7%; }
 #mg .mg-bubs i:nth-child(3) { left: 60%; animation-delay: 1.1s; } #mg .mg-bubs i:nth-child(4) { left: 43%; animation-delay: 1.6s; width: 6%; } #mg .mg-bubs i:nth-child(5) { left: 55%; animation-delay: 2.1s; width: 8%; }
 @keyframes mgbub { 0% { transform: translateY(0) scale(.4); opacity: 0; } 15% { opacity: .95; } 80% { opacity: .8; } 100% { transform: translateY(-120%) scale(1.1); opacity: 0; } }
+#mg .mg-bh { margin: 10px 0 6px; font-weight: 800; font-size: 14px; }
+#mg .mg-boosts { display: flex; gap: 6px; }
+#mg .mg-bst { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 16px; background: #f6f0ff; border: 2px solid #e2d6f8; color: #4a3a6b; font: 700 12px ui-rounded, "Nunito", sans-serif; line-height: 1.15; }
+#mg .mg-bst.on { background: #fff4c7; border-color: #e8b923; box-shadow: 0 0 0 3px #e8b92333; }
+#mg .mg-bst .mg-bi { font-size: 24px; height: 30px; display: flex; align-items: center; }
+#mg .mg-bst .mg-bi img { width: 30px; height: 30px; }
+#mg .mg-bst .mg-bc { color: #8a5a00; font-weight: 800; }
 @keyframes mgbob { 50% { transform: translateY(-4px) rotate(-1.5deg); } }
 @keyframes mgpuff { 30% { transform: scale(1.18); filter: brightness(1.3); } }
 @keyframes mgpulse { 50% { transform: scale(1.07); } }
@@ -295,6 +311,10 @@ function onClick(e) {
   const d = b.dataset;
   if (d.mgx !== undefined) { if (R && R.live) finish(false); else close(); return; }
   if (d.mgplay !== undefined) { start(); return; }
+  if (d.mgagain !== undefined) { showStart(); return; }   // «Ещё раз» goes through the start screen: boosters can be chosen again
+  if (d.mgb !== undefined) { const b = BOOSTS[+d.mgb]; if (!b) return;
+    if (bsel.has(b.id)) bsel.delete(b.id); else if ((st().coins || 0) < bTotal() + boostCost(b)) { A.toast('🪙 Не хватает монет на этот бонус'); return; } else bsel.add(b.id);
+    showStart(); return; }
   if (d.mgback !== undefined) { close(); return; }
 }
 function showStart() {
@@ -308,6 +328,9 @@ function showStart() {
     <p>Раунд — ${ROUND} секунд. Награда: монеты (до ${MAX_MIN} минут дохода школы), за 2–3 ⭐ ещё ✨ Вдохновение.</p>
     <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
     <p class="muted">Рекорд недели: ${num(best)}${m.best ? ` · за всё время: ${num(m.best)}` : ''}</p>
+    <div class="mg-bh">Бонусы на раунд <span class="muted">(за монеты школы)</span></div>
+    <div class="mg-boosts">${BOOSTS.map((b, k) => `<button class="mg-bst${bsel.has(b.id) ? ' on' : ''}" data-mgb="${k}"><span class="mg-bi">${b.ico()}</span><span class="mg-bn">${b.name}</span><span class="mg-bc">🪙 ${A.fmt(boostCost(b))}</span></button>`).join('')}</div>
+    ${bsel.size ? `<p class="muted">Бонусы: 🪙 ${A.fmt(bTotal())} спишутся при старте</p>` : ''}
     <button class="btn wide" data-mgplay>${n > 0 ? '▶️ Играть (1 попытка)' : '▶️ Играть без награды'}</button>
     <button class="btn wide ghost" data-mgback>В школу</button>
   </div>`);
@@ -324,12 +347,18 @@ function layout() {
 }
 
 function start() {
+  for (const id of [...bsel]) { const b = BOOSTS.find((x) => x.id === id); if (!b) bsel.delete(id); }
+  const cost = bTotal(), S0 = st();
+  if (cost && (S0.coins || 0) < cost) { bsel.clear(); A.toast('🪙 Не хватает монет на бонусы'); showStart(); return; }
+  if (cost) { S0.coins -= cost; mg().bst = (mg().bst || 0) + bsel.size; }
+  const boost = { time: bsel.has('time'), star: bsel.has('star'), x2: bsel.has('x2') };
   const rewarded = charges() > 0;
   if (rewarded) { const m = mg(); if (m.ch >= CH_MAX) m.t = Date.now(); m.ch--; }
   mg().n++;
   A.save();
-  R = { live: true, rewarded, g: makeBoard(), score: 0, shown: 0, left: ROUND, state: 'idle', anim: 0, chain: 0, sel: null, swap: null, idleT: 0, fx: [], texts: [], beams: [], shake: 0, brewed: 0, rec: null, lastTick: 0, busyT: 0 };
+  R = { live: true, rewarded, boost, g: makeBoard(), score: 0, shown: 0, left: ROUND + (boost.time ? 15 : 0), state: 'idle', anim: 0, chain: 0, sel: null, swap: null, idleT: 0, fx: [], texts: [], beams: [], shake: 0, brewed: 0, rec: null, lastTick: 0, busyT: 0 };
   R.rec = newRecipe(0);
+  if (boost.star) { const r = 2 + Math.floor(Math.random() * 3), c = 1 + Math.floor(Math.random() * 5), t = newTile(RAINBOW); t.x = c; t.y = r; t.born = 0.001; R.g[r][c] = t; }   // a ready star in the middle of the board
   root.innerHTML = A.emojiHtml(`<div class="mg-top"><button class="mg-x" data-mgx aria-label="Закончить">✕</button><div class="mg-chip time">⏱️ <span class="mg-t"></span></div><div class="mg-chip score">✨ <span class="mg-s">0</span></div></div>
     <div class="mg-rec"></div>
     <div class="mg-board-wrap"><canvas></canvas></div>
@@ -344,7 +373,7 @@ function start() {
 }
 function recHtml() {
   const r = R.rec, box = root.querySelector('.mg-rec'); if (!box) return;
-  const h = `<div class="mg-pot">${FLASK}</div><div><b>${r.name}</b><div class="mg-need">${r.need.map((x) => `<span class="${x.got >= x.n ? 'ok' : ''}">${ingImg(x.t)} ${Math.min(x.got, x.n)}/${x.n}</span>`).join('')}</div></div><div class="mg-brewed">сварено<br><b>${R.brewed}</b></div>`;
+  const h = `<div class="mg-pot">${FLASK}</div><div><b>${r.name}</b><div class="mg-need">${r.need.map((x) => `<span class="${x.got >= x.n ? 'ok' : ''}">${ingImg(x.t)} ${Math.min(x.got, x.n)}/${x.n}</span>`).join('')}</div></div><div class="mg-brewed">сварено${R.boost && R.boost.x2 ? ' ×2' : ''}<br><b>${R.brewed}</b></div>`;
   if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = A.emojiHtml(h); }
 }
 function hud() {
@@ -420,7 +449,7 @@ function doResolve() {
   R.pending = res; R.state = 'clear'; R.anim = 0; R.chain++;
   // recipe
   if (R.rec.need.every((x) => x.got >= x.n)) {
-    const bonus = 300 + 150 * R.brewed;
+    const bonus = (300 + 150 * R.brewed) * (R.boost && R.boost.x2 ? 2 : 1);
     R.score += bonus; R.brewed++; mg().pot = (mg().pot || 0) + 1;
     R.texts.push({ x: 3.5, y: 2.2, s: `${R.rec.name}! +${bonus}`, t: 0, big: true, col: '#7b5cd6', long: true });
     snd('brew');
@@ -610,7 +639,7 @@ function finish(silent) {
     <p class="muted">сварено зелий: ${R.brewed}${recW ? ' · 🏅 рекорд недели!' : ''}${recAll && !recW ? ' · 🏅 рекорд!' : ''}</p>
     ${R.rewarded ? `<div class="mg-prize">Награда: 🪙 ${A.fmt(coins)}${boost ? `<br>✨ Вдохновение +${boost} мин (уроки +10%)` : ''}</div>` : '<p class="muted">Игра без награды — только рекорд.</p>'}
     <p class="muted">${stars < 3 ? `До ${stars + 1} ⭐ — ${num(STAR[stars])} очков. ` : ''}Попытки с наградой: ${n} из ${CH_MAX}${n < CH_MAX ? `, следующая через ${mmss(nextIn())}` : ''}</p>
-    <button class="btn wide" data-mgplay>${n > 0 ? '🔁 Ещё раз (1 попытка)' : '🔁 Ещё раз без награды'}</button>
+    <button class="btn wide" data-mgagain>${n > 0 ? '🔁 Ещё раз (1 попытка)' : '🔁 Ещё раз без награды'}</button>
     <button class="btn wide ghost" data-mgback>В школу</button>
   </div>`);
   root.appendChild(card);
