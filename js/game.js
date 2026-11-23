@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=266';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=266';
+} from './data.js?v=267';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=267';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 266;   // keep equal to the ?v= number in index.html
+const BUILD = 267;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3830,14 +3830,24 @@ function missionHintText(m, sel) {
   return `📋 ${m.text}`;
 }
 function showMissionHint(key, sel) { mHint = { key, sel, fn: null, t: 0 }; setTimeout(() => { if (mHint && mHint.key === key) { mHint.fn = panel; updMissionHint(); } }, 150); }
-function updMissionHint() {
+function updMissionHint() {   // build 267 (her «Оно не в видном месте было ... Должно быть рядом с кнопкой покупки»): the plate sits on the lit card, right above its buy button; the top plate is only the fallback
   let el = document.getElementById('mhint');
   if (!mHint || !mHint.fn || panel !== mHint.fn) { if (el) el.remove(); if (mHint && mHint.fn) mHint = null; return; }
   const m = missionList().find((x) => x.key === mHint.key);
   if (!m) { if (el) el.remove(); mHint = null; return; }
-  if (!el) { el = document.createElement('div'); el.id = 'mhint'; el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);z-index:60;background:#fff6cf;border:2px solid #e2b23c;border-radius:14px;padding:6px 14px;font:800 15px ui-rounded,"Nunito","Segoe UI",sans-serif;color:#5a4410;box-shadow:0 4px 14px #0003;pointer-events:none;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis'; document.body.appendChild(el); }
+  const b = mHint.sel && document.querySelector('#sheet ' + mHint.sel), card = b && (b.closest('.card') || b.parentElement);
+  if (!el) { el = document.createElement('div'); el.id = 'mhint'; }
+  const base = 'z-index:60;background:#fff6cf;border:2px solid #e2b23c;border-radius:12px;padding:3px 10px;font:800 14px ui-rounded,"Nunito","Segoe UI",sans-serif;color:#5a4410;box-shadow:0 3px 10px #0003;pointer-events:none;white-space:nowrap;';
+  if (card && b) {   // on the card: its right edge over the button, half above the card's top edge
+    if (el.parentElement !== card) { if (getComputedStyle(card).position === 'static') card.style.position = 'relative'; card.appendChild(el); }
+    const cr = card.getBoundingClientRect(), br = b.getBoundingClientRect();
+    el.style.cssText = base + `position:absolute;right:${Math.max(4, cr.right - br.right)}px;top:${Math.round(br.top - cr.top) - 30}px;max-width:${Math.round(cr.width - 8)}px;overflow:hidden;text-overflow:ellipsis`;
+  } else {
+    if (el.parentElement !== document.body) document.body.appendChild(el);
+    const r = $('#sheet').getBoundingClientRect();
+    el.style.cssText = base + `position:fixed;left:50%;transform:translateX(-50%);top:${Math.max(8, r.top - 40)}px;max-width:94vw;overflow:hidden;text-overflow:ellipsis`;
+  }
   const html = emojiHtml(missionHintText(m, mHint.sel)); if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html; }
-  const r = $('#sheet').getBoundingClientRect(); el.style.top = Math.max(8, r.top - 46) + 'px';
 }
 setInterval(updMissionHint, 400);
 function goTarget(go) {   // open a room and light up the button that helps (missions and Tikhon's reports)
