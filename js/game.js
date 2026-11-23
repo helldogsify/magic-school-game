@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=307';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=307';
-import { initMinigame } from './minigame.js?v=307';
-import { initChests } from './chests.js?v=307';
+} from './data.js?v=308';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=308';
+import { initMinigame } from './minigame.js?v=308';
+import { initChests } from './chests.js?v=308';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 307;   // keep equal to the ?v= number in index.html
+const BUILD = 308;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -134,7 +134,7 @@ const cantSeatPos = (k) => { const t = CANT_TABLES(SLOTS.CANT)[k >> 1]; return {
 const CANT_SPOTS = (s) => [0, 1, 2, 3, 4, 5].map((k) => ({ x: s.x0 + 4.7, y: s.y0 + 2.0 + k * 0.62 }));   // the line in front of the counter
 const CANT_COOK = (s) => ({ x: s.x0 + 4.6, y: s.y0 + 0.75 });
 const DIR_COST = 50000, DIR_STARS = 2;
-const dirBuilt = () => !!(S && S.dirBuilt);
+const dirBuilt = () => !!(S && (WORLD === 2 ? S.w2 && S.w2.throne && S.w2.throne.built : S.dirBuilt));
 const dirLvl = (k) => (S && S.dir && S.dir[k]) || 0;
 const dirCost = (k) => paced(DIR_UP[k].base * Math.pow(DIR_UP[k].k, dirLvl(k)), dirLvl(k) + 1);
 const refundRateAt = (l) => 3 - 0.25 * l;                 // 300% -> 100%
@@ -447,6 +447,7 @@ function genLayoutW2() {
   let y = 0;
   SLOTS.EXAM = slot(8, y, [[16, y + 5], [16, y + 6]], {}, 17, 6, [[[17, y + 5], [17, y + 6]]]);
   SLOTS.GARDEN = slot(2, y, [[8, y + 3], [7, y + 3]], {}, 6, 6);
+  SLOTS.DIR = slot(25, y, [[25, y + 3], [24, y + 3]], {}, 6, 6);   // world 2: the elder's throne hall right of the oath hall
   y += 6;
   const naveTop = y; y += ROW_GAP - 1;
   let firstGap = null;
@@ -980,20 +981,33 @@ const courtFor = (i) => courtList.reduce((n, a) => n + (a.goal && a.goal.i === i
 const COURT_MOOD = 0.6;   // mood per second while waiting in the court
 const COURT_BREAK = 0.3;  // share of students who take a short break in the court after a lesson (the court stays alive when nobody waits)
 const courtBreakOk = () => courtCap() > 0 && courtList.length < courtCap() - 4;   // breaks leave room for those who really wait
-const COURT_ACTS = ['bench', 'bench', 'tag', 'coin', 'sparks', 'birds', 'read'];
+const COURT_ACTS = ['bench', 'bench', 'tag', 'coin', 'sparks', 'birds', 'read', 'read', 'swing', 'tea', 'tea'];
+// ======================= court lawn zones (her «Супер! Делаем», plan design/court_zones_plan_v1.jpg) =======================
+// Each lawn quarter has its own role: reading garden (back-right), playground (front-left), tea glade (front-right); the
+// back-left one is the graduates' garden. Break activities happen in their own corner. Art: art/parts/court_zones/sheet_r0.jpg
+// (SYNTX banana2, 2 tokens) cut by tools/cut_court_zones.py -> assets/parts/outdoor/cz_*.webp.
+function courtZones() {
+  const W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, q = (fx, fy) => ({ x: COURT.x0 + W * fx, y: COURT.y0 + H * fy });
+  const R = q(0.78, 0.22), G = q(0.22, 0.78), T = q(0.78, 0.78);
+  return { read: R, play: G, tea: T,
+    cushions: [{ x: R.x - 1.5, y: R.y + 2.0 }, { x: R.x + 1.3, y: R.y + 1.8 }], shelf: { x: R.x - 0.3, y: R.y - 2.7 }, bath: { x: R.x - 3.0, y: R.y - 1.4 },
+    swing: { x: G.x, y: G.y }, target: { x: G.x + 0.7, y: G.y - 3.1 }, hop: { x: G.x - 3.0, y: G.y - 2.6 },
+    picnic: { x: T.x - 0.2, y: T.y + 2.5 }, lanterns: [{ x: T.x - 3.2, y: T.y + 0.4 }, { x: T.x + 1.3, y: T.y - 2.8 }] };
+}
 function courtSpots() {   // fixed points per activity (a small fixed set keeps the path cache warm)
   if (courtSpots.ver === bfsVer + ':' + courtUp().bench && courtSpots.v) return courtSpots.v;
   const c = courtC(), W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, ok = (p) => regAt(Math.floor(p.x), Math.floor(p.y)) === 'hall' && !courtBlocked(Math.floor(p.x), Math.floor(p.y));
-  const v = { bench: [], tag: [], coin: [], sparks: [], birds: [], read: [] };
+  const v = { bench: [], tag: [], coin: [], sparks: [], birds: [], read: [], swing: [], tea: [] }, Z = courtZones();
   for (const b of courtBenches()) v.bench.push({ x: b.x + 0.08, y: b.y + 0.08, seat: true });   // build 264: the sitter sits ON the bench (pose «sit»)
   for (let k = 0; k < 8; k++) { const an = k * Math.PI / 4; v.tag.push({ x: c.x + Math.cos(an) * 2.7, y: c.y + Math.sin(an) * 2.7 }); }
+  for (let k = 0; k < 6; k++) { const an = k * Math.PI / 3; v.tag.push({ x: Z.play.x + Math.cos(an) * 2.4, y: Z.play.y + 0.3 + Math.sin(an) * 2.4 }); }   // tag round the swing too
   for (let k = 0; k < 4; k++) { const an = k * Math.PI / 2 + Math.PI / 4; v.coin.push({ x: c.x + Math.cos(an) * 1.9, y: c.y + Math.sin(an) * 1.9 }); }
-  for (const [fx, fy] of [[0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // the lawn quarters (the top-left one is the graduates' garden)
-    const x = COURT.x0 + W * fx, y = COURT.y0 + H * fy;
-    v.read.push({ x: x + 0.9, y: y + 1.2 }, { x: x - 0.4, y: y + 1.6 });
-    v.birds.push({ x: x + 2.6, y: y - 1.4 }, { x: x - 2.4, y: y - 0.8 });
-    v.sparks.push({ x: x - 2.2, y: y + 2.4 }, { x: x + 2.2, y: y + 2.6 });
-  }
+  for (const q of Z.cushions) v.read.push({ x: q.x + 0.1, y: q.y + 0.25, seat: true });   // reading garden: one reader per cushion, two more under the tree
+  v.read.push({ x: Z.read.x + 0.9, y: Z.read.y + 0.4 }, { x: Z.read.x - 0.8, y: Z.read.y + 0.2 });
+  v.birds.push({ x: Z.bath.x + 0.9, y: Z.bath.y + 0.7 }, { x: Z.bath.x - 0.2, y: Z.bath.y + 1.1 });
+  v.sparks.push({ x: Z.target.x - 0.3, y: Z.target.y + 2.2, look: Z.target }, { x: Z.target.x + 1.6, y: Z.target.y + 1.7, look: Z.target }, { x: Z.target.x - 1.6, y: Z.target.y + 1.6, look: Z.target });
+  v.swing.push({ x: Z.swing.x - 0.18, y: Z.swing.y + 0.18, seat: true });
+  v.tea.push({ x: Z.picnic.x - 1.25, y: Z.picnic.y + 0.2, seat: true }, { x: Z.picnic.x + 0.25, y: Z.picnic.y + 1.25, seat: true }, { x: Z.picnic.x + 1.2, y: Z.picnic.y - 0.15, seat: true });
   for (const k of Object.keys(v)) v[k] = v[k].filter(ok);
   courtSpots.ver = bfsVer + ':' + courtUp().bench; courtSpots.v = v; return v;
 }
@@ -1011,7 +1025,7 @@ function courtAct(a) {   // pick the next activity and walk to its spot
   let act = rnd(acts.length ? acts : COURT_ACTS); if (!v[act] || !v[act].length) act = 'tag';
   const l0 = v[act] || [], l = l0.some(near) && acts.length ? l0.filter(near) : l0; if (!l.length) { a.state = 'court'; a.act = 'idle'; a.t = 0; a.dur = 3; return; }
   let p = rnd(l);
-  if (act === 'bench') { const free = l.filter((q) => !courtList.some((o) => o !== a && o.act === 'bench' && o.spot === q)); if (!free.length) { act = 'tag'; p = rnd(v.tag); } else p = rnd(free); }   // one sitter per bench
+  if (p.seat) { const free = l.filter((q) => !q.seat || !courtList.some((o) => o !== a && o.act === act && o.spot === q)); if (!free.length) { act = 'tag'; p = rnd(v.tag); } else p = rnd(free); }   // one sitter per bench / cushion / swing / picnic place
   a.act = act; a.spot = p; a.laps = act === 'tag' ? 3 + Math.floor(Math.random() * 3) : 0;
   const j = p.seat ? 0 : 0.3;
   a.state = 'walk'; walk(a, p.x + (Math.random() - 0.5) * j, p.y + (Math.random() - 0.5) * j, () => courtArrive(a));
@@ -1022,6 +1036,8 @@ function courtArrive(a) {
   if (a.act === 'tag') { a.dur = 0.35; return; }   // a short stop, then on round the fountain
   a.dur = 4.5 + Math.random() * 4;   // build 273: longer in each pose (her demo: half the time they were walking between spots)
   if (a.act === 'coin') { const c = courtC(); a.flip = (c.x - c.y) < (a.x - a.y); a.back = (c.x + c.y) < (a.x + a.y); }
+  else if (a.spot && a.spot.look) { const c = a.spot.look; a.flip = (c.x - c.y) < (a.x - a.y); a.back = false; }   // the wand practice faces the target
+  else if (a.act === 'tea') { const c = courtZones().picnic; a.flip = (c.x - c.y) < (a.x - a.y); a.back = false; }   // round the picnic, facing the tea
   else a.back = false;
 }
 function courtFx(a, x, y) {   // what each court activity shows (render only; every loop lasts 2.5 s or more)
@@ -1033,6 +1049,8 @@ function courtFx(a, x, y) {   // what each court activity shows (render only; ev
   else if (a.act === 'sparks') { for (let k = 0; k < 3; k++) { const an = T * 2.1 + k * 2.094; emoji('✨', x + (a.flip ? -14 : 14) + Math.cos(an) * 8, y - 24 + Math.sin(an) * 5 - k * 2, 8 + 2 * Math.sin(T * 3 + k)); } }
   else if (a.act === 'birds' && !courtPose(a)) { for (let k = 0; k < 2; k++) { const hop = Math.abs(Math.sin(T * 2.4 + k * 1.7)) * 5; emoji('🐦', x + (k ? 16 : -15), y + 4 - hop, 9); } }
   else if (a.act === 'read' && !courtPose(a)) emoji('📖', x + (a.flip ? -11 : 11), y - 18, 11);
+  else if (a.act === 'tea') { if (u < 0.45) emoji(['☕', '🧁', '💬', '😋'][Math.floor(T / 3 + a.id) % 4], x + (a.id % 2 ? 12 : -12), y - 30 - u * 10, 11); }
+  else if (a.act === 'swing') { if (u < 0.35) emoji('😄', x - 12, y - 40, 10); }
 }
 function stepCourt(a, dt) {
   a.t += dt; if (a.t < a.dur) return;
@@ -1114,6 +1132,61 @@ function tradePanel() {
     ${T.away ? '' : `<button class="btn wide" data-act="caravan" ${T.load + T.gems ? '' : 'disabled'}>Отправить сейчас <span class="cost">🪙${fmt(loadValue())}</span></button>`}
     ${up('wagon', '🛒', 'Повозка больше', '+10 мест для груза', MAX_TUP)}${up('road', '🛤️', 'Дорога короче', '−10% времени пути', MAX_TUP)}${up('price', '⚖️', 'Цена выше', '+12% за изделие и самоцвет', MAX_TUP)}`;
 }
+// ---- the elder's throne + rumble from the depths (world 2) ----
+const THRONE_COST = 20000000, THRONE_NEED = 'guards';
+const RUMBLE_WARN = 40, RUMBLE_LEN = 90, RUMBLE_MIN = 720, RUMBLE_MAX = 1080, THRONE_MAX = 10;
+const THRONE_UP = {
+  watch: { emo: '🛡️', name: 'Дозор у глубин', base: 4000000, k: 2.0, desc: (l) => `на защиту ${RUMBLE_LEN + 10 * l} с` },
+  props: { emo: '🪵', name: 'Крепь в тоннелях', base: 5000000, k: 2.0, desc: (l) => `нужно отбить на ${8 * l}% меньше` },
+  loot: { emo: '💰', name: 'Добыча из глубин', base: 3000000, k: 1.9, desc: (l) => `сундук +${15 * l}%` },
+};
+const throne = () => { const w = W2(); return (w.throne ||= { built: false, t: RUMBLE_MIN, cur: null, won: 0, lost: 0, watch: 0, props: 0, loot: 0 }); };
+const thCost = (k) => paced(THRONE_UP[k].base * Math.pow(THRONE_UP[k].k, throne()[k] || 0), (throne()[k] || 0) + 1);
+const guardsIdx = () => CLASSES.findIndex((c) => c.id === THRONE_NEED);
+const rumbleNeed = () => Math.max(2, Math.round((3 + Math.min(12, throne().won)) * (1 - 0.08 * (throne().props || 0))));
+const rumbleLen = () => RUMBLE_LEN + 10 * (throne().watch || 0);
+const rumbleOn = () => WORLD === 2 && dirBuilt() && guardsIdx() >= 0 && isOpen(guardsIdx());
+function rumbleChest() { const c = Math.round(Math.max(500, (S.ema || 1) * 120) * (1 + 0.15 * (throne().loot || 0))), g = 1 + Math.floor(Math.random() * 3); return { c, g }; }
+function stepRumble(dt, live) {
+  if (!rumbleOn() || calm() || !live || tourStep >= 0 || (typeof MG !== 'undefined' && MG.isOpen())) return;
+  const T = throne();
+  if (!T.cur) {
+    T.t -= dt;
+    if (T.t <= RUMBLE_WARN && !T.warned) { T.warned = 1; toast('🌑 Из глубин доносится гул! Скоро тени полезут наверх'); hintOnce('rumble', '🌑', 'Гул из глубин', `Через ${RUMBLE_WARN} секунд из глубины горы полезут тени. Пока длится защита, каждый сданный урок в Зале стражей 🛡️ отбивает одну тень. Отбьёте сколько нужно — получите сундук с монетами и самоцветами. Не успеете — обвал закроет один зал, его надо будет расчистить нажатием.`); }
+    if (T.t <= 0) { T.cur = { left: rumbleLen(), need: rumbleNeed(), got: 0 }; T.warned = 0; toast(`🌑 Тени лезут из глубин! Отбейте ${T.cur.need} в Зале стражей 🛡️`); sfx('stars'); }
+    return;
+  }
+  T.cur.left -= dt;
+  if (T.cur.got >= T.cur.need) { const { c, g } = rumbleChest(); earn(c); W2().gems += g; T.won++; S.stats.rumbleWon = (S.stats.rumbleWon || 0) + 1; toast(`🎁 Тени отбиты! Сундук: 🪙 +${fmt(c)} и 💎 +${g}`); T.cur = null; T.t = RUMBLE_MIN + Math.random() * (RUMBLE_MAX - RUMBLE_MIN); dirtyPanel = true; return; }
+  if (T.cur.left <= 0) {
+    T.lost++; T.cur = null; T.t = RUMBLE_MIN + Math.random() * (RUMBLE_MAX - RUMBLE_MIN);
+    const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !(S.inc && S.inc[i]) && i !== guardsIdx());
+    if (open.length) { const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'r', t: 0 }; toast(`🪨 Тени прорвались: обвал в зале «${CLASSES[i].name}»! Нажми на зал, чтобы расчистить`); }
+    dirtyPanel = true;
+  }
+}
+function rumbleLesson(i, p) {   // a passed lesson in the guard hall during the defence beats one shadow
+  const T = WORLD === 2 && S.w2 && S.w2.throne; if (!T || !T.cur || CLASSES[i].id !== THRONE_NEED) return;
+  T.cur.got++; if (!ffwd) popup(`🛡️ ${T.cur.got}/${T.cur.need}`, p.x, p.y - 0.4, '#3b6fd6', 54);
+}
+function throneBuildPanel() {
+  const gi = guardsIdx(), ok = gi >= 0 && isOpen(gi);
+  return `<div class="sh-head"><span class="remoji big">👑</span><div><h2>Трон старейшины</h2><div class="muted">Здесь решают судьбу всей школы</div></div><button class="x" data-close>✕</button></div>
+    <p>Старейшина слушает гул из глубин горы. Когда тени полезут наверх, ученики Зала стражей 🛡️ отобьют их, а школа получит сундук с добычей.</p>
+    ${ok ? `<button class="btn wide" data-cost="${THRONE_COST}" data-act="thronebuild">Построить <span class="cost">🪙${fmt(THRONE_COST)}</span></button>` : '<p><b>Сначала построй Зал стражей 🛡️</b> — без стражей тени не отбить.</p>'}`;
+}
+function thronePanel() {
+  const T = throne(), c = T.cur;
+  let h = `<div class="sh-head"><span class="remoji big">👑</span><div><h2>Трон старейшины</h2><div class="muted">${c ? `🌑 Тени лезут! Осталось ${mmss(c.left)}` : calm() ? 'Спокойный режим: гула нет' : `Следующий гул примерно через ${mmss(T.t)}`}</div></div><button class="x" data-close>✕</button></div>
+    <div class="stats3"><div><span>🛡️</span><b>${c ? `${c.got}/${c.need}` : rumbleNeed()}</b><i>${c ? 'отбито' : 'нужно отбить'}</i></div><div><span>🎁</span><b>${T.won}</b><i>побед</i></div><div><span>🪨</span><b>${T.lost}</b><i>обвалов</i></div></div>
+    <p class="muted">Пока идёт защита, каждый сданный урок в Зале стражей отбивает одну тень. Больше парт и сильнее учитель в Зале стражей — быстрее защита. С каждой победой теней становится больше.</p>`;
+  for (const [k, u] of Object.entries(THRONE_UP)) {
+    const l = T[k] || 0;
+    h += `<div class="card up"><span class="remoji">${u.emo}</span><div class="grow"><b>${u.name}</b> <span class="muted">ур. ${l}/${THRONE_MAX}</span><div class="muted">${u.desc(l)}</div></div>
+      ${l >= THRONE_MAX ? '<span class="done">макс.</span>' : costBtn('↑', thCost(k), 'throneup', `data-k="${k}"`)}</div>`;
+  }
+  return h;
+}
 function w2Section(i) {
   const id = w2Id(i), w = WORLD === 2 ? W2() : null; if (!w) return '';
   if (id === 'mine') return `<h3>Склад руды</h3><p class="muted">Каждый сданный урок здесь приносит ⛏️ 1 руду. Руду забирает Кузня: из 2 руды выходит 1 изделие ⚒️.</p>
@@ -1129,7 +1202,7 @@ function finishLesson(a) {
   const dream = a.dream && CLASSES[i].final ? DREAM_BONUS : 0; if (CLASSES[i].final) a.dream = false;   // dorm roles: slept before the Final
   a.les = (a.les || 0) + 1; if (a.rest > 0) a.rest--;   // dorm roles: tiredness grows with every lesson, the rest wears off
   const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + dream; a.prepared = false; a.fed = false; a.luck = 0;   // a meal in the canteen helps one exam
-  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i)), p.x, p.y, null, 46); w2Lesson(i, p); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
+  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i)), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
   else { S.stats.failed++; popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
@@ -1379,7 +1452,8 @@ const INCIDENTS = { herbs: ['🌿', 'растения разрослись и о
 const INC_GENERIC = ['🤧', 'учитель простыл'];
 const INC_MIN = 70, INC_MAX = 150, INC_AUTO = 600, INC_MAXN = 2;
 const incOf = (i) => !!(S.inc && S.inc[i]);
-const incInfo = (i) => (S.inc[i].k === 'g' ? INC_GENERIC : INCIDENTS[CLASSES[i].id] || INC_GENERIC);
+const INCIDENTS_W2 = { runes: ['🪨', 'руны осыпались со стены'], forge: ['🔥', 'горн погас'], mine: ['🪨', 'в штольне просела крепь'], gems: ['💎', 'рассыпались самоцветы'], guards: ['🛡️', 'сломались манекены'], lake: ['🌊', 'лодки унесло течением'], final: ['🕯️', 'погасли свечи клятвы'] };
+const incInfo = (i) => (S.inc[i].k === 'r' ? ['🪨', 'обвал завалил зал'] : S.inc[i].k === 'g' ? INC_GENERIC : (WORLD === 2 ? INCIDENTS_W2 : INCIDENTS)[CLASSES[i].id] || INC_GENERIC);
 let incT = 45;
 function hintOnce(key, emo, title, text) {   // a short explanation the first time something happens
   S.hints ||= {}; if (S.hints[key] || tourStep >= 0) return; S.hints[key] = 1; save();
@@ -1921,6 +1995,7 @@ function stepWorld(dt, live = false) {
   stepAdvisor(dt, live);
   stepRefund(dt);
   stepTrade(dt);
+  stepRumble(dt, live);
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6 && !(WORLD === 2 && schoolFull())) spawn(); }   // world 2: nobody new comes while every line and every bed is taken
   startNextProcess(live);
@@ -2252,7 +2327,7 @@ const TIER_V = { owlbat: 2 };   // outfit pictures redrawn under the same names 
 if (WORLD <= 2) for (const sp of SPECIES) for (let t = 1; t < 5; t++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_t${t}${v}.png?v=${TIER_V[sp] || 1}`; sprites[sp + '_t' + t + v] = im; }   // outfit stages (drawn later; missing ones fall back)
 for (const sp of SPECIES) for (const v of ['', '_back']) { const im = new Image(); im.src = `assets/creatures/${sp}${v}.png`; sprites[sp + v] = im; }   // front and back views
 // court poses (build 264, her pick «2»: real poses instead of icons; first test sheet: the moth fox without an outfit)
-const COURT_POSE = { bench: 'sit', tag: 'run', coin: 'coin', read: 'read', sparks: 'wand', birds: 'birds' };
+const COURT_POSE = { bench: 'sit', tag: 'run', coin: 'coin', read: 'read', sparks: 'wand', birds: 'birds', swing: 'sit', tea: 'sit' };
 const COURT_POSE_ART = SPECIES.flatMap((sp) => [sp, sp + '_t1', sp + '_t2', sp + '_t3', sp + '_t4']);   // every world-1 look (build 273, her «Делай»); a missing picture falls back to the standing sprite
 if (WORLD === 1) for (const k of COURT_POSE_ART) for (const p of Object.values(COURT_POSE)) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${k}_k_${p}.png?v=2`; sprites[k + '_k_' + p] = im; }
 const COURT_POSE_K = 1.2;   // plan item 6, her pick «1»: students busy in the court are drawn 1.2x bigger (small at the normal zoom)
@@ -2313,7 +2388,8 @@ function statKey() { return (cantBuilt() ? (cantOpen() ? 'C' : 'c') : '') + S.cl
 const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, toadhouse: 96, glowmush: 40, crystals: 44, berrybush: 44, fern: 38, hedge: 42, roses: 40, roses2: 40, boulder: 40, bells: 38,
   fountain: 100, flowerarch: 118, gazebo: 132, founder: 96, bench_a: 34, bench_b: 34, topiary_ball: 42, topiary_spiral: 48, hedge_long: 26, peonybed: 30, hydrangea: 40, crystalball: 40,
   lantern_gold: 76, lantern_blue: 76, owl_statue: 62, fox_statue: 62, flowerbed: 34, signpost2: 58, urn: 46, flowerbox: 26, gate_big: 170,
-  runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46, gal_rose: 84, gal_lamp: 84, gal_urn: 94 };   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
+  runestone: 44, stump: 32, starflowers: 30, pumpkin: 60, well: 70, beehive: 46, birdbath: 42, chestmush: 34, fairyring: 46, gal_rose: 84, gal_lamp: 84, gal_urn: 94,
+  cz_swing: 112, cz_target: 68, cz_picnic: 58, cz_cushions: 40, cz_bookshelf: 74, cz_lanterns: 92 };   // big enough to read at the normal zoom   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
 // World 2 (cold mountain kingdom): the same composed territory, drawn with cave things instead of trees and flowers.
 // The world-1 layout names are mapped to cave sprites (null = nothing there); the pictures load into the same 'outdoor/<name>' keys.
 const OUT_H_W2 = { stalag_a: 168, stalag_b: 176, stalag_c: 160, mush_teal: 140, mush_violet: 128, crystal_big: 120, boulder: 40, rubble: 28, glowmush: 38, crystals: 40, ore: 36, minecart: 46, lantern: 76, runestone: 44, dwarf_statue: 64, gate_big: 200 };
@@ -2382,8 +2458,13 @@ function layoutOutdoor() {
     for (const b of courtBenches()) add(b.f ? 'bench_a' : 'bench_b', b.x, b.y, 1.1);   // 4 round the plaza + one per bench level on the lawns
     for (const [fx, fy] of [[0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // the back-left quarter holds the graduates' garden (centred there since her «по центру»)   // a corner garden in each quarter of the lawn
       const x = COURT.x0 + W * fx, y = COURT.y0 + H * fy;
-      add(fx < 0.5 === fy < 0.5 ? 'blossom' : 'goldtree', x, y, 0.95); add('peonybed', x + 1.6, y + 0.6); add('hydrangea', x - 1.2, y + 1.4); add('topiary_ball', x + 0.4, y + 2.0);
+      if (fx < 0.5) continue;   // the playground has no tree (the swing stands there)
+      add(fx < 0.5 === fy < 0.5 ? 'blossom' : 'goldtree', x, y, 0.95); add(fy < 0.5 ? 'hydrangea' : 'peonybed', x + 2.4, y + 0.4);
     }
+    { const Z = courtZones();   // the zones' own things
+      Z.cushions.forEach((q, k) => add('cz_cushions', q.x, q.y, k ? 0.8 : 0.9, !!k)); add('cz_bookshelf', Z.shelf.x, Z.shelf.y); add('birdbath', Z.bath.x, Z.bath.y);
+      add('cz_swing', Z.swing.x, Z.swing.y); add('cz_target', Z.target.x, Z.target.y); add('topiary_ball', Z.play.x + 3.0, Z.play.y + 2.6);
+      add('cz_picnic', Z.picnic.x, Z.picnic.y); Z.lanterns.forEach((q, k) => add('cz_lanterns', q.x, q.y, 1, !!k)); }
     for (const [dx, dy] of [[-5.2, 0], [5.2, 0], [0, -5.2], [0, 5.2]]) add('lantern_gold', c.x + dx + (dx ? 0 : 1.4), c.y + dy + (dy ? 0 : 1.4), 0.9);
     for (const g of GAL || []) out.push({ n: g.n, x: g.x, y: g.y, th: 'outdoor', s: 1 });   // the colonnade (plan item 2)
     for (const [a, b] of GAL_G || []) out.push({ n: 'gal_garland', x: (a.x + b.x) / 2 + 0.01, y: (a.y + b.y) / 2 + 0.01, th: 'outdoor', g: [a, b] });
@@ -2704,6 +2785,12 @@ function drawStatic() {
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
     if (carpet && y % 3 === 0) { const m = P(x + 0.5, y + 0.5); emoji('✦', m.x, m.y, 7, c); }
   }
+  if (WORLD === 1 && COURT) {   // hopscotch chalked on the playground lawn (court zones): 1, 2, 3|4, 5, 6|7, 8 along the y axis
+    const h = courtZones().hop, cells = [[0, 0], [0, 1], [-0.5, 2], [0.5, 2], [0, 3], [-0.5, 4], [0.5, 4], [0, 5]];
+    c.save(); c.lineWidth = 1.3; c.strokeStyle = 'rgba(255,255,255,0.8)';
+    cells.forEach(([dx, dy], k) => { const x = h.x + dx * 0.9 - 0.45, y = h.y + dy * 0.9, w = 0.9;
+      poly(c, [P(x, y), P(x + w, y), P(x + w, y + w), P(x, y + w)]); c.stroke(); const m = P(x + w / 2, y + w / 2); c.fillStyle = 'rgba(255,255,255,0.85)'; c.font = '700 8px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(k + 1), m.x, m.y); });
+    c.restore(); }
   if (WORLD <= 2 && OUT_ON) { layoutOutdoor(); entranceDecal = null; drawEntrancePath(c, true); for (const o of OUTDOOR) { const q = P(o.x, o.y), r = (OUT_H[o.n] || 28) * (o.s || 1) * 1.3; o.baked = q.x - r > MARGIN && q.x + r < MARGIN + SW && q.y - r > MARGIN && q.y + r < MARGIN + SH && outShadow(c, o); } }   // ground shadows go into the cached layer
   if (WORLD === 1) bakeHallWalls(c, q);
   // gate
@@ -3042,7 +3129,8 @@ function drawSlot(c, id) {
   if (id === 'DIR' && !dirBuilt()) {
     poly(c, [L, B, R, F], '#ecd2a8'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
     c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 62, center.y - 30, 124, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
-    text('👑 Кабинет директора', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(DIR_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('⭐ ' + DIR_STARS, center.x, center.y + 19, 11, '#c98a00', c);
+    if (WORLD === 2) { text('👑 Трон старейшины', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(THRONE_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('нужен Зал стражей', center.x, center.y + 19, 8.5, '#8a7a9a', c); }
+    else { text('👑 Кабинет директора', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(DIR_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('⭐ ' + DIR_STARS, center.x, center.y + 19, 11, '#c98a00', c); }
     return;
   }
   if (id === 'TRADE') {   // cobbled yard; before it is built, a dashed plot with the price
@@ -3154,7 +3242,7 @@ function drawSign(c, id) {
   if (id === 'GARDEN' && WORLD <= 2) {   // drawn over everything like the room signs, above the gazebo (world 2: the hall of glory)
     const pl = WORLD === 2 ? signPill(signLabel('🎓 Зал славы'), '#d6dcf2', 12, 22, '#ffffff', '#2e3a5a') : signPill(signLabel('🎓 Сад выпускников'), '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = WORLD === 1 ? P(s.x0 + 3.6, s.y0 + 0.5) : P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - (WORLD === 1 ? 138 : 150) - pl.h / 2, pl.w, pl.h); return; }
   if (id === 'GARDEN' || (id === 'TRADE' && !tradeOpen()) || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
-  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'TRADE' ? '🐐 Торговый двор' : WORLD === 2 && id === 'LIB' ? '📚 Чертог летописей' : WORLD === 2 && id === 'DORM' ? '🛏️ Кельи' : WORLD === 2 && id === 'DORM2' ? '🛏️ Вторые кельи' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
+  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'TRADE' ? '🐐 Торговый двор' : WORLD === 2 && id === 'LIB' ? '📚 Чертог летописей' : WORLD === 2 && id === 'DORM' ? '🛏️ Кельи' : WORLD === 2 && id === 'DORM2' ? '🛏️ Вторые кельи' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? (WORLD === 2 ? '👑 Трон старейшины' : '👑 Кабинет директора') : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const midBack = WORLD === 1 && ['DORM', 'DORM2', 'DIR', 'SHOP'].includes(id);   // build 258: front-row rooms put their sign over the middle of their tall back wall (on the corner it hung over the gallery)
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : midBack ? up(P((s.x0 + s.x1) / 2, s.y0), WALLH * 0.72 + 12) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   const fs = 12, hgt = 22, bg = ci >= 0 ? CLASSES[ci].wall : SIGN_BG[id] || '#ffffff';
@@ -3702,6 +3790,7 @@ function render() {
     const pn = panicPos(a), ax = pn ? pn.x : a.x, ay = pn ? pn.y : a.y;
     if (a.state !== 'fly') a.z = !pn && a.state === 'study' && !(a.path && a.path.length) && sitsOn(a.c) ? 9 + (CLASSES[a.c].id === 'flight' && !incOf(a.c) ? flightLift(a.id) : 0) : (a.state === 'read' && !(a.path && a.path.length) && themeOf('LIB') ? 6 : (a.state === 'sleep' || a.state === 'nap') && !(a.path && a.path.length) && themeOf('DORM') ? 4 : 0);   // on a cloud / in an armchair
     if (a.state === 'court' && a.act === 'bench' && courtPose(a)) a.z = 6;   // sits on the bench seat
+    if (a.state === 'court' && a.act === 'swing' && courtPose(a) && !(a.path && a.path.length)) a.z = 26 + 5 * Math.abs(Math.sin(performance.now() / 1000 * 2.6));   // on the swing seat, swinging
     if (pn) { a._panic = true; a.flip = pn.left; a.back = pn.up; } else if (a._panic) { a._panic = false; if (a.state === 'study') faceTeacher(a, a.c); }
     const draw = () => drawCreature(a, ax, ay, 30, (x, y) => {
       if (pn) { if (Math.sin(a.ph * 3 + a.id) > 0.2) emoji(a.id % 3 ? '❗' : '😱', x + 2, y - 36, 12); return; }
@@ -4457,7 +4546,7 @@ function openRoom(id) {
     if (id === 'REC') { openPanel(receptionPanel); return; }
     if (id === 'GARDEN') { toast(`🎓 Выпускников: ${S.stats.graduated}`); return; }
     if (id === 'LIB') { openPanel(libPanel); return; }
-    if (id === 'DIR') { openPanel(dirBuilt() ? dirPanel : dirBuildPanel); return; }
+    if (id === 'DIR') { openPanel(WORLD === 2 ? (dirBuilt() ? thronePanel : throneBuildPanel) : dirBuilt() ? dirPanel : dirBuildPanel); return; }
     if (id === 'SHOP') { openPanel(shopPanel); return; }
     if (id === 'CANT') { openPanel(cantPanel); return; }
     if (id === 'TOWER') { openPanel(towerPanel); return; }
@@ -4540,6 +4629,8 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!dorm2Built() && spend(DORM2_COST)) { dormUp().room2 = true; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
   else if (d.act === 'formlvl') { const f = formSt(d.k); if (formReady(d.k) && spend(formCost(d.k))) { f.xp -= formNeed(f.lvl); f.lvl++; toast(`✨ ${formName(d.k)}: уровень ${f.lvl}!`); } }
+  else if (d.act === 'thronebuild') { const gi = guardsIdx(); if (!throne().built && gi >= 0 && isOpen(gi) && spend(THRONE_COST)) { throne().built = true; staticKey = ''; toast('👑 Трон старейшины готов! Слушайте гул из глубин'); } }
+  else if (d.act === 'throneup') { const k = d.k; if ((throne()[k] || 0) < THRONE_MAX && spend(thCost(k))) throne()[k] = (throne()[k] || 0) + 1; }
   else if (d.act === 'tradebuild') { const fi = CLASSES.findIndex((c) => c.id === 'forge'); if (!trade().built && fi >= 0 && isOpen(fi) && spend(TRADE_COST)) { trade().built = true; corrKey = ''; staticKey = ''; toast('🐐 Торговый двор построен!'); } }
   else if (d.act === 'caravan') sendCaravan();
   else if (d.act === 'tup') { const k = d.k; if (trade()[k] < MAX_TUP && spend(tupCost(k))) trade()[k]++; }
