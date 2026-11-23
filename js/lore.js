@@ -169,6 +169,12 @@ function findLine(k) {
   if (root) redraw();
   return true;
 }
+function reveal(id) {   // a found secret: a centred card with its picture, then straight to its page
+  const p = PAGES.find((q) => q.id === id); if (!p) return; css();
+  const d = el(`<div class="lo-reveal"><div class="lo-rv-card"><div class="lo-rv-glow"></div>${p.img ? `<img class="lo-rv-pic" src="${p.img}" alt="">` : `<span class="lo-ico">${p.icon || '🔮'}</span>`}<div class="lo-ribbon">🔮 Тайна раскрыта</div><h3>${esc(p.title)}</h3>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}<button data-rvread>Читать в Летописи</button><button class="lo-rv-later" data-rvlater>Позже</button></div></div>`);
+  document.body.appendChild(d);
+  d.addEventListener('click', (e) => { if (e.target.closest('[data-rvread]')) { d.remove(); open(); chap = 'secrets'; page = id; LS().seen[id] = Math.max(LS().seen[id] || 0, openN(p, facts())); A.save(); redraw(); } else if (e.target.closest('[data-rvlater]') || e.target === d) d.remove(); });
+}
 function say(t, ms = 4500) {   // a longer note than the game's 2-s toast: Tikhon's words and found lines must be readable
   const d = document.createElement('div'); d.className = 'lo-say'; d.textContent = t; document.body.appendChild(d);
   if (!document.getElementById('lore-say-css')) { const st = document.createElement('style'); st.id = 'lore-say-css'; st.textContent = '.lo-say{position:fixed;left:50%;top:calc(var(--safe-t,0px) + 110px);transform:translateX(-50%);z-index:30;max-width:calc(100vw - 32px);width:max-content;padding:10px 16px;border-radius:16px;background:#fff6e2f2;color:#4a3420;border:2px solid #c9a46a;font:600 15px/1.35 Georgia,serif;text-align:center;box-shadow:0 6px 18px #0003;white-space:pre-line;animation:losay '+ (ms / 1000) + 's ease forwards;pointer-events:none}@keyframes losay{0%{opacity:0;transform:translate(-50%,8px)}8%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}'; document.head.appendChild(st); }
@@ -181,7 +187,7 @@ export function event(kind) {   // called by game.js; true = handled (the game d
   if (kind === 'dew') {   // secret «Роса»: dawn dew in the graduates' garden
     if (!isDawn()) return false; const sc = SEC(); if (sc.dew) { say('💧', 1500); return true; }
     sc.dew = Date.now(); A.save(); say('Профессор Мох: «А?.. Ты тоже рано встаёшь. Ладно, раз уж ты здесь, скажу тебе одну вещь».', 5000);
-    setTimeout(() => say('🔮 Новая страница в Летописи: «Роса»', 4000), 5200); return true;
+    setTimeout(() => reveal('dew'), 4800); return true;
   }
   if (kind === 'moon') { if (isNight() && canFind(0)) { findLine(0); A.flash && A.flash('moon'); } else say(isNight() ? '🌙 Луна тихо светит над лесом.' : '🌙'); return true; }
   if (kind === 'coin') { if (r.start && !has(3)) { r.coins++; if (r.coins >= 100 && canFind(3)) findLine(3); } return true; }
@@ -282,8 +288,8 @@ function listHtml(f) {
   const tabs = CHAPTERS.map(([k, ic, nm]) => { const n = PAGES.filter((p) => p.ch === k && openN(p, f) > (LS().seen[p.id] || 0)).length;
     return `<button class="lo-tab${k === chap ? ' on' : ''}" data-lochap="${k}">${(QS()[k] || {}).done ? '🎓' : ic} ${nm}${n ? `<span class="lo-dot">${n}</span>` : ''}</button>`; }).join('');
   const cards = PAGES.filter((p) => p.ch === chap).map((p) => { const n = openN(p, f), all = p.layers.length, fresh = n > (LS().seen[p.id] || 0);
-    if (!n) return `<div class="lo-card locked">${pic(p, true)}<div class="lo-ct"><b>???</b><small>🔒 ${p.secret ? '' : 'Откроется, '}${esc(p.layers[0].hint || '')}</small></div></div>`;
-    return `<button class="lo-card" data-lopage="${p.id}">${pic(p)}<div class="lo-ct"><b>${esc(p.title)}</b>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}<small>Открыто ${n} из ${all}</small></div>${fresh ? '<span class="lo-new">новое</span>' : ''}</button>`; }).join('');
+    if (!n) return `<div class="lo-card locked${p.secret ? ' secret' : ''}">${pic(p, true)}<div class="lo-ct"><b>???</b><small>🔒 ${p.secret ? '' : 'Откроется, '}${esc(p.layers[0].hint || '')}</small></div></div>`;
+    return `<button class="lo-card${p.secret ? ' secret' : ''}" data-lopage="${p.id}">${pic(p)}<div class="lo-ct"><b>${esc(p.title)}</b>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}<small>Открыто ${n} из ${all}</small></div>${fresh ? '<span class="lo-new">новое</span>' : ''}</button>`; }).join('');
   return `<div class="lo-tabs">${tabs}</div><div class="lo-list">${cards}</div>${quizBlock(f)}`;
 }
 function pageHtml(p, f) {
@@ -293,7 +299,7 @@ function pageHtml(p, f) {
     ? l.riddle ? (() => { const r = RD(); return `<div class="lo-sec riddle"><h4>🔎 ${esc(l.t)}</h4>${para(l.x)}<div class="lo-lines">${RIDDLE.map((t, k) => has(k) ? `<div class="lo-line got"><span class="lo-seal-st">★</span><div class="lo-got-t">«${esc(t)}»</div><small>строчка ${k + 1} · найдена</small><em class="lo-why">${esc(WHY[k])}</em></div>` : `<div class="lo-line">${k + 1}. <span>· · · ? · · ·</span><em>Пометка Тихона: ${esc(HINTS[k][r.hint[k]])}</em></div>`).join('')}</div><div class="lo-cnt">Найдено строк: ${nFound()} из 5${nFound() < 5 ? ' · не больше одной в день' : ''}${!has(3) && r.start ? ` · желаний в фонтане: ${Math.min(100, r.coins)} из 100` : ''}</div></div>`; })()
     : `<div class="lo-sec${l.wide ? ' wide' : ''}">${l.img && l.wide ? `<img class="lo-ill" src="${l.img}" alt="" onerror="this.remove()">` : ''}<h4>${esc(l.t)}</h4>${l.img && !l.wide && l.img !== p.img ? `<img class="lo-pose ${k % 2 ? 'l' : 'r'}" src="${l.img}" alt="" onerror="this.remove()">` : ''}${para(l.x)}<div class="lo-clr"></div></div>${k < p.layers.length - 1 ? '<div class="lo-orn">✦ ❧ ✦</div>' : ''}`
     : `<div class="lo-sec locked"><h4>🔒 ${esc(l.t)}</h4><p>Откроется, ${esc(l.hint || '')}.</p></div>`).join('');
-  return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-pg${p.hand ? ' hand' : ''}${p.night ? ' night' : ''}"><div class="lo-head">${pic(p)}<div><h3>${esc(p.title)}</h3>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div></div>${secs}${p.night && LS().prize ? '</div><div class="lo-reward">🎁 Награда: звезда директора навсегда горит над холмами, его корона лежит на столе в кабинете, доход школы +10% навсегда.</div>' : '</div>'}`;
+  return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-pg${p.hand ? ' hand' : ''}${p.night ? ' night' : ''}${p.secret ? ' secret' : ''}"><div class="lo-head">${pic(p)}<div>${p.secret ? '<div class="lo-ribbon">🔮 Тайна раскрыта</div>' : ''}<h3>${esc(p.title)}</h3>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div></div>${secs}${p.night && LS().prize ? '</div><div class="lo-reward">🎁 Награда: звезда директора навсегда горит над холмами, его корона лежит на столе в кабинете, доход школы +10% навсегда.</div>' : '</div>'}`;
 }
 function html() {
   const f = facts(), body = quiz ? quizHtml() : page ? pageHtml(PAGES.find((p) => p.id === page), f) : listHtml(f);
@@ -382,6 +388,27 @@ function css() {
 #lore .lo-orn { text-align: center; color: #b8925a; letter-spacing: .4em; font-size: 13px; margin: 2px 0; }
 #lore .lo-sec.locked p { font-family: inherit; font-size: 13.5px; }
 body.lore-open #fx .toast { display: none; }
+#lore .lo-ribbon, .lo-reveal .lo-ribbon { display: inline-block; margin-bottom: 3px; padding: 2px 10px; border-radius: 999px; background: linear-gradient(#f6d98a, #d9a94a); color: #3b2466; font: 800 11px ui-rounded, sans-serif; letter-spacing: .06em; text-transform: uppercase; box-shadow: 0 1px 0 #8a6420; }
+#lore .lo-pg.secret { position: relative; margin-top: 4px; padding: 10px 8px 6px; border-radius: 18px; border: 2px solid #e0b85c; background: radial-gradient(1.5px 1.5px at 12% 18%, #fff8 99%, transparent), radial-gradient(1.5px 1.5px at 78% 9%, #fff9 99%, transparent), radial-gradient(1px 1px at 55% 30%, #fff7 99%, transparent), radial-gradient(1.5px 1.5px at 90% 40%, #ffe9a8 99%, transparent), radial-gradient(1px 1px at 30% 6%, #fff 99%, transparent), radial-gradient(circle at 75% 0%, #7a5cc0, #3a2a6e 55%, #241a48); box-shadow: 0 0 22px #9c7ae066, inset 0 0 0 1px #fff2; }
+#lore .lo-pg.secret .lo-head h3 { color: #ffe3a3; text-shadow: 0 0 10px #ffd36e66; }
+#lore .lo-pg.secret .lo-head i { color: #d8c8ff; }
+#lore .lo-pg.secret .lo-head .lo-pic { filter: drop-shadow(0 0 10px #c8b0ff); }
+#lore .lo-pg.secret .lo-sec { background: linear-gradient(#fffaf0, #fbefd6); box-shadow: inset 0 0 0 2px #e0b85c, 0 3px 10px #0004; }
+#lore .lo-pg.secret .lo-sec h4 { color: #6a3fb0; }
+#lore .lo-card.secret { background: linear-gradient(120deg, #4a3586, #6d52b5); box-shadow: 0 0 0 2px #e0b85c, 0 0 14px #9c7ae066; color: #fff; }
+#lore .lo-card.secret b { color: #ffe3a3; } #lore .lo-card.secret i, #lore .lo-card.secret small { color: #e3d8ff; }
+#lore .lo-card.secret.locked { background: linear-gradient(120deg, #3a2f5e, #4a3d78); box-shadow: 0 0 0 1px #b79ce8; opacity: .9; }
+#lore .lo-card.secret.locked small { font-style: italic; }
+.lo-reveal { position: fixed; inset: 0; z-index: 31; display: flex; align-items: center; justify-content: center; background: #140c2acc; animation: lorvf .4s ease; }
+.lo-rv-card { position: relative; width: min(320px, calc(100vw - 40px)); padding: 18px 16px 14px; border-radius: 22px; text-align: center; border: 2px solid #e0b85c; color: #fff; font-family: ui-rounded, sans-serif; background: radial-gradient(circle at 50% 0%, #8566cc, #3a2a6e 60%, #241a48); box-shadow: 0 0 40px #b99cff88; animation: lorvc .6s cubic-bezier(.2,1.4,.4,1); }
+.lo-reveal .lo-ribbon img { width: 1.15em; height: 1.15em; vertical-align: -3px; }
+.lo-rv-card img.lo-rv-pic { position: relative; width: 150px; height: 150px; object-fit: contain; filter: drop-shadow(0 0 14px #d8c4ff); animation: lorvb 3s ease-in-out infinite; }
+.lo-rv-glow { position: absolute; left: 50%; top: 18px; width: 190px; height: 190px; margin-left: -95px; border-radius: 50%; background: radial-gradient(#ffe7a8aa, #c9a8ff44 45%, transparent 70%); animation: lorvg 2.4s ease-in-out infinite; }
+.lo-rv-card h3 { margin: 6px 0 2px; font: 700 24px Georgia, serif; color: #ffe3a3; text-shadow: 0 0 12px #ffd36e88; }
+.lo-rv-card i { display: block; color: #d8c8ff; margin-bottom: 12px; }
+.lo-rv-card button { display: block; width: 100%; margin-top: 8px; padding: 11px; border: 0; border-radius: 14px; font: 800 16px ui-rounded, sans-serif; color: #3b2466; background: linear-gradient(#ffe7a3, #e0b85c); box-shadow: 0 3px 0 #9a7428; }
+.lo-rv-card button.lo-rv-later { background: transparent; color: #d8c8ff; box-shadow: none; font-weight: 600; font-size: 14px; padding: 6px; }
+@keyframes lorvf { from { opacity: 0 } } @keyframes lorvc { from { transform: scale(.6); opacity: 0 } } @keyframes lorvb { 50% { transform: translateY(-5px) } } @keyframes lorvg { 50% { transform: scale(1.12); opacity: .75 } }
 `;
   document.head.appendChild(s);
 }
