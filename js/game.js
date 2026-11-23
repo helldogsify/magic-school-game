@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=281';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=281';
-import { initMinigame } from './minigame.js?v=281';
+} from './data.js?v=282';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=282';
+import { initMinigame } from './minigame.js?v=282';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -14,7 +14,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 281;   // keep equal to the ?v= number in index.html
+const BUILD = 282;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -870,6 +870,16 @@ const courtUp = () => (S.courtUp ||= { bench: 1, fount: 1, coin: 0 });
 const courtCap = () => (WORLD === 1 && COURT ? COURT_CAP0 + 3 * (courtUp().bench - 1) : 0);
 const fountMoodK = () => 1 + 0.2 * (courtUp().fount - 1);
 const coinLuck = () => (courtUp().coin ? 0.05 + 0.005 * (courtUp().coin - 1) : 0);
+function courtBenches() {   // build 282 (her «Но они должны рисоваться»): every bench level puts one more real bench into the court
+  const c = courtC(), W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, out = [];
+  [[0.75, 1], [2.36, 0], [3.93, 1], [5.5, 0]].forEach(([an, f]) => out.push({ x: c.x + Math.cos(an) * 3.6, y: c.y + Math.sin(an) * 3.6, f }));
+  const extra = [];
+  for (const [fx, fy] of [[0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // the three lawn quarters (the graduates' garden takes the fourth)
+    const x = COURT.x0 + W * fx, y = COURT.y0 + H * fy;
+    extra.push({ x: x + 2.6, y: y - 1.6, f: 1 }, { x: x - 2.4, y: y + 2.8, f: 0 }, { x: x + 2.9, y: y + 2.7, f: 1 });
+  }
+  return out.concat(extra.slice(0, Math.max(0, (courtUp().bench || 1) - 1)));
+}
 const benchCost = () => Math.round(4000 * Math.pow(2.3, courtUp().bench - 1));
 const fountCost = () => Math.round(6000 * Math.pow(2.3, courtUp().fount - 1));
 const coinCost = () => Math.round(15000 * Math.pow(2.4, courtUp().coin));
@@ -880,10 +890,10 @@ const COURT_BREAK = 0.3;  // share of students who take a short break in the cou
 const courtBreakOk = () => courtCap() > 0 && courtList.length < courtCap() - 4;   // breaks leave room for those who really wait
 const COURT_ACTS = ['bench', 'bench', 'tag', 'coin', 'sparks', 'birds', 'read'];
 function courtSpots() {   // fixed points per activity (a small fixed set keeps the path cache warm)
-  if (courtSpots.ver === bfsVer && courtSpots.v) return courtSpots.v;
+  if (courtSpots.ver === bfsVer + ':' + courtUp().bench && courtSpots.v) return courtSpots.v;
   const c = courtC(), W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, ok = (p) => regAt(Math.floor(p.x), Math.floor(p.y)) === 'hall' && !courtBlocked(Math.floor(p.x), Math.floor(p.y));
   const v = { bench: [], tag: [], coin: [], sparks: [], birds: [], read: [] };
-  [0.75, 2.36, 3.93, 5.5].forEach((an) => { const bx = c.x + Math.cos(an) * 3.6, by = c.y + Math.sin(an) * 3.6; v.bench.push({ x: bx + 0.08, y: by + 0.08, seat: true }); });   // build 264: the sitter sits ON the bench (pose «sit»)
+  for (const b of courtBenches()) v.bench.push({ x: b.x + 0.08, y: b.y + 0.08, seat: true });   // build 264: the sitter sits ON the bench (pose «sit»)
   for (let k = 0; k < 8; k++) { const an = k * Math.PI / 4; v.tag.push({ x: c.x + Math.cos(an) * 2.7, y: c.y + Math.sin(an) * 2.7 }); }
   for (let k = 0; k < 4; k++) { const an = k * Math.PI / 2 + Math.PI / 4; v.coin.push({ x: c.x + Math.cos(an) * 1.9, y: c.y + Math.sin(an) * 1.9 }); }
   for (const [fx, fy] of [[0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // the lawn quarters (the top-left one is the graduates' garden)
@@ -893,7 +903,7 @@ function courtSpots() {   // fixed points per activity (a small fixed set keeps 
     v.sparks.push({ x: x - 2.2, y: y + 2.4 }, { x: x + 2.2, y: y + 2.6 });
   }
   for (const k of Object.keys(v)) v[k] = v[k].filter(ok);
-  courtSpots.ver = bfsVer; courtSpots.v = v; return v;
+  courtSpots.ver = bfsVer + ':' + courtUp().bench; courtSpots.v = v; return v;
 }
 function goCourt(a, i, brk = false) {
   a.goal = { t: 'k', i, brk }; a.c = -1; if (!brk) a.since = a.since || Date.now(); a.bed = -1;
@@ -2169,7 +2179,7 @@ let OUTDOOR = [], outKey = '', OUT_ON = true, entrancePath = null, entranceDecal
 const GROVES = [['oak', 'oak', 'fir', 'fir'], ['fir', 'fir', 'fir', 'oak'], ['blossom', 'blossom', 'goldtree'], ['willow', 'oak', 'fir'], ['goldtree', 'oak', 'blossom', 'oak'], ['oak', 'willow', 'oak']];
 const UNDER = ['fern', 'berrybush', 'boulder', 'glowmush', 'stump', 'hedge', 'fern', 'bells'];
 function layoutOutdoor() {
-  const key = GW + ':' + GH + ':' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0 + ',' + s.x1 + ',' + s.y1).join(';'); if (key === outKey) return; outKey = key;
+  const key = GW + ':' + GH + ':' + (WORLD === 1 && S.courtUp ? S.courtUp.bench : 1) + ':' + Object.values(SLOTS).map((s) => s.x0 + ',' + s.y0 + ',' + s.x1 + ',' + s.y1).join(';'); if (key === outKey) return; outKey = key;
   const X0 = -80, Y0 = -60, X1 = GW + 65, Y1 = GH + 50, NX = X1 - X0, NY = Y1 - Y0, dist = new Int16Array(NX * NY).fill(999), q = [];
   for (let x = X0; x < X1; x++) for (let y = Y0; y < Y1; y++) if (regAt(x, y)) { dist[(x - X0) * NY + (y - Y0)] = 0; q.push(x, y); }
   for (let h = 0; h < q.length; h += 2) { const x = q[h], y = q[h + 1], d = dist[(x - X0) * NY + (y - Y0)];   // chessboard distance to the nearest building or path
@@ -2205,7 +2215,7 @@ function layoutOutdoor() {
   if (WORLD === 1 && COURT) {   // the magic court (her «место игровое с фонтаном, тусовкой учеников»): fountain in the middle, benches round the plaza, trees and flowers in the lawn corners, lanterns on the paths
     const c = courtC(), R = 3.6, W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, add = (n, x, y, sc = 1, fl = false) => { for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (regAt(Math.floor(x) + dx, Math.floor(y) + dy) !== 'hall') return; out.push({ n, x, y, th: 'outdoor', s: sc, flip: fl }); keep.push([x, y]); };
     add('fountain', c.x + 0.5, c.y + 0.6, 1.45);
-    [[0.75, 1], [2.36, 0], [3.93, 1], [5.5, 0]].forEach(([an, f]) => add(f ? 'bench_a' : 'bench_b', c.x + Math.cos(an) * R, c.y + Math.sin(an) * R, 1.1));
+    for (const b of courtBenches()) add(b.f ? 'bench_a' : 'bench_b', b.x, b.y, 1.1);   // 4 round the plaza + one per bench level on the lawns
     for (const [fx, fy] of [[0.22, 0.22], [0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // a corner garden in each quarter of the lawn
       const x = COURT.x0 + W * fx, y = COURT.y0 + H * fy;
       add(fx < 0.5 === fy < 0.5 ? 'blossom' : 'goldtree', x, y, 0.95); add('peonybed', x + 1.6, y + 0.6); add('hydrangea', x - 1.2, y + 1.4); add('topiary_ball', x + 0.4, y + 2.0);
@@ -4192,7 +4202,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'item') { if (spend(itemCost(i, +d.k))) st.items[+d.k]++; }
   else if (d.act === 'rec') { if (S.reception.level < MAX_REC_LVL && spend(recCost())) S.reception.level++; }
   else if (d.act === 'ads') { if (S.reception.ads < MAX_REC_LVL && spend(adsCost())) S.reception.ads++; }
-  else if (d.act === 'cbench') { if (courtUp().bench < MAX_BENCH && spend(benchCost())) courtUp().bench++; }
+  else if (d.act === 'cbench') { if (courtUp().bench < MAX_BENCH && spend(benchCost())) { courtUp().bench++; staticKey = ''; toast('🪑 Во дворе поставили новую скамейку!'); } }
   else if (d.act === 'cfount') { if (courtUp().fount < MAX_FOUNT && spend(fountCost())) courtUp().fount++; }
   else if (d.act === 'ccoin') { if (courtUp().coin < MAX_COIN && spend(coinCost())) courtUp().coin++; }
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
