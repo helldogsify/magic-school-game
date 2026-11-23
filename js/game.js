@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=282';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=282';
-import { initMinigame } from './minigame.js?v=282';
+} from './data.js?v=283';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=283';
+import { initMinigame } from './minigame.js?v=283';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -14,7 +14,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 282;   // keep equal to the ?v= number in index.html
+const BUILD = 283;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2357,12 +2357,38 @@ function drawEntrancePath(c0 = ctx, baking = false) {   // the flagstone path co
   if (d.baked || d.x + d.w < VIEW.x0 || d.x > VIEW.x1 || d.y + d.h < VIEW.y0 || d.y > VIEW.y1) return;
   ctx.drawImage(d.cv, d.x, d.y, d.w, d.h);
 }
+// Earth under a tree (build 283, tester's report «На все деревья нужно добавить на корни землю чтобы они не выглядели летающими над
+// землёй»): a soft patch of soil, darkest at the trunk, fading into the grass, with a few clods; world 2 gets dark stony ground.
+const ROOTS = {};   // where the roots of a tree picture are: x (0..1 of the width), y of the lowest opaque row, spread of the opaque part near the bottom
+function rootsOf(n, im) {
+  if (ROOTS[n] !== undefined) return ROOTS[n];
+  if (!im.naturalWidth) return null;
+  const W = 120, H = Math.max(40, Math.round(120 * im.naturalHeight / im.naturalWidth)), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const x = cv.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, W, H); const d = x.getImageData(0, 0, W, H).data;
+  let bottom = -1; for (let yy = H - 1; yy >= 0 && bottom < 0; yy--) for (let xx = 0; xx < W; xx++) if (d[(yy * W + xx) * 4 + 3] > 120) { bottom = yy; break; }
+  if (bottom < 0) return (ROOTS[n] = null);
+  let sx = 0, cnt = 0, mn = W, mx = 0; const top = Math.max(0, bottom - Math.round(H * 0.07));
+  for (let yy = top; yy <= bottom; yy++) for (let xx = 0; xx < W; xx++) if (d[(yy * W + xx) * 4 + 3] > 120) { sx += xx; cnt++; if (xx < mn) mn = xx; if (xx > mx) mx = xx; }
+  return (ROOTS[n] = { x: (sx / cnt + 0.5) / W, y: (bottom - H * 0.015) / H, spread: (mx - mn + 1) / W });
+}
+function soilPatch(c, x, y, rx) {
+  const ry = rx * 0.42, col = WORLD === 2 ? '52,50,58' : '92,64,40', dark = WORLD === 2 ? '30,28,34' : '58,38,22';
+  c.save(); c.translate(x, y); c.scale(1, ry / rx);
+  let g = c.createRadialGradient(0, 0, 0, 0, 0, rx); g.addColorStop(0, `rgba(${col},0.85)`); g.addColorStop(0.6, `rgba(${col},0.62)`); g.addColorStop(1, `rgba(${col},0)`);
+  c.fillStyle = g; c.beginPath(); c.arc(0, 0, rx, 0, Math.PI * 2); c.fill();
+  g = c.createRadialGradient(0, -rx * 0.05, 0, 0, -rx * 0.05, rx * 0.45); g.addColorStop(0, `rgba(${dark},0.55)`); g.addColorStop(1, `rgba(${dark},0)`);   // the contact shadow right at the trunk
+  c.fillStyle = g; c.beginPath(); c.arc(0, -rx * 0.05, rx * 0.45, 0, Math.PI * 2); c.fill();
+  c.fillStyle = `rgba(${dark},0.45)`;
+  for (let k = 0; k < 6; k++) { const an = k * 1.9 + x * 0.013, d = rx * (0.45 + 0.35 * ((k * 37 + Math.round(x)) % 10) / 10); c.beginPath(); c.arc(Math.cos(an) * d, Math.sin(an) * d, rx * 0.045, 0, Math.PI * 2); c.fill(); }   // a few clods
+  c.restore();
+}
 function outShadow(c, o) {   // the cast shadow of an outdoor object on the grass (baked into the static layer when it lies inside it)
   const im = part('outdoor', o.n), sh = outSh[o.n]; if (!im || !sh) return false;
   const p = P(o.x, o.y), h = (OUT_H[o.n] || 28) * (o.s || 1), w = h * im.naturalWidth / im.naturalHeight;
   if (!(o.depth > 0.2)) {   // under the closed canopy cast shadows are not seen: the forest floor patch is enough there
     const base = OUT_H[o.n] || 28, e = castShadow(o.n, o.flip, sh, base * im.naturalWidth / im.naturalHeight, base), k = (o.s || 1); c.drawImage(e.cv, p.x + e.ox * k, p.y + h * 0.02 + e.oy * k, e.w * k, e.h * k);
     c.fillStyle = 'rgba(40,52,46,0.12)'; c.beginPath(); c.ellipse(p.x, p.y, w * 0.16, w * 0.06, 0, 0, Math.PI * 2); c.fill(); }
+  if (OUT_TREE.has(o.n)) { const r = rootsOf(o.n, im); if (r) { const fx = o.flip ? 1 - r.x : r.x; soilPatch(c, p.x - w / 2 + fx * w, p.y + h * 0.05 - h + r.y * h, Math.max(w * 0.12, r.spread * w * 0.62)); } }   // build 283: earth under the roots (tester «на корни землю, чтобы не выглядели летающими»)
   if (o.depth !== undefined && (c !== ctx || zoom >= 1.2)) {   /* from afar the tinted trees already read as deep forest: skip ~500 floor patches per frame */ const rx = w * 0.75, ry = rx * 0.45, a0 = c.globalAlpha; c.globalAlpha = 0.3 + 0.35 * o.depth; c.drawImage(glowSprite('30,58,38'), p.x - rx, p.y - ry * 0.6 - ry, rx * 2, ry * 2); c.globalAlpha = a0; }   // the forest floor: overlapping dark patches under the canopy
   return true;
 }
