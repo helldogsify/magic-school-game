@@ -3,7 +3,8 @@
 // Only the gameplay lives here: runFlight(box, opts) draws into its own canvas and calls opts.onEnd(result) once.
 // The shell (start screen, tries, reward, weekly table) stays in minigame.js.
 
-const ART_V = 2;   // 2: ring re-cut (her «Кольцо обрезается снизу»)
+const ART_V = 2;
+const WIND_ACC = 1.1;   // W per s^2 of a gust   // 2: ring re-cut (her «Кольцо обрезается снизу»)
 const ART = ['ring', 'storm1', 'storm2', 'spark', 'cloud1', 'cloud2', 'feather', 'castle', 'rainbow'];
 const imgs = {};
 export function loadFlightArt() {
@@ -29,7 +30,9 @@ export function runFlight(box, o) {
     cv.style.width = W + 'px'; cv.style.height = H + 'px'; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   }
   fit();
-  const st = { t: 0, started: false, over: false, hold: false, x: 0, y: 0.45, vy: 0, speed: SPEED0, score: 0, rings: 0, sparks: 0, streak: 0, shield: false,
+  const P = o.power || {}, B = o.boost || {};
+  const st = { t: 0, started: false, over: false, hold: false, x: 0, y: 0.45, vy: 0, speed: SPEED0, score: 0, rings: 0, sparks: 0, streak: 0, shield: !!(P.shield || B.shield),
+    magnet: Math.max(P.magnet || 0, B.magnet ? 0.24 : 0), wind: { t: 11 + Math.random() * 5, dur: 0, dir: 0, warned: false }, rainbows: 0,
     gates: [], items: [], fx: [], texts: [], bg: [], lastGap: 0.45, gateN: 0, deadT: 0, shake: 0 };
   // background clouds (parallax)
   for (let k = 0; k < 6; k++) st.bg.push({ x: Math.random() * 1.6, y: 0.05 + Math.random() * 0.6, s: 0.25 + Math.random() * 0.3, k: Math.random() < 0.6 ? 'cloud1' : 'cloud2', p: 0.25 + Math.random() * 0.25 });
@@ -39,13 +42,15 @@ export function runFlight(box, o) {
     const gap = Math.max(GAP_MIN, GAP0 - GAP_DOWN * st.gateN);
     let c = 0.2 + gap / 2 + Math.random() * (0.8 - gap) * 0.85;
     c = Math.max(st.lastGap - 0.32, Math.min(st.lastGap + 0.32, c)); c = Math.max(0.08 + gap / 2, Math.min(0.92 - gap / 2, c));
+    const moving = st.gateN > 6 && Math.random() < 0.4, amp = moving ? 0.05 + Math.random() * 0.04 : 0;
+    if (amp) c = Math.max(0.08 + gap / 2 + amp, Math.min(0.92 - gap / 2 - amp, c));
     st.lastGap = c; st.gateN++;
     const x = st.gates.length ? st.gates[st.gates.length - 1].x + STEP : 1.1;   // the first gate comes after a short free flight
-    st.gates.push({ x, c, gap, done: false, k: Math.random() < 0.5 ? 'storm1' : 'storm2', seed: Math.random() * 1000 });
+    st.gates.push({ x, c, cc: c, amp, ph: Math.random() * 6.3, gap, done: false, rb: st.gateN > 5 && st.gateN % 7 === 0, k: Math.random() < 0.5 ? 'storm1' : 'storm2', seed: Math.random() * 1000 });
     // sparkles on a soft wave towards the next gate; now and then a golden feather (a shield against one cloud)
     const n = 3 + Math.floor(Math.random() * 3);
     for (let i = 0; i < n; i++) { const u = (i + 1) / (n + 1); st.items.push({ x: x + 0.18 + u * (STEP - 0.36), y: c + Math.sin(u * Math.PI * 2 + Math.random()) * gap * 0.25, k: 'spark', got: false }); }
-    if (st.gateN > 4 && Math.random() < 0.12 && !st.shield) st.items.push({ x: x + STEP / 2, y: c, k: 'feather', got: false });
+    if (st.gateN > 4 && Math.random() < 0.12 * (P.featherK || 1) && !st.shield) st.items.push({ x: x + STEP / 2, y: c, k: 'feather', got: false });
   }
   for (let k = 0; k < 4; k++) addGate();
 
@@ -56,9 +61,9 @@ export function runFlight(box, o) {
   cv.style.touchAction = 'none';
 
   function hitGate(g) {   // circle against the two cloud columns of a gate (a little forgiving)
-    const r = R() * 0.72, gx = g.x - st.x + 0.28, half = 0.09;
+    const r = R() * 0.72 * (P.slim ? 0.82 : 1), gx = g.x - st.x + 0.28, half = 0.09;
     if (Math.abs(gx - 0.28) > half + r) return false;
-    const yTop = (g.c - g.gap / 2) * H / W, yBot = (g.c + g.gap / 2) * H / W, y = st.y * H / W;
+    const yTop = (g.cc - g.gap / 2) * H / W, yBot = (g.cc + g.gap / 2) * H / W, y = st.y * H / W;
     return y - r < yTop || y + r > yBot;
   }
   function crash() {
@@ -78,26 +83,33 @@ export function runFlight(box, o) {
     st.vy += (st.hold ? -LIFT : G) * dt; st.vy = Math.max(-VMAX, Math.min(VMAX, st.vy));
     st.y += st.vy * dt * W / H;
     if (st.y < 0.04) { st.y = 0.04; st.vy = Math.max(0, st.vy); } if (st.y > 0.96) { st.y = 0.96; st.vy = Math.min(0, st.vy); }   // the sky has soft edges
-    st.x += st.speed * dt; st.grace = Math.max(0, (st.grace || 0) - dt);
+    for (const g of st.gates) g.cc = g.c + (g.amp ? g.amp * Math.sin(st.t * 1.3 + g.ph) : 0);
+    const W8 = st.wind;   // a gust now and then: a warning first, then 2.5 s of wind up or down
+    if (st.t > 10) {
+      if (W8.dur > 0) { W8.dur -= dt; if (!P.windImmune) st.vy += W8.dir * WIND_ACC * dt; if (W8.dur <= 0) { W8.t = 12 + Math.random() * 6; W8.warned = false; } }
+      else { W8.t -= dt; if (W8.t <= 1.2 && !W8.warned) { W8.warned = true; W8.dir = Math.random() < 0.5 ? -1 : 1; st.texts.push({ x: 0.42, y: 0.12, s: P.windImmune ? 'Ветер! (тебе не страшен)' : W8.dir < 0 ? 'Ветер вверх!' : 'Ветер вниз!', t: 0, col: '#4a7bd0' }); } if (W8.t <= 0) W8.dur = 2.5; }
+    }
+    st.x += st.speed * (B.slow && st.t < 25 ? 0.85 : 1) * dt; st.grace = Math.max(0, (st.grace || 0) - dt);
     if (st.gates.length && st.gates[st.gates.length - 1].x - st.x < 1.6) addGate();
     for (const g of st.gates) {
       if (!st.grace && hitGate(g)) { crash(); return; }
       if (!g.done && g.x - st.x + 0.28 < 0.28) {   // passed through the ring of this gate
         g.done = true; st.rings++; st.streak++;
-        const center = Math.abs(st.y - g.c) < g.gap * 0.18;
-        const pts = PTS.ring + (center ? PTS.center : 0); st.score += pts;
-        st.texts.push({ x: 0.36, y: st.y - 0.04, s: center ? `Точно! +${pts}` : `+${pts}`, t: 0, col: center ? '#ff6fa5' : '#7b5cd6' });
+        const center = Math.abs(st.y - g.cc) < g.gap * 0.18;
+        const pts = (PTS.ring + (center ? PTS.center : 0)) * (g.rb ? 2 : 1); st.score += pts; if (g.rb) { st.rainbows++; o.snd && o.snd('special'); }
+        st.texts.push({ x: 0.36, y: st.y - 0.04, s: g.rb ? `Радуга! +${pts}` : center ? `Точно! +${pts}` : `+${pts}`, t: 0, col: center ? '#ff6fa5' : '#7b5cd6' });
         o.snd && o.snd('pop', Math.min(9, st.streak % 10));
-        for (let k = 0; k < 8; k++) st.fx.push({ x: 0.28, y: g.c * H / W, vx: (Math.random() - 0.5) * 0.6, vy: (Math.random() - 0.5) * 0.6, t: 0, life: 0.6, col: '#ffd76a' });
+        for (let k = 0; k < 8; k++) st.fx.push({ x: 0.28, y: g.cc * H / W, vx: (Math.random() - 0.5) * 0.6, vy: (Math.random() - 0.5) * 0.6, t: 0, life: 0.6, col: '#ffd76a' });
         o.onScore && o.onScore(st.score, st.rings);
       }
     }
     for (const it of st.items) {
       if (it.got) continue;
+      if (st.magnet && it.k === 'spark') { const mx = it.x - st.x, my = (it.y - st.y) * H / W; if (mx > -0.05 && Math.hypot(mx, my) < st.magnet) { const k = Math.min(1, 7 * dt); it.x -= mx * k; it.y -= (it.y - st.y) * k; } }   // magnet pulls sparkles in
       const dx = it.x - st.x, dy = (it.y - st.y) * H / W;
       if (Math.hypot(dx, dy) < R() * 0.95) {
         it.got = true;
-        if (it.k === 'spark') { st.sparks++; st.score += PTS.spark; o.snd && o.snd('tick'); }
+        if (it.k === 'spark') { st.sparks++; st.score += PTS.spark + (P.spark || 0); o.snd && o.snd('tick'); }
         else { st.shield = true; st.score += PTS.feather; st.texts.push({ x: 0.36, y: st.y - 0.05, s: 'Золотое перо — защита!', t: 0, col: '#e0a400' }); o.snd && o.snd('brew'); }
         o.onScore && o.onScore(st.score, st.rings);
       }
@@ -121,16 +133,21 @@ export function runFlight(box, o) {
     for (const b of st.bg) drawImg(b.k, b.x * u, b.y * Hp, u * b.s * 1.6, null, 0.8);
     // gates: storm clouds above and below the gap, the ring in the gap
     for (const g of st.gates) {
-      const gx = (g.x - st.x + 0.28) * u, top = (g.c - g.gap / 2) * Hp, bot = (g.c + g.gap / 2) * Hp, cw = u * 0.24, ch = u * 0.17;
+      const gx = (g.x - st.x + 0.28) * u, top = (g.cc - g.gap / 2) * Hp, bot = (g.cc + g.gap / 2) * Hp, cw = u * 0.24, ch = u * 0.17;
       for (let y = top - ch * 0.45, i = 0; y > -ch; y -= ch * 0.72, i++) drawImg(g.k, gx + Math.sin(g.seed + i) * u * 0.02, y, cw, null) || (cx.fillStyle = '#7d6f9a', cx.beginPath(), cx.arc(gx, y, ch * 0.45, 0, 7), cx.fill());
       for (let y = bot + ch * 0.45, i = 0; y < Hp + ch; y += ch * 0.72, i++) drawImg(g.k, gx + Math.cos(g.seed + i) * u * 0.02, y, cw, null) || (cx.fillStyle = '#7d6f9a', cx.beginPath(), cx.arc(gx, y, ch * 0.45, 0, 7), cx.fill());
       const rh = g.gap * Hp * 0.92;
-      if (!drawImg('ring', gx, g.c * Hp, null, rh, g.done ? 0.35 : 1)) { cx.strokeStyle = g.done ? '#f2c03a66' : '#f2c03a'; cx.lineWidth = 6 * dpr; cx.beginPath(); cx.ellipse(gx, g.c * Hp, rh * 0.18, rh * 0.48, 0, 0, 7); cx.stroke(); }
+      if (g.rb && !g.done) { const rg = cx.createRadialGradient(gx, g.cc * Hp, rh * 0.1, gx, g.cc * Hp, rh * 0.62); ['#ff9ec7aa', '#ffd76aaa', '#9be7a8aa', '#9fc8ffaa', '#c9a7ff00'].forEach((col, i) => rg.addColorStop(i / 4, col)); cx.fillStyle = rg; cx.beginPath(); cx.ellipse(gx, g.cc * Hp, rh * 0.42, rh * 0.62, 0, 0, 7); cx.fill(); }
+      if (!drawImg('ring', gx, g.cc * Hp, null, rh, g.done ? 0.35 : 1)) { cx.strokeStyle = g.done ? '#f2c03a66' : '#f2c03a'; cx.lineWidth = 6 * dpr; cx.beginPath(); cx.ellipse(gx, g.cc * Hp, rh * 0.18, rh * 0.48, 0, 0, 7); cx.stroke(); }
     }
     for (const it of st.items) {
       if (it.got) continue;
       const x = (it.x - st.x + 0.28) * u, y = it.y * Hp, s = u * (it.k === 'feather' ? 0.11 : 0.06) * (1 + 0.1 * Math.sin(st.t * 6 + it.x * 9));
       if (!drawImg(it.k, x, y, s, s * 1.3)) { cx.fillStyle = '#f2c03a'; cx.beginPath(); cx.arc(x, y, s * 0.35, 0, 7); cx.fill(); }
+    }
+    if (st.wind.dur > 0) {   // wind streaks
+      cx.strokeStyle = 'rgba(255,255,255,0.7)'; cx.lineWidth = 2 * dpr; cx.lineCap = 'round';
+      for (let k = 0; k < 14; k++) { const sx = ((k * 0.37 + st.t * 1.7) % 1.2 - 0.1) * Wp, sy = ((k * 0.61) % 1) * Hp + st.wind.dir * ((st.t * 260 * dpr) % (Hp * 0.2)); cx.beginPath(); cx.moveTo(sx, sy); cx.lineTo(sx - 40 * dpr, sy - st.wind.dir * 14 * dpr); cx.stroke(); }
     }
     // the flyer
     const fx = 0.28 * u, fy = st.y * Hp, fh = u * 0.2;

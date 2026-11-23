@@ -11,7 +11,7 @@ const STAR = [2000, 3500, 5500];  // score for 1/2/3 stars (calibrated with tool
 const MAX_MIN = 10;               // the best round pays 10 minutes of the school's income
 const BOOST = [0, 0, 5, 10];      // minutes of «Вдохновение» per stars
 const BOOST_CAP_MIN = 60;         // same cap as gifts (BOOST_MAX_MIN in game.js)
-import { runFlight, loadFlightArt } from './flight.js?v=2';   // bump when flight.js changes
+import { runFlight, loadFlightArt } from './flight.js?v=3';   // bump when flight.js changes
 const ART_V = 2;   // 2: pink crystal (her «два значка синего цвета, путаешь их»)
 
 export const ING = [   // ingredient tiles; art: assets/minigame/ing_<i>.png (falls back to the emoji until the art exists)
@@ -300,10 +300,11 @@ function css() {
 #mg .mg-pick { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin: 8px 0; padding: 12px; border-radius: 18px; background: #f6f0ff; border: 2px solid #e2d6f8; color: #3a2f4a; font-size: 15px; }
 #mg .mg-pick .mg-pi { width: 54px; height: 54px; flex: none; display: flex; align-items: center; justify-content: center; }
 #mg .mg-pick .mg-pi img { max-width: 54px; max-height: 54px; width: auto; height: auto; }
-#mg .fl-who { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-height: 220px; overflow-y: auto; }
+#mg .fl-who { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-height: 150px; overflow-y: auto; }
 #mg .fl-w { width: 82px; display: flex; flex-direction: column; align-items: center; padding: 6px 4px; border-radius: 14px; background: #f6f0ff; border: 2px solid #e2d6f8; font: 700 11px ui-rounded, "Nunito", sans-serif; color: #4a3a6b; }
 #mg .fl-w.on { background: #fff4c7; border-color: #e8b923; }
 #mg .fl-w img { width: 60px; height: 60px; object-fit: contain; }
+#mg .fl-w small { font: 600 9.5px ui-rounded, "Nunito", sans-serif; color: #8a7ea0; line-height: 1.1; margin-top: 2px; }
 #mg .fl-box { flex: 1; width: 100%; max-width: 520px; margin-top: 8px; border-radius: 20px; overflow: hidden; min-height: 0; }
 #mg .fl-cv { display: block; touch-action: none; }
 @keyframes mgbob { 50% { transform: translateY(-4px) rotate(-1.5deg); } }
@@ -352,6 +353,9 @@ function onClick(e) {
   if (d.mgchoose !== undefined) { if (FL) { FL.h.stop(); FL = null; } showChooser(); return; }
   if (d.flwho !== undefined) { const w = A.flyers ? A.flyers() : []; if (w[+d.flwho]) { mg().fly = w[+d.flwho].k; showFlightStart(); } return; }
   if (d.flplay !== undefined) { startFlight(); return; }
+  if (d.flb !== undefined) { const b = FBOOSTS[+d.flb]; if (!b) return;
+    if (fsel.has(b.id)) fsel.delete(b.id); else if ((st().coins || 0) < fTotal() + boostCost(b)) { A.toast('🪙 Не хватает монет на этот бонус'); return; } else fsel.add(b.id);
+    showFlightStart(); return; }
   if (d.mgplay !== undefined) { start(); return; }
   if (d.mgagain !== undefined) { showStart(); return; }   // «Ещё раз» goes through the start screen: boosters can be chosen again
   if (d.mgb !== undefined) { const b = BOOSTS[+d.mgb]; if (!b) return;
@@ -655,6 +659,20 @@ function drawBeams(C, d) {   // light of the specials: a beam along a row / colu
 
 // ======================= «Полёт через кольца» shell =======================
 let FL = null;   // { live, rewarded, h (runFlight handle) }
+// powers of the looks (her pick «У каждого летуна своя сила»): higher ranks and Masters fly better, a reason to collect the album
+function powerOf(k) {
+  const [, rk, el] = String(k || '').split(':');
+  if (+rk === 5) return [{ shield: true, spark: 1, txt: 'огненный щит и искорки +1' }, { magnet: 0.3, txt: 'большой магнит для искорок' }, { shield: true, slim: true, txt: 'щит и реже задевает тучки' }, { windImmune: true, magnet: 0.14, txt: 'ветер не страшен и магнит' }][+el] || { shield: true, txt: 'защита пера' };
+  return [{ txt: 'обычный полёт' }, { spark: 1, txt: 'искорки +1 очко' }, { magnet: 0.14, txt: 'маленький магнит для искорок' }, { featherK: 2, txt: 'золотые перья вдвое чаще' }, { shield: true, txt: 'начинает с защитой пера' }][+rk] || { txt: 'обычный полёт' };
+}
+// boosters before a flight (her pick «Бонусы перед полётом»), same prices as in «Зельеварка»
+const FBOOSTS = [
+  { id: 'shield', name: 'Перо с собой', min: 1, ico: () => '<img class="mgi" src="assets/flight/feather.webp?v=2" alt="" style="width:28px;height:28px">' },
+  { id: 'magnet', name: 'Магнит искорок', min: 1, ico: () => '<img class="mgi" src="assets/flight/spark.webp?v=2" alt="" style="width:28px;height:28px">' },
+  { id: 'slow', name: 'Тихий старт', min: 1, ico: () => '⏳' },
+];
+const fsel = new Set();
+const fTotal = () => FBOOSTS.reduce((a, b) => a + (fsel.has(b.id) ? boostCost(b) : 0), 0);
 function flyerList() { return (A.flyers && A.flyers()) || []; }
 function showFlightStart() {
   if (FL) { FL.h.stop(); FL = null; }
@@ -662,9 +680,13 @@ function showFlightStart() {
   root.innerHTML = A.emojiHtml(`<div class="mg-card">
     <div class="mg-pot"><img class="mgi" src="assets/flight/ring.webp?v=2" alt="" style="width:44px;height:70px"></div><h2>Полёт через кольца</h2>
     <p>Нажми и держи палец — ученик взлетает, отпусти — плавно опускается. Пролетай сквозь кольца, собирай искорки и не задевай тучки: первая тучка — конец полёта.</p>
-    <p class="muted">Кольцо +10, точно по центру ещё +5, искорка +2. Золотое перо спасает от одной тучки.</p>
+    <p class="muted">Кольцо +10, точно по центру ещё +5, искорка +2, радужное кольцо — вдвое больше. Золотое перо спасает от одной тучки. Берегись ветра и тучек, которые плавают вверх-вниз!</p>
     <div class="mg-bh">Кто летит</div>
-    <div class="fl-who">${w.map((x, k) => `<button class="fl-w${cur && x.k === cur.k ? ' on' : ''}" data-flwho="${k}"><img src="${x.src}" alt=""><span>${x.name}</span></button>`).join('') || '<p class="muted">Пока некому лететь</p>'}</div>
+    <div class="fl-who">${w.map((x, k) => `<button class="fl-w${cur && x.k === cur.k ? ' on' : ''}" data-flwho="${k}"><img src="${x.src}" alt=""><span>${x.name}</span><small>${powerOf(x.k).txt}</small></button>`).join('') || '<p class="muted">Пока некому лететь</p>'}</div>
+    ${cur ? `<p class="muted" style="margin-top:6px">Сила: <b>${powerOf(cur.k).txt}</b></p>` : ''}
+    <div class="mg-bh">Бонусы на полёт <span class="muted">(за монеты школы)</span></div>
+    <div class="mg-boosts">${FBOOSTS.map((b, k) => `<button class="mg-bst${fsel.has(b.id) ? ' on' : ''}" data-flb="${k}"><span class="mg-bi">${b.ico()}</span><span class="mg-bn">${b.name}</span><span class="mg-bc">🪙 ${A.fmt(boostCost(b))}</span></button>`).join('')}</div>
+    ${fsel.size ? `<p class="muted">Бонусы: 🪙 ${A.fmt(fTotal())} спишутся при старте</p>` : ''}
     <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
     <p class="muted">Награда: монеты (до ${MAX_MIN} минут дохода школы), за 2–3 ⭐ ещё ✨ Вдохновение. Рекорд недели: ${num(f.wb || 0)}${f.best ? ` · за всё время: ${num(f.best)}` : ''}</p>
     <button class="btn wide" data-flplay${cur ? '' : ' disabled'}>${n > 0 ? '▶️ Лететь (1 попытка)' : '▶️ Лететь без награды'}</button>
@@ -673,6 +695,10 @@ function showFlightStart() {
 }
 function startFlight() {
   const w = flyerList(), cur = w.find((x) => x.k === mg().fly) || w[0]; if (!cur) return;
+  const cost = fTotal(), S0 = st();
+  if (cost && (S0.coins || 0) < cost) { fsel.clear(); A.toast('🪙 Не хватает монет на бонусы'); showFlightStart(); return; }
+  if (cost) { S0.coins -= cost; fl().bst = (fl().bst || 0) + fsel.size; }
+  const boost = { shield: fsel.has('shield'), magnet: fsel.has('magnet'), slow: fsel.has('slow') };
   const rewarded = charges() > 0;
   if (rewarded) { const m = mg(); if (m.ch >= CH_MAX) m.t = Date.now(); m.ch--; }
   fl().n++; A.save();
@@ -680,7 +706,7 @@ function startFlight() {
     <div class="fl-box"></div>`);
   const box = root.querySelector('.fl-box');
   FL = { live: true, rewarded, h: null };
-  FL.h = runFlight(box, { img: cur.src, faceLeft: !!cur.faceLeft, snd,
+  FL.h = runFlight(box, { img: cur.src, faceLeft: !!cur.faceLeft, snd, power: powerOf(cur.k), boost,
     onScore: (sc, rings) => { const a = root.querySelector('.fl-s'), b = root.querySelector('.fl-r'); if (a) a.textContent = num(sc); if (b) b.textContent = rings; },
     onEnd: (res) => flEnd(res, false) });
 }
