@@ -2,7 +2,7 @@
 
 export const OFFLINE_CAP_SEC = 2 * 3600;
 export const MAX_DESKS = 6;
-export const MAX_ITEM_LEVEL = 25;
+export const MAX_ITEM_LEVEL = 40;   // 25 -> 40 in build 299 (her pick: new levels for veterans)
 export const MAX_TEACHER_LEVEL = 20;
 export const MAX_TIME_LEVEL = 10;
 

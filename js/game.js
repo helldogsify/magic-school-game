@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=299';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=299';
-import { initMinigame } from './minigame.js?v=299';
+} from './data.js?v=300';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=300';
+import { initMinigame } from './minigame.js?v=300';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 299;   // keep equal to the ?v= number in index.html
+const BUILD = 300;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -52,7 +52,7 @@ function save() {
 
 // ---- balance (rebalance 2026-11-22, her goal: world 1 in ~1.5 weeks, first master on ~day 5; tuned with tools/sim_driver.js) ----
 const BAL_NEW = { chance0: 0.45, maxChance: 0.8, item: 1.5, teacher: 1.6, expand: 600, expandK: 4, desk: 3.0, examDesk: 1.8, time: 2.0, rec: 1.5, ads: 1.55,
-  build: [0, 2000, 50000, 1000000, 60000000, 150000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000, pay: 0.55, lesson: 2, floorM: 0.5, floorG: 1.08 };   // pace floor (build 297, her pick «Мягкая планка»): 0.5 min of income for the 1st level, x1.08 per level   // lesson: length multiplier of every lesson (build 184, her «ученики слишком быстро сменяются»: 2.6 s at max level was shorter than the walk)   // pay 0.45 since build 178 (0.5 in 177): the queue fix (build 176) nearly doubled the flow; sim back to Elements ~4.2 d, first master ~5 d
+  build: [0, 2000, 50000, 1000000, 60000000, 150000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000, pay: 0.55, lesson: 2, floorM: 0.5, floorG: 1.08, itemHi: 2.5 };   // pace floor (build 297, her pick «Мягкая планка»): 0.5 min of income for the 1st level, x1.08 per level   // lesson: length multiplier of every lesson (build 184, her «ученики слишком быстро сменяются»: 2.6 s at max level was shorter than the walk)   // pay 0.45 since build 178 (0.5 in 177): the queue fix (build 176) nearly doubled the flow; sim back to Elements ~4.2 d, first master ~5 d
 const BAL_OLD = { pay: 1, chance0: 0.6, maxChance: 0.85, item: 1.25, teacher: 1.35, expand: 120, expandK: 3, desk: 2.3, examDesk: 1.6, time: 1.6, rec: 1.4, ads: 1.45, build: [], buildTime: [], tower: 500000 };
 BAL_NEW.lessonLate = { charms: 1.4, flight: 1.4, elements: 1.4 };   // build 237, her pick «1 вариант для стихий» (42 waiting for Elements): these classes x1.4 instead of BAL.lesson x2; Flight too, else the queue only moved to Flight (her save: 40 waiting there); sim all classes 4.7 d, first master 5.2 d
 const BAL = { ...BAL_NEW };   // live since build 153 (tuned with the pacing simulation; BAL_OLD kept for comparison runs)
@@ -67,7 +67,7 @@ const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance 
 const W2_PAY = 0.7;   // world 2 pays 30% less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
 const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY : 1) * boostK());   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time);
-const itemCost = (i, k) => paced(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, S.classes[i].items[k]), S.classes[i].items[k] + 1);
+const itemCost = (i, k) => paced(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, Math.min(25, S.classes[i].items[k])) * Math.pow(BAL.itemHi, Math.max(0, S.classes[i].items[k] - 25)), S.classes[i].items[k] + 1);   // levels 26..40 (build 299, her pick «Предметы в классах 25→40»): x2.5 per level, sim keeps all classes ~4.5 d
 const teacherCost = (i) => paced(CLASSES[i].tuition * 6 * Math.pow(BAL.teacher, S.classes[i].teacher - 1), S.classes[i].teacher);
 const expandCost = (i) => paced(CLASSES[i].tuition * BAL.expand * Math.pow(BAL.expandK, sizeOf(i) - 1), sizeOf(i));
 const deskCost = (i) => paced(CLASSES[i].tuition * 15 * Math.pow(CLASSES[i].final ? BAL.examDesk : BAL.desk, S.classes[i].desks - 2), S.classes[i].desks - 1);   // exam desks grow slower: there are 21 of them
