@@ -223,12 +223,12 @@ function bookMusic(on) {
   if (on) {
     if (!A.music.on()) return true;   // music switched off: stay silent
     if (!bm) { bm = new Audio(); bm.preload = 'auto'; bm.addEventListener('ended', () => { bmIdx = (bmIdx + 1) % LORE_MUSIC.length; bm.src = LORE_MUSIC[bmIdx]; bm.play().catch(() => {}); }); }
-    A.music.pause(); clearInterval(fadeT); bm.src = LORE_MUSIC[bmIdx]; bm.volume = 0; bm.play().catch(() => {});
+    window.__bookMusicOn = true; A.music.pause(); clearInterval(fadeT); bm.src = LORE_MUSIC[bmIdx]; bm.volume = 0; bm.play().catch(() => {});
     fadeT = setInterval(() => { bm.volume = Math.min(0.4, bm.volume + 0.04); if (bm.volume >= 0.4) clearInterval(fadeT); }, 80);
     return true;
   }
-  if (!bm) return true; clearInterval(fadeT);
-  fadeT = setInterval(() => { bm.volume = Math.max(0, bm.volume - 0.05); if (bm.volume <= 0.001) { clearInterval(fadeT); bm.pause(); bmIdx = (bmIdx + 1) % LORE_MUSIC.length; A.music.resume(); } }, 60);
+  if (!bm) { window.__bookMusicOn = false; return true; } clearInterval(fadeT);
+  fadeT = setInterval(() => { bm.volume = Math.max(0, bm.volume - 0.05); if (bm.volume <= 0.001) { clearInterval(fadeT); bm.pause(); bmIdx = (bmIdx + 1) % LORE_MUSIC.length; window.__bookMusicOn = false; A.music.resume(); } }, 60);
   return true;
 }
 document.addEventListener('visibilitychange', () => { if (!bm || !root) return; if (document.hidden) bm.pause(); else if (A.music && A.music.on()) bm.play().catch(() => {}); });
