@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=309';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=309';
-import { initMinigame } from './minigame.js?v=309';
-import { initChests } from './chests.js?v=309';
+} from './data.js?v=310';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=310';
+import { initMinigame } from './minigame.js?v=310';
+import { initChests } from './chests.js?v=310';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 309;   // keep equal to the ?v= number in index.html
+const BUILD = 310;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4148,6 +4148,19 @@ window.__ms = { list: () => missionList(), make: () => makeMission(), go: (k) =>
 // upgrades pay back REWARD_SHARE of what they cost; counting missions pay for the minutes they really take at the current pace
 const REWARD_SHARE = 0.3, TIME_SHARE = 0.25;
 const nice = (x) => { const e = Math.pow(10, Math.max(0, Math.floor(Math.log10(Math.max(1, x))) - 1)); return Math.round(x / e) * e; };
+// coins a mission still needs, with today's prices (build 310, tester «в заданиях видеть сколько нужно денег на выполнение задания. Если
+// не хватает красным, если хватает зелёным»): multi-level upgrades = the next price x the geometric growth; -1 = not a purchase
+const geoN = (k, n) => (n <= 0 ? 0 : k === 1 ? n : (Math.pow(k, n) - 1) / (k - 1));
+function missionNeed(m) {
+  try {
+    switch (m.type) {
+      case 'item': return itemCost(m.i, m.k) * geoN(BAL.item, m.target - S.classes[m.i].items[m.k]);
+      case 'teacher': return teacherCost(m.i) * geoN(BAL.teacher, m.target - S.classes[m.i].teacher);
+      case 'rec': return recCost() * geoN(BAL.rec, m.target - S.reception.level);
+      default: return missionCost(m);
+    }
+  } catch (e) { return -1; }
+}
 function missionCost(m) {   // coins still needed from the current state to the target
   const C = CLASSES[m.i], st = m.i >= 0 ? S.classes[m.i] : null; let c = 0;
   switch (m.type) {
@@ -4294,7 +4307,7 @@ function missionList() {   // [{key, text, reward, ok, prog}]
     S.dynList.push(m); made = true;
   }
   if (made) save();
-  S.dynList.forEach((m, k) => out.push({ key: 'd' + k, type: m.type, lk: m.type === 'up' ? (upOf(m) || {}).g : m.type === 'cnt' ? (CNTS[m.k] || {}).g : m.type, unit: m.type === 'up' ? (upOf(m) || {}).unit : undefined, text: m.type === 'up' && (upOf(m) || {}).text ? upOf(m).text(m.target) : m.text, reward: m.reward, ok: dynDone(m), prog: dynProgress(m), go: missionGo(m) }));
+  S.dynList.forEach((m, k) => out.push({ key: 'd' + k, need: dynDone(m) ? 0 : Math.round(missionNeed(m)), type: m.type, lk: m.type === 'up' ? (upOf(m) || {}).g : m.type === 'cnt' ? (CNTS[m.k] || {}).g : m.type, unit: m.type === 'up' ? (upOf(m) || {}).unit : undefined, text: m.type === 'up' && (upOf(m) || {}).text ? upOf(m).text(m.target) : m.text, reward: m.reward, ok: dynDone(m), prog: dynProgress(m), go: missionGo(m) }));
   return out;
 }
 // «Выполнить»: where a mission is done -> [room id, selector of the button to light up in its panel]
@@ -4449,7 +4462,7 @@ function missionsPanel() {
   return `<div class="sh-head">${tk ? tikhonPic(56) : '<span class="remoji big">📋</span>'}<div><h2>${tk ? 'Задания от Тихона' : 'Задания'}</h2><div class="muted">${tk ? '«Летопись школы пишется твоими делами, директор»' : 'Выполняй и забирай награды. Новые появляются сразу'}</div></div><button class="x" data-close>✕</button></div>
     <div class="qbar">${list.map((m) => `<div class="q ${m.ok ? 'ok' : ''}"><span class="qi">${m.ok ? '🎁' : '📋'}</span>
       <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}${tk && MISSION_LORE[m.lk || m.type] ? `<span class="muted" style="display:block;font-style:italic;font-size:12px">${MISSION_LORE[m.lk || m.type]}</span>` : ''}</span>
-      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo"><span class="qr">🪙${fmt(m.reward)}</span>${m.go ? `<button class="btn small go" data-mgo="${m.key}">Выполнить ➜</button>` : ''}</span>`}</div>`).join('')}</div>`;
+      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo">${m.need > 0 ? `<span class="qneed" style="display:block;font-size:12px;font-weight:800;color:${S.coins >= m.need ? '#2f9e5a' : '#d0304e'}">нужно 🪙${fmt(m.need)}</span>` : ''}<span class="qr">🪙${fmt(m.reward)}</span>${m.go ? `<button class="btn small go" data-mgo="${m.key}">Выполнить ➜</button>` : ''}</span>`}</div>`).join('')}</div>`;
 }
 function updateHud() {
   $('#coins').textContent = fmt(S.coins);
