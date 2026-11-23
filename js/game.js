@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=420';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=420';
-import { initMinigame } from './minigame.js?v=420';
-import { initChests } from './chests.js?v=420';
-import { initLore } from './lore.js?v=420';
-import { initAvatar } from './avatar.js?v=420';
+} from './data.js?v=421';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=421';
+import { initMinigame } from './minigame.js?v=421';
+import { initChests } from './chests.js?v=421';
+import { initLore } from './lore.js?v=421';
+import { initAvatar } from './avatar.js?v=421';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 420;   // keep equal to the ?v= number in index.html
+const BUILD = 421;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4745,12 +4745,26 @@ const nice = (x) => { const e = Math.pow(10, Math.max(0, Math.floor(Math.log10(M
 // coins a mission still needs, with today's prices (build 310, tester «в заданиях видеть сколько нужно денег на выполнение задания. Если
 // не хватает красным, если хватает зелёным»): multi-level upgrades = the next price x the geometric growth; -1 = not a purchase
 const geoN = (k, n) => (n <= 0 ? 0 : k === 1 ? n : (Math.pow(k, n) - 1) / (k - 1));
+function sumLevels(get, set, cost, target, max = 1e9) {   // the real price of every level from now to target (state restored)
+  const L0 = get(); let c = 0;
+  try { for (let L = L0; L < Math.min(target, max); L++) { set(L); c += cost(); } } finally { set(L0); }
+  return c;
+}
 function missionNeed(m) {
   try {
+    const st = m.i >= 0 ? S.classes[m.i] : null;
     switch (m.type) {
-      case 'item': return itemCost(m.i, m.k) * geoN(BAL.item, m.target - S.classes[m.i].items[m.k]);
-      case 'teacher': return teacherCost(m.i) * geoN(BAL.teacher, m.target - S.classes[m.i].teacher);
-      case 'rec': return recCost() * geoN(BAL.rec, m.target - S.reception.level);
+      case 'item': return sumLevels(() => st.items[m.k], (v) => { st.items[m.k] = v; }, () => itemCost(m.i, m.k), m.target, MAX_ITEM_LEVEL);
+      case 'teacher': return sumLevels(() => st.teacher, (v) => { st.teacher = v; }, () => teacherCost(m.i), m.target);
+      case 'rec': return sumLevels(() => S.reception.level, (v) => { S.reception.level = v; }, () => recCost(), m.target, MAX_REC_LVL);
+      case 'up': {
+        if (m.i >= 0 && (m.k === 'ex' || m.k === 'xpl')) return sumLevels(() => st[m.k] || 0, (v) => { st[m.k] = v; }, () => (m.k === 'ex' ? exCost(m.i) : xplCost(m.i)), m.target);
+        if (m.k === 'ads') return sumLevels(() => S.reception.ads, (v) => { S.reception.ads = v; }, () => adsCost(), m.target, MAX_REC_LVL);
+        const U = upOf(m); if (!U) return -1;   // other upgrades: today's price, then the plain step or the pace floor, whichever is higher
+        const L0 = U.lvl(), c0 = U.cost(); let c = 0;
+        for (let j = 0; j < m.target - L0; j++) c += Math.max(c0 * Math.pow(U.k, j), paceInc() * paceMin(L0 + 1 + j));
+        return c;
+      }
       default: return missionCost(m);
     }
   } catch (e) { return -1; }
