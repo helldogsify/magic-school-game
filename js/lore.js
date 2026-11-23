@@ -231,7 +231,9 @@ function bookMusic(on) {
   let k = 8; fadeT = setInterval(() => { k--; try { bm.volume = Math.max(0, k * 0.05); } catch (e) {} if (k <= 0) { clearInterval(fadeT); bm.pause(); bmIdx = (bmIdx + 1) % LORE_MUSIC.length; window.__bookMusicOn = false; A.music.resume(); } }, 60);   // stops after 8 steps even where volume cannot change (iPhone): the old loop never ended there, so the book music kept playing after closing
   return true;
 }
-document.addEventListener('visibilitychange', () => { if (!bm || !root) return; if (document.hidden) bm.pause(); else if (A.music && A.music.on()) bm.play().catch(() => {}); });
+const bmHide = () => { if (bm) bm.pause(); };   // her «Музыка играет даже если приложение свернуто»: the book music stops whenever the app is hidden, book open or not
+document.addEventListener('visibilitychange', () => { if (!bm) return; if (document.hidden) bmHide(); else if (root && A.music && A.music.on()) bm.play().catch(() => {}); });
+window.addEventListener('pagehide', bmHide); window.addEventListener('blur', () => { if (document.hidden) bmHide(); }); document.addEventListener('freeze', bmHide);
 function tune() { const a = A.audioOut && A.audioOut(); if (!a) return; try { const g = a.c.createGain(); g.gain.value = Math.pow(10, LORE_DB / 20); g.connect(a.out); loreTune(a.c, g, a.c.currentTime + 0.02); } catch (e) { /* never break the game for a sound */ } }
 export function open() { if (root || !S() || !A.on()) return; css(); page = null; root = el(html()); document.body.appendChild(root); root.addEventListener('click', onClick); document.body.classList.add('lore-open'); if (!bookMusic(true)) tune(); }
 export function close() { if (!root) return; root.remove(); root = null; document.body.classList.remove('lore-open'); bookMusic(false); A.save(); A.onClose && A.onClose(); }
