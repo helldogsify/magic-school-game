@@ -3,7 +3,7 @@
 // Only the gameplay lives here: runFlight(box, opts) draws into its own canvas and calls opts.onEnd(result) once.
 // The shell (start screen, tries, reward, weekly table) stays in minigame.js.
 
-const ART_V = 1;
+const ART_V = 2;   // 2: ring re-cut (her «Кольцо обрезается снизу»)
 const ART = ['ring', 'storm1', 'storm2', 'spark', 'cloud1', 'cloud2', 'feather', 'castle', 'rainbow'];
 const imgs = {};
 export function loadFlightArt() {

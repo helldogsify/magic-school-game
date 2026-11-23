@@ -11,7 +11,7 @@ const STAR = [2000, 3500, 5500];  // score for 1/2/3 stars (calibrated with tool
 const MAX_MIN = 10;               // the best round pays 10 minutes of the school's income
 const BOOST = [0, 0, 5, 10];      // minutes of «Вдохновение» per stars
 const BOOST_CAP_MIN = 60;         // same cap as gifts (BOOST_MAX_MIN in game.js)
-import { runFlight, loadFlightArt } from './flight.js?v=1';   // bump when flight.js changes
+import { runFlight, loadFlightArt } from './flight.js?v=2';   // bump when flight.js changes
 const ART_V = 2;   // 2: pink crystal (her «два значка синего цвета, путаешь их»)
 
 export const ING = [   // ingredient tiles; art: assets/minigame/ing_<i>.png (falls back to the emoji until the art exists)
@@ -333,7 +333,7 @@ function showChooser() {   // the 🧪 pill: choose a mini-game (tries are share
     <h2>Мини-игры</h2>
     <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}<br><span class="muted">общие для всех мини-игр</span></p>
     <button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button>
-    <button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=1" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>
+    <button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=2" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>
     <button class="btn wide ghost" data-mgback>В школу</button>
   </div>`);
 }
@@ -660,7 +660,7 @@ function showFlightStart() {
   if (FL) { FL.h.stop(); FL = null; }
   const n = charges(), f = fl(), w = flyerList(), cur = w.find((x) => x.k === mg().fly) || w[0];
   root.innerHTML = A.emojiHtml(`<div class="mg-card">
-    <div class="mg-pot"><img class="mgi" src="assets/flight/ring.webp?v=1" alt="" style="width:44px;height:70px"></div><h2>Полёт через кольца</h2>
+    <div class="mg-pot"><img class="mgi" src="assets/flight/ring.webp?v=2" alt="" style="width:44px;height:70px"></div><h2>Полёт через кольца</h2>
     <p>Нажми и держи палец — ученик взлетает, отпусти — плавно опускается. Пролетай сквозь кольца, собирай искорки и не задевай тучки: первая тучка — конец полёта.</p>
     <p class="muted">Кольцо +10, точно по центру ещё +5, искорка +2. Золотое перо спасает от одной тучки.</p>
     <div class="mg-bh">Кто летит</div>
@@ -676,7 +676,7 @@ function startFlight() {
   const rewarded = charges() > 0;
   if (rewarded) { const m = mg(); if (m.ch >= CH_MAX) m.t = Date.now(); m.ch--; }
   fl().n++; A.save();
-  root.innerHTML = A.emojiHtml(`<div class="mg-top"><button class="mg-x" data-mgx aria-label="Закончить">✕</button><div class="mg-chip"><img class="mgi" src="assets/flight/ring.webp?v=1" alt="" style="width:14px;height:22px"> <span class="fl-r">0</span></div><div class="mg-chip score">✨ <span class="fl-s">0</span></div></div>
+  root.innerHTML = A.emojiHtml(`<div class="mg-top"><button class="mg-x" data-mgx aria-label="Закончить">✕</button><div class="mg-chip"><img class="mgi" src="assets/flight/ring.webp?v=2" alt="" style="width:14px;height:22px"> <span class="fl-r">0</span></div><div class="mg-chip score">✨ <span class="fl-s">0</span></div></div>
     <div class="fl-box"></div>`);
   const box = root.querySelector('.fl-box');
   FL = { live: true, rewarded, h: null };
