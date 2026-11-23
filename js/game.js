@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=290';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=290';
-import { initMinigame } from './minigame.js?v=290';
+} from './data.js?v=291';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=291';
+import { initMinigame } from './minigame.js?v=291';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 290;   // keep equal to the ?v= number in index.html
+const BUILD = 291;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1167,7 +1167,8 @@ function rating() {   // old saves: start from their whole history (graduates ~3
   return (S.rating = { v: g + l ? (g * 3.5 + l) / (g + l) : 0, n: g + l, gold: (S.stats.ranks || [])[5] || 0, bad: l, last: [] });
 }
 const ratingVal = () => (S && (S.rating || (S.stats.graduated || S.stats.left)) ? rating().v : 0);
-const ratingTxt = () => (ratingVal() ? ratingVal().toFixed(1).replace('.', ',') : '—');
+const ratingTxt = () => (ratingVal() ? ratingVal().toFixed(2).replace('.', ',') : '—');   // two decimals since build 288 (her «Много с одинаковой оценкой и непонятно почему он первый в списке»)
+const r2 = (v) => (+v).toFixed(2).replace('.', ',');   // a rating in the tops: 4,13
 function review(a, stars, gold) {
   const R = rating(), w = gold ? RATE_GOLD_W : 1;
   stars = Math.max(1, Math.min(5, stars));
@@ -4726,13 +4727,13 @@ function allyPanel() {
   if (code) {
     const a = allyOf(code), mem = allyMembers(code).sort((x, y) => y.r - x.r), L = giftLog();
     const avg = mem.length ? mem.reduce((n, x) => n + x.r, 0) / mem.length : 0;
-    h += `<div class="card up"><span class="remoji big">${a ? a.emo : '🤝'}</span><div class="grow"><b>${a ? escTxt(a.name) : 'Альянс'}</b>${a && a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}${a && a.owner === anonUid() ? ' <span class="muted">👑 ты глава</span>' : ''}<div class="muted">код ${code} · ${a && a.open ? '🔓 вход свободный, без заявок' : '🔒 по заявкам'} · школ ${mem.length}/${ALLY_MAX} · рейтинг 🏅 ${avg ? avg.toFixed(1).replace('.', ',') : '—'}</div></div><button class="btn small" data-allycopy>Код</button></div>`;
+    h += `<div class="card up"><span class="remoji big">${a ? a.emo : '🤝'}</span><div class="grow"><b>${a ? escTxt(a.name) : 'Альянс'}</b>${a && a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}${a && a.owner === anonUid() ? ' <span class="muted">👑 ты глава</span>' : ''}<div class="muted">код ${code} · ${a && a.open ? '🔓 вход свободный, без заявок' : '🔒 по заявкам'} · школ ${mem.length}/${ALLY_MAX} · рейтинг 🏅 ${avg ? r2(avg) : '—'}</div></div><button class="btn small" data-allycopy>Код</button></div>`;
     h += '<h3>Школы альянса</h3>' + (mem.length ? mem.map((x) => {
       const uid = x.id.replace(/_w\d$/, ''), gi = L.g[uid] || 0, bo = L.b[uid] || 0;
-      return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY ? 'disabled' : ''}>🎁 ${GIFT_DAY - gi}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY ? 'disabled' : ''}>✨ ${BOOST_DAY - bo}</button>${a && a.owner === anonUid() ? `<button class="btn small ghost" data-allylead="${uid}" title="Сделать главой">👑</button><button class="btn small ghost" data-allykick="${uid}" title="Выгнать">🚪</button>` : ''}`}</div>`;
+      return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${r2(x.r)} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY ? 'disabled' : ''}>🎁 ${GIFT_DAY - gi}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY ? 'disabled' : ''}>✨ ${BOOST_DAY - bo}</button>${a && a.owner === anonUid() ? `<button class="btn small ghost" data-allylead="${uid}" title="Сделать главой">👑</button><button class="btn small ghost" data-allykick="${uid}" title="Выгнать">🚪</button>` : ''}`}</div>`;
     }).join('') : '<p class="muted">Загружаю…</p>');
     h += `<p class="muted">🎁 Волшебный подарок: союзник получит монеты — столько, сколько его школа зарабатывает за 3 минуты. ✨ Вдохновение: +10% к плате за уроки на 10 минут. Каждому союзнику в день — ${GIFT_DAY} подарка и ${BOOST_DAY} вдохновение, у тебя при этом ничего не убывает.</p>`;
-    if (a && a.owner === anonUid()) h += '<h3>📩 Заявки на вступление</h3>' + (ownReqs.length ? ownReqs.map((q) => `<div class="card up" style="border:2px solid #b9a4f0"><div class="grow"><b>${escTxt(q.fname)}</b>${q.nick ? `<div>👤 ${escTxt(q.nick)}</div>` : ''}<div class="muted">🏅 ${q.r.toFixed(1).replace('.', ',')}</div></div><button class="btn small hot" data-reqok="${q.id}">Принять</button><button class="btn small ghost" data-reqno="${q.id}">Нет</button></div>`).join('') : '<p class="muted">Новых заявок нет. Заявку может подать любая школа из списка альянсов.</p>');
+    if (a && a.owner === anonUid()) h += '<h3>📩 Заявки на вступление</h3>' + (ownReqs.length ? ownReqs.map((q) => `<div class="card up" style="border:2px solid #b9a4f0"><div class="grow"><b>${escTxt(q.fname)}</b>${q.nick ? `<div>👤 ${escTxt(q.nick)}</div>` : ''}<div class="muted">🏅 ${r2(q.r)}</div></div><button class="btn small hot" data-reqok="${q.id}">Принять</button><button class="btn small ghost" data-reqno="${q.id}">Нет</button></div>`).join('') : '<p class="muted">Новых заявок нет. Заявку может подать любая школа из списка альянсов.</p>');
     if (a && a.owner === anonUid()) h += `<h3>👑 Управление альянсом</h3><p class="muted">У каждой школы: 👑 — передать главенство, 🚪 — выгнать.</p>
       <input id="ally-ename" class="fb" maxlength="24" value="${escTxt(a.name)}" placeholder="Название альянса">
       <input id="ally-motto" class="fb" maxlength="60" value="${escTxt(a.motto || '')}" placeholder="Девиз альянса (его видят все)">
@@ -4747,7 +4748,7 @@ function allyPanel() {
   const asked = (id) => myReqs.some((q) => q.al === id && q.st === 'wait');
   h += `<h3>Вступить по коду</h3><input id="ally-code" class="fb" maxlength="10" placeholder="Например: A7K2QM9X"><button class="btn wide" data-allyjoin>🤝 Вступить</button>`;
   h += '<h3>Альянсы</h3>' + (!allyList ? '<p class="muted">Загружаю…</p>' : open.length ? open.map((a) => { const avg = a.mem.reduce((n, x) => n + x.r, 0) / a.mem.length;
-    return `<div class="card up"><span class="remoji">${a.emo}</span><div class="grow"><b>${escTxt(a.name)}</b>${a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}<div class="muted">${a.open ? '🔓 вход свободный' : '🔒 по заявке'} · школ ${a.mem.length}/${ALLY_MAX} · 🏅 ${avg.toFixed(1).replace('.', ',')}</div></div>${a.open ? `<button class="btn small" data-allyjoinid="${a.id}">Вступить</button>` : asked(a.id) ? `<button class="btn small ghost" data-reqcancel="${a.id}">Заявка ✓ (отменить)</button>` : `<button class="btn small" data-reqsend="${a.id}">Подать заявку</button>`}</div>`; }).join('') : '<p class="muted">Альянсов пока нет — создай свой!</p>');
+    return `<div class="card up"><span class="remoji">${a.emo}</span><div class="grow"><b>${escTxt(a.name)}</b>${a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}<div class="muted">${a.open ? '🔓 вход свободный' : '🔒 по заявке'} · школ ${a.mem.length}/${ALLY_MAX} · 🏅 ${r2(avg)}</div></div>${a.open ? `<button class="btn small" data-allyjoinid="${a.id}">Вступить</button>` : asked(a.id) ? `<button class="btn small ghost" data-reqcancel="${a.id}">Заявка ✓ (отменить)</button>` : `<button class="btn small" data-reqsend="${a.id}">Подать заявку</button>`}</div>`; }).join('') : '<p class="muted">Альянсов пока нет — создай свой!</p>');
   h += `<h3>Создать свой альянс</h3><input id="ally-name" class="fb" maxlength="24" placeholder="Название альянса">
     <div class="muted" style="margin-top:6px">Герб:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${ALLY_EMOS.map((e, k) => `<button class="btn small ${e === allyEmo ? '' : 'ghost'}" data-allyemo="${k}">${e}</button>`).join('')}</div>
     <label class="muted" style="display:block;margin:6px 0"><input type="checkbox" id="ally-open" checked> Вход для всех, без заявок (иначе — по заявкам, ты принимаешь сам(а))</label>
@@ -4758,9 +4759,9 @@ allyPanel.still = true;   // has text fields
 function allyTopRows() {   // the top of alliances: the mean rating of their schools
   const groups = {};
   for (const x of (topList || []).filter((t) => t.w === WORLD && t.al)) (groups[x.al] ||= []).push(x);
-  const rows = Object.entries(groups).map(([id, m]) => ({ id, a: allyOf(id), m, r: m.reduce((n, x) => n + x.r, 0) / m.length, g: m.reduce((n, x) => n + x.g, 0) })).filter((x) => x.a).sort((p, q) => q.r - p.r || q.g - p.g);
+  const rows = Object.entries(groups).map(([id, m]) => ({ id, a: allyOf(id), m, r: m.reduce((n, x) => n + x.r, 0) / m.length, g: m.reduce((n, x) => n + x.g, 0) })).filter((x) => x.a).sort((p, q) => Math.round(q.r * 100) - Math.round(p.r * 100) || q.g - p.g);
   if (!rows.length) return '<p class="muted">Пока ни одного альянса — создай свой в окне 🤝!</p>';
-  return rows.slice(0, 30).map((x, k) => `<div class="card up"${x.id === myAl() ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${x.a.emo}</span><div class="grow"><b>${k + 1}. ${escTxt(x.a.name)}</b>${x.id === myAl() ? ' <span class="muted">(твой)</span>' : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · школ ${x.m.length} · 🎓 ${fmt(x.g)} выпускников</div></div></div>`).join('');
+  return rows.slice(0, 30).map((x, k) => `<div class="card up"${x.id === myAl() ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${x.a.emo}</span><div class="grow"><b>${k + 1}. ${escTxt(x.a.name)}</b>${x.id === myAl() ? ' <span class="muted">(твой)</span>' : ''}<div class="muted">🏅 ${r2(x.r)} · школ ${x.m.length} · 🎓 ${fmt(x.g)} выпускников</div></div></div>`).join('');
 }
 let topTab = 's';
 function openTop() { topPush(true).finally(() => Promise.all([topLoad(), allyLoad()]).finally(() => { if (panel === topPanel) refreshPanel(); })); openPanel(topPanel); }
@@ -4768,8 +4769,8 @@ function topPanel() {
   let me = ''; try { me = (JSON.parse(localStorage.getItem(ANON_KEY)) || {}).uid || ''; } catch (e) { /* none */ }
   const mine = (x) => me && x.id === me + '_w' + WORLD;
   const all = (topList || []).filter((x) => x.w === WORLD);
-  const ok = all.filter((x) => x.n >= TOP_MIN).sort((a, b) => b.r - a.r || b.g - a.g), wait = all.filter((x) => x.n < TOP_MIN);
-  const rows = ok.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span><div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${x.al && allyOf(x.al) ? ' ' + allyOf(x.al).emo : ''}${mine(x) ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)} выпускников · золотых отзывов ${fmt(x.gold)}</div></div></div>`).join('');
+  const ok = all.filter((x) => x.n >= TOP_MIN).sort((a, b) => Math.round(b.r * 100) - Math.round(a.r * 100) || b.gold - a.gold || b.g - a.g), wait = all.filter((x) => x.n < TOP_MIN);
+  const rows = ok.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span><div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${x.al && allyOf(x.al) ? ' ' + allyOf(x.al).emo : ''}${mine(x) ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${r2(x.r)} · 🎓 ${fmt(x.g)} выпускников · золотых отзывов ${fmt(x.gold)}</div></div></div>`).join('');
   const myPlace = ok.findIndex(mine);
   const nameBox = `<h3>Название твоей школы</h3><input id="school-name" class="fb" maxlength="24" placeholder="Например: Звёздная академия" value="${escTxt(schoolName())}"><h3>Твоё имя (ник)</h3><input id="school-nick" class="fb" maxlength="20" placeholder="Как тебя подписать в топе" value="${escTxt(playerNick() || localStorage.getItem('magicschool.name') || '')}"><button class="btn wide" data-school-name>💾 Сохранить</button>`;
   return `<div class="sh-head"><span class="remoji big">🏆</span><div><h2>Топ школ</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'} · по рейтингу 🏅</div></div><button class="x" data-close>✕</button></div>
@@ -4778,7 +4779,7 @@ function topPanel() {
     <div style="display:flex;gap:6px;margin:10px 0"><button class="btn ${topTab === 's' ? '' : 'ghost'}" data-toptab="s">🏫 Школы</button><button class="btn ${topTab === 'a' ? '' : 'ghost'}" data-toptab="a">🤝 Альянсы</button><button class="btn ${topTab === 'm' ? '' : 'ghost'}" data-toptab="m">🧪 Зелья</button></div>
     ${topTab === 'm' ? mgTopHtml(mine) : topTab === 'a' ? '<h3>Лучшие альянсы</h3><p class="muted">Рейтинг альянса — средний рейтинг его школ.</p>' + allyTopRows() : topErr ? `<p class="muted">${topErr}</p>` : !topList ? '<p class="muted">Загружаю топ…</p>' : rows ? '<h3>Лучшие школы</h3>' + rows : '<p class="muted">Пока в топе никого нет — стань первой школой!</p>'}
     ${topTab === 'm' ? '' : wait.length ? `<p class="muted">Ещё набирают отзывы: ${wait.length} ${wait.length === 1 ? 'школа' : 'школ'}.</p>` : ''}
-    ${topTab === 'm' ? '' : `<p class="muted">В топ попадают школы, у которых не меньше ${TOP_MIN} отзывов. Рейтинг обновляется раз в минуту, пока игра открыта.</p>`}`;
+    ${topTab === 'm' ? '' : `<p class="muted">Места — по рейтингу 🏅 с точностью до сотых; при равном рейтинге выше та школа, у которой больше золотых отзывов. В топ попадают школы, у которых не меньше ${TOP_MIN} отзывов. Рейтинг обновляется раз в минуту, пока игра открыта.</p>`}`;
 }
 function mgTopHtml(mine) {   // weekly table of the mini-game: every named school of this world with a score this week (no review minimum)
   const wk = MG.weekKey(), end = ((wk + 1) * 7 - 3) * 86400000, left = Math.max(0, end - Date.now());
