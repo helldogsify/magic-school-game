@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=313';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=313';
-import { initMinigame } from './minigame.js?v=313';
-import { initChests } from './chests.js?v=313';
+} from './data.js?v=314';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=314';
+import { initMinigame } from './minigame.js?v=314';
+import { initChests } from './chests.js?v=314';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 313;   // keep equal to the ?v= number in index.html
+const BUILD = 314;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2794,13 +2794,22 @@ function drawStatic() {
     const inside = rid === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
     const carpet = WORLD > 2 && inside && x >= 14 && x <= 16 && y > BUILDING.y0;   // world 1: no pink runner any more, parquet everywhere (her «Зачем розовая полоса плитки по коридору»)
     if (inCourt(x, y) && courtGrass) { const cc = courtC(), r = Math.hypot(x + 0.5 - cc.x, (y + 0.5 - cc.y)); poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); const G = SLOTS.GARDEN, gp = G && G.y0 > COURT.y0 && x >= G.x0 + 2 && x <= G.x0 + 3 && y < G.y0; c.fillStyle = gp || r < 4.6 || Math.abs(x + 0.5 - cc.x) < 1.2 || Math.abs(y + 0.5 - cc.y) < 1.2 ? stone : courtGrass; c.fill(); continue; }   // the court: grass, a round flagstone plaza and paths in a cross
-    if (inside && WORLD === 1 && COURT && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); continue; }   // build 241: the gallery round the court is stone, not the classrooms' parquet (designer review)
+    if (inside && WORLD === 1 && COURT && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); c.fillStyle = 'rgba(236,178,112,0.30)'; c.fill(); continue; }   // paving idea (her «Разное мощение»): the gallery is warm honey stone, the court paths stay lilac   // build 241: the gallery round the court is stone, not the classrooms' parquet (designer review)   // build 241: the gallery round the court is stone, not the classrooms' parquet (designer review)
     if (inside && !carpet && WORLD <= 2 && corrFloor) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = corrFloor; c.fill(); continue; }   // parquet with star inlays
     const col = carpet ? (y % 2 ? '#d98f97' : '#dd979f') : inside ? (x % 2 ? '#d7a46e' : '#dcab76') : ((x + y) % 2 ? '#e9dcc4' : '#efe4cf');
     if (!inside && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); continue; }   // outdoor paths: rune flagstones
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
     if (carpet && y % 3 === 0) { const m = P(x + 0.5, y + 0.5); emoji('✦', m.x, m.y, 7, c); }
   }
+  if (WORLD === 1 && COURT && stone) {   // paving idea: a mosaic plaza round the fountain — cream ring, gold borders, an eight-pointed star of teal and lilac
+    const cc = courtC(), ring = (r, n = 48) => { const o = []; for (let k = 0; k < n; k++) { const an = k / n * Math.PI * 2; o.push(P(cc.x + Math.cos(an) * r, cc.y + Math.sin(an) * r)); } return o; };
+    c.save(); poly(c, ring(4.55)); c.fillStyle = 'rgba(255,244,222,0.55)'; c.fill();
+    for (let k = 0; k < 16; k++) { const a0 = k / 16 * Math.PI * 2, a1 = (k + 0.5) / 16 * Math.PI * 2, a2 = (k + 1) / 16 * Math.PI * 2, r0 = 1.9, r1 = k % 2 ? 3.3 : 4.15;
+      poly(c, [P(cc.x + Math.cos(a0) * r0, cc.y + Math.sin(a0) * r0), P(cc.x + Math.cos(a1) * r1, cc.y + Math.sin(a1) * r1), P(cc.x + Math.cos(a2) * r0, cc.y + Math.sin(a2) * r0)]);
+      c.fillStyle = k % 2 ? 'rgba(186,150,236,0.55)' : 'rgba(110,200,205,0.55)'; c.fill(); c.lineWidth = 1; c.strokeStyle = 'rgba(214,170,70,0.8)'; c.stroke(); }
+    c.lineWidth = 2.2; c.strokeStyle = 'rgba(214,170,70,0.9)'; poly(c, ring(4.5)); c.stroke(); c.lineWidth = 1.2; poly(c, ring(4.25)); c.stroke();
+    for (let k = 0; k < 24; k++) { const an = k / 24 * Math.PI * 2, m = P(cc.x + Math.cos(an) * 4.38, cc.y + Math.sin(an) * 4.38); c.fillStyle = k % 2 ? 'rgba(110,200,205,0.9)' : 'rgba(186,150,236,0.9)'; c.beginPath(); c.ellipse(m.x, m.y, 1.8, 1.1, 0, 0, Math.PI * 2); c.fill(); }
+    c.restore(); }
   if (WORLD === 1 && COURT) {   // hopscotch chalked on the playground lawn (court zones): 1, 2, 3|4, 5, 6|7, 8 along the y axis
     const h = courtZones().hop, cells = [[0, 0], [0, 1], [-0.5, 2], [0.5, 2], [0, 3], [-0.5, 4], [0.5, 4], [0, 5]];
     c.save(); c.lineWidth = 1.3; c.strokeStyle = 'rgba(255,255,255,0.8)';
