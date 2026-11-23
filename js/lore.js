@@ -32,13 +32,13 @@ const PAGES = [
     { riddle: 1, t: 'Загадка записки', x: 'Записка директора — загадка из пяти строк. Тихон спрятал их по разным страницам летописи, и каждая проступает только за особое событие в твоей школе. Собери все пять — и узнаешь, куда исчез директор.', need: (f) => f.masters >= 1, hint: 'когда в школе появится первый Мастер' },   // her «Мы будем разгадывать загадку? Тогда надо как то это указать»: the riddle is named plainly; lines come in the next stage
   ] }),
   P({ id: 'lastnight', ch: 'world', title: 'Последняя ночь', icon: '⭐', night: 1, layers: [
-    { t: 'Тихон', x: 'Я обещал звезде только записывать. Я держал это обещание много лет. Сегодня я впервые записываю то, о чём молчал.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
-    { img: 'assets/lore/hill.webp', wide: 1, t: 'Холм', x: 'В ту ночь он постучал ко мне поздно. Он был очень стар — старше, чем многие знали, — и сказал: «Пойдём, посмотрим на звёзды. В последний раз вместе». Мы поднялись на холм, где когда-то упала первая звезда. Он шёл медленно и держался за моё плечо.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
-    { t: 'Разговор', x: 'Он сказал, что не хочет, чтобы ученики запомнили его слабым. Что школа справится. Что он уже знает, кто придёт после него: тот вежливый мальчик, который когда-то делился обедом, вернётся домой. Я спросил, откуда он знает. Он улыбнулся: «Хорошие ученики всегда возвращаются».', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
-    { t: 'Записка', x: 'Он отдал мне сложенный листок и попросил оставить его на столе утром. Одну строчку он не дописал при мне: «То, что я не успел сказать, хранит тот, кто молчит». Я понял, о ком это.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
-    { img: 'assets/lore/dawn.webp', wide: 1, t: 'Рассвет', x: 'Я сидел рядом с ним до самого утра. Он смотрел вверх и что-то тихо считал — звёзды или годы. Когда небо порозовело, его уже не было с нами. А над холмами зажглась звезда, которой раньше не было. Она горит до сих пор.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
-    { t: 'Что я не смог', x: 'Я мог бы его удержать. Я знаю слова, которые продлевают жизнь, — ведь сам живу на одном таком обещании. Но я обещал звезде не вершить историю. Я только записал её. Иногда мне кажется, что это самое тяжёлое, что я делал.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
-    { t: 'Последние строки', x: 'С той ночи я боюсь привязываться. Все, кого я записываю, однажды уходят, а я остаюсь со страницами. И всё же есть один, о ком я пишу чаще, чем следует. Каждое утро он здоровается со мной первым. Я делаю вид, что занят. Пусть эта строчка останется последней в этой главе. Он и так уже слишком часто спрашивает, что я о нём пишу.', need: (f) => RD().found.length >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { t: 'Тихон', x: 'Я обещал звезде только записывать. Я держал это обещание много лет. Сегодня я впервые записываю то, о чём молчал.', need: (f) => nFound() >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { img: 'assets/lore/hill.webp', wide: 1, t: 'Холм', x: 'В ту ночь он постучал ко мне поздно. Он был очень стар — старше, чем многие знали, — и сказал: «Пойдём, посмотрим на звёзды. В последний раз вместе». Мы поднялись на холм, где когда-то упала первая звезда. Он шёл медленно и держался за моё плечо.', need: (f) => nFound() >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { t: 'Разговор', x: 'Он сказал, что не хочет, чтобы ученики запомнили его слабым. Что школа справится. Что он уже знает, кто придёт после него: тот вежливый мальчик, который когда-то делился обедом, вернётся домой. Я спросил, откуда он знает. Он улыбнулся: «Хорошие ученики всегда возвращаются».', need: (f) => nFound() >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { t: 'Записка', x: 'Он отдал мне сложенный листок и попросил оставить его на столе утром. Одну строчку он не дописал при мне: «То, что я не успел сказать, хранит тот, кто молчит». Я понял, о ком это.', need: (f) => nFound() >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { img: 'assets/lore/dawn.webp', wide: 1, t: 'Рассвет', x: 'Я сидел рядом с ним до самого утра. Он смотрел вверх и что-то тихо считал — звёзды или годы. Когда небо порозовело, его уже не было с нами. А над холмами зажглась звезда, которой раньше не было. Она горит до сих пор.', need: (f) => nFound() >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { t: 'Что я не смог', x: 'Я мог бы его удержать. Я знаю слова, которые продлевают жизнь, — ведь сам живу на одном таком обещании. Но я обещал звезде не вершить историю. Я только записал её. Иногда мне кажется, что это самое тяжёлое, что я делал.', need: (f) => nFound() >= 5, hint: 'когда будут найдены все пять строчек записки' },
+    { t: 'Последние строки', x: 'С той ночи я боюсь привязываться. Все, кого я записываю, однажды уходят, а я остаюсь со страницами. И всё же есть один, о ком я пишу чаще, чем следует. Каждое утро он здоровается со мной первым. Я делаю вид, что занят. Пусть эта строчка останется последней в этой главе. Он и так уже слишком часто спрашивает, что я о нём пишу.', need: (f) => nFound() >= 5, hint: 'когда будут найдены все пять строчек записки' },
   ] }),
   P({ id: 'tnotes', ch: 'world', hand: 1, title: 'Записи на полях', sub: 'то, что Тихон пишет об Арсении Львовиче', img: 'assets/staff/tikhon_read.png', layers: [
     { t: 'День третий', x: 'Директор сегодня опять пришёл первым и поздоровался со всеми, даже с Совой, хотя Сова не ответил. Записываю, потому что я летописец. Больше ни по какой причине.', need: (f) => f.days >= 3, hint: 'на третий день с тех пор, как ты открыла летопись' },
@@ -150,11 +150,12 @@ const hourNow = () => { const d = new Date(); return window.__hour ?? d.getHours
 const isNight = () => { const h = hourNow(); return h >= 22 || h < 5; }, isDusk = () => { const h = hourNow(); return h >= 19 && h < 22; }, isMorning = () => { const h = hourNow(); return h >= 6 && h < 10; };
 const RD = () => { const l = LS(); return (l.rd ||= { found: [], hint: [0, 0, 0, 0, 0], start: 0, coins: 0, lastHint: 0 }); };
 const dayKey = (t) => { const d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
-const canFind = (k) => { const r = RD(); return r.start && r.found.length === k && (!k || dayKey(r.found[k - 1]) < dayKey(Date.now())); };   // in order, one line a day
+const nFound = () => RD().found.filter(Boolean).length, has = (k) => !!RD().found[k];
+const canFind = (k) => { const r = RD(); return !!r.start && !has(k) && !r.found.some((t) => t && dayKey(t) === dayKey(Date.now())); };   // any order, one new line a day (her ruling)
 function findLine(k) {
   const r = RD(); if (!canFind(k)) return false;
-  r.found.push(Date.now()); r.lastHint = Date.now(); A.save();
-  say(`📜 Найдена строчка записки (${r.found.length} из 5): «${RIDDLE[k]}»`);
+  while (r.found.length < 5) r.found.push(null); r.found[k] = Date.now(); r.lastHint = Date.now(); A.save();
+  say(`📜 Найдена строчка записки (${nFound()} из 5): «${RIDDLE[k]}»`);
   return true;
 }
 function say(t, ms = 4500) {   // a longer note than the game's 2-s toast: Tikhon's words and found lines must be readable
@@ -167,10 +168,10 @@ export function event(kind) {   // called by game.js; true = handled (the game d
   if (!S() || !A.on()) return false;
   const r = RD();
   if (kind === 'moon') { if (isNight() && canFind(0)) { findLine(0); A.flash && A.flash('moon'); } else say(isNight() ? '🌙 Луна тихо светит над лесом.' : '🌙'); return true; }
-  if (kind === 'coin') { if (r.start && r.found.length === 3) { r.coins++; if (r.coins >= 100 && canFind(3)) findLine(3); } return true; }
+  if (kind === 'coin') { if (r.start && !has(3)) { r.coins++; if (r.coins >= 100 && canFind(3)) findLine(3); } return true; }
   if (kind === 'crown') { if (crownWanted() && !LS().prize) { if (isMorning() && (QS().world || {}).done && canFind(4)) { findLine(4); return true; } } return !!LS().prize; }
   if (kind === 'tikhon') {
-    if (!isDusk() || !r.start || r.found.length !== 2) return false;
+    if (!isDusk() || !r.start || has(2)) return false;
     const now = Date.now(); if (now - tkLast > TK_RESET && tkTaps) { tkTaps = 0; say('Тихон: «Хм? О чём это я…»'); tkLast = now; return true; }
     tkLast = now; const k = Math.min(tkTaps, TK_LINES.length - 1); tkTaps++;
     say('Тихон: «' + TK_LINES[k] + '»');
@@ -179,13 +180,13 @@ export function event(kind) {   // called by game.js; true = handled (the game d
   }
   return false;
 }
-const crownWanted = () => RD().found.length === 4;
+const crownWanted = () => !has(4);
 export const crown = () => !!(S() && A.on() && (LS().prize || (crownWanted() && isMorning() && (QS().world || {}).done && canFind(4))));
 function riddleTick() {   // all classes built -> line 2; every 2 days without a new line Tikhon clarifies one random hint by one step
   if (!S() || !A.on()) return; const r = RD(); if (!r.start) return;
-  if (r.found.length === 1 && canFind(1) && A.facts().allBuilt) findLine(1);
-  const since = Math.max(r.lastHint || 0, r.start, r.found.length ? r.found[r.found.length - 1] : 0);
-  if (r.found.length < 5 && Date.now() - since >= HINT_EVERY) { const open = [0, 1, 2, 3, 4].filter((k) => k >= r.found.length && r.hint[k] < 2); if (open.length) { const k = open[Math.floor(Math.random() * open.length)]; r.hint[k]++; } r.lastHint = Date.now(); A.save(); }
+  if (canFind(1) && A.facts().allBuilt) findLine(1);
+  const since = Math.max(r.lastHint || 0, r.start, ...r.found.filter(Boolean));
+  if (nFound() < 5 && Date.now() - since >= HINT_EVERY) { const open = [0, 1, 2, 3, 4].filter((k) => !has(k) && r.hint[k] < 2); if (open.length) { const k = open[Math.floor(Math.random() * open.length)]; r.hint[k]++; } r.lastHint = Date.now(); A.save(); }
 }
 // ---- Tikhon's exam: 6 questions per chapter (her «Давай», 2026-11-23); answer 0 is the right one (shuffled on screen)
 const QUIZ = {
@@ -271,7 +272,7 @@ function pageHtml(p, f) {
   if (p.night && openN(p, f) && !isNight()) return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-head">${pic(p)}<div><h3>${esc(p.title)}</h3></div></div><div class="lo-sec faded"><p>Строки на этой странице едва видны. Они проступают только при звёздах — с 22:00 до 5:00.</p></div>`;
   if (p.night && openN(p, f) === p.layers.length && !LS().prize) { LS().prize = Date.now(); A.save(); A.onPrize && A.onPrize(); }   // the big prize for reading «Последняя ночь»
   const n = openN(p, f), secs = p.layers.map((l, k) => (k < n || !l.need || l.need(f))
-    ? l.riddle ? (() => { const r = RD(); return `<div class="lo-sec riddle"><h4>🔎 ${esc(l.t)}</h4>${para(l.x)}<div class="lo-lines">${RIDDLE.map((t, k) => k < r.found.length ? `<div class="lo-line got">${k + 1}. «${esc(t)}»</div>` : `<div class="lo-line">${k + 1}. <span>· · · ? · · ·</span><em>Пометка Тихона: ${esc(HINTS[k][r.hint[k]])}</em></div>`).join('')}</div><div class="lo-cnt">Найдено строк: ${r.found.length} из 5${r.found.length < 5 ? ' · не больше одной в день' : ''}${r.found.length === 3 ? ` · желаний в фонтане: ${Math.min(100, r.coins)} из 100` : ''}</div></div>`; })()
+    ? l.riddle ? (() => { const r = RD(); return `<div class="lo-sec riddle"><h4>🔎 ${esc(l.t)}</h4>${para(l.x)}<div class="lo-lines">${RIDDLE.map((t, k) => has(k) ? `<div class="lo-line got">${k + 1}. «${esc(t)}»</div>` : `<div class="lo-line">${k + 1}. <span>· · · ? · · ·</span><em>Пометка Тихона: ${esc(HINTS[k][r.hint[k]])}</em></div>`).join('')}</div><div class="lo-cnt">Найдено строк: ${nFound()} из 5${nFound() < 5 ? ' · не больше одной в день' : ''}${!has(3) && r.start ? ` · желаний в фонтане: ${Math.min(100, r.coins)} из 100` : ''}</div></div>`; })()
     : `<div class="lo-sec${l.wide ? ' wide' : ''}">${l.img && l.wide ? `<img class="lo-ill" src="${l.img}" alt="" onerror="this.remove()">` : ''}<h4>${esc(l.t)}</h4>${l.img && !l.wide && l.img !== p.img ? `<img class="lo-pose ${k % 2 ? 'l' : 'r'}" src="${l.img}" alt="" onerror="this.remove()">` : ''}${para(l.x)}<div class="lo-clr"></div></div>${k < p.layers.length - 1 ? '<div class="lo-orn">✦ ❧ ✦</div>' : ''}`
     : `<div class="lo-sec locked"><h4>🔒 ${esc(l.t)}</h4><p>Откроется, ${esc(l.hint || '')}.</p></div>`).join('');
   return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-pg${p.hand ? ' hand' : ''}${p.night ? ' night' : ''}"><div class="lo-head">${pic(p)}<div><h3>${esc(p.title)}</h3>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div></div>${secs}${p.night && LS().prize ? '</div><div class="lo-reward">🎁 Награда: звезда директора навсегда горит над холмами, его корона лежит на столе в кабинете, доход школы +10% навсегда.</div>' : '</div>'}`;
