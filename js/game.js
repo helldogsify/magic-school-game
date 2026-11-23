@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=333';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=333';
-import { initMinigame } from './minigame.js?v=333';
-import { initChests } from './chests.js?v=333';
+} from './data.js?v=334';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=334';
+import { initMinigame } from './minigame.js?v=334';
+import { initChests } from './chests.js?v=334';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 333;   // keep equal to the ?v= number in index.html
+const BUILD = 334;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2753,7 +2753,14 @@ function dayTint() {
   for (let k = 1; k < DN_KEYS.length; k++) if (h <= DN_KEYS[k][0]) { const [h0, a] = DN_KEYS[k - 1], [h1, b] = DN_KEYS[k], u = (h - h0) / (h1 - h0 || 1); return a.map((v, i) => Math.round(v + (b[i] - v) * u)); }
   return DN_KEYS[0][1];
 }
-const dnMask = document.createElement('canvas');   // the night tint with the lit rooms cut out
+const dnMask = document.createElement('canvas');
+let dnPoolC = null, dnPoolL = -1;
+function dnPool(L) {   // a soft radial pool in the warm evening colour (transparent edge), cached per light level step
+  const q = Math.round(L * 20) / 20; if (dnPoolC && dnPoolL === q) return dnPoolC; dnPoolL = q;
+  const c = dnPoolC || (dnPoolC = document.createElement('canvas')); c.width = c.height = 64; const x = c.getContext('2d'); x.clearRect(0, 0, 64, 64);
+  const g = x.createRadialGradient(32, 32, 0, 32, 32, 32), col = `${255},${Math.round(255 - 60 * q)},${Math.round(255 - 110 * q)}`; g.addColorStop(0, `rgba(${col},0.85)`); g.addColorStop(0.55, `rgba(${col},0.45)`); g.addColorStop(1, `rgba(${col},0)`);
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c;
+}   // the night tint with the lit rooms cut out
 function litRooms() {   // screen polygons (device px) of every built room: floor plus its back walls
   const k = scale * dpr, ox = scroller.scrollLeft * dpr, oy = scroller.scrollTop * dpr, S2 = (m) => ({ x: m.x * k - ox, y: m.y * k - oy }), out = [];
   for (const [id, s] of Object.entries(SLOTS)) {
@@ -2771,7 +2778,11 @@ function drawDayNight() {
   const W0 = ctx.canvas.width, H0 = ctx.canvas.height, mc = dnMask, mx = mc.getContext('2d'); if (mc.width !== W0 || mc.height !== H0) { mc.width = W0; mc.height = H0; }
   mx.globalCompositeOperation = 'copy'; mx.fillStyle = `rgb(${t[0]},${t[1]},${t[2]})`; mx.fillRect(0, 0, W0, H0);
   if (lit.length) { mx.globalCompositeOperation = 'source-over'; mx.beginPath(); for (const q of lit) { q.forEach((m, k) => (k ? mx.lineTo(m.x, m.y) : mx.moveTo(m.x, m.y))); mx.closePath(); }
-    const ev = [255, Math.round(255 - 50 * L), Math.round(255 - 95 * L)]; mx.fillStyle = `rgb(${ev[0]},${ev[1]},${ev[2]})`; mx.fill(); }   // her «что-то вечернее, лампы светятся»: rooms get a warm evening lamplight, a little dimmer than the day
+    const ev = [255, Math.round(255 - 50 * L), Math.round(255 - 95 * L)]; mx.fillStyle = `rgb(${ev[0]},${ev[1]},${ev[2]})`; mx.fill(); }
+  if (L >= 0.08) { const k = scale * dpr, ox = scroller.scrollLeft * dpr, oy = scroller.scrollTop * dpr, pool = dnPool(L); mx.globalCompositeOperation = 'lighten';   // her «Свет из дверей выглядит странно»: door light and the students' lantern light lift the darkness (capped), no additive white blobs
+    const put = (x, y, rx, ry) => { const m = P(x, y); mx.drawImage(pool, m.x * k - ox - rx * k, m.y * k - oy - ry * k, rx * 2 * k, ry * 2 * k); };
+    for (const q of lit) for (const d of [q.s.door, ...(q.s.extra || [])]) { if (d && d[1]) put(d[1][0] + 0.5, d[1][1] + 0.5, HW * 1.6, HH * 1.6); }
+    for (const a of agents) { if (a.state === 'fly' || a.state === 'vanish') continue; const rg = regAt(Math.floor(a.x), Math.floor(a.y)); if (rg && rg !== 'hall' && rg !== 'path') continue; put(a.x, a.y, HW * 0.9, HH * 1.3); } }   // her «что-то вечернее, лампы светятся»: rooms get a warm evening lamplight, a little dimmer than the day
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(mc, 0, 0);
   ctx.restore();
   if (L < 0.08) return;   // lights only once it gets dark
@@ -2781,11 +2792,8 @@ function drawDayNight() {
     const pool = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), pr = Math.max(W, D) * HW * 0.75; ctx.globalAlpha = 0.22 * L; ctx.drawImage(glowSprite('255,190,110'), pool.x - pr, pool.y - pr * 0.6, pr * 2, pr * 1.2);
     const sc = (x, y, k) => { const m = up(P(x, y), WALLH * 0.62), f = 0.85 + 0.15 * Math.sin(T * 3.1 + k * 1.7 + s.x0); ctx.globalAlpha = 0.6 * L * f; ctx.drawImage(glowSprite('255,205,120'), m.x - 16, m.y - 16, 32, 32); ctx.globalAlpha = 0.9 * L * f; ctx.drawImage(glowSprite('255,240,200'), m.x - 5, m.y - 5, 10, 10); };
     for (let k = 1; k * 3 < W; k++) sc(s.x0 + k * 3, s.y0, k); for (let k = 1; k * 3 < D; k++) sc(s.x0, s.y0 + k * 3, k + 7); }
-  for (const q of lit) for (const d of [q.s.door, ...(q.s.extra || [])]) { if (!d || !d[1]) continue; const [i0, o0] = d, m = P(o0[0] + 0.5, o0[1] + 0.5), n = P(i0[0] + 0.5, i0[1] + 0.5), r = HW * 1.5;   // her pick «2»: warm light spills out of every door onto the gallery
-    ctx.globalAlpha = 0.75 * L; ctx.drawImage(glowSprite('255,190,110'), m.x - r * 1.2, m.y - r * 0.6, r * 2.4, r * 1.2); ctx.globalAlpha = 0.3 * L; ctx.drawImage(glowSprite('255,210,140'), (m.x + n.x) / 2 - r * 0.7, (m.y + n.y) / 2 - r * 0.4, r * 1.4, r * 0.8); }
-  for (const a of agents) { if (a.state === 'fly' || a.state === 'vanish') continue; const rg = regAt(Math.floor(a.x), Math.floor(a.y)); if (rg && rg !== 'hall' && rg !== 'path') continue;   // her pick «3»: students outside the rooms carry a little lantern
-    const m = P(a.x, a.y); if (!onScreen(m.x, m.y)) continue; const f = 0.85 + 0.15 * Math.sin(T * 4 + a.id), lx = m.x + (a.flip ? -9 : 9), ly = m.y - 12 - (a.z || 0);
-    ctx.globalAlpha = 0.62 * L * f; ctx.drawImage(glowSprite('255,205,130'), m.x - 26, m.y - 38 - (a.z || 0), 52, 46); ctx.globalAlpha = 0.95 * L * f; ctx.drawImage(glowSprite('255,235,170'), lx - 5, ly - 5, 10, 10); }
+  for (const a of agents) { if (a.state === 'fly' || a.state === 'vanish') continue; const rg = regAt(Math.floor(a.x), Math.floor(a.y)); if (rg && rg !== 'hall' && rg !== 'path') continue;   // the little lantern each student carries outside
+    const m = P(a.x, a.y); if (!onScreen(m.x, m.y)) continue; const f = 0.85 + 0.15 * Math.sin(T * 4 + a.id), lx = m.x + (a.flip ? -9 : 9), ly = m.y - 12 - (a.z || 0); ctx.globalAlpha = 0.8 * L * f; ctx.drawImage(glowSprite('255,225,150'), lx - 4, ly - 4, 8, 8); }
   for (const o of OUTDOOR) { const d = DN_LIGHT[o.n]; if (!d || o.px === undefined || o.px < VIEW.x0 - 80 || o.px > VIEW.x1 + 80 || o.py < VIEW.y0 - 40 || o.py > VIEW.y1 + 200) continue;
     const h = (OUT_H[o.n] || 40) * (o.s || 1), y = o.py + h * 0.05 - h * d[0], r = h * 0.55 * d[2] * (0.92 + 0.08 * Math.sin(T * 2 + o.px)); ctx.globalAlpha = 0.75 * L; ctx.drawImage(glowSprite(d[1]), o.px - r, y - r, r * 2, r * 2);
     if (o.n !== 'fountain' && o.n !== 'glowmush' && o.n !== 'crystals') { ctx.globalAlpha = 0.35 * L; ctx.drawImage(glowSprite(d[1]), o.px - r * 1.4, o.py - r * 0.5, r * 2.8, r); } }   // a pool of light on the ground
