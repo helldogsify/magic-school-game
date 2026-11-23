@@ -266,3 +266,4 @@ img.em { height: 1.15em; width: 1.15em; vertical-align: -0.2em; margin: 0 .03em;
 .card.locked { opacity: .85; }
 .stats3.four span { font-size: 16px; } .stats3.four b { font-size: 15px; }
 .fpic em img, .fpic em .em { width: 18px !important; height: 18px !important; }
+button.res { border: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }   /* the 📈 income pill opens «Казна школы» (build 275) */

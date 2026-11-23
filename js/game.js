@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=274';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=274';
+} from './data.js?v=275';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=275';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 274;   // keep equal to the ?v= number in index.html
+const BUILD = 275;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -227,6 +227,15 @@ const G = { // helpers exposed to missions
   maxItem: () => Math.max(...S.classes.flatMap((c) => c.items)),
 };
 
+// ---- the school's outflow and the refund cap (build 275, tester's report «должен показывать реальный прирост с учётом ушедших ...
+// школа может быть в минусе ... не должно быть такого что я в нуле и не могу из нуля выйти»; her pick «Потолок возвратов»):
+// refunds to leavers and inspection fines are counted as outflow (S.outEma, like S.ema for income); refunds per minute may take
+// at most half of the school's income (budget S.refBud refilled at 0.5 x income), the rest of the leavers go without money.
+let outThisSec = 0;
+function spendOut(n, kind) { if (!(n > 0)) return; S.coins -= n; S.stats[kind] = (S.stats[kind] || 0) + n; if (!ffwd) outThisSec += n; }
+const refundCap = () => 0.5 * (S.ema || 0) * 60;
+window.__leave = (a) => leaveSchool(a);   // test hook
+function stepRefund(dt) { const cap = refundCap(); S.refBud = Math.min(cap, (S.refBud ?? cap) + 0.5 * (S.ema || 0) * dt); }
 function earn(n, x, y, color, lift) { S.coins += n; S.stats.earned = (S.stats.earned || 0) + n; earnedThisSec += n; if (x !== undefined) popup(`+${fmt(n)}`, x, y, color || '#c98a00', lift); }
 function spend(c) { if (S.coins < c) { toast('Не хватает монет 🪙'); return false; } S.coins -= c; return true; }
 
@@ -804,8 +813,9 @@ function stepConcierge(dt) {
 function leaveSchool(a) {   // no room anywhere: the student is upset and goes home — and the school pays its fee back with a penalty
   if (a.retake) { retakeHome(a); return; }   // an elder on a retake never leaves the school: he just goes back to the tower
   S.stats.left = (S.stats.left || 0) + 1; review(a, 1);
-  const back = Math.min(S.coins, Math.round((a.paid || fee()) * refundRate()));
-  if (back > 0) { S.coins -= back; S.stats.refunded = (S.stats.refunded || 0) + back; popup(`−${fmt(back)}`, a.x, a.y, '#e0245e', 60); }
+  const want = Math.min(S.coins, Math.round((a.paid || fee()) * refundRate())), back = Math.max(0, Math.min(want, Math.floor(S.refBud ?? refundCap())));   // build 275: the refund cap
+  if (back > 0) { S.refBud = (S.refBud ?? refundCap()) - back; spendOut(back, 'refunded'); popup(`−${fmt(back)}`, a.x, a.y, '#e0245e', 60); }
+  if (want > back) S.stats.unpaid = (S.stats.unpaid || 0) + (want - back);   // the till is empty this minute: he leaves without (all of) his money
   popup('😢💔', a.x, a.y, '#c0436b', 44);
   a.c = -1; a.goal = { t: 'x' }; a.state = 'walk';
   walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; });
@@ -1114,6 +1124,16 @@ function reviewGraduate(a) {
   if (!ffwd && !document.hidden) hintOnce('rating', '🏅', 'Рейтинг школы', 'Теперь у школы есть рейтинг — он слева вверху 🏅. Каждый выпускник оставляет отзыв: чем выше звание и лучше настроение, тем больше звёзд, а Мастера оставляют золотые отзывы. Кто уходит из школы расстроенным, ставит 1 звезду. Поднять рейтинг как можно выше — главная цель школы. Нажми на 🏅, чтобы почитать отзывы.');
 }
 const starRow = (s) => '★'.repeat(Math.round(s)) + '☆'.repeat(5 - Math.round(s));
+function cashPanel() {   // «Казна школы» (build 275): what comes in and goes out per minute
+  const inc = (S.ema || 0) * 60, out = (S.outEma || 0) * 60, net = inc - out, mx = Math.max(inc, out, 1);
+  const bar = (v, col) => `<div style="height:12px;border-radius:6px;margin:4px 0;background:${col};width:${Math.max(2, Math.round(v / mx * 100))}%"></div>`;
+  return `<div class="sh-head"><span class="remoji big">💰</span><div><h2>Казна школы</h2><div class="muted">Сколько приходит и уходит за минуту</div></div><button class="x" data-close>✕</button></div>
+    <div class="card up"><div class="grow"><b>📈 Приходит: +${fmt(inc)} в минуту</b>${bar(inc, '#58c27d')}<div class="muted">уроки, взносы новичков, магазин, столовая</div></div></div>
+    <div class="card up"><div class="grow"><b>📉 Уходит: −${fmt(out)} в минуту</b>${bar(out, '#e0607e')}<div class="muted">возвраты ушедшим и штрафы инспектора</div></div></div>
+    <div class="card up" style="border:2px solid ${net >= 0 ? '#58c27d' : '#e0607e'}"><div class="grow"><b>${net >= 0 ? '🙂 Школа в плюсе' : '⚠️ Школа в минусе'}: ${net >= 0 ? '+' : '−'}${fmt(Math.abs(net))} в минуту</b></div></div>
+    <p class="muted">Кто уходит из школы расстроенным, получает взнос назад (сейчас ${Math.round(refundRate() * 100)}%). Но за минуту школа возвращает не больше половины своего дохода (сейчас до 🪙${fmt(refundCap())}), остальные уходят без денег — так школа никогда не застрянет в нуле. Всего вернули: 🪙${fmt(S.stats.refunded || 0)}${S.stats.unpaid ? ` · не хватило кассы на 🪙${fmt(S.stats.unpaid)}` : ''}${S.stats.fined ? ` · штрафы: 🪙${fmt(S.stats.fined)}` : ''}.</p>
+    <p class="muted">Как тратить меньше: больше парт и кроватей, чтобы никто не уходил; «Правила возврата» у директора; «Престижный» договор, если учеников приходит больше, чем мест.</p>`;
+}
 function ratingPanel() {
   const R = rating();
   const rows = R.last.map((r) => `<div class="card up"><span class="remoji">${r.g ? '🏅' : r.s <= 1 ? '😢' : '🎓'}</span><div class="grow"><b>${r.n}</b> <span style="color:#d49a00">${starRow(r.s)}</span><div class="muted">«${r.t}»</div></div></div>`).join('');
@@ -1322,7 +1342,7 @@ function finishInspection() {
   const income = Math.max(200, Math.round((S.ema || 1) * 180 / 10) * 10), ties = dirLvl('ties');
   I.cur = null; I.t = INSP_EVERY;
   if (ok) { const rw = Math.round(income * (1 + 0.1 * ties) * repK()); I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; S.coins += rw; S.stats.earned = (S.stats.earned || 0) + rw; inspResult = { ok, income: rw }; }
-  else { const fine = Math.min(S.coins, Math.round(income / 2 * (1 - 0.07 * ties))); S.coins -= fine; I.failed = (I.failed || 0) + 1; inspResult = { ok, fine, text: inspText(c) }; }
+  else { const fine = Math.min(S.coins, Math.round(income / 2 * (1 - 0.07 * ties))); spendOut(fine, 'fined'); I.failed = (I.failed || 0) + 1; inspResult = { ok, fine, text: inspText(c) }; }
   openPanel(inspResultPanel); updateHud(); save();
 }
 function inspResultPanel() {
@@ -1725,6 +1745,7 @@ function stepWorld(dt, live = false) {
   stepInspector(dt, live);
   stepBoss(dt, live);
   stepAdvisor(dt, live);
+  stepRefund(dt);
   stepTrade(dt);
   arrivalT -= dt;
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < 6 && !(WORLD === 2 && schoolFull())) spawn(); }   // world 2: nobody new comes while every line and every bed is taken
@@ -1908,6 +1929,8 @@ function advReport() {   // [{hot, emo, text, go}] — go: [room id, selector] |
     out.push({ hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. ${bedsLeft() ? 'Добавь кроватей в спальне, чтобы новичкам было где подождать.' : care ? 'Улучши «Заботу об учениках» — в очередях будут грустить медленнее.' : 'Престижный договор уже выбран, кровати и забота на максимуме — школа делает всё, что может.'}`, go: bedsLeft() ? ['DORM', '[data-act="beds"]'] : care ? ['DIR', '[data-act="dir"][data-k="care"]'] : null }); }
   const m = avgMood();
   if (m < 50) out.push({ hot: m < 35, emo: '😟', text: `Ученики грустят: настроение ${Math.round(m)}%. Их радуют библиотека, магазин и столовая, а «Забота об учениках» помогает в очередях.`, go: ['DIR', '[data-act="dir"][data-k="care"]'] });
+  { const fi = (S.ema || 0) * 60, fo = (S.outEma || 0) * 60;   // build 275: money flowing out
+    if (fi > 0 && fo >= fi * 0.3) out.push({ hot: fo >= fi * 0.45, emo: '📉', text: `${fo >= fi ? 'Школа в минусе!' : 'Казна худеет:'} возвраты ушедшим и штрафы забирают ${Math.round(fo / fi * 100)}% дохода. ${dirLvl('refund') < DIR_UP.refund.max ? 'Улучши «Правила возврата» — ушедшим будем возвращать меньше.' : bedsLeft() ? 'Добавь кроватей, чтобы новички не уходили.' : 'Добавь парт в переполненные классы.'}`, go: dirLvl('refund') < DIR_UP.refund.max ? ['DIR', '[data-act="dir"][data-k="refund"]'] : bedsLeft() ? ['DORM', '[data-act="beds"]'] : null }); }
   const inc = Object.keys(S.inc || {});
   if (inc.length) out.push({ hot: true, emo: '💥', text: `В классе «${CLASSES[+inc[0]].name}» происшествие — урок стоит! Нажми на класс, чтобы всё починить.`, go: [CLASS_SLOT[+inc[0]], null] });
   if (boss().mail.cur) out.push({ hot: true, emo: '✉️', text: 'Пришло письмо от родителей. Оно ниже — ответь, когда будет минутка.', go: null });
@@ -3966,7 +3989,8 @@ function missionsPanel() {
 function updateHud() {
   $('#coins').textContent = fmt(S.coins);
   $('#stars').textContent = fmt(S.stats.graduated);
-  $('#rate').textContent = fmt(S.ema * 60) + '/м';
+  const net = ((S.ema || 0) - (S.outEma || 0)) * 60, rt = $('#rate');   // the real gain: income minus refunds and fines (build 275)
+  rt.textContent = (net < 0 ? '−' : '') + fmt(Math.abs(net)) + '/м'; rt.style.color = net < 0 ? '#d0304e' : '';
   document.querySelectorAll('[data-cost]').forEach((el) => el.classList.toggle('poor', S.coins < +el.dataset.cost));
   renderMission(); renderInsp();
   const sb = $('#spbtn'); if (sb) sb.classList.toggle('ready', FORM_KEYS.some((k) => formReady(k) && S.coins >= formCost(k)));   // glows when a card level can be bought
@@ -4069,6 +4093,7 @@ document.addEventListener('click', (e) => {
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.people !== undefined) { openPanel(peoplePanel); return; }
   if (d.rating !== undefined) { openPanel(ratingPanel); return; }
+  if (d.cash !== undefined) { openPanel(cashPanel); return; }
   if (d.w2res !== undefined) { const mi = CLASSES.findIndex((c) => c.id === 'mine'); if (mi >= 0 && isOpen(mi)) openPanel(classPanel(mi)); else toast('⛏️ Руду добывают в Штольне — построй её'); return; }
   if (d.species !== undefined) { openPanel(speciesPanel); return; }
   if (d.alb !== undefined) { albumSp = d.alb; refreshPanel(); return; }
@@ -4671,7 +4696,7 @@ let renderMs = 0;   // average time of one render (test hook __test.renderMs)
 function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
   stepWorld(dt, true);
-  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); allyTick(); }
+  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; S.outEma = (S.outEma || 0) * 0.97 + (outThisSec / secT) * 0.03; outThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); allyTick(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
   { const t0 = performance.now(); render(); renderMs = renderMs * 0.95 + (performance.now() - t0) * 0.05; }
