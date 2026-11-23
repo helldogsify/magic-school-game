@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=329';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=329';
-import { initMinigame } from './minigame.js?v=329';
-import { initChests } from './chests.js?v=329';
+} from './data.js?v=330';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=330';
+import { initMinigame } from './minigame.js?v=330';
+import { initChests } from './chests.js?v=330';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 329;   // keep equal to the ?v= number in index.html
+const BUILD = 330;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2750,7 +2750,7 @@ function litRooms() {   // screen polygons (device px) of every built room: floo
     if (id === 'GARDEN' || id === 'TRADE' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt()) || (id === 'SHOP' && !shopOpen())) continue;
     const a = P(s.x0, s.y1), b = P(s.x0, s.y0), c = P(s.x1, s.y0), d = P(s.x1, s.y1);
     if (!onScreen(b.x, b.y, 600, 600) && !onScreen(d.x, d.y, 600, 600)) continue;
-    out.push([up(a, WALLH), up(b, WALLH), up(c, WALLH), c, d, a].map(S2));
+    const q = [up(a, WALLH), up(b, WALLH), up(c, WALLH), c, d, a].map(S2); q.s = s; out.push(q);
   }
   return out;
 }
@@ -2759,13 +2759,17 @@ function drawDayNight() {
   const L = Math.min(1, dark * 2.2), lit = L >= 0.08 ? litRooms() : [];   // her «в комнатах конечно должен гореть свет тоже»: built rooms keep their light at night
   const W0 = ctx.canvas.width, H0 = ctx.canvas.height, mc = dnMask, mx = mc.getContext('2d'); if (mc.width !== W0 || mc.height !== H0) { mc.width = W0; mc.height = H0; }
   mx.globalCompositeOperation = 'copy'; mx.fillStyle = `rgb(${t[0]},${t[1]},${t[2]})`; mx.fillRect(0, 0, W0, H0);
-  if (lit.length) { mx.globalCompositeOperation = 'destination-out'; mx.beginPath(); for (const q of lit) { q.forEach((m, k) => (k ? mx.lineTo(m.x, m.y) : mx.moveTo(m.x, m.y))); mx.closePath(); } mx.fillStyle = '#000'; mx.fill(); }   // rooms cut out (overlaps stay cut)
+  if (lit.length) { mx.globalCompositeOperation = 'source-over'; mx.beginPath(); for (const q of lit) { q.forEach((m, k) => (k ? mx.lineTo(m.x, m.y) : mx.moveTo(m.x, m.y))); mx.closePath(); }
+    const ev = [255, Math.round(255 - 50 * L), Math.round(255 - 95 * L)]; mx.fillStyle = `rgb(${ev[0]},${ev[1]},${ev[2]})`; mx.fill(); }   // her «что-то вечернее, лампы светятся»: rooms get a warm evening lamplight, a little dimmer than the day
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(mc, 0, 0);
-  if (lit.length) { ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = `rgba(255,${Math.round(196 - 20 * L)},120,${(0.10 * L).toFixed(3)})`; ctx.beginPath(); for (const q of lit) { q.forEach((m, k) => (k ? ctx.lineTo(m.x, m.y) : ctx.moveTo(m.x, m.y))); ctx.closePath(); } ctx.fill(); }   // a warm lamp-light tint
   ctx.restore();
   if (L < 0.08) return;   // lights only once it gets dark
   const T = performance.now() / 1000;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const q of lit) { const s = q.s, W = s.x1 - s.x0, D = s.y1 - s.y0;   // lamps in the rooms: sconces along both back walls, a soft pool of light on the floor
+    const pool = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), pr = Math.max(W, D) * HW * 0.75; ctx.globalAlpha = 0.22 * L; ctx.drawImage(glowSprite('255,190,110'), pool.x - pr, pool.y - pr * 0.6, pr * 2, pr * 1.2);
+    const sc = (x, y, k) => { const m = up(P(x, y), WALLH * 0.62), f = 0.85 + 0.15 * Math.sin(T * 3.1 + k * 1.7 + s.x0); ctx.globalAlpha = 0.6 * L * f; ctx.drawImage(glowSprite('255,205,120'), m.x - 16, m.y - 16, 32, 32); ctx.globalAlpha = 0.9 * L * f; ctx.drawImage(glowSprite('255,240,200'), m.x - 5, m.y - 5, 10, 10); };
+    for (let k = 1; k * 3 < W; k++) sc(s.x0 + k * 3, s.y0, k); for (let k = 1; k * 3 < D; k++) sc(s.x0, s.y0 + k * 3, k + 7); }
   for (const o of OUTDOOR) { const d = DN_LIGHT[o.n]; if (!d || o.px === undefined || o.px < VIEW.x0 - 80 || o.px > VIEW.x1 + 80 || o.py < VIEW.y0 - 40 || o.py > VIEW.y1 + 200) continue;
     const h = (OUT_H[o.n] || 40) * (o.s || 1), y = o.py + h * 0.05 - h * d[0], r = h * 0.55 * d[2] * (0.92 + 0.08 * Math.sin(T * 2 + o.px)); ctx.globalAlpha = 0.75 * L; ctx.drawImage(glowSprite(d[1]), o.px - r, y - r, r * 2, r * 2);
     if (o.n !== 'fountain' && o.n !== 'glowmush' && o.n !== 'crystals') { ctx.globalAlpha = 0.35 * L; ctx.drawImage(glowSprite(d[1]), o.px - r * 1.4, o.py - r * 0.5, r * 2.8, r); } }   // a pool of light on the ground
