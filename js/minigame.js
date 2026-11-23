@@ -256,6 +256,7 @@ export function open() {
   css(); if (!imgs.length) loadArt();
   root = el(`<div id="mg"></div>`); document.body.appendChild(root);
   root.addEventListener('click', onClick);
+  A.onOpen && A.onOpen();
   showStart();
 }
 function close() {

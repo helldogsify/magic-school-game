@@ -2,18 +2,19 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=277';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=277';
-import { initMinigame } from './minigame.js?v=277';
+} from './data.js?v=278';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=278';
+import { initMinigame } from './minigame.js?v=278';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
-  onClose: () => { renderInsp(); updateHud(); } });
+  onOpen: () => { if (S.inc && Object.keys(S.inc).length) { S.inc = {}; dirtyPanel = true; } },   // a running incident is fixed quietly: the class cannot be tapped from the mini-game
+  onClose: () => { incT = Math.max(incT, 30); renderInsp(); updateHud(); } });   // no incident the very second the player comes back
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 277;   // keep equal to the ?v= number in index.html
+const BUILD = 278;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -178,7 +179,7 @@ function stepBoss(dt, live) {
   if (B.camp && B.camp.k && Date.now() >= B.camp.end) { if (live) toast(`${CAMPS[B.camp.k].emo} Рекламная акция закончилась`); B.camp.k = null; dirtyPanel = true; }
   const M = B.mail;
   if (M.cur) { if (live) M.cur.t = (M.cur.t || 0) + dt; return; }   // build 240 (her «10 мин это слишком жестко»): no deadline, the letter simply waits for an answer; no new letter meanwhile
-  if (!live || calm() || S.stats.graduated < 20 || tourStep >= 0) return;   // only while playing; the calm mode has no complaints either
+  if (!live || calm() || MG.isOpen() || S.stats.graduated < 20 || tourStep >= 0) return;   // only while playing (not inside the mini-game); the calm mode has no complaints either
   M.t -= dt; if (M.t > 0) return;
   M.t = MAIL_MIN + Math.random() * (MAIL_MAX - MAIL_MIN);
   M.cur = { m: Math.floor(Math.random() * MAILS.length), name: rnd(NAMES), t: 0 };
@@ -1256,6 +1257,7 @@ function hintOnce(key, emo, title, text) {   // a short explanation the first ti
 }
 function stepIncidents(dt, live) {
   S.inc ||= {};
+  if (MG.isOpen()) return;   // build 278 (tester Соня): the school is quiet while the player brews potions
   for (const [i, x] of Object.entries(S.inc)) { x.t = (x.t || 0) + dt; if (x.t > INC_AUTO_AT(dirLvl('keeper'))) delete S.inc[i]; }
   if (!live || S.stats.graduated < 5 || tourStep >= 0) return;   // never while the game is closed, nor for a brand-new school
   incT -= dt; if (incT > 0) return;
@@ -1326,7 +1328,7 @@ function setCalm(on) {
   save(); updateHud(); dirtyPanel = true;
 }
 function stepInspector(dt, live) {
-  if (calm() || !live || S.stats.graduated < 20 || tourStep >= 0) return;
+  if (calm() || !live || MG.isOpen() || S.stats.graduated < 20 || tourStep >= 0) return;   // the inspector waits while the mini-game is open (a running check pauses too)
   const I = insp();
   if (!I.cur) {
     I.t -= dt;
