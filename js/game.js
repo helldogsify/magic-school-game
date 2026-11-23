@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=359';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=359';
-import { initMinigame } from './minigame.js?v=359';
-import { initChests } from './chests.js?v=359';
-import { initAvatar } from './avatar.js?v=359';
+} from './data.js?v=360';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=360';
+import { initMinigame } from './minigame.js?v=360';
+import { initChests } from './chests.js?v=360';
+import { initAvatar } from './avatar.js?v=360';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -21,7 +21,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 359;   // keep equal to the ?v= number in index.html
+const BUILD = 360;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2770,12 +2770,16 @@ function drawOut(o) {
 // ======================= day and night (her pick from the location review, 2026-11-23) =======================
 // The sky follows the phone's clock: day 8-17:30, golden evening, blue night 22-5, pink dawn. Night = one multiply fill over the
 // world; lanterns, lamp columns, paper lanterns and the fountain then glow, fireflies drift over the court lawns.
-const DN_KEYS = [[0, [92, 104, 178]], [5, [92, 104, 178]], [6.5, [236, 190, 205]], [8, [255, 255, 255]], [17.5, [255, 255, 255]], [19, [255, 206, 160]], [20.5, [168, 140, 196]], [22, [92, 104, 178]], [24, [92, 104, 178]]];
+const DN_KEYS = [   // [hour, sun-side colour, shade-side colour, sun side (-1 west/left, 1 east/right), golden rim]   (her «Закат светом, а не заливкой»: two-sided light)
+  [0, [92, 104, 178], [92, 104, 178], 1, 0], [5.2, [92, 104, 178], [92, 104, 178], 1, 0], [6.1, [250, 200, 205], [170, 160, 215], 1, 0.5], [7.2, [255, 238, 222], [232, 224, 242], 1, 0.3], [8.2, [255, 255, 255], [255, 255, 255], 1, 0],
+  [17.5, [255, 255, 255], [255, 255, 255], -1, 0], [18.4, [255, 240, 214], [240, 232, 245], -1, 0.3], [19.2, [255, 214, 158], [226, 200, 240], -1, 0.6], [19.9, [255, 176, 156], [186, 166, 230], -1, 0.45],
+  [20.6, [190, 168, 232], [146, 146, 216], -1, 0.1], [21.4, [118, 124, 196], [104, 112, 188], -1, 0], [22, [92, 104, 178], [92, 104, 178], -1, 0], [24, [92, 104, 178], [92, 104, 178], -1, 0]];
 const DN_LIGHT = { lantern_gold: [0.42, '255,214,120', 1], lantern_blue: [0.42, '150,200,255', 1], gal_lamp: [0.72, '255,214,140', 0.7], cz_lanterns: [0.7, '255,170,190', 0.9], fountain: [0.45, '140,240,230', 1.4], glowmush: [0.5, '170,150,255', 0.7], crystals: [0.5, '200,170,255', 0.7] };
 function dayTint() {
   const d = new Date(), h = window.__hour ?? d.getHours() + d.getMinutes() / 60;
-  for (let k = 1; k < DN_KEYS.length; k++) if (h <= DN_KEYS[k][0]) { const [h0, a] = DN_KEYS[k - 1], [h1, b] = DN_KEYS[k], u = (h - h0) / (h1 - h0 || 1); return a.map((v, i) => Math.round(v + (b[i] - v) * u)); }
-  return DN_KEYS[0][1];
+  for (let k = 1; k < DN_KEYS.length; k++) if (h <= DN_KEYS[k][0]) { const A = DN_KEYS[k - 1], B = DN_KEYS[k], u = (h - A[0]) / (B[0] - A[0] || 1), mix = (p, q) => p.map((v, i) => Math.round(v + (q[i] - v) * u));
+    return { sun: mix(A[1], B[1]), shade: mix(A[2], B[2]), side: B[3], rim: A[4] + (B[4] - A[4]) * u }; }
+  const N = DN_KEYS[0]; return { sun: N[1], shade: N[2], side: 1, rim: 0 };
 }
 const dnMask = document.createElement('canvas');
 let dnPoolC = null, dnPoolL = -1;
@@ -2800,7 +2804,7 @@ let dnDark = false;
 const DN_ALWAYS = new Set(['fountain', 'glowmush', 'crystals']);   // magic lights glow by themselves
 function lampOn(o) {   // the light level at which this lamp is lit: nearest to the gate first
   if (o._on !== undefined) return o._on; const g = GATE_TILE, d = Math.hypot(o.x - g.x, o.y - g.y) / Math.hypot(GW, GH);
-  return (o._on = 0.1 + 0.75 * Math.min(1, d * 1.6));
+  return (o._on = 0.08 + 0.42 * Math.min(1, d * 1.6));   // all lit by late dusk (~20:30), so the lamplighter is seen
 }
 // her pick «4»: moon and stars over the forest at the top of the map (world px, fixed), shown at night
 let DN_STARS = null;
@@ -2817,10 +2821,11 @@ function drawSky(T, L) {
 }
 function lampGlow(l, T, L) { const f = 0.85 + 0.15 * Math.sin(T * 5.3 + l.x * 0.7 + l.y), r = l.r * 3.2; ctx.globalAlpha = 0.55 * L * f; ctx.drawImage(glowSprite('255,190,100'), l.x - r, l.y - r, r * 2, r * 2); ctx.globalAlpha = 0.85 * L * f; ctx.drawImage(glowSprite('255,235,170'), l.x - l.r, l.y - l.r, l.r * 2, l.r * 2); }
 function drawDayNight() {
-  const t = dayTint(), dark = 1 - (t[0] + t[1] + t[2]) / 765; dnDark = dark > 0.035; if (dark < 0.02) return;
+  const D = dayTint(), t = D.sun.map((v, i) => (v + D.shade[i]) / 2), dark = 1 - (t[0] + t[1] + t[2]) / 765; dnDark = dark > 0.035; if (dark < 0.02) return;
   const L = Math.min(1, dark * 2.2), lit = L >= 0.08 ? litRooms() : [];   // her «в комнатах конечно должен гореть свет тоже»: built rooms keep their light at night
   const W0 = ctx.canvas.width, H0 = ctx.canvas.height, mc = dnMask, mx = mc.getContext('2d'); if (mc.width !== W0 || mc.height !== H0) { mc.width = W0; mc.height = H0; }
-  mx.globalCompositeOperation = 'copy'; mx.fillStyle = `rgb(${t[0]},${t[1]},${t[2]})`; mx.fillRect(0, 0, W0, H0);
+  const gr = mx.createLinearGradient(D.side < 0 ? 0 : W0, 0, D.side < 0 ? W0 : 0, H0 * 0.6); gr.addColorStop(0, `rgb(${D.sun.join(',')})`); gr.addColorStop(1, `rgb(${D.shade.join(',')})`);   // the sun side is warm, the far side in a lilac shade
+  mx.globalCompositeOperation = 'copy'; mx.fillStyle = gr; mx.fillRect(0, 0, W0, H0);
   if (lit.length) { mx.globalCompositeOperation = 'source-over'; mx.beginPath(); for (const q of lit) { q.forEach((m, k) => (k ? mx.lineTo(m.x, m.y) : mx.moveTo(m.x, m.y))); mx.closePath(); }
     const ev = [255, Math.round(255 - 50 * L), Math.round(255 - 95 * L)]; mx.fillStyle = `rgb(${ev[0]},${ev[1]},${ev[2]})`; mx.fill(); }
   if (L >= 0.08) { const k = scale * dpr, ox = scroller.scrollLeft * dpr, oy = scroller.scrollTop * dpr, pool = dnPool(L); mx.globalCompositeOperation = 'lighten';   // her «Свет из дверей выглядит странно»: door light and the students' lantern light lift the darkness (capped), no additive white blobs
@@ -2829,6 +2834,8 @@ function drawDayNight() {
     for (const a of agents) { if (a.state === 'fly' || a.state === 'vanish') continue; const rg = regAt(Math.floor(a.x), Math.floor(a.y)); if (rg && rg !== 'hall' && rg !== 'path') continue; put(a.x, a.y, HW * 0.9, HH * 1.3); } }   // her «что-то вечернее, лампы светятся»: rooms get a warm evening lamplight, a little dimmer than the day
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(mc, 0, 0);
   ctx.restore();
+  if (D.rim > 0.02) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'lighter'; const W1 = ctx.canvas.width, H1 = ctx.canvas.height, g2 = ctx.createRadialGradient(D.side < 0 ? 0 : W1, H1 * 0.15, 0, D.side < 0 ? 0 : W1, H1 * 0.15, Math.max(W1, H1) * 0.95);
+    g2.addColorStop(0, `rgba(255,170,80,${(0.32 * D.rim).toFixed(3)})`); g2.addColorStop(0.45, `rgba(255,140,90,${(0.12 * D.rim).toFixed(3)})`); g2.addColorStop(1, 'rgba(255,170,120,0)'); ctx.fillStyle = g2; ctx.fillRect(0, 0, W1, H1); ctx.restore(); }   // the low sun's golden light from its side
   if (L < 0.08) return;   // lights only once it gets dark
   const T = performance.now() / 1000;
   drawSky(T, L);
