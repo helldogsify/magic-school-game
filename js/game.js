@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=399';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=399';
-import { initMinigame } from './minigame.js?v=399';
-import { initChests } from './chests.js?v=399';
-import { initLore } from './lore.js?v=399';
-import { initAvatar } from './avatar.js?v=399';
+} from './data.js?v=400';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=400';
+import { initMinigame } from './minigame.js?v=400';
+import { initChests } from './chests.js?v=400';
+import { initLore } from './lore.js?v=400';
+import { initAvatar } from './avatar.js?v=400';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 399;   // keep equal to the ?v= number in index.html
+const BUILD = 400;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2797,7 +2797,7 @@ function outShadow(c, o) {   // the cast shadow of an outdoor object on the gras
 // per tree picture (measured on the sprites at 160 px): cut = share of the height cut from the bottom (where the roots spread),
 // x = trunk centre at the cut (0..1 of the width), mw = mound width (share of the tree width)
 const TREE_GROUND = { oak: { cut: 0.17, x: 0.52, mw: 0.5 }, fir: { cut: 0.14, x: 0.5, mw: 0.4 }, willow: { cut: 0.17, x: 0.49, mw: 0.42 },
-  blossom: { cut: 0.18, x: 0.47, mw: 0.46 }, goldtree: { cut: 0.18, x: 0.55, mw: 0.44 }, moontree: { cut: 0.17, x: 0.565, mw: 0.42 } };
+  blossom: { cut: 0.18, x: 0.47, mw: 0.46 }, goldtree: { cut: 0.18, x: 0.55, mw: 0.44 }, moontree: { cut: 0.17, x: 0.55, mw: 0.42 } };
 const SOIL = [0, 1].map((k) => { const im = new Image(); im.onload = () => { staticKey = ''; partsVer++; }; im.src = `assets/parts/outdoor/soil_${k}.webp?v=1`; return im; });
 // ======================= the Moon Tree by the gate (tester «землитексту рко» №73po7zf1: «Возле входа у главных ворот школы нужно поставить
 // особенное красивое дерево ... на нём могут вырастать плоды иногда»; Maria's pick «3» Лунное древо, look «Справа в виде луны») =======================
@@ -2818,18 +2818,42 @@ function stepMoon() {   // growth from the night minutes since the last look (ch
   if (M.f >= MOON_MAX) M.acc = 0;
 }
 let moonRect = null;
-const MOON_FRUIT = [[0.33, 0.2], [0.56, 0.1], [0.8, 0.19]];   // spots in the crown (share of the picture's width / height)
+const MOON_FRUIT = [[0.28, 0.21], [0.57, 0.08], [0.85, 0.19]];   // spots in the crown (share of the picture's width / height)
+// the disc inside the crescent is a window into the night sky: nebula clouds turn slowly, stars circle and twinkle (her «Мне не нравится
+// это белое в луне. Оно должно как-то анимироваться ... Крутится там внутри него»); drawn in depth order right over the tree picture
+const moonNeb = [0, 1].map((seed) => {   // two cloud layers, made once
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  if (!seed) { const g = x.createRadialGradient(64, 64, 4, 64, 64, 64); g.addColorStop(0, '#2c2f7a'); g.addColorStop(0.6, '#4b4aa8'); g.addColorStop(1, '#9d8fe0'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); }
+  let s = seed * 97 + 13; const r = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  const cols = seed ? ['255,170,230', '150,220,255', '255,255,255'] : ['190,150,255', '120,200,255', '255,180,240'];
+  for (let k = 0; k < 9; k++) { const a = r() * 6.28, d = 14 + r() * 40, px = 64 + Math.cos(a) * d, py = 64 + Math.sin(a) * d, rr = 14 + r() * 26, g = x.createRadialGradient(px, py, 0, px, py, rr);
+    g.addColorStop(0, `rgba(${cols[k % 3]},${seed ? 0.45 : 0.55})`); g.addColorStop(1, `rgba(${cols[k % 3]},0)`); x.fillStyle = g; x.fillRect(0, 0, 128, 128); }
+  return c;
+});
+const moonOff = document.createElement('canvas'); moonOff.width = moonOff.height = 128;
+function drawMoonDisc(cx, cy, r, T) {
+  const x = moonOff.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.clearRect(0, 0, 128, 128);
+  x.save(); x.translate(64, 64); x.rotate(T * 0.12); x.drawImage(moonNeb[0], -64, -64); x.restore();
+  x.save(); x.translate(64, 64); x.rotate(-T * 0.21); x.globalAlpha = 0.8; x.drawImage(moonNeb[1], -64, -64); x.restore();
+  x.globalAlpha = 1; x.fillStyle = '#fff';
+  for (let k = 0; k < 18; k++) { const f = ((k * 0.618) % 1), a = k * 2.4 + T * (0.08 + (k % 3) * 0.05), d = 8 + f * 50, tw = 0.5 + 0.5 * Math.sin(T * 2.3 + k * 1.7), sz = 0.7 + tw * (k % 4 ? 1 : 1.8);
+    x.globalAlpha = 0.45 + 0.55 * tw; x.beginPath(); x.arc(64 + Math.cos(a) * d, 64 + Math.sin(a) * d, sz, 0, Math.PI * 2); x.fill(); }
+  x.globalAlpha = 1; x.globalCompositeOperation = 'destination-in';   // soft rim: the sky melts into the moonstone edge
+  const m = x.createRadialGradient(64, 64, 0, 64, 64, 64); m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(0.8, 'rgba(0,0,0,1)'); m.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = m; x.fillRect(0, 0, 128, 128);
+  ctx.drawImage(moonOff, cx - r, cy - r, r * 2, r * 2);
+}
 let moonFx = null;   // where the tree was drawn this frame: its glow and fruits go on top after the night tint (drawMoonFx)
 function drawMoonTree(o, p, w, h) {
   const top = p.y + h * 0.05 - h;
   moonRect = { x0: p.x - w * 0.45, y0: top, x1: p.x + w * 0.45, y1: p.y, t: performance.now() };
+  drawMoonDisc(p.x - w / 2 + 0.608 * w, top + 0.415 * h, 0.236 * w, performance.now() / 1000);   // the living night sky inside the crescent
   moonFx = { p, w, h, top };
 }
 function drawMoonFx() {   // after drawDayNight: the moon disc glows at night, ripe fruits shine in the crown (day or night)
   const f = moonFx; moonFx = null; if (!f || WORLD !== 1) return;
   const { p, w, h, top } = f, T = performance.now() / 1000, D = dayTint(), tt = D.sun.map((v, i) => (v + D.shade[i]) / 2), L = Math.min(1, Math.max(0, 1 - (tt[0] + tt[1] + tt[2]) / 765) * 2.2);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  if (L > 0.05) { ctx.globalAlpha = L * (0.55 + 0.12 * Math.sin(T * 1.3)); const r = w * 0.5; ctx.drawImage(glowSprite('150,185,255'), p.x - w / 2 + 0.58 * w - r, top + 0.4 * h - r, r * 2, r * 2); }
+  if (L > 0.05) { ctx.globalAlpha = L * (0.55 + 0.12 * Math.sin(T * 1.3)); const r = w * 0.5; ctx.drawImage(glowSprite('150,185,255'), p.x - w / 2 + 0.61 * w - r, top + 0.415 * h - r, r * 2, r * 2); }
   const n = (S.moon && S.moon.f) || 0, rr = Math.max(4, w * 0.045);
   for (let k = 0; k < n; k++) { const [u, v] = MOON_FRUIT[k], x = p.x - w / 2 + u * w, y = top + v * h; ctx.globalAlpha = 0.75 + 0.2 * Math.sin(T * 2 + k * 2); ctx.drawImage(glowSprite('190,215,255'), x - rr * 3.5, y - rr * 3.5, rr * 7, rr * 7); }
   ctx.restore();
