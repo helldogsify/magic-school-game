@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=336';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=336';
-import { initMinigame } from './minigame.js?v=336';
-import { initChests } from './chests.js?v=336';
+} from './data.js?v=337';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=337';
+import { initMinigame } from './minigame.js?v=337';
+import { initChests } from './chests.js?v=337';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 336;   // keep equal to the ?v= number in index.html
+const BUILD = 337;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -507,15 +507,15 @@ function genLayoutW2() {
   SLOTS.TRADE = slot(8, recY + 9, [[13, recY + 11], [14, recY + 11]], {}, 6, 5);   // the trading yard: an open cobbled yard left of the gate road
   HALLS.push({ x0: 14, y0: recY + 10, x1: 15, y1: recY + 13 });
   { const rb = recY - ROW_GAP;   // the gem shop left of the bottom-left hall, a road down to the reading court
-    SLOTS.SHOP = slot(1, rb - 6, [[4, rb - 1], [4, rb]], {}, 6, 6, [[[5, rb - 1], [5, rb]]]);
-    PATHS.push({ x0: 1, y0: rb, x1: 8, y1: recY - 2 }); }
+    SLOTS.SHOP = slot(0, recY + 13, [[4, recY + 13], [4, recY + 12]], {}, 6, 6, [[[5, recY + 13], [5, recY + 12]]]);   // front-left, in the open
+    PATHS.push({ x0: 3, y0: recY + 8, x1: 8, y1: recY + 13 }); }
   { const r0 = Math.min(SLOTS.C0.y0, SLOTS.C1 ? SLOTS.C1.y0 : SLOTS.C0.y0);   // the feasting hall right of the bottom row, a road from the great hall
     PATHS.push({ x0: NAVE_X1, y0: r0 - 3, x1: 33, y1: r0 - 1 });
     SLOTS.CANT = slot(28, r0, [[30, r0], [30, r0 - 1]], {}, 6, 6, [[[31, r0], [31, r0 - 1]]]); }
   { const m = SLOTS.C3 || SLOTS.C1; if (m) SLOTS.EXPED = slot(28, m.y0, [[28, m.y0 + 3], [27, m.y0 + 3]], {}, 6, 6); }   // the gates of the deep: an open yard right of the middle row   // a short way from the gate road into the yard
   GATE_TILE = { x: 16.5, y: recY + 12.5 };
   GATE_Y = recY + 9;
-  GH = recY + 16; GW = 36;
+  GH = recY + 21; GW = 36;
 }
 // World 1 layout «двор с фонтаном» (her pick 2026-11-22, design/layout_C_court.png): the rooms stand along the two far edges of the
 // school with their tall walls toward the forest, so nothing tall stands in front of the corridors; in the middle a big open court
