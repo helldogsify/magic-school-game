@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=335';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=335';
-import { initMinigame } from './minigame.js?v=335';
-import { initChests } from './chests.js?v=335';
+} from './data.js?v=336';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=336';
+import { initMinigame } from './minigame.js?v=336';
+import { initChests } from './chests.js?v=336';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 335;   // keep equal to the ?v= number in index.html
+const BUILD = 336;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2436,7 +2436,7 @@ function resize() {
   dpr = Math.min(window.__dprCap || 3, window.devicePixelRatio || 1);
   viewW = r.width; viewH = r.height;
   viewW = r.width; viewH = r.height; zoom = Math.max(zoom, minZoom());
-  scale = (r.width / BASEW) * zoom * ROOMS_K;
+  scale = (refW(r.width) / BASEW) * zoom * ROOMS_K;
   canvas.style.width = r.width + 'px'; canvas.style.height = r.height + 'px';
   { const cw = Math.round(r.width * dpr), ch = Math.round(r.height * dpr); if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; } }   // only on a real size change (iOS fires 'resize' on scrolls too)
   $('#spacer').style.height = WH * scale + 'px'; $('#spacer').style.width = WW * scale + 'px';
@@ -4681,10 +4681,13 @@ function updateHud() {
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
 
 // ======================= pinch zoom =======================
-const minZoom = () => 0.9;
+// wide screens (tester Гоша, 2560x1440: «Адаптируй пожалуйста игру под разные разрешения экрана»): the map fills the whole window; the
+// scale keeps the look of a 720 px wide column (phones are narrower: unchanged) and the zoom floor grows so the map always covers the window
+const refW = (w) => Math.min(w, 720);
+const minZoom = () => Math.max(0.9, viewW && WW ? viewW / (WW * refW(viewW) / BASEW * ROOMS_K) : 0, viewH && WH ? viewH / (WH * refW(viewW) / BASEW * ROOMS_K) : 0);
 function setZoom(z, cx, cy, wx, wy) {   // keep world point (wx, wy) under client point (cx, cy) of the scroller
   zoom = Math.max(minZoom(), Math.min(ZMAX, z));
-  scale = (viewW / BASEW) * zoom * ROOMS_K;
+  scale = (refW(viewW) / BASEW) * zoom * ROOMS_K;
   $('#spacer').style.height = WH * scale + 'px'; $('#spacer').style.width = WW * scale + 'px';
   scroller.scrollLeft = wx * scale - cx; scroller.scrollTop = wy * scale - cy;
 }
