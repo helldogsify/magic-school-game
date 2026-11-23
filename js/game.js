@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=350';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=350';
-import { initMinigame } from './minigame.js?v=350';
-import { initChests } from './chests.js?v=350';
-import { initAvatar } from './avatar.js?v=350';
+} from './data.js?v=351';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=351';
+import { initMinigame } from './minigame.js?v=351';
+import { initChests } from './chests.js?v=351';
+import { initAvatar } from './avatar.js?v=351';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -21,7 +21,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 350;   // keep equal to the ?v= number in index.html
+const BUILD = 351;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4295,7 +4295,7 @@ function settingsPanel() {
     <textarea id="fb-text" class="fb" rows="4" placeholder="Что понравилось? Что сломалось или было непонятно?"></textarea>
     <div id="fb-pics" class="fb-pics"></div>
     <label class="btn ghost wide fb-add">📷 Добавить картинку (до 3)<input id="fb-file" type="file" accept="image/*" multiple hidden></label>
-    <button class="btn wide" data-feedback>💌 Отправить отзыв</button>
+    <button class="btn wide" data-feedback>💌 Отправить отзыв</button>${fbReplies().length ? `<button class="btn ghost wide" data-replies>💌 Ответы на отзывы (${fbReplies().length})</button>` : ''}
     <button class="btn ghost wide" data-tour-again>❓ Как играть (обучение)</button>
     <button class="btn ghost wide" data-reset>Начать игру заново</button>`;
 }
@@ -4330,13 +4330,41 @@ document.addEventListener('change', async (e) => {
   for (const f of [...e.target.files].slice(0, 3 - fbPics.length)) { try { fbPics.push(await shrinkImage(f)); } catch (err) { toast('Не получилось открыть картинку'); } }
   e.target.value = ''; drawFbPics();
 });
+// ---- answers from the author (Maria 2026-11-23: «Хочу сделать возможность отвечать на запрос тестировщика ... Я хочу мочь прислать ответ»):
+// every feedback carries this phone's id (№xxxxxxxx); Maria answers the feedback message in Telegram with a reply, the relay keeps the
+// answer, the game asks for it (players who wrote: at the start, every 3 min and on return) and shows it in its own window.
+const REPLIES_URL = 'https://lazy.vazuza.love/game/replies';
+function fbId() { let v = localStorage.getItem('magicschool.fbid'); if (!/^[a-z0-9]{8}$/.test(v || '')) { v = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join(''); localStorage.setItem('magicschool.fbid', v); } return v; }
+const fbReplies = () => { try { return JSON.parse(localStorage.getItem('magicschool.fbreplies') || '[]'); } catch (e) { return []; } };
+let replyBusy = false;
+async function checkReplies() {
+  if (replyBusy || !localStorage.getItem('magicschool.fbsent') || document.hidden) return;
+  if (!window.__ready) { setTimeout(checkReplies, 5000); return; }   // not under the loading curtain
+  replyBusy = true;
+  try {
+    const old = fbReplies(), since = old.reduce((m, r) => Math.max(m, r.t || 0), 0);
+    const r = await fetch(`${REPLIES_URL}?id=${fbId()}&since=${since}`, { cache: 'no-store' }); if (!r.ok) return;
+    const got = ((await r.json()).replies || []).filter((x) => x && x.text && x.t > since);
+    if (!got.length) return;
+    localStorage.setItem('magicschool.fbreplies', JSON.stringify(old.concat(got.map((x) => ({ ...x, seen: 0 }))).slice(-30)));
+    if (panel || tourStep >= 0) toast('💌 Автор игры ответил на твой отзыв: открой ⚙️ → «Ответы на отзывы»'); else openPanel(repliesPanel);
+  } catch (e) { /* offline: next time */ } finally { replyBusy = false; }
+}
+function repliesPanel() {
+  const list = fbReplies(); localStorage.setItem('magicschool.fbreplies', JSON.stringify(list.map((x) => ({ ...x, seen: 1 }))));
+  const rows = list.slice().reverse().map((x) => `<div class="card up" style="display:block">${x.q ? `<div class="muted">Ты писал(а): «${escTxt(x.q)}»</div>` : ''}<div style="margin-top:4px;white-space:pre-wrap">${escTxt(x.text)}</div><div class="muted" style="margin-top:4px;font-size:12px">${new Date(x.t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</div></div>`).join('');
+  return `<div class="sh-head"><span class="remoji big">💌</span><div><h2>Ответ автора игры</h2><div class="muted">на твои отзывы</div></div><button class="x" data-close>✕</button></div>
+    ${rows || '<p class="muted">Ответов пока нет.</p>'}<button class="btn wide" data-close>Спасибо! 💜</button>`;
+}
+setTimeout(checkReplies, 8000); setInterval(checkReplies, 180000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(checkReplies, 3000); });
 async function sendFeedback() {
   const msg = ($('#fb-text').value || '').trim();
   const name = ($('#fb-name').value || '').trim().slice(0, 40);
   if (!msg) { toast('Напиши пару слов в поле отзыва'); return; }
   localStorage.setItem('magicschool.name', name);
   const built = S.classes.filter((c) => c.built).length;
-  const text = `Отзыв о «Школе магии» от ${name || 'без имени'}:
+  const text = `Отзыв о «Школе магии» от ${name || 'без имени'} (№${fbId()}):
 
 ${msg}
 
@@ -4346,7 +4374,7 @@ ${msg}
   const btn = document.querySelector('[data-feedback]'); if (btn) { btn.disabled = true; btn.textContent = 'Отправляю…'; }
   try {
     const r = await fetch(FEEDBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, images: fbPics }) });
-    if (r.ok) { $('#fb-text').value = ''; fbPics = []; drawFbPics(); toast('Отзыв отправлен, спасибо! 💜'); if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; } return; }
+    if (r.ok) { localStorage.setItem('magicschool.fbsent', '1'); setTimeout(checkReplies, 60000); $('#fb-text').value = ''; fbPics = []; drawFbPics(); toast('Отзыв отправлен, спасибо! 💜'); if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; } return; }
     if (r.status === 429) { toast('Слишком много отзывов подряд, попробуй через 10 минут'); if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; } return; }
   } catch (e) { /* no network or relay down: fall back to sharing */ }
   if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; }
@@ -4888,6 +4916,7 @@ document.addEventListener('click', (e) => {
   if (d.mission !== undefined) { claimMission(d.mission); if (panel === missionsPanel) refreshPanel(); return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); drawFbPics(); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
+  if (d.replies !== undefined) { openPanel(repliesPanel); return; }
   if (d.fbDel !== undefined) { fbPics.splice(+d.fbDel, 1); drawFbPics(); return; }
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
   if (d.top !== undefined) { openTop(); return; }
