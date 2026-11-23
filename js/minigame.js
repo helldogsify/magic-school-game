@@ -11,12 +11,12 @@ const STAR = [2000, 3500, 5500];  // score for 1/2/3 stars (calibrated with tool
 const MAX_MIN = 10;               // the best round pays 10 minutes of the school's income
 const BOOST = [0, 0, 5, 10];      // minutes of «Вдохновение» per stars
 const BOOST_CAP_MIN = 60;         // same cap as gifts (BOOST_MAX_MIN in game.js)
-const ART_V = 1;
+const ART_V = 2;   // 2: pink crystal (her «два значка синего цвета, путаешь их»)
 
 export const ING = [   // ingredient tiles; art: assets/minigame/ing_<i>.png (falls back to the emoji until the art exists)
   { e: '🌿', name: 'Мята', col: '#5cbf6a' },
   { e: '🍄', name: 'Гриб-светлячок', col: '#e0705a' },
-  { e: '💎', name: 'Кристалл', col: '#58c6e0' },
+  { e: '💎', name: 'Кристалл', col: '#ec5fa0' },   // pink since build 290 (blue crystal was confused with the dew drop)
   { e: '🪶', name: 'Перо феи', col: '#b78ae8' },
   { e: '💧', name: 'Роса', col: '#5a8ff0' },
   { e: '⭐', name: 'Звёздная пыль', col: '#f2c03a' },
