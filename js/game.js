@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=300';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=300';
-import { initMinigame } from './minigame.js?v=300';
+} from './data.js?v=301';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=301';
+import { initMinigame } from './minigame.js?v=301';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 300;   // keep equal to the ?v= number in index.html
+const BUILD = 301;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -490,23 +490,24 @@ var GAL, GAL_G, GAL_T;   // var + set only in galLayout: genLayout may run befor
 function galLayout() {
   GAL = []; GAL_G = []; GAL_T = new Set(); if (WORLD !== 1 || !COURT) return;
   const { x0, y0, x1, y1 } = COURT, c = courtC(), G = SLOTS.GARDEN, seen = new Map();
-  const pathX = [Math.floor(c.x - 1.2) + 1, Math.ceil(c.x + 1.2) - 1], pathY = [Math.floor(c.y - 1.2) + 1, Math.ceil(c.y + 1.2) - 1];   // cross path tiles (as drawStatic paints them)
-  const segs = (a, b, path, gEnd) => { const out = []; const lo = gEnd != null ? gEnd + 1 : a; if (lo <= path[0] - 2) out.push([lo, path[0] - 1]); if (path[1] + 1 <= b) out.push([path[1] + 1, b]); return out; };
-  const side = (fixed, horiz, a, b, path, gEnd) => {
-    for (const [s0, s1] of segs(a, b, path, gEnd)) {
+  const pathX = [Math.floor(c.x - 1.7) + 1, Math.ceil(c.x + 0.7) - 1], pathY = [Math.floor(c.y - 1.7) + 1, Math.ceil(c.y + 0.7) - 1];   // tiles with |x + 0.5 - c| < 1.2 (fixed: was one tile off)   // cross path tiles (as drawStatic paints them)
+  // segments of one edge between the openings (cross path, the garden's path) and the corners; a column beside an opening carries a lantern
+  const segs = (a, b, opens) => { const out = []; let lo = a; for (const [o0, o1] of [...opens].sort((p, q) => p[0] - q[0])) { if (o0 - 1 - lo >= 1) out.push([lo, o0 - 1]); lo = Math.max(lo, o1 + 1); } if (b - lo >= 1) out.push([lo, b]); return out; };
+  const side = (fixed, horiz, a, b, opens) => {
+    for (const [s0, s1] of segs(a, b, opens)) {
       const n = Math.max(1, Math.round((s1 - s0) / 3)), row = [];
       for (let i = 0; i <= n; i++) { const t = Math.round(s0 + i * (s1 - s0) / n), x = horiz ? t : fixed, y = horiz ? fixed : t, k = x * 1000 + y;
-        const corner = (x === x0 || x === x1 - 1) && (y === y0 || y === y1 - 1), byPath = horiz ? (t === path[0] - 1 || t === path[1] + 1) : (t === path[0] - 1 || t === path[1] + 1);
+        const corner = (x === x0 || x === x1 - 1) && (y === y0 || y === y1 - 1), byPath = opens.some(([o0, o1]) => t === o0 - 1 || t === o1 + 1);
         let col = seen.get(k); if (!col) { col = { n: corner ? 'gal_urn' : byPath ? 'gal_lamp' : 'gal_rose', x: x + 0.5, y: y + 0.5 }; seen.set(k, col); GAL.push(col); GAL_T.add(k); }
         row.push(col); }
       for (let i = 0; i + 1 < row.length; i++) GAL_G.push([row[i], row[i + 1]]);
     }
   };
-  const gy1 = G ? G.y1 : null, gx1 = G ? G.x1 : null;
-  side(y0, true, x0, x1 - 1, pathX, G && G.y0 <= y0 ? gx1 : null);       // back edge (the garden sits in its left corner)
-  side(x1 - 1, false, y0, y1 - 1, pathY, null);                         // right edge
-  side(y1 - 1, true, x0, x1 - 1, pathX, null);                          // front edge
-  side(x0, false, y0, y1 - 1, pathY, G && G.x0 <= x0 + 1 ? gy1 : null); // left edge (below the garden)
+  const gPath = G && G.y0 > y0 ? [[G.x0 + 2, G.x0 + 3]] : [];   // the path from the gallery to the garden's arch crosses the back edge
+  side(y0, true, G && G.y0 <= y0 ? G.x1 + 1 : x0, x1 - 1, [pathX, ...gPath]);   // back edge
+  side(x1 - 1, false, y0, y1 - 1, [pathY]);                                     // right edge
+  side(y1 - 1, true, x0, x1 - 1, [pathX]);                                      // front edge
+  side(x0, false, G && G.x0 <= x0 + 1 ? G.y1 + 1 : y0, y1 - 1, [pathY]);         // left edge
 }
 function genLayoutCourt() {
   // Build 241 (her pick «1» of design/layout2_v1.png after the designer review): study goes round the court, 1-2-3 up the left
@@ -532,7 +533,9 @@ function genLayoutCourt() {
   const WIDE = 4, cx0 = CWD + BAND, cy0 = dRow + BAND, Xr = XR - 6, cx1 = Xr - WIDE, cy1 = cy0 + 23, Yf = cy1 + WIDE;
   COURT = { x0: cx0, y0: cy0, x1: cx1, y1: cy1 };
   PATHS = [];
-  SLOTS.GARDEN = slot(cx0 + 1, cy0, [[cx0 + 1, cy0], [cx0 + 1, cy0 - 1]], {}, 6, 6, [[[cx0 + 2, cy0], [cx0 + 2, cy0 - 1]], [[cx0 + 6, cy0 + 3], [cx0 + 7, cy0 + 3]]]);
+  { const qx1 = Math.floor((cx0 + cx1) / 2 - 1.7) + 1, qy1 = Math.floor((cy0 + cy1) / 2 - 1.7) + 1;   // her «все это должно стоять вот тут по центру»: the garden in the middle of the court's back-left quarter (up to the cross paths)
+    const gx = cx0 + Math.floor((qx1 - cx0 - 6) / 2), gy = cy0 + Math.floor((qy1 - cy0 - 6) / 2);
+    SLOTS.GARDEN = slot(gx, gy, [[gx + 2, gy], [gx + 2, gy - 1]], {}, 6, 6, [[[gx + 3, gy], [gx + 3, gy - 1]]]); }   // her «поставь арку ... красиво, логично»: one entrance on the garden's axis (x0+3) from the gallery under the exam hall: arch -> straight path -> gazebo in the middle; no side door (the garden is the graduates' own dead end)
   galLayout();   // plan item 2: the colonnade round the court lawn
   // right column under Elements (build 252, her «у ежика ушла стена где он на полку книжку клал»): library on top (its tall back
   // wall faces the gallery under the back row), a 4-tile lawn, the canteen (tall back wall too); the masters' tower stands outside
@@ -644,7 +647,7 @@ function buildEdges() {
   dropLooseHallWalls();
 }
 genLayout(); buildGrid(); buildEdges(); decorateEdges();
-const gardenBlocked = (x, y) => { const g = SLOTS.GARDEN; return WORLD === 1 && g && x - g.x0 >= 2 && x - g.x0 <= 3 && y - g.y0 >= 2 && y - g.y0 <= 3; };   // the fountain's 2x2 tiles
+const gardenBlocked = (x, y) => { const g = SLOTS.GARDEN; return false && WORLD === 1 && g && x - g.x0 >= 2 && x - g.x0 <= 3 && y - g.y0 >= 2 && y - g.y0 <= 3; };   // the fountain's 2x2 tiles (off: the centre is the graduation circle now)
 const recBlocked = (x, y) => { const s = SLOTS.REC; return x - s.x0 <= 1 && y - s.y0 >= 1 && y - s.y0 <= 6; };   // tiles under the painted desk
 function canStep(ax, ay, bx, by) {
   const ra = regAt(ax, ay), rb = regAt(bx, by);
@@ -1250,7 +1253,7 @@ function goGraduate(a) {
   const g = SLOTS.GARDEN;
   a.c = -1; a.state = 'walk'; a.goal = { t: 'g' };
   if (a.retake) { retakeHome(a); return; }   // an elder from the tower after his retake: not a new graduate
-  const tx = WORLD === 1 ? g.x0 + 4.85 + (Math.random() - 0.5) * 0.3 : WORLD === 2 ? g.x0 + 3.55 + (Math.random() - 0.5) * 0.3 : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 1.35 + (Math.random() - 0.5) * 0.2 : WORLD === 2 ? g.y0 + 4.3 + (Math.random() - 0.5) * 0.2 : g.y0 + 1 + Math.random() * 4;   // world 2: in front of the great crystal of the hall of glory   // into the gazebo (her wish: they vanish there, like through a magic fireplace)
+  const tx = WORLD === 1 ? g.x0 + 3 + (Math.random() - 0.5) * 0.4 : WORLD === 2 ? g.x0 + 3.55 + (Math.random() - 0.5) * 0.3 : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 3 + (Math.random() - 0.5) * 0.4 : WORLD === 2 ? g.y0 + 4.3 + (Math.random() - 0.5) * 0.2 : g.y0 + 1 + Math.random() * 4;   // world 2: in front of the great crystal of the hall of glory   // into the gazebo (her wish: they vanish there, like through a magic fireplace)
   walk(a, tx, ty, () => {
     S.stats.graduated++; reviewGraduate(a);
     if (helperAdmit(a)) return;                       // mages and elder mages stay as teachers' helpers (elders replace mages)
@@ -1261,14 +1264,26 @@ function goGraduate(a) {
   });
 }
 const VANISH_T = 2.8;
+function drawGradCircle() {   // the graduation circle in the middle of the graduates' garden: gold rings, slowly turning star runes, a soft pulse (brighter while someone graduates)
+  const g = SLOTS.GARDEN, cx = g.x0 + 3, cy = g.y0 + 3, T = performance.now() / 1000, busy = agents.some((a) => a.state === 'vanish');
+  const ring = (r) => { const pts = []; for (let k = 0; k < 36; k++) { const an = k / 36 * Math.PI * 2; pts.push(P(cx + Math.cos(an) * r, cy + Math.sin(an) * r)); } return pts; };
+  const pulse = 0.55 + 0.25 * Math.sin(T * 2) + (busy ? 0.25 : 0), m = P(cx, cy);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, 0.35 * pulse + (busy ? 0.2 : 0)); ctx.drawImage(glowSprite('255,210,120'), m.x - 70, m.y - 40, 140, 80); ctx.restore();
+  ctx.save(); ctx.globalAlpha = Math.min(1, pulse);
+  poly(ctx, ring(1.9), 'rgba(190,150,255,0.22)'); ctx.lineWidth = 4.5; poly(ctx, ring(1.9), null, '#e7b53c'); ctx.lineWidth = 2; poly(ctx, ring(1.45), null, '#b98cf0'); poly(ctx, ring(0.55), 'rgba(255,225,150,0.35)', '#e7b53c');
+  ctx.restore();
+  for (let k = 0; k < 8; k++) { const an = T * 0.35 + k * Math.PI / 4, p = P(cx + Math.cos(an) * 1.68, cy + Math.sin(an) * 1.68); fxStar(p.x, p.y - 1, 3, 0.6 + 0.4 * pulse, k % 2 ? '255,214,120' : '210,170,255'); }
+}
 function drawVanish(a, x, y) {   // magic-fireplace style (her wish): violet-gold flames burst up around the graduate, he spins, shrinks, fades, a last flash (2.8 s)
   const u = Math.min(1, a.t / VANISH_T), s0 = P(x, y), T = a.t;
   const col = u < 0.15 ? u / 0.15 : u > 0.82 ? (1 - u) / 0.18 : 1;
   const fade = u < 0.4 ? 1 : Math.max(0, 1 - (u - 0.4) / 0.35), sc = 1 - 0.6 * Math.max(0, (u - 0.35) / 0.45);
-  if (fade > 0) { ctx.save(); ctx.globalAlpha = fade; drawCreature({ ...a, path: [], flip: Math.sin(T * (4 + T * 6)) > 0 }, x, y, 30 * Math.max(0.3, sc)); ctx.restore(); }
+  const body = () => { if (fade > 0) { ctx.save(); ctx.globalAlpha = fade; drawCreature({ ...a, path: [], flip: Math.sin(T * (4 + T * 6)) > 0 }, x, y, 30 * Math.max(0.3, sc)); ctx.restore(); } };
+  if (WORLD !== 1) body();
   fxTop.push(() => {
+    if (WORLD === 1) body();   // world 1: inside the gazebo, drawn over it
     ctx.save();
-    ctx.globalAlpha = 0.3 * col; ctx.drawImage(glowSprite('170,110,255'), s0.x - 30, s0.y - 90, 60, 110);   // the light column (soft: the graduate must stay visible)
+    ctx.globalAlpha = (WORLD === 1 ? 0.5 : 0.3) * col; ctx.drawImage(glowSprite('170,110,255'), s0.x - 34, s0.y - 120, 68, 140);   // the light column (brighter in world 1: her «ярче») (soft: the graduate must stay visible)
     ctx.globalCompositeOperation = 'lighter';
     for (let k = 0; k < 9; k++) {   // flame tongues licking up from the floor, each 0.9 s
       const v = ((T * 1.1 + k * 0.37) % 1), fx = s0.x + (k % 2 ? 1 : -1) * (9 + Math.sin(k * 2.3) * 5) * (1 - v * 0.5), fy = s0.y - 4 - v * 62 * (0.6 + 0.4 * col), r = (9 - v * 7) * (0.6 + 0.4 * col);
@@ -1278,6 +1293,7 @@ function drawVanish(a, x, y) {   // magic-fireplace style (her wish): violet-gol
     for (let k = 0; k < 12; k++) { const an = T * (3 + k * 0.25) + k * 0.52, r = 16 * (1 - u * 0.4), hy = ((T * 0.8 + k * 0.083) % 1) * 75;   // sparks spiral up
       fxStar(s0.x + Math.cos(an) * r, s0.y - 6 - hy + Math.sin(an) * r * 0.35, 1.6, col * (1 - hy / 90), k % 2 ? '255,214,120' : '210,170,255'); }
     if (u > 0.72 && u < 0.97) { const v = (u - 0.72) / 0.25; ctx.save(); ctx.globalAlpha = (1 - v) * 0.6; ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glowSprite('255,245,220'), s0.x - 30 - v * 30, s0.y - 50 - v * 30, 60 + v * 60, 60 + v * 60); ctx.restore(); }   // the last flash: he is gone
+    if (WORLD === 1 && u > 0.55) { const v = (u - 0.55) / 0.45; ctx.save(); ctx.globalAlpha = v < 0.8 ? 1 : (1 - v) / 0.2; emoji('🎓', s0.x + Math.sin(v * 9) * 6, s0.y - 70 - v * 70, 16 + v * 6); ctx.restore(); }   // the graduate's cap flies up into the sky
   });
 }
 const WALK_K = 0.8;   // walking a bit slower: the rooms got bigger on screen
@@ -2310,7 +2326,7 @@ function layoutOutdoor() {
     const c = courtC(), R = 3.6, W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, add = (n, x, y, sc = 1, fl = false) => { for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (regAt(Math.floor(x) + dx, Math.floor(y) + dy) !== 'hall') return; out.push({ n, x, y, th: 'outdoor', s: sc, flip: fl }); keep.push([x, y]); };
     add('fountain', c.x + 0.5, c.y + 0.6, 1.45);
     for (const b of courtBenches()) add(b.f ? 'bench_a' : 'bench_b', b.x, b.y, 1.1);   // 4 round the plaza + one per bench level on the lawns
-    for (const [fx, fy] of [[0.22, 0.22], [0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // a corner garden in each quarter of the lawn
+    for (const [fx, fy] of [[0.78, 0.22], [0.22, 0.78], [0.78, 0.78]]) {   // the back-left quarter holds the graduates' garden (centred there since her «по центру»)   // a corner garden in each quarter of the lawn
       const x = COURT.x0 + W * fx, y = COURT.y0 + H * fy;
       add(fx < 0.5 === fy < 0.5 ? 'blossom' : 'goldtree', x, y, 0.95); add('peonybed', x + 1.6, y + 0.6); add('hydrangea', x - 1.2, y + 1.4); add('topiary_ball', x + 0.4, y + 2.0);
     }
@@ -2319,9 +2335,10 @@ function layoutOutdoor() {
     for (const [a, b] of GAL_G || []) out.push({ n: 'gal_garland', x: (a.x + b.x) / 2 + 0.01, y: (a.y + b.y) / 2 + 0.01, th: 'outdoor', g: [a, b] });
   }
   if (SLOTS.GARDEN) { const g = SLOTS.GARDEN, X = g.x0, Y = g.y0;   // the graduates' garden: arch at the door, fountain plaza, founder statue, gazebo, benches, flowers
-    for (const [n, dx, dy, fl] of [['flowerarch', 1.6, 0.5, false], ['crystalball', 3.55, 3.6], ['gazebo', 4.95, 1.1], ['bench_b', 2.5, 5.5], ['bench_a', 5.5, 3.3],   // calm layout (her «слишком много навалено деталей»): four big things far apart, one bench, two topiaries
+    for (const [n, dx, dy, fl, sc] of WORLD === 1 ? [['flowerarch', 3.6, 0.5, false], ['gazebo', 3.42, 3.42], ...[0.75, 2.25, 3.75, 5.25].flatMap((t) => [['hedge_long', t, 5.75, false, 1.45], ['hedge_long', 5.75, t, true, 1.45], ['hedge_long', 0.25, t, true, 1.45]]), ['hedge_long', 0.75, 0.25, false, 1.45], ['hedge_long', 5.25, 0.25, false, 1.45]]   // a low flowering hedge closes the garden; the arch is the only way in   // one axis (her «сделай так как сделал бы дизайнер»): arch on the entrance (its posts' midpoint on the door centre x0+3), the gazebo's floor disc centred on the circle (sprite anchor +0.42 tiles: the disc centre is 0.145 h above the picture's bottom), no lanterns (on the cross axis one stood in front of the gazebo; the circle gives the light); the graduate is drawn on top (drawVanish) so the gazebo never hides him (her «Выпуск учеников должен быть понятнее и ярче. А тут все навалено»): only the arch, the magic circle (drawGradCircle) and two lanterns
+      : [['flowerarch', 1.6, 0.5, false], ['crystalball', 3.55, 3.6], ['gazebo', 4.95, 1.1], ['bench_b', 2.5, 5.5], ['bench_a', 5.5, 3.3],   // calm layout (her «слишком много навалено деталей»): four big things far apart, one bench, two topiaries
       ['topiary_spiral', 0.75, 1.3], ['topiary_ball', 0.8, 5.45]]) {
-      const nn = outName(n); if (nn) out.push({ n: nn, x: X + dx, y: Y + dy, th: 'outdoor', s: 1, flip: !!fl }); keep.push([X + dx, Y + dy]); } }
+      const nn = outName(n); if (nn) out.push({ n: nn, x: X + dx, y: Y + dy, th: 'outdoor', s: sc || 1, flip: !!fl }); keep.push([X + dx, Y + dy]); } }
   // The clearing around the school (her «на поляне ... мало деталей стало красивых»): small composed vignettes every ~5 tiles
   // in the band 2..6 tiles from the buildings; a vignette gets its tree only where the tree cannot hide a building behind it.
   const VIGN = [
@@ -2625,7 +2642,7 @@ function drawStatic() {
     const rid = regAt(x, y); if (rid !== 'hall' && rid !== 'path') continue;
     const inside = rid === 'hall' && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1;
     const carpet = WORLD > 2 && inside && x >= 14 && x <= 16 && y > BUILDING.y0;   // world 1: no pink runner any more, parquet everywhere (her «Зачем розовая полоса плитки по коридору»)
-    if (inCourt(x, y) && courtGrass) { const cc = courtC(), r = Math.hypot(x + 0.5 - cc.x, (y + 0.5 - cc.y)); poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = r < 4.6 || Math.abs(x + 0.5 - cc.x) < 1.2 || Math.abs(y + 0.5 - cc.y) < 1.2 ? stone : courtGrass; c.fill(); continue; }   // the court: grass, a round flagstone plaza and paths in a cross
+    if (inCourt(x, y) && courtGrass) { const cc = courtC(), r = Math.hypot(x + 0.5 - cc.x, (y + 0.5 - cc.y)); poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); const G = SLOTS.GARDEN, gp = G && G.y0 > COURT.y0 && x >= G.x0 + 2 && x <= G.x0 + 3 && y < G.y0; c.fillStyle = gp || r < 4.6 || Math.abs(x + 0.5 - cc.x) < 1.2 || Math.abs(y + 0.5 - cc.y) < 1.2 ? stone : courtGrass; c.fill(); continue; }   // the court: grass, a round flagstone plaza and paths in a cross
     if (inside && WORLD === 1 && COURT && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); continue; }   // build 241: the gallery round the court is stone, not the classrooms' parquet (designer review)
     if (inside && !carpet && WORLD <= 2 && corrFloor) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = corrFloor; c.fill(); continue; }   // parquet with star inlays
     const col = carpet ? (y % 2 ? '#d98f97' : '#dd979f') : inside ? (x % 2 ? '#d7a46e' : '#dcab76') : ((x + y) % 2 ? '#e9dcc4' : '#efe4cf');
@@ -2935,7 +2952,7 @@ function drawSlot(c, id) {
       const cv = document.createElement('canvas'); cv.width = Math.ceil((maxX - minX) * K); cv.height = Math.ceil((maxY - minY) * K); const g = cv.getContext('2d');
       g.setTransform(K, 0, 0, K, -minX * K, -minY * K); const pt = isoPat(g, 'path', 3);
       const cx = s.x0 + 3, cy = s.y0 + 3, ring = []; for (let k = 0; k < 40; k++) { const an = k / 40 * Math.PI * 2; ring.push(P(cx + Math.cos(an) * 2.6, cy + Math.sin(an) * 2.6)); }
-      g.fillStyle = pt; poly(g, ring); g.fill(); poly(g, [P(s.x0, cy - 0.8), P(cx, cy - 0.8), P(cx, cy + 0.8), P(s.x0, cy + 0.8)]); g.fill();
+      g.fillStyle = pt; poly(g, ring); g.fill(); if (WORLD === 1) { poly(g, [P(cx - 0.8, s.y0), P(cx + 0.8, s.y0), P(cx + 0.8, cy), P(cx - 0.8, cy)]); g.fill(); } else { poly(g, [P(s.x0, cy - 0.8), P(cx, cy - 0.8), P(cx, cy + 0.8), P(s.x0, cy + 0.8)]); g.fill(); }   // world 1: paths from the arch and from the court door
       g.strokeStyle = 'rgba(150,120,170,0.55)'; g.lineWidth = 1.5; poly(g, ring); g.stroke();
       gardenDecal = { key: outKey + staticKey, cv, x: minX, y: minY, w: maxX - minX, h: maxY - minY };
     }
@@ -3081,7 +3098,7 @@ function signPill(label, bg, fs, hgt, border, ink) {   // a rounded name plate r
 function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
   if (id === 'GARDEN' && WORLD <= 2) {   // drawn over everything like the room signs, above the gazebo (world 2: the hall of glory)
-    const pl = WORLD === 2 ? signPill(signLabel('🎓 Зал славы'), '#d6dcf2', 12, 22, '#ffffff', '#2e3a5a') : signPill(signLabel('🎓 Сад выпускников'), '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - 150 - pl.h / 2, pl.w, pl.h); return; }
+    const pl = WORLD === 2 ? signPill(signLabel('🎓 Зал славы'), '#d6dcf2', 12, 22, '#ffffff', '#2e3a5a') : signPill(signLabel('🎓 Сад выпускников'), '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = WORLD === 1 ? P(s.x0 + 3.6, s.y0 + 0.5) : P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - (WORLD === 1 ? 138 : 150) - pl.h / 2, pl.w, pl.h); return; }
   if (id === 'GARDEN' || (id === 'TRADE' && !tradeOpen()) || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
   const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'TRADE' ? '🐐 Торговый двор' : WORLD === 2 && id === 'LIB' ? '📚 Чертог летописей' : WORLD === 2 && id === 'DORM' ? '🛏️ Кельи' : WORLD === 2 && id === 'DORM2' ? '🛏️ Вторые кельи' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const midBack = WORLD === 1 && ['DORM', 'DORM2', 'DIR', 'SHOP'].includes(id);   // build 258: front-row rooms put their sign over the middle of their tall back wall (on the corner it hung over the gallery)
@@ -3523,7 +3540,8 @@ function render() {
     const vx0 = VIEW.x0 - 140, vx1 = VIEW.x1 + 140, vy0 = VIEW.y0 - 20, vy1 = VIEW.y1 + 220;
     const vis = []; for (const o of OUTDOOR) { if (o.px === undefined) { const m = P(o.x, o.y); o.px = m.x; o.py = m.y; } if (o.px < vx0 || o.px > vx1 || o.py < vy0 || o.py > vy1) continue; vis.push(o); }
     for (const o of vis) if (!o.baked) outShadow(ctx, o);   // ground layer first (shadows, forest floor), then the objects depth-sorted
-    for (const o of vis) add(o.x, o.y, () => drawOut(o)); }
+    for (const o of vis) add(o.x, o.y, () => drawOut(o));
+    if (WORLD === 1 && SLOTS.GARDEN) add(SLOTS.GARDEN.x0 + 1.2, SLOTS.GARDEN.y0 + 1.2, drawGradCircle); }   // the graduation circle lies on the floor: drawn before anyone standing on it
   for (const e of EDGES) {
     const painted = e.id !== 'hall' && e.tall && WORLD === 1 && !!arts[CLASS_SLOT.indexOf(e.id) >= 0 ? CLASSES[CLASS_SLOT.indexOf(e.id)].id : e.id]?.naturalWidth;   // painted rooms: only the cap on top of their own walls
     if (e.id === 'DORM2' && !dorm2Built()) continue;
@@ -5265,7 +5283,7 @@ window.__sim = {
   stars: () => schoolStars(),
   inSchool: () => inSchool().length,
 };
-window.__test = { P, SLOTS, focusTile, edges: (x0, y0, x1, y1) => EDGES.filter((e) => e.x >= x0 && e.x <= x1 && e.y >= y0 && e.y <= y1).map((e) => `${e.x},${e.y},${e.side},${e.id},${e.tall ? 'T' : 'k'}${e.hallWall ? 'H' : ''}`), vanishDemo: (t) => { const g = SLOTS.GARDEN, src = agents.find((a) => SPECIES.includes(a.sp)); if (!src) return 0; agents.push({ ...src, id: S.nextId++, x: g.x0 + 4.85, y: g.y0 + 1.35, path: [], state: 'vanish', t: t || 0, goal: { t: 'g' }, c: -1, desk: -1 }); return 1; }, reg: (x, y) => regAt(x, y), world: () => ({ WW, WH, GW, GH, MARGIN, SW, SH, HW, HH, GATE: GATE_TILE, GATE_Y, BUILDING }), get renderMs() { return renderMs; }, get staticN() { return staticN; }, get roomBuilds() { return roomBuilds; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outShN: () => Object.keys(outSh).length + '/' + Object.keys(outLo).length, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
+window.__test = { P, SLOTS, focusTile, edges: (x0, y0, x1, y1) => EDGES.filter((e) => e.x >= x0 && e.x <= x1 && e.y >= y0 && e.y <= y1).map((e) => `${e.x},${e.y},${e.side},${e.id},${e.tall ? 'T' : 'k'}${e.hallWall ? 'H' : ''}`), vanishDemo: (t) => { const g = SLOTS.GARDEN, src = agents.find((a) => SPECIES.includes(a.sp)); if (!src) return 0; agents.push({ ...src, id: S.nextId++, x: g.x0 + (WORLD === 1 ? 3 : 4.85), y: g.y0 + (WORLD === 1 ? 3 : 1.35), path: [], state: 'vanish', t: t || 0, goal: { t: 'g' }, c: -1, desk: -1 }); return 1; }, reg: (x, y) => regAt(x, y), world: () => ({ WW, WH, GW, GH, MARGIN, SW, SH, HW, HH, GATE: GATE_TILE, GATE_Y, BUILDING }), get renderMs() { return renderMs; }, get staticN() { return staticN; }, get roomBuilds() { return roomBuilds; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outShN: () => Object.keys(outSh).length + '/' + Object.keys(outLo).length, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P((SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
 { const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); const gain = fastForward(away); welcomeBack(away, gain); }
