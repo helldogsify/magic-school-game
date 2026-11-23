@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=279';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=279';
-import { initMinigame } from './minigame.js?v=279';
+} from './data.js?v=280';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=280';
+import { initMinigame } from './minigame.js?v=280';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -14,7 +14,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 279;   // keep equal to the ?v= number in index.html
+const BUILD = 280;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -594,7 +594,7 @@ function buildEdges() {
       if (id === 'hall' && nb) continue;                             // a hall next to a room: the room owns that wall
       if (id === 'hall' && WORLD === 1 && !nb && (side === 'x0' || side === 'y0') && !roomNear(x, y, side) && x >= BUILDING.x0 && x < BUILDING.x1 && y >= BUILDING.y0 && y < BUILDING.y1) { EDGES.push({ x, y, side, id, tall: true, hallWall: true, wallTheme: 'REC' }); continue; }   // corridor back wall with only grass behind it: a real tall wall (her «добавь стены где можно»)
       if (nb === 'hall' && id !== 'hall' && (side === 'x0' || side === 'y0') && false) continue;
-      const lowSide = (WORLD === 2 && side === 'x0' && nb === 'hall') || (WORLD === 1 && side === 'x0' && ['SHOP', 'DIR', 'DORM', 'DORM2'].includes(id) && nb !== 'hall') || ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
+      const lowSide = (WORLD === 2 && side === 'x0' && (nb === 'hall' || (id === 'EXAM' && nb === 'GARDEN'))) || (WORLD === 1 && side === 'x0' && ['SHOP', 'DIR', 'DORM', 'DORM2'].includes(id) && nb !== 'hall') || ((id === 'DORM' || id === 'DORM2') && side === 'x0') || (id === 'EXAM' && side === 'x0' && nb === 'DIR') || (nb === 'SHOP' && side === 'x0')   // the class next to the shop keeps a low wall so the shop stays visible   // low walls between neighbouring rooms so neither hides the other   // dorms share low walls with the reception and each other (they hid the rooms)
       EDGES.push({ x, y, side, id, tall: id !== 'hall' && (side === 'x0' || side === 'y0') && !lowSide });   // corridors get only low walls: they must never hide a room
     }
   }
@@ -1155,13 +1155,13 @@ function goGraduate(a) {
   const g = SLOTS.GARDEN;
   a.c = -1; a.state = 'walk'; a.goal = { t: 'g' };
   if (a.retake) { retakeHome(a); return; }   // an elder from the tower after his retake: not a new graduate
-  const tx = WORLD === 1 ? g.x0 + 4.85 + (Math.random() - 0.5) * 0.3 : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 1.35 + (Math.random() - 0.5) * 0.2 : g.y0 + 1 + Math.random() * 4;   // into the gazebo (her wish: they vanish there, like through a magic fireplace)
+  const tx = WORLD === 1 ? g.x0 + 4.85 + (Math.random() - 0.5) * 0.3 : WORLD === 2 ? g.x0 + 3.55 + (Math.random() - 0.5) * 0.3 : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 1.35 + (Math.random() - 0.5) * 0.2 : WORLD === 2 ? g.y0 + 4.3 + (Math.random() - 0.5) * 0.2 : g.y0 + 1 + Math.random() * 4;   // world 2: in front of the great crystal of the hall of glory   // into the gazebo (her wish: they vanish there, like through a magic fireplace)
   walk(a, tx, ty, () => {
     S.stats.graduated++; reviewGraduate(a);
     if (helperAdmit(a)) return;                       // mages and elder mages stay as teachers' helpers (elders replace mages)
     if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower                       // mages stay as teachers' helpers (two per class, different kinds)
     popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
-    if (WORLD === 1) { a.state = 'vanish'; a.t = 0; return; }   // a swirl of magic light in the gazebo and the graduate is gone
+    if (WORLD <= 2) { a.state = 'vanish'; a.t = 0; return; }   // world 2 (hall of glory): they vanish in the crystal's light   // a swirl of magic light in the gazebo and the graduate is gone
     a.state = 'fly'; a.t = 0; a.vx = (Math.random() < 0.5 ? -1 : 1) * 0.6;
   });
 }
@@ -2932,8 +2932,8 @@ function signPill(label, bg, fs, hgt, border, ink) {   // a rounded name plate r
 }
 function drawSign(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), B = P(s.x0, s.y0);
-  if (id === 'GARDEN' && WORLD === 1) {   // drawn over everything like the room signs, above the gazebo
-    const pl = signPill('🎓 Сад выпускников', '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - 150 - pl.h / 2, pl.w, pl.h); return; }
+  if (id === 'GARDEN' && WORLD <= 2) {   // drawn over everything like the room signs, above the gazebo (world 2: the hall of glory)
+    const pl = WORLD === 2 ? signPill('🎓 Зал славы', '#d6dcf2', 12, 22, '#ffffff', '#2e3a5a') : signPill('🎓 Сад выпускников', '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - 150 - pl.h / 2, pl.w, pl.h); return; }
   if (id === 'GARDEN' || (id === 'TRADE' && !tradeOpen()) || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
   const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'TRADE' ? '🐐 Торговый двор' : WORLD === 2 && id === 'LIB' ? '📚 Чертог летописей' : WORLD === 2 && id === 'DORM' ? '🛏️ Кельи' : WORLD === 2 && id === 'DORM2' ? '🛏️ Вторые кельи' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const midBack = WORLD === 1 && ['DORM', 'DORM2', 'DIR', 'SHOP'].includes(id);   // build 258: front-row rooms put their sign over the middle of their tall back wall (on the corner it hung over the gallery)
