@@ -2,13 +2,13 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=261';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=261';
+} from './data.js?v=262';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=262';
 
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 261;   // keep equal to the ?v= number in index.html
+const BUILD = 262;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -58,7 +58,7 @@ const rawSuccess = (i) => BAL.chance0 + 0.015 * (S.classes[i].teacher - 1) + 0.0
 const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
 const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance above the cap is not wasted: each 1% gives +2% tuition
 const W2_PAY = 0.7;   // world 2 pays 30% less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
-const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY : 1));   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
+const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY : 1) * boostK());   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time);
 const itemCost = (i, k) => Math.round(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, S.classes[i].items[k]));
 const teacherCost = (i) => Math.round(CLASSES[i].tuition * 6 * Math.pow(BAL.teacher, S.classes[i].teacher - 1));
@@ -1676,7 +1676,7 @@ function renderInsp() {
     : `<button class="ipill" data-insp>⭐ ${schoolStars()}</button>`;   // the warning itself is the banner below (iwarn)   // the warning names what will be checked (her report 2026-11-21)
   const warn = !c && !calm() && I.next ? `<button class="iwarn" data-insp>🧐 Через ${mmss(I.t)} придёт инспектор<br><b>Проверит: ${inspNextText(I.next)}</b></button>` : '';   // full text of what will be checked, 40 s ahead (her wish 2026-11-21)
   const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
-  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button><button class="ipill rate" data-top aria-label="Топ школ">🏆</button>` + html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + res + warn;
+  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button><button class="ipill rate" data-top aria-label="Топ школ">🏆</button><button class="ipill rate" data-ally aria-label="Альянс">🤝${allyGifts.length ? ' 🎁' + allyGifts.length : ''}</button>` + html + `<button class="ipill" data-people>👥 ${inSchool().length}</button>` + res + warn;
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }   // in-place update: icons are never re-created (they blinked)
 }
 function stepWorld(dt, live = false) {
@@ -3991,6 +3991,18 @@ document.addEventListener('click', (e) => {
   if (d.fbDel !== undefined) { fbPics.splice(+d.fbDel, 1); drawFbPics(); return; }
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
   if (d.top !== undefined) { openTop(); return; }
+  if (d.toptab !== undefined) { topTab = d.toptab; const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; return; }
+  if (d.ally !== undefined) { openAlly(); return; }
+  if (d.allyclaim !== undefined) { allyClaim(); return; }
+  if (d.allygift !== undefined) { allySend(d.allygift, 'gift'); return; }
+  if (d.allyboost !== undefined) { allySend(d.allyboost, 'boost'); return; }
+  if (d.allycopy !== undefined) { const c = myAl(); navigator.clipboard?.writeText(c).then(() => toast('Код альянса скопирован: ' + c), () => window.prompt('Код альянса:', c)); return; }
+  if (d.allyopen !== undefined) { allyToggleOpen(); return; }
+  if (d.allyleave !== undefined) { allyLeave(); return; }
+  if (d.allyjoin !== undefined) { allyJoin(document.getElementById('ally-code')?.value); return; }
+  if (d.allyjoinid !== undefined) { allyJoin(d.allyjoinid); return; }
+  if (d.allycreate !== undefined) { allyCreate(); return; }
+  if (d.allyemo !== undefined) { allyEmo = d.allyemo; refreshAlly(); return; }
   if (d.schoolName !== undefined) { saveSchoolName(); return; }
   if (d.cloudLoad !== undefined) { cloudLoad(); return; }
   if (d.backupRestore !== undefined) { restoreBackup(); return; }
@@ -4103,13 +4115,13 @@ async function anonToken() {   // an id token of this device's anonymous account
 let topSentAt = 0, topSentKey = '';
 async function topPush(force) {   // our line in the table (only with a school name); quietly does nothing offline
   if (!S || !schoolName() || !(S.rating || S.stats.graduated)) return;
-  const R = rating(), key = [schoolName(), playerNick(), R.v.toFixed(2), R.n, S.stats.graduated].join('|');
+  const R = rating(), key = [schoolName(), playerNick(), myAl(), R.v.toFixed(2), R.n, S.stats.graduated].join('|');
   if (!force && (key === topSentKey || Date.now() - topSentAt < TOP_EVERY * 1000)) return;
   topSentAt = Date.now();
   try {
     const A = await anonToken();
     const I = (v) => ({ integerValue: String(Math.round(v || 0)) });
-    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), w: I(WORLD), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), build: I(BUILD), updated: I(Date.now()) } };
+    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), ...(myAl() ? { al: { stringValue: myAl() } } : {}), w: I(WORLD), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), build: I(BUILD), updated: I(Date.now()) } };
     const r = await fetch(`${TOP_URL}/${A.uid}_w${WORLD}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify(body) });
     if (r.ok) topSentKey = key;
   } catch (e) { /* offline: next time */ }
@@ -4119,24 +4131,170 @@ async function topLoad() {
   try {
     const r = await fetch(TOP_URL + '?pageSize=300', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
     const d = await r.json(), num = (f) => (f ? +(f.integerValue ?? f.doubleValue ?? 0) : 0);
-    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), g: num(x.fields.g), gold: num(x.fields.gold) }));
+    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', al: (x.fields.al || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), g: num(x.fields.g), gold: num(x.fields.gold) }));
     topErr = ''; topLoadedAt = Date.now();
   } catch (e) { topErr = 'Не получилось загрузить топ — проверь интернет'; }
   if (panel === topPanel) { const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; }   // keep what is being typed
 }
-function openTop() { topPush(true).finally(topLoad); openPanel(topPanel); }
+// ======================= alliances and gifts (build 262, her wish «альянсы, союзы, друг другу плюшки отправлять»; her picks:
+// open list AND invite codes (the founder chooses), a free magic gift (3 a day to each ally) and «Вдохновение» (+10% lesson pay
+// for 10 min, 1 a day to each ally), a top of alliances) =======================
+// Firestore: alliances/{code} {name, emo, open, owner, w, created} (anyone reads, the founder edits); membership = field al of
+// the player's top/{uid}_w{world} entry (S.al in the save); gifts/{id} {from, fname, to, w, kind, t} — the sender writes, only
+// the receiver reads and deletes (claims). The value of a gift is counted by the receiver (3 minutes of HIS income), so a
+// sender can never inflate it. The daily limits are kept on the sender's device.
+const ALLY_URL = 'https://firestore.googleapis.com/v1/projects/magic-school-game-2ae0f/databases/(default)/documents';
+const ALLY_EMOS = ['🦄', '🐉', '🦉', '🌙', '⭐', '🔮', '🌸', '🍄', '🔥', '❄️', '🌈', '👑'];
+const GIFT_DAY = 3, BOOST_DAY = 1, BOOST_MIN = 10, BOOST_MAX_MIN = 60, ALLY_MAX = 10;
+let allyList = null, allyGifts = [], allyMsg = '', allyPollT = 5, allyEmo = '🦄';
+function boostK() { return S && S.boostEnd && Date.now() < S.boostEnd ? 1.1 : 1; }   // «Вдохновение»: +10% to every lesson (a function: tuition() may run before this block)
+const myAl = () => (S && S.al) || '';
+const allyOf = (code) => (allyList || []).find((a) => a.id === code);
+const anonUid = () => { try { return (JSON.parse(localStorage.getItem(ANON_KEY)) || {}).uid || ''; } catch (e) { return ''; } };
+const today = () => new Date().toISOString().slice(0, 10);
+function giftLog() { const g = (S.giftLog ||= { day: today(), g: {}, b: {} }); if (g.day !== today()) { g.day = today(); g.g = {}; g.b = {}; } return g; }
+function allyMembers(code) { return (topList || []).filter((x) => x.w === WORLD && x.al === code); }
+async function allyLoad() {
+  try {
+    const r = await fetch(ALLY_URL + '/alliances?pageSize=300', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
+    const d = await r.json(), v = (f) => (f ? f.stringValue ?? (f.booleanValue ?? +(f.integerValue ?? 0)) : '');
+    allyList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: v(x.fields.name) || '?', emo: v(x.fields.emo) || '🦄', open: !!v(x.fields.open), owner: v(x.fields.owner), w: +v(x.fields.w) || 1 }));
+  } catch (e) { allyMsg = 'Не получилось загрузить альянсы — проверь интернет'; }
+}
+async function allyPoll() {   // gifts sent to me (any world; claimed in the world they were sent for)
+  if (!schoolName()) return;
+  try {
+    const A = await anonToken();
+    const r = await fetch(ALLY_URL + ':runQuery', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok },
+      body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'gifts' }], where: { fieldFilter: { field: { fieldPath: 'to' }, op: 'EQUAL', value: { stringValue: A.uid } } } } }) });
+    if (!r.ok) return;
+    const d = await r.json();
+    allyGifts = d.filter((x) => x.document).map((x) => ({ id: x.document.name.split('/').pop(), fname: x.document.fields.fname?.stringValue || '?', kind: x.document.fields.kind?.stringValue, w: +(x.document.fields.w?.integerValue || 1) })).filter((g) => g.w === WORLD);
+    updateHud(); if (panel === allyPanel) refreshAlly();
+  } catch (e) { /* offline */ }
+}
+function allyTick() { if (document.hidden) return; allyPollT -= 1; if (allyPollT <= 0) { allyPollT = 60; allyPoll(); } }   // once a second from the frame loop
+async function allyClaim() {
+  if (!allyGifts.length) return;
+  const A = await anonToken().catch(() => null); if (!A) return;
+  let coins = 0, boosts = 0;
+  for (const g of allyGifts.slice()) {
+    const r = await fetch(`${ALLY_URL}/gifts/${g.id}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + A.tok } }).catch(() => null);
+    if (!r || !r.ok) continue;   // claimed only once: the gift is gone from the cloud before it is counted
+    if (g.kind === 'boost') { boosts++; S.boostEnd = Math.min(Date.now() + BOOST_MAX_MIN * 60000, Math.max(Date.now(), S.boostEnd || 0) + BOOST_MIN * 60000); }
+    else coins += Math.max(300, Math.round((S.ema || 1) * 180 / 10) * 10);
+  }
+  if (coins) S.coins += coins;   // a gift is not the school's own income: it must not lift the income rate or the inspector's «earn» check
+  allyGifts = []; save(); updateHud();
+  toast(`🎁 Подарки получены${coins ? ': 🪙' + fmt(coins) : ''}${boosts ? `${coins ? ' и' : ':'} ✨ Вдохновение` : ''}`);
+  refreshAlly();
+}
+async function allySend(toUid, kind) {
+  const L = giftLog(), k = kind === 'boost' ? 'b' : 'g', lim = kind === 'boost' ? BOOST_DAY : GIFT_DAY;
+  if ((L[k][toUid] || 0) >= lim) { toast('На сегодня этому союзнику уже всё отправлено'); return; }
+  try {
+    const A = await anonToken();
+    const r = await fetch(ALLY_URL + '/gifts', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok },
+      body: JSON.stringify({ fields: { from: { stringValue: A.uid }, fname: { stringValue: schoolName().slice(0, 24) }, to: { stringValue: toUid }, w: { integerValue: String(WORLD) }, kind: { stringValue: kind }, t: { integerValue: String(Date.now()) } } }) });
+    if (!r.ok) throw new Error(r.status);
+    L[k][toUid] = (L[k][toUid] || 0) + 1; save();
+    toast(kind === 'boost' ? '✨ Вдохновение отправлено!' : '🎁 Подарок отправлен!');
+  } catch (e) { toast('Не получилось отправить — проверь интернет'); }
+  refreshAlly();
+}
+const ALLY_CODE_CH = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+async function allyCreate() {
+  const name = cleanName(document.getElementById('ally-name')?.value), emo = allyEmo, open = !!document.getElementById('ally-open')?.checked;
+  if (!name) { toast('Напиши название альянса'); return; }
+  let code = 'A'; for (let i = 0; i < 7; i++) code += ALLY_CODE_CH[Math.floor(Math.random() * ALLY_CODE_CH.length)];
+  try {
+    const A = await anonToken();
+    const r = await fetch(`${ALLY_URL}/alliances/${code}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok },
+      body: JSON.stringify({ fields: { name: { stringValue: name }, emo: { stringValue: emo }, open: { booleanValue: open }, owner: { stringValue: A.uid }, w: { integerValue: String(WORLD) }, created: { integerValue: String(Date.now()) } } }) });
+    if (!r.ok) throw new Error(r.status);
+    S.al = code; save(); await topPush(true); await allyLoad(); await topLoad();
+    toast(`${emo} Альянс «${name}» создан!`);
+  } catch (e) { toast('Не получилось создать — проверь интернет'); }
+  refreshAlly();
+}
+async function allyJoin(code) {
+  code = String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!code) { toast('Впиши код альянса'); return; }
+  try {
+    const r = await fetch(`${ALLY_URL}/alliances/${code}`, { cache: 'no-store' });
+    if (!r.ok) { toast('Такого альянса нет — проверь код'); return; }
+    if (allyMembers(code).filter((x) => x.id !== anonUid() + '_w' + WORLD).length >= ALLY_MAX) { toast(`В альянсе уже ${ALLY_MAX} школ`); return; }
+    S.al = code; save(); await topPush(true); await allyLoad(); await topLoad();
+    const a = allyOf(code); toast(`${a ? a.emo + ' ' : ''}Ты в альянсе${a ? ' «' + a.name + '»' : ''}!`);
+  } catch (e) { toast('Не получилось — проверь интернет'); }
+  refreshAlly();
+}
+async function allyLeave() { if (!confirm('Выйти из альянса?')) return; S.al = ''; save(); await topPush(true); await topLoad(); toast('🚪 Альянс покинут'); refreshAlly(); }
+async function allyToggleOpen() {
+  const a = allyOf(myAl()); if (!a) return;
+  try {
+    const A = await anonToken();
+    const r = await fetch(`${ALLY_URL}/alliances/${a.id}?updateMask.fieldPaths=open`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify({ fields: { open: { booleanValue: !a.open } } }) });
+    if (!r.ok) throw new Error(r.status);
+    a.open = !a.open; toast(a.open ? '🔓 Альянс открыт: вступить может любой' : '🔒 Альянс закрыт: вступить можно только по коду');
+  } catch (e) { toast('Не получилось — проверь интернет'); }
+  refreshAlly();
+}
+function refreshAlly() { if (panel !== allyPanel) return; const keep = {}; ['ally-name', 'ally-code'].forEach((k) => { const e = document.getElementById(k); if (e) keep[k] = e.value; }); const ck = document.getElementById('ally-open')?.checked; refreshPanel(); for (const [k, v] of Object.entries(keep)) { const e = document.getElementById(k); if (e) e.value = v; } const c = document.getElementById('ally-open'); if (c && ck !== undefined) c.checked = ck; }
+function openAlly() { openPanel(allyPanel); Promise.all([allyLoad(), topLoad(), allyPoll()]).finally(refreshAlly); }
+function allyPanel() {
+  const head = `<div class="sh-head"><span class="remoji big">🤝</span><div><h2>Альянс</h2><div class="muted">Союз школ: подарки друг другу и общий рейтинг</div></div><button class="x" data-close>✕</button></div>`;
+  if (!schoolName()) return head + '<p>Чтобы вступить в альянс, сначала придумай название своей школы.</p><button class="btn wide" data-top>🏆 Придумать название</button>';
+  let h = head;
+  if (allyGifts.length) h += `<div class="card up" style="border:2px solid #e8b923;background:#fff8dc"><span class="remoji">🎁</span><div class="grow"><b>Тебе прислали подарков: ${allyGifts.length}</b><div class="muted">от: ${[...new Set(allyGifts.map((g) => escTxt(g.fname)))].join(', ')}</div></div><button class="btn hot small" data-allyclaim>Забрать</button></div>`;
+  if (boostK() > 1) h += `<p>✨ <b>Вдохновение</b>: ещё ${mmss((S.boostEnd - Date.now()) / 1000)} — плата за уроки +10%.</p>`;
+  if (allyMsg) h += `<p class="muted">${allyMsg}</p>`;
+  const me = anonUid() + '_w' + WORLD, code = myAl();
+  if (code) {
+    const a = allyOf(code), mem = allyMembers(code).sort((x, y) => y.r - x.r), L = giftLog();
+    const avg = mem.length ? mem.reduce((n, x) => n + x.r, 0) / mem.length : 0;
+    h += `<div class="card up"><span class="remoji big">${a ? a.emo : '🤝'}</span><div class="grow"><b>${a ? escTxt(a.name) : 'Альянс'}</b><div class="muted">код ${code} · ${a && a.open ? '🔓 открытый' : '🔒 по коду'} · школ ${mem.length}/${ALLY_MAX} · рейтинг 🏅 ${avg ? avg.toFixed(1).replace('.', ',') : '—'}</div></div><button class="btn small" data-allycopy>Код</button></div>`;
+    h += '<h3>Школы альянса</h3>' + (mem.length ? mem.map((x) => {
+      const uid = x.id.replace(/_w\d$/, ''), gi = L.g[uid] || 0, bo = L.b[uid] || 0;
+      return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY ? 'disabled' : ''}>🎁 ${GIFT_DAY - gi}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY ? 'disabled' : ''}>✨ ${BOOST_DAY - bo}</button>`}</div>`;
+    }).join('') : '<p class="muted">Загружаю…</p>');
+    h += `<p class="muted">🎁 Волшебный подарок: союзник получит монеты — столько, сколько его школа зарабатывает за 3 минуты. ✨ Вдохновение: +10% к плате за уроки на 10 минут. Каждому союзнику в день — ${GIFT_DAY} подарка и ${BOOST_DAY} вдохновение, у тебя при этом ничего не убывает.</p>`;
+    if (a && a.owner === anonUid()) h += `<button class="btn ghost wide" data-allyopen>${a.open ? '🔒 Сделать вход только по коду' : '🔓 Открыть вход для всех'}</button>`;
+    h += '<button class="btn ghost wide" data-allyleave>🚪 Выйти из альянса</button>';
+    return h;
+  }
+  const open = (allyList || []).filter((a) => a.w === WORLD && a.open).map((a) => ({ ...a, mem: allyMembers(a.id) })).filter((a) => a.mem.length < ALLY_MAX).sort((x, y) => y.mem.length - x.mem.length);
+  h += `<h3>Вступить по коду</h3><input id="ally-code" class="fb" maxlength="10" placeholder="Например: A7K2QM9X"><button class="btn wide" data-allyjoin>🤝 Вступить</button>`;
+  h += '<h3>Открытые альянсы</h3>' + (!allyList ? '<p class="muted">Загружаю…</p>' : open.length ? open.map((a) => `<div class="card up"><span class="remoji">${a.emo}</span><div class="grow"><b>${escTxt(a.name)}</b><div class="muted">школ ${a.mem.length}/${ALLY_MAX}</div></div><button class="btn small" data-allyjoinid="${a.id}">Вступить</button></div>`).join('') : '<p class="muted">Открытых альянсов пока нет — создай свой!</p>');
+  h += `<h3>Создать свой альянс</h3><input id="ally-name" class="fb" maxlength="24" placeholder="Название альянса">
+    <div class="muted" style="margin-top:6px">Герб:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${ALLY_EMOS.map((e) => `<button class="btn small ${e === allyEmo ? '' : 'ghost'}" data-allyemo="${e}">${e}</button>`).join('')}</div>
+    <label class="muted" style="display:block;margin:6px 0"><input type="checkbox" id="ally-open" checked> Вход для всех (иначе только по коду)</label>
+    <button class="btn wide" data-allycreate>✨ Создать альянс</button>`;
+  return h;
+}
+allyPanel.still = true;   // has text fields
+function allyTopRows() {   // the top of alliances: the mean rating of their schools
+  const groups = {};
+  for (const x of (topList || []).filter((t) => t.w === WORLD && t.al)) (groups[x.al] ||= []).push(x);
+  const rows = Object.entries(groups).map(([id, m]) => ({ id, a: allyOf(id), m, r: m.reduce((n, x) => n + x.r, 0) / m.length, g: m.reduce((n, x) => n + x.g, 0) })).filter((x) => x.a).sort((p, q) => q.r - p.r || q.g - p.g);
+  if (!rows.length) return '<p class="muted">Пока ни одного альянса — создай свой в окне 🤝!</p>';
+  return rows.slice(0, 30).map((x, k) => `<div class="card up"${x.id === myAl() ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${x.a.emo}</span><div class="grow"><b>${k + 1}. ${escTxt(x.a.name)}</b>${x.id === myAl() ? ' <span class="muted">(твой)</span>' : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · школ ${x.m.length} · 🎓 ${fmt(x.g)} выпускников</div></div></div>`).join('');
+}
+let topTab = 's';
+function openTop() { topPush(true).finally(() => Promise.all([topLoad(), allyLoad()]).finally(() => { if (panel === topPanel) refreshPanel(); })); openPanel(topPanel); }
 function topPanel() {
   let me = ''; try { me = (JSON.parse(localStorage.getItem(ANON_KEY)) || {}).uid || ''; } catch (e) { /* none */ }
   const mine = (x) => me && x.id === me + '_w' + WORLD;
   const all = (topList || []).filter((x) => x.w === WORLD);
   const ok = all.filter((x) => x.n >= TOP_MIN).sort((a, b) => b.r - a.r || b.g - a.g), wait = all.filter((x) => x.n < TOP_MIN);
-  const rows = ok.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span><div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${mine(x) ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)} выпускников · золотых отзывов ${fmt(x.gold)}</div></div></div>`).join('');
+  const rows = ok.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span><div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${x.al && allyOf(x.al) ? ' ' + allyOf(x.al).emo : ''}${mine(x) ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)} выпускников · золотых отзывов ${fmt(x.gold)}</div></div></div>`).join('');
   const myPlace = ok.findIndex(mine);
   const nameBox = `<h3>Название твоей школы</h3><input id="school-name" class="fb" maxlength="24" placeholder="Например: Звёздная академия" value="${escTxt(schoolName())}"><h3>Твоё имя (ник)</h3><input id="school-nick" class="fb" maxlength="20" placeholder="Как тебя подписать в топе" value="${escTxt(playerNick() || localStorage.getItem('magicschool.name') || '')}"><button class="btn wide" data-school-name>💾 Сохранить</button>`;
   return `<div class="sh-head"><span class="remoji big">🏆</span><div><h2>Топ школ</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'} · по рейтингу 🏅</div></div><button class="x" data-close>✕</button></div>
     ${schoolName() ? `<p>Твоя школа «<b>${escTxt(schoolName())}</b>»${playerNick() ? ` (👤 ${escTxt(playerNick())})` : ''}: рейтинг 🏅 ${ratingTxt()}${myPlace >= 0 ? `, <b>${myPlace + 1}-е место</b>` : rating().n < TOP_MIN ? ` — в топ попадёт после ${TOP_MIN} отзывов (сейчас ${fmt(rating().n)})` : ''}.</p>` : '<p><b>Придумай название школы</b> и впиши своё имя, чтобы школа появилась в топе. Их увидят все игроки.</p>'}
     ${nameBox}
-    ${topErr ? `<p class="muted">${topErr}</p>` : !topList ? '<p class="muted">Загружаю топ…</p>' : rows ? '<h3>Лучшие школы</h3>' + rows : '<p class="muted">Пока в топе никого нет — стань первой школой!</p>'}
+    <div style="display:flex;gap:6px;margin:10px 0"><button class="btn ${topTab === 's' ? '' : 'ghost'}" data-toptab="s">🏫 Школы</button><button class="btn ${topTab === 'a' ? '' : 'ghost'}" data-toptab="a">🤝 Альянсы</button></div>
+    ${topTab === 'a' ? '<h3>Лучшие альянсы</h3><p class="muted">Рейтинг альянса — средний рейтинг его школ.</p>' + allyTopRows() : topErr ? `<p class="muted">${topErr}</p>` : !topList ? '<p class="muted">Загружаю топ…</p>' : rows ? '<h3>Лучшие школы</h3>' + rows : '<p class="muted">Пока в топе никого нет — стань первой школой!</p>'}
     ${wait.length ? `<p class="muted">Ещё набирают отзывы: ${wait.length} ${wait.length === 1 ? 'школа' : 'школ'}.</p>` : ''}
     <p class="muted">В топ попадают школы, у которых не меньше ${TOP_MIN} отзывов. Рейтинг обновляется раз в минуту, пока игра открыта.</p>`;
 }
@@ -4303,7 +4461,7 @@ let renderMs = 0;   // average time of one render (test hook __test.renderMs)
 function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
   stepWorld(dt, true);
-  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); }
+  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; earnedThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); allyTick(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
   { const t0 = performance.now(); render(); renderMs = renderMs * 0.95 + (performance.now() - t0) * 0.05; }
