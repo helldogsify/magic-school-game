@@ -289,6 +289,14 @@ const THEMES = {
   oath: { w2: true, dir: 'assets/parts/oath/', wallTiles: 4, floorTiles: 6, board: 'kingrelief', isoOnly: true, iso: true,
     decor: ['oathbanner', 'goldcandle', 'names', 'wallgong', 'goldhammers', 'goldcandle'], back: ['obrazier', 'kneel_statue'], side: ['hourglass_st', 'gong_frame'], front: [], rug: '',
     stations: ['ped_book', 'ped_anvil', 'ped_scroll'], teacherProp: 'oath_anvil', h: { obrazier: 40, kneel_statue: 40, hourglass_st: 34, gong_frame: 40, ped_book: 24, ped_anvil: 24, ped_scroll: 24, oath_anvil: 40 } },
+  // World 2, the gate hall (Привратный зал = reception): rough granite with knotwork, hexagonal slabs, a stone map of the
+  // kingdom, a dark stone counter where the world-1 desk stands (same spot, recBlocked), cloak stand, braziers, stone benches
+  REC_W2: { w2: true, dir: 'assets/parts/gate/', wallTiles: 4, floorTiles: 3, board: 'kmap', isoOnly: true, iso: true,
+    decor: ['slit', 'gnotice', 'runeclock', 'glamp', 'ledgers', 'slit'], back: [], side: [], front: [], rug: '',
+    h: { g_counter: 82, g_cloaks: 46, g_brazier: 44, g_bench: 30, g_crystal: 24, g_signpost: 40, g_runestone: 52, g_barrel: 30, g_chest: 26 },
+    extras: (s) => [{ n: 'g_counter', x: s.x0 + 1.75, y: s.y0 + 3.9 }, { n: 'g_cloaks', x: s.x0 + 0.45, y: s.y0 + 0.5 }, { n: 'g_brazier', x: s.x0 + 0.5, y: s.y1 - 0.5 },
+      { n: 'g_bench', x: s.x1 - 0.7, y: s.y0 + 5.6 }, { n: 'g_bench', x: s.x1 - 0.7, y: s.y0 + 7.3 }, { n: 'g_crystal', x: s.x1 - 0.5, y: s.y1 - 0.4 }, { n: 'g_signpost', x: s.x0 + 3.4, y: s.y1 - 0.6 },
+      { n: 'g_runestone', x: s.x1 - 0.6, y: s.y0 + 0.7 }, { n: 'g_barrel', x: s.x1 - 0.5, y: s.y0 + 3.0 }, { n: 'g_chest', x: s.x0 + 0.5, y: s.y0 + 6.6 }] },
   runes: { w2: true, dir: 'assets/parts/runes/', wallTiles: 4, floorTiles: 3, board: 'board', isoOnly: true, iso: true,
     decor: ['torch', 'shield', 'banner', 'niche', 'plaque'], back: ['brazier', 'brazier'], side: ['bookcase', 'runestone'], front: [], rug: '',
     stations: ['st_blue', 'st_teal', 'st_violet'], teacherProp: 'rune_altar', h: { bookcase: 50, brazier: 36, runestone: 30, rune_altar: 40, st_blue: 24, st_teal: 24, st_violet: 24 } },
@@ -361,7 +369,7 @@ const THEMES = {
     extras: (s) => [{ n: 'globe', x: s.x0 + 0.5, y: s.y0 + 0.5 }, { n: 'book_pile', x: s.x1 - 0.6, y: s.y0 + 0.6 }, { n: 'lib_desk', x: s.x0 + 3, y: s.y1 - 0.45 }, { n: 'plant', x: s.x0 + 0.5, y: s.y1 - 0.5 }] },
 };
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
-const DECOR = { kingrelief: { w: 2.6, lo: 0.0, deep: 1.0 }, oathbanner: { w: 0.7, lo: 0.25, deep: 0.5 }, goldcandle: { w: 0.45, lo: 0.4, deep: 1.0 }, names: { w: 1.1, lo: 0.4, deep: 0.5 }, wallgong: { w: 0.7, lo: 0.3, deep: 1.0 }, goldhammers: { w: 0.7, lo: 0.35, deep: 0.8 }, lakearch: { w: 2.0, lo: 0.0, deep: 1.0 }, net: { w: 1.0, lo: 0.25, deep: 0.6 }, oars: { w: 0.6, lo: 0.3, deep: 0.8 }, bluelamp: { w: 0.35, lo: 0.4, deep: 1.0 }, lakemap: { w: 0.9, lo: 0.4, deep: 0.5 }, fishstring: { w: 0.35, lo: 0.3, deep: 0.8 }, gbanner: { w: 2.0, lo: 0.05, deep: 1.0 }, shields: { w: 1.2, lo: 0.3, deep: 0.8 }, gtorch: { w: 0.4, lo: 0.45, deep: 1.2 }, axes: { w: 0.9, lo: 0.3, deep: 0.8 }, helm: { w: 0.5, lo: 0.35, deep: 1.0 }, warhorn: { w: 0.8, lo: 0.35, deep: 0.8 }, gcab: { w: 2.0, lo: 0.05, deep: 1.0 }, cuts: { w: 0.8, lo: 0.3, deep: 0.5 }, gsconce: { w: 0.45, lo: 0.45, deep: 1.2 }, gtap: { w: 0.8, lo: 0.3, deep: 0.5 }, gcrys: { w: 0.5, lo: 0.35, deep: 1.0 }, hearth: { w: 2.1, lo: 0.0, deep: 1.2 }, tongs: { w: 0.9, lo: 0.35, deep: 0.8 }, chain: { w: 0.4, lo: 0.3, deep: 0.8 }, tunnel: { w: 2.4, lo: 0.0, deep: 1.0 }, rack: { w: 1.0, lo: 0.35, deep: 1.0 }, sign: { w: 0.7, lo: 0.4, deep: 0.6 }, rope: { w: 0.45, lo: 0.3, deep: 1.0 }, shield: { w: 0.8, lo: 0.4, deep: 0.8 }, niche: { w: 0.8, lo: 0.25, deep: 1.0 }, plaque: { w: 0.75, lo: 0.35, deep: 0.8 }, menu: { w: 0.8, lo: 0.3, deep: 0.8 }, plates: { w: 1.1, lo: 0.35, deep: 1.4 }, pots: { w: 1.1, lo: 0.4, deep: 1.2 }, dried_herbs: { w: 0.8, lo: 0.35, deep: 1.2 }, stained: { w: 0.95, lo: 0.3, deep: 0.6 }, masters_art: { w: 1.4, lo: 0.32, deep: 0.7 }, trophies: { w: 1.3, lo: 0.4, deep: 1.4 }, jar_shelf: { w: 1.1, lo: 0.25, deep: 1.3 }, toy_rack: { w: 1.2, lo: 0.4, deep: 1.4 }, owl_clock: { w: 0.7, lo: 0.45, deep: 1.2 }, flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9, lo: 0.55, deep: 1.6 }, portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
+const DECOR = { kmap: { w: 1.8, lo: 0.1, deep: 1.0 }, slit: { w: 0.4, lo: 0.25, deep: 0.6 }, gnotice: { w: 0.8, lo: 0.35, deep: 0.6 }, runeclock: { w: 0.6, lo: 0.4, deep: 0.8 }, glamp: { w: 0.4, lo: 0.45, deep: 1.2 }, ledgers: { w: 0.9, lo: 0.4, deep: 1.0 }, kingrelief: { w: 2.6, lo: 0.0, deep: 1.0 }, oathbanner: { w: 0.7, lo: 0.25, deep: 0.5 }, goldcandle: { w: 0.45, lo: 0.4, deep: 1.0 }, names: { w: 1.1, lo: 0.4, deep: 0.5 }, wallgong: { w: 0.7, lo: 0.3, deep: 1.0 }, goldhammers: { w: 0.7, lo: 0.35, deep: 0.8 }, lakearch: { w: 2.0, lo: 0.0, deep: 1.0 }, net: { w: 1.0, lo: 0.25, deep: 0.6 }, oars: { w: 0.6, lo: 0.3, deep: 0.8 }, bluelamp: { w: 0.35, lo: 0.4, deep: 1.0 }, lakemap: { w: 0.9, lo: 0.4, deep: 0.5 }, fishstring: { w: 0.35, lo: 0.3, deep: 0.8 }, gbanner: { w: 2.0, lo: 0.05, deep: 1.0 }, shields: { w: 1.2, lo: 0.3, deep: 0.8 }, gtorch: { w: 0.4, lo: 0.45, deep: 1.2 }, axes: { w: 0.9, lo: 0.3, deep: 0.8 }, helm: { w: 0.5, lo: 0.35, deep: 1.0 }, warhorn: { w: 0.8, lo: 0.35, deep: 0.8 }, gcab: { w: 2.0, lo: 0.05, deep: 1.0 }, cuts: { w: 0.8, lo: 0.3, deep: 0.5 }, gsconce: { w: 0.45, lo: 0.45, deep: 1.2 }, gtap: { w: 0.8, lo: 0.3, deep: 0.5 }, gcrys: { w: 0.5, lo: 0.35, deep: 1.0 }, hearth: { w: 2.1, lo: 0.0, deep: 1.2 }, tongs: { w: 0.9, lo: 0.35, deep: 0.8 }, chain: { w: 0.4, lo: 0.3, deep: 0.8 }, tunnel: { w: 2.4, lo: 0.0, deep: 1.0 }, rack: { w: 1.0, lo: 0.35, deep: 1.0 }, sign: { w: 0.7, lo: 0.4, deep: 0.6 }, rope: { w: 0.45, lo: 0.3, deep: 1.0 }, shield: { w: 0.8, lo: 0.4, deep: 0.8 }, niche: { w: 0.8, lo: 0.25, deep: 1.0 }, plaque: { w: 0.75, lo: 0.35, deep: 0.8 }, menu: { w: 0.8, lo: 0.3, deep: 0.8 }, plates: { w: 1.1, lo: 0.35, deep: 1.4 }, pots: { w: 1.1, lo: 0.4, deep: 1.2 }, dried_herbs: { w: 0.8, lo: 0.35, deep: 1.2 }, stained: { w: 0.95, lo: 0.3, deep: 0.6 }, masters_art: { w: 1.4, lo: 0.32, deep: 0.7 }, trophies: { w: 1.3, lo: 0.4, deep: 1.4 }, jar_shelf: { w: 1.1, lo: 0.25, deep: 1.3 }, toy_rack: { w: 1.2, lo: 0.4, deep: 1.4 }, owl_clock: { w: 0.7, lo: 0.45, deep: 1.2 }, flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9, lo: 0.55, deep: 1.6 }, portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
 const PROP_H = { fire_ped: 42, water_ped: 42, earth_ped: 42, air_ped: 42, sofa: 22, gold_chair: 30, lectern: 32, moon_plant: 40, toy_table: 34, quill_barrel: 34, candy_stand: 32, book_crate: 26, floss_cauldron: 30, desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 31, station_green: 31, station_purple: 31, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
 const parts = {};
@@ -371,7 +379,7 @@ for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (
 }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
 const THEMES_OFF = new Set();   // parts still being drawn: keep the painted pictures until they are in
-const themeOf = (id) => { if (WORLD > 2 || !id || THEMES_OFF.has(id)) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? (WORLD === 2 && CLASSES[ci].final ? 'oath' : CLASSES[ci].id) : id; return THEMES[key] && !!THEMES[key].w2 === (WORLD === 2) ? key : null; };   // each world uses only its own themes (world 2 'final' must not take the world-1 exam hall)
+const themeOf = (id) => { if (WORLD > 2 || !id || THEMES_OFF.has(id)) return null; const ci = CLASS_SLOT.indexOf(id); const key = ci >= 0 ? (WORLD === 2 && CLASSES[ci].final ? 'oath' : CLASSES[ci].id) : WORLD === 2 && THEMES[id + '_W2'] ? id + '_W2' : id; return THEMES[key] && !!THEMES[key].w2 === (WORLD === 2) ? key : null; };   // each world uses only its own themes (world 2 'final' must not take the world-1 exam hall)
 const dormSize = (k) => (S && S.dormUp && S.dormUp['size' + k]) || 1;      // 1..3, like class sizes
 const dormDepth = (k) => ROOM + 2 * (dormSize(k) - 1);
 const dormRows = (k) => 4 + 2 * (dormSize(k) - 1);                          // 4 beds per row: 16, 24, 32 per room
@@ -1857,8 +1865,6 @@ function stepAdvisor(dt, live) {
   advSampleT -= dt; if (advSampleT > 0) return; advSampleT = 10;
   advLog.push(leftNow()); if (advLog.length > 19) advLog.shift();
 }
-const prestigeOn = () => !!(S.boss && S.boss.plan === 'prestige');
-const bedsLeft = () => bedCount() < maxBeds();
 const pupils = (n) => (n % 10 === 1 && n % 100 !== 11 ? 'ученик' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'ученика' : 'учеников');
 const advLeft = () => (advLog.length > 1 ? advLog[advLog.length - 1] - advLog[0] : 0);
 let advCache = null, advCacheAt = 0;
@@ -1870,14 +1876,11 @@ function advReport() {   // [{hot, emo, text, go}] — go: [room id, selector] |
   if (b >= 0 && bn >= 12) {
     const desk = S.classes[b].desks < maxDesksOf(b), time = S.classes[b].time < MAX_TIME_LEVEL, nm = CLASSES[b].name;
     if (desk || time) out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}. ${desk ? 'Поставь там ещё парту' : 'Сократи там урок'} — очередь станет короче.`, go: [CLASS_SLOT[b], desk ? '[data-act="desk"]' : '[data-act="time"]'] });
-    else if (!prestigeOn()) out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}, а он уже улучшен до предела. Учеников приходит больше, чем школа может выучить: «Престижный» договор приведёт меньше учеников, зато они платят больше.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
-    else out.push({ hot: false, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}. Он улучшен до предела, и «Престижный» договор уже выбран — больше тут ничего не сделать. ${bedsLeft() ? 'Пусть ждут в спальне, а не уходят: добавь кроватей.' : 'Ученики подождут во дворе и в спальне.'}`, go: bedsLeft() ? ['DORM', '[data-act="beds"]'] : null });   // her report: «Тихон предлагает престижный договор дважды, но у меня и так престижный договор выбран»
+    else out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}, а он уже улучшен до предела. Учеников приходит больше, чем школа может выучить: «Престижный» договор приведёт меньше учеников, зато они платят больше.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
   }
   if (!dormFree()) out.push({ hot: true, emo: '🛏️', text: 'Все кровати в спальне заняты: новичкам негде подождать, и они уходят домой. Добавь кровати.', go: ['DORM', '[data-act="beds"]'] });
   const lv = advLeft();
-  if (lv >= 5 && !prestigeOn()) out.push({ hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. Если учеников приходит больше, чем школа успевает учить, попробуй «Престижный» договор.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
-  else if (lv >= 5) { const care = dirLvl('care') < DIR_UP.care.max;
-    out.push({ hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. ${bedsLeft() ? 'Добавь кроватей в спальне, чтобы новичкам было где подождать.' : care ? 'Улучши «Заботу об учениках» — в очередях будут грустить медленнее.' : 'Престижный договор уже выбран, кровати и забота на максимуме — школа делает всё, что может.'}`, go: bedsLeft() ? ['DORM', '[data-act="beds"]'] : care ? ['DIR', '[data-act="dir"][data-k="care"]'] : null }); }
+  if (lv >= 5) out.push({ hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. Если учеников приходит больше, чем школа успевает учить, попробуй «Престижный» договор.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
   const m = avgMood();
   if (m < 50) out.push({ hot: m < 35, emo: '😟', text: `Ученики грустят: настроение ${Math.round(m)}%. Их радуют библиотека, магазин и столовая, а «Забота об учениках» помогает в очередях.`, go: ['DIR', '[data-act="dir"][data-k="care"]'] });
   const inc = Object.keys(S.inc || {});
@@ -2873,7 +2876,7 @@ function drawSign(c, id) {
   if (id === 'GARDEN' && WORLD === 1) {   // drawn over everything like the room signs, above the gazebo
     const pl = signPill('🎓 Сад выпускников', '#d9f2c9', 12, 22, '#ffffff', '#2e5a22'), q = P(s.x0 + 1.3, s.y0 + 1.2); c.drawImage(pl.cv, q.x - pl.w / 2, q.y - 150 - pl.h / 2, pl.w, pl.h); return; }
   if (id === 'GARDEN' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt())) return;
-  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? '🛎️ Приёмная' : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
+  const name = ci >= 0 ? CLASSES[ci].emoji + ' ' + CLASSES[ci].name : id === 'REC' ? (WORLD === 2 ? '🛎️ Привратный зал' : '🛎️ Приёмная') : id === 'LIB' ? '📚 Библиотека' : id === 'DIR' ? '👑 Кабинет директора' : id === 'SHOP' ? '🛍️ Лавка' : id === 'TOWER' ? '🏰 Башня мастеров' : id === 'CANT' ? '🍽️ Столовая' : id === 'DORM2' ? '🛏️ Спальня 2' : '🛏️ Спальня';
   const midBack = WORLD === 1 && ['DORM', 'DORM2', 'DIR', 'SHOP'].includes(id);   // build 258: front-row rooms put their sign over the middle of their tall back wall (on the corner it hung over the gallery)
   const sp = id === 'REC' ? P(s.x0 + 7.5, s.y0 + 7) : midBack ? up(P((s.x0 + s.x1) / 2, s.y0), WALLH * 0.72 + 12) : up(B, (s.cut.left && s.cut.right) ? 14 : WALLH * 0.72 + 12);
   const fs = 12, hgt = 22, bg = ci >= 0 ? CLASSES[ci].wall : SIGN_BG[id] || '#ffffff';
@@ -4073,10 +4076,6 @@ document.addEventListener('click', (e) => {
   if (d.reqcancel !== undefined) { reqCancel(d.reqcancel); return; }
   if (d.reqok !== undefined) { reqAnswer(d.reqok, true); return; }
   if (d.reqno !== undefined) { reqAnswer(d.reqno, false); return; }
-  if (d.allykick !== undefined) { allyKick(d.allykick); return; }
-  if (d.allylead !== undefined) { allyLead(d.allylead); return; }
-  if (d.allyedit !== undefined) { allyEdit(); return; }
-  if (d.allydisband !== undefined) { allyDisband(); return; }
   if (d.allyemo !== undefined) { allyEmo = ALLY_EMOS[+d.allyemo] || '🦄'; refreshAlly(); return; }   // an index: emojiHtml turns an emoji inside an attribute into an <img> and broke 6 of the 12 buttons (her «не все гербы нажимаются»)
   if (d.schoolName !== undefined) { saveSchoolName(); return; }
   if (d.cloudLoad !== undefined) { cloudLoad(); return; }
@@ -4228,15 +4227,13 @@ const allyOf = (code) => (allyList || []).find((a) => a.id === code);
 const anonUid = () => { try { return (JSON.parse(localStorage.getItem(ANON_KEY)) || {}).uid || ''; } catch (e) { return ''; } };
 const today = () => new Date().toISOString().slice(0, 10);
 function giftLog() { const g = (S.giftLog ||= { day: today(), g: {}, b: {} }); if (g.day !== today()) { g.day = today(); g.g = {}; g.b = {}; } return g; }
-function allyMembers(code) { const a = allyOf(code), k = (a && a.kick) || []; return (topList || []).filter((x) => x.w === WORLD && x.al === code && !k.includes(x.id.replace(/_w\d$/, ''))); }   // kicked schools drop out at once (build 270)
+function allyMembers(code) { return (topList || []).filter((x) => x.w === WORLD && x.al === code); }
 async function allyLoad() {
   try {
     const r = await fetch(ALLY_URL + '/alliances?pageSize=300', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
     const d = await r.json(), v = (f) => (f ? f.stringValue ?? (f.booleanValue ?? +(f.integerValue ?? 0)) : '');
-    allyList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: v(x.fields.name) || '?', emo: v(x.fields.emo) || '🦄', open: !!v(x.fields.open), owner: v(x.fields.owner), w: +v(x.fields.w) || 1,
-      motto: v(x.fields.motto) || '', kick: ((x.fields.kick && x.fields.kick.arrayValue && x.fields.kick.arrayValue.values) || []).map((k) => k.stringValue) }));
-    allyMsg = ''; return true;
-  } catch (e) { allyMsg = 'Не получилось загрузить альянсы — проверь интернет'; return false; }
+    allyList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: v(x.fields.name) || '?', emo: v(x.fields.emo) || '🦄', open: !!v(x.fields.open), owner: v(x.fields.owner), w: +v(x.fields.w) || 1 }));
+  } catch (e) { allyMsg = 'Не получилось загрузить альянсы — проверь интернет'; }
 }
 async function allyPoll() {   // gifts sent to me (any world; claimed in the world they were sent for)
   if (!schoolName()) return;
@@ -4246,10 +4243,6 @@ async function allyPoll() {   // gifts sent to me (any world; claimed in the wor
       body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'gifts' }], where: { fieldFilter: { field: { fieldPath: 'to' }, op: 'EQUAL', value: { stringValue: A.uid } } } } }) });
     if (!r.ok) return;
     const d = await r.json();
-    if (await allyLoad() && myAl()) {   // build 270: the founder may kick a school or disband the alliance; the player leaves by himself
-      const a = allyOf(myAl());
-      if (!a || (a.kick || []).includes(A.uid)) { const nm = a ? a.name : ''; S.al = ''; save(); topPush(true); toast(a ? `🚪 Тебя исключили из альянса «${nm}»` : '💥 Альянс распущен'); }
-    }
     await reqPoll(A);
     allyGifts = d.filter((x) => x.document).map((x) => ({ id: x.document.name.split('/').pop(), fname: x.document.fields.fname?.stringValue || '?', kind: x.document.fields.kind?.stringValue, w: +(x.document.fields.w?.integerValue || 1) })).filter((g) => g.w === WORLD);
     updateHud(); if (panel === allyPanel) refreshAlly();
@@ -4305,8 +4298,6 @@ async function allyJoin(code) {
   try {
     const r = await fetch(`${ALLY_URL}/alliances/${code}`, { cache: 'no-store' });
     if (!r.ok) { toast('Такого альянса нет — проверь код'); return; }
-    if (!allyList) await allyLoad();
-    if (((allyOf(code) || {}).kick || []).includes(anonUid())) { toast('Тебя исключили из этого альянса — вступить снова нельзя'); return; }
     if (allyMembers(code).filter((x) => x.id !== anonUid() + '_w' + WORLD).length >= ALLY_MAX) { toast(`В альянсе уже ${ALLY_MAX} школ`); return; }
     S.al = code; save(); await topPush(true); await allyLoad(); await topLoad();
     const a = allyOf(code); toast(`${a ? a.emo + ' ' : ''}Ты в альянсе${a ? ' «' + a.name + '»' : ''}!`);
@@ -4366,43 +4357,6 @@ async function reqAnswer(id, ok) {
   } catch (e) { toast('Не получилось — проверь интернет'); }
   updateHud(); refreshAlly();
 }
-// ---- founder's tools (build 270, her «как создатель альянса должна мочь выгнать из альянса, может ещё какие-то подобные действия»):
-// kick a school (its uid goes to the alliance's kick list; the player leaves by himself and cannot join again), hand the
-// leadership to a member, edit name / crest / motto, disband (delete the alliance; members leave on their next poll).
-async function allyPatch(fields, mask) {
-  const A = await anonToken();
-  const r = await fetch(`${ALLY_URL}/alliances/${myAl()}?${mask.map((m) => 'updateMask.fieldPaths=' + m).join('&')}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify({ fields }) });
-  if (!r.ok) throw new Error(r.status);
-}
-async function allyKick(uid) {
-  const a = allyOf(myAl()), m = allyMembers(myAl()).find((x) => x.id.startsWith(uid + '_w')); if (!a) return;
-  if (!confirm(`Выгнать «${m ? m.name : 'школу'}» из альянса? Вернуться в него она уже не сможет.`)) return;
-  try { const k = [...new Set([...(a.kick || []), uid])].slice(-50); await allyPatch({ kick: { arrayValue: { values: k.map((v) => ({ stringValue: v })) } } }, ['kick']); a.kick = k; toast(`🚪 «${m ? m.name : 'Школа'}» исключена из альянса`); }
-  catch (e) { toast('Не получилось — проверь интернет'); }
-  refreshAlly();
-}
-async function allyLead(uid) {
-  const a = allyOf(myAl()), m = allyMembers(myAl()).find((x) => x.id.startsWith(uid + '_w')); if (!a || !m) return;
-  if (!confirm(`Передать главенство в альянсе «${m.name}»? Управлять альянсом будет она, а ты останешься участником.`)) return;
-  try { await allyPatch({ owner: { stringValue: uid } }, ['owner']); a.owner = uid; ownReqs = []; toast(`👑 Глава альянса теперь «${m.name}»`); }
-  catch (e) { toast('Не получилось — проверь интернет'); }
-  refreshAlly();
-}
-async function allyEdit() {
-  const a = allyOf(myAl()); if (!a) return;
-  const name = cleanName(document.getElementById('ally-ename')?.value) || a.name, motto = cleanName(document.getElementById('ally-motto')?.value || '').slice(0, 60);
-  try { await allyPatch({ name: { stringValue: name }, emo: { stringValue: allyEmo }, motto: { stringValue: motto } }, ['name', 'emo', 'motto']); Object.assign(a, { name, emo: allyEmo, motto }); toast(`${allyEmo} Альянс обновлён`); }
-  catch (e) { toast('Не получилось — проверь интернет'); }
-  refreshAlly();
-}
-async function allyDisband() {
-  const a = allyOf(myAl()); if (!a) return;
-  if (!confirm(`Распустить альянс «${a.name}»? Все школы выйдут из него, вернуть его будет нельзя.`)) return;
-  try { const A = await anonToken(); const r = await fetch(`${ALLY_URL}/alliances/${a.id}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + A.tok } }); if (!r.ok) throw new Error(r.status);
-    allyList = (allyList || []).filter((x) => x !== a); S.al = ''; save(); await topPush(true); await topLoad(); toast('💥 Альянс распущен'); }
-  catch (e) { toast('Не получилось — проверь интернет'); }
-  refreshAlly();
-}
 async function allyToggleOpen() {
   const a = allyOf(myAl()); if (!a) return;
   try {
@@ -4413,8 +4367,8 @@ async function allyToggleOpen() {
   } catch (e) { toast('Не получилось — проверь интернет'); }
   refreshAlly();
 }
-function refreshAlly() { if (panel !== allyPanel) return; const keep = {}; ['ally-name', 'ally-code', 'ally-ename', 'ally-motto'].forEach((k) => { const e = document.getElementById(k); if (e) keep[k] = e.value; }); const ck = document.getElementById('ally-open')?.checked; refreshPanel(); for (const [k, v] of Object.entries(keep)) { const e = document.getElementById(k); if (e) e.value = v; } const c = document.getElementById('ally-open'); if (c && ck !== undefined) c.checked = ck; }
-function openAlly() { openPanel(allyPanel); Promise.all([allyLoad(), topLoad(), allyPoll()]).finally(() => { const a = allyOf(myAl()); if (a) allyEmo = a.emo; refreshAlly(); }); }
+function refreshAlly() { if (panel !== allyPanel) return; const keep = {}; ['ally-name', 'ally-code'].forEach((k) => { const e = document.getElementById(k); if (e) keep[k] = e.value; }); const ck = document.getElementById('ally-open')?.checked; refreshPanel(); for (const [k, v] of Object.entries(keep)) { const e = document.getElementById(k); if (e) e.value = v; } const c = document.getElementById('ally-open'); if (c && ck !== undefined) c.checked = ck; }
+function openAlly() { openPanel(allyPanel); Promise.all([allyLoad(), topLoad(), allyPoll()]).finally(refreshAlly); }
 function allyPanel() {
   const head = `<div class="sh-head"><span class="remoji big">🤝</span><div><h2>Альянс</h2><div class="muted">Союз школ: подарки друг другу и общий рейтинг</div></div><button class="x" data-close>✕</button></div>`;
   if (!schoolName()) return head + '<p>Чтобы вступить в альянс, сначала придумай название своей школы.</p><button class="btn wide" data-top>🏆 Придумать название</button>';
@@ -4426,20 +4380,14 @@ function allyPanel() {
   if (code) {
     const a = allyOf(code), mem = allyMembers(code).sort((x, y) => y.r - x.r), L = giftLog();
     const avg = mem.length ? mem.reduce((n, x) => n + x.r, 0) / mem.length : 0;
-    h += `<div class="card up"><span class="remoji big">${a ? a.emo : '🤝'}</span><div class="grow"><b>${a ? escTxt(a.name) : 'Альянс'}</b>${a && a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}${a && a.owner === anonUid() ? ' <span class="muted">👑 ты глава</span>' : ''}<div class="muted">код ${code} · ${a && a.open ? '🔓 открытый' : '🔒 по коду'} · школ ${mem.length}/${ALLY_MAX} · рейтинг 🏅 ${avg ? avg.toFixed(1).replace('.', ',') : '—'}</div></div><button class="btn small" data-allycopy>Код</button></div>`;
+    h += `<div class="card up"><span class="remoji big">${a ? a.emo : '🤝'}</span><div class="grow"><b>${a ? escTxt(a.name) : 'Альянс'}</b><div class="muted">код ${code} · ${a && a.open ? '🔓 открытый' : '🔒 по коду'} · школ ${mem.length}/${ALLY_MAX} · рейтинг 🏅 ${avg ? avg.toFixed(1).replace('.', ',') : '—'}</div></div><button class="btn small" data-allycopy>Код</button></div>`;
     h += '<h3>Школы альянса</h3>' + (mem.length ? mem.map((x) => {
       const uid = x.id.replace(/_w\d$/, ''), gi = L.g[uid] || 0, bo = L.b[uid] || 0;
-      return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY ? 'disabled' : ''}>🎁 ${GIFT_DAY - gi}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY ? 'disabled' : ''}>✨ ${BOOST_DAY - bo}</button>${a && a.owner === anonUid() ? `<button class="btn small ghost" data-allylead="${uid}" title="Сделать главой">👑</button><button class="btn small ghost" data-allykick="${uid}" title="Выгнать">🚪</button>` : ''}`}</div>`;
+      return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${x.r.toFixed(1).replace('.', ',')} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY ? 'disabled' : ''}>🎁 ${GIFT_DAY - gi}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY ? 'disabled' : ''}>✨ ${BOOST_DAY - bo}</button>`}</div>`;
     }).join('') : '<p class="muted">Загружаю…</p>');
     h += `<p class="muted">🎁 Волшебный подарок: союзник получит монеты — столько, сколько его школа зарабатывает за 3 минуты. ✨ Вдохновение: +10% к плате за уроки на 10 минут. Каждому союзнику в день — ${GIFT_DAY} подарка и ${BOOST_DAY} вдохновение, у тебя при этом ничего не убывает.</p>`;
     if (a && a.owner === anonUid()) h += '<h3>📩 Заявки на вступление</h3>' + (ownReqs.length ? ownReqs.map((q) => `<div class="card up" style="border:2px solid #b9a4f0"><div class="grow"><b>${escTxt(q.fname)}</b>${q.nick ? `<div>👤 ${escTxt(q.nick)}</div>` : ''}<div class="muted">🏅 ${q.r.toFixed(1).replace('.', ',')}</div></div><button class="btn small hot" data-reqok="${q.id}">Принять</button><button class="btn small ghost" data-reqno="${q.id}">Нет</button></div>`).join('') : '<p class="muted">Новых заявок нет. Заявку может подать любая школа из списка альянсов.</p>');
-    if (a && a.owner === anonUid()) h += `<h3>👑 Управление альянсом</h3><p class="muted">У каждой школы: 👑 — передать главенство, 🚪 — выгнать.</p>
-      <input id="ally-ename" class="fb" maxlength="24" value="${escTxt(a.name)}" placeholder="Название альянса">
-      <input id="ally-motto" class="fb" maxlength="60" value="${escTxt(a.motto || '')}" placeholder="Девиз альянса (его видят все)">
-      <div class="muted" style="margin-top:6px">Герб:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${ALLY_EMOS.map((e, k) => `<button class="btn small ${e === allyEmo ? '' : 'ghost'}" data-allyemo="${k}">${e}</button>`).join('')}</div>
-      <button class="btn wide" data-allyedit>💾 Сохранить название, девиз и герб</button>`;
     if (a && a.owner === anonUid()) h += `<button class="btn ghost wide" data-allyopen>${a.open ? '🔒 Сделать вход только по коду' : '🔓 Открыть вход для всех'}</button>`;
-    if (a && a.owner === anonUid()) h += '<button class="btn ghost wide" data-allydisband>💥 Распустить альянс</button>';
     h += '<button class="btn ghost wide" data-allyleave>🚪 Выйти из альянса</button>';
     return h;
   }
@@ -4447,7 +4395,7 @@ function allyPanel() {
   const asked = (id) => myReqs.some((q) => q.al === id && q.st === 'wait');
   h += `<h3>Вступить по коду</h3><input id="ally-code" class="fb" maxlength="10" placeholder="Например: A7K2QM9X"><button class="btn wide" data-allyjoin>🤝 Вступить</button>`;
   h += '<h3>Альянсы</h3>' + (!allyList ? '<p class="muted">Загружаю…</p>' : open.length ? open.map((a) => { const avg = a.mem.reduce((n, x) => n + x.r, 0) / a.mem.length;
-    return `<div class="card up"><span class="remoji">${a.emo}</span><div class="grow"><b>${escTxt(a.name)}</b>${a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}<div class="muted">${a.open ? '🔓 вход свободный' : '🔒 по заявке'} · школ ${a.mem.length}/${ALLY_MAX} · 🏅 ${avg.toFixed(1).replace('.', ',')}</div></div>${a.open ? `<button class="btn small" data-allyjoinid="${a.id}">Вступить</button>` : asked(a.id) ? `<button class="btn small ghost" data-reqcancel="${a.id}">Заявка ✓ (отменить)</button>` : `<button class="btn small" data-reqsend="${a.id}">Подать заявку</button>`}</div>`; }).join('') : '<p class="muted">Альянсов пока нет — создай свой!</p>');
+    return `<div class="card up"><span class="remoji">${a.emo}</span><div class="grow"><b>${escTxt(a.name)}</b><div class="muted">${a.open ? '🔓 вход свободный' : '🔒 по заявке'} · школ ${a.mem.length}/${ALLY_MAX} · 🏅 ${avg.toFixed(1).replace('.', ',')}</div></div>${a.open ? `<button class="btn small" data-allyjoinid="${a.id}">Вступить</button>` : asked(a.id) ? `<button class="btn small ghost" data-reqcancel="${a.id}">Заявка ✓ (отменить)</button>` : `<button class="btn small" data-reqsend="${a.id}">Подать заявку</button>`}</div>`; }).join('') : '<p class="muted">Альянсов пока нет — создай свой!</p>');
   h += `<h3>Создать свой альянс</h3><input id="ally-name" class="fb" maxlength="24" placeholder="Название альянса">
     <div class="muted" style="margin-top:6px">Герб:</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0">${ALLY_EMOS.map((e, k) => `<button class="btn small ${e === allyEmo ? '' : 'ghost'}" data-allyemo="${k}">${e}</button>`).join('')}</div>
     <label class="muted" style="display:block;margin:6px 0"><input type="checkbox" id="ally-open" checked> Вход для всех (иначе только по коду)</label>
