@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=293';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=293';
-import { initMinigame } from './minigame.js?v=293';
+} from './data.js?v=294';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=294';
+import { initMinigame } from './minigame.js?v=294';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 293;   // keep equal to the ?v= number in index.html
+const BUILD = 294;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2272,6 +2272,8 @@ function layoutOutdoor() {
   const coversKept = (x, y) => keep.some(([ix, iy]) => { const k = ((x + y) - (ix + iy)) / 2, side = Math.abs((x - y) - (ix - iy)); return k > -1 && k < 8 && side < 3.2; });
   if (SLOTS.CANT && SLOTS.DORM2) scene(SLOTS.CANT.x1 + 5, (SLOTS.LIB.y0 + SLOTS.LIB.y1) / 2, [   // build 244: right of the right column   // the magic glade: a fairy ring in a circle of rune stones, glowing mushrooms and crystals
     ['fairyring', 0, 0, 1.2], ['runestone', -2.6, -0.4], ['runestone', 0.4, -2.6], ['runestone', 2.6, 0.5], ['runestone', -0.3, 2.7], ['glowmush', -1.6, -1.8], ['glowmush', 1.9, 1.7], ['crystals', 1.8, -1.6], ['crystals', -1.9, 1.8, 0.9], ['bells', 3.4, -2.2], ['toadhouse', 4.2, 2.6]]);
+  if (WORLD === 1 && COURT && SLOTS.CANT) scene((SLOTS.CANT.x0 + SLOTS.CANT.x1) / 2, (SLOTS.CANT.y1 + COURT.y1) / 2, [   // plan item 3: the small glade on the lawn under the canteen (between the gallery, the director and the tower)
+    ['fairyring', -0.6, 0, 1.0], ['runestone', -2.0, -0.6], ['runestone', -0.5, -1.7, 0.9], ['glowmush', -1.8, 1.2], ['toadhouse', 0.9, 1.7, 0.7], ['crystals', -2.4, 2.0, 0.8]]);   // the right part is hidden by the tower's tall wall: everything stays left/front
   if (SLOTS.TOWER && slotOf(5)) scene(SLOTS.TOWER.x1 + 5, SLOTS.TOWER.y0 + 3, [   // build 244: right of the tower   // the apiary between the Elements class and the tower
     ['beehive', -0.9, -0.8], ['beehive', 0.9, -1.1], ['starflowers', -1.4, 0.8], ['roses', 0.3, 0.9], ['bells', 1.5, 0.5], ['starflowers', 0.2, -2.4], ['roses2', -1.2, 2.6], ['bells', 1.1, 2.7]]);
   if (slotOf(2)) scene(slotOf(2).x0 - 3.6, (slotOf(2).y0 + slotOf(2).y1) / 2, [   // the wishing-well corner left of the classes
