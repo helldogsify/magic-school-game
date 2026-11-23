@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=352';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=352';
-import { initMinigame } from './minigame.js?v=352';
-import { initChests } from './chests.js?v=352';
-import { initAvatar } from './avatar.js?v=352';
+} from './data.js?v=353';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=353';
+import { initMinigame } from './minigame.js?v=353';
+import { initChests } from './chests.js?v=353';
+import { initAvatar } from './avatar.js?v=353';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -21,7 +21,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 352;   // keep equal to the ?v= number in index.html
+const BUILD = 353;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4332,7 +4332,7 @@ document.addEventListener('change', async (e) => {
 });
 // ---- answers from the author (Maria 2026-11-23: «Хочу сделать возможность отвечать на запрос тестировщика ... Я хочу мочь прислать ответ»):
 // every feedback carries this phone's id (№xxxxxxxx); Maria answers the feedback message in Telegram with a reply, the relay keeps the
-// answer, the game asks for it (players who wrote: at the start, every 3 min and on return) and shows it in its own window.
+// answer, the game asks for it (players who wrote: at the start, every minute and on return) and shows it in its own window.
 const REPLIES_URL = 'https://lazy.vazuza.love/game/replies';
 function fbId() { let v = localStorage.getItem('magicschool.fbid'); if (!/^[a-z0-9]{8}$/.test(v || '')) { v = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join(''); localStorage.setItem('magicschool.fbid', v); } return v; }
 const fbReplies = () => { try { return JSON.parse(localStorage.getItem('magicschool.fbreplies') || '[]'); } catch (e) { return []; } };
@@ -4356,7 +4356,7 @@ function repliesPanel() {
   return `<div class="sh-head"><span class="remoji big">💌</span><div><h2>Ответ автора игры</h2><div class="muted">на твои отзывы</div></div><button class="x" data-close>✕</button></div>
     ${rows || '<p class="muted">Ответов пока нет.</p>'}<button class="btn wide" data-close>Спасибо! 💜</button>`;
 }
-setTimeout(checkReplies, 8000); setInterval(checkReplies, 180000);
+setTimeout(checkReplies, 8000); setInterval(checkReplies, 60000);   // every minute (her «Ничего не было»: at 3 min the answer looked lost)
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(checkReplies, 3000); });
 async function sendFeedback() {
   const msg = ($('#fb-text').value || '').trim();
