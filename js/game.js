@@ -2,9 +2,9 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=295';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=295';
-import { initMinigame } from './minigame.js?v=295';
+} from './data.js?v=296';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=296';
+import { initMinigame } from './minigame.js?v=296';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -15,7 +15,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 295;   // keep equal to the ?v= number in index.html
+const BUILD = 296;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -938,9 +938,13 @@ function courtBenches() {   // build 282 (her «Но они должны рис�
   }
   return out.concat(extra.slice(0, Math.max(0, (courtUp().bench || 1) - 1)));
 }
-const benchCost = () => Math.round(4000 * Math.pow(2.3, courtUp().bench - 1));
-const fountCost = () => Math.round(6000 * Math.pow(2.3, courtUp().fount - 1));
-const coinCost = () => Math.round(15000 * Math.pow(2.4, courtUp().coin));
+// court prices follow the pace of the school (her «Как-то дёшево покупается фонтан. Покупки должны всегда соответствовать темпу
+// игры», build 292): the base price grows with the entry fee (half the best lesson price), so a rich school pays more;
+// a young school (fee <= 10) keeps the old prices. Steps per level a bit flatter (x2.0 / x2.1) since the base is already big.
+const paceK = () => Math.max(1, fee() / 10);
+const benchCost = () => Math.round(4000 * paceK() * Math.pow(2.0, courtUp().bench - 1));
+const fountCost = () => Math.round(6000 * paceK() * Math.pow(2.0, courtUp().fount - 1));
+const coinCost = () => Math.round(15000 * paceK() * Math.pow(2.1, courtUp().coin));
 const courtRoom = () => courtList.length < courtCap();
 const courtFor = (i) => courtList.reduce((n, a) => n + (a.goal && a.goal.i === i && !a.goal.brk ? 1 : 0), 0);
 const COURT_MOOD = 0.6;   // mood per second while waiting in the court
@@ -3919,9 +3923,9 @@ const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const slotOfId = (id) => { const i = CLASSES.findIndex((c) => (id === 'final' ? c.final : c.id === id)); return i >= 0 ? CLASS_SLOT[i] : null; };
 const openId = (id) => { const i = CLASSES.findIndex((c) => c.id === id); return i >= 0 && isOpen(i); };
 const UPS = {
-  cbench: { g: 'court', name: 'Скамейки во дворе', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().bench, max: () => MAX_BENCH, cost: () => benchCost(), k: 2.3, go: () => ['FOUNT', '[data-act="cbench"]'] },
-  cfount: { g: 'court', name: 'Волшебный фонтан', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().fount, max: () => MAX_FOUNT, cost: () => fountCost(), k: 2.3, go: () => ['FOUNT', '[data-act="cfount"]'] },
-  ccoin: { g: 'court', name: 'Монетка на счастье', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().coin, max: () => MAX_COIN, cost: () => coinCost(), k: 2.4, go: () => ['FOUNT', '[data-act="ccoin"]'] },
+  cbench: { g: 'court', name: 'Скамейки во дворе', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().bench, max: () => MAX_BENCH, cost: () => benchCost(), k: 2.0, go: () => ['FOUNT', '[data-act="cbench"]'] },
+  cfount: { g: 'court', name: 'Волшебный фонтан', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().fount, max: () => MAX_FOUNT, cost: () => fountCost(), k: 2.0, go: () => ['FOUNT', '[data-act="cfount"]'] },
+  ccoin: { g: 'court', name: 'Монетка на счастье', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().coin, max: () => MAX_COIN, cost: () => coinCost(), k: 2.1, go: () => ['FOUNT', '[data-act="ccoin"]'] },
   ...Object.fromEntries(Object.keys(DIR_UP).map((k) => ['dir_' + k, { g: 'dir', name: DIR_UP[k].name, on: () => bossOn(), lvl: () => dirLvl(k), max: () => DIR_UP[k].max, cost: () => dirCost(k), k: DIR_UP[k].k, go: () => ['DIR', `[data-act="dir"][data-k="${k}"]`] }])),
   ...Object.fromEntries([['seller', 'Продавец'], ['shelves', 'Витрины'], ['goods', 'Товары']].map(([k, name]) => ['shop_' + k, { g: 'shop', name: name + ' в лавке', on: () => shopOpen(), lvl: () => shopUp()[k], max: () => SHOP_MAX, cost: () => shopCost(k), k: 1.9, go: () => ['SHOP', `[data-act="shopup"][data-k="${k}"]`] }])),
   ...Object.fromEntries([['cook', 'Повар'], ['tables', 'Столы'], ['menu', 'Меню']].map(([k, name]) => ['cant_' + k, { g: 'cant', name: name + ' в столовой', on: () => cantOpen(), lvl: () => cantUp()[k], max: () => CANT_MAX[k], cost: () => cantCost(k), k: 1.9, go: () => ['CANT', `[data-act="cantup"][data-k="${k}"]`] }])),
