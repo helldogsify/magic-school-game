@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=325';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=325';
-import { initMinigame } from './minigame.js?v=325';
-import { initChests } from './chests.js?v=325';
+} from './data.js?v=326';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=326';
+import { initMinigame } from './minigame.js?v=326';
+import { initChests } from './chests.js?v=326';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 325;   // keep equal to the ?v= number in index.html
+const BUILD = 326;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2519,7 +2519,8 @@ function layoutOutdoor() {
       ['flowerbox', L - 1.6, gy - 2.3, 1], ['urn', L - 0.5, gy + 6.4, 1], ['urn', R + 0.9, gy + 6.4, 1], ['signpost2', R + 2.6, gy + 5.2, 1], ['roses', L - 2.6, gy + 2.6, 0.9], ['roses2', R + 2.8, gy - 1.6, 0.9],
       ['founder', L - 4.6, gy + 4.4, 1], ['hydrangea', L - 3.6, gy + 6.2, 1], ['peonybed', L - 5.8, gy + 2.6, 1], ['crystalball', R + 4.4, gy + 3.4, 1], ['hydrangea', R + 5.2, gy + 1.8, 0.9]])   // moved here from the garden (her «поставь в другом месте просто. У входа например»)
       if (put(n, x, y, 1, sc)) keep.push([x, y]);
-    entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + 8.5 }; }
+    entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + (WORLD === 1 ? 22.5 : 8.5) };   // world 1: the path comes out of the forest
+    if (WORLD === 1) for (let k = 0; k < 3; k++) { const y = gy + 10 + k * 4; if (put('lantern_gold', L - 0.3, y, 1, 0.75)) keep.push([L - 0.3, y]); if (put('lantern_gold', R + 0.3, y, 1, 0.75)) keep.push([R + 0.3, y]); } }
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
   if (WORLD === 1 && COURT) {   // the magic court (her «место игровое с фонтаном, тусовкой учеников»): fountain in the middle, benches round the plaza, trees and flowers in the lawn corners, lanterns on the paths
@@ -2680,7 +2681,7 @@ function drawEntrancePath(c0 = ctx, baking = false) {   // the flagstone path co
     const cv = document.createElement('canvas'); cv.width = Math.ceil((maxX - minX) * K); cv.height = Math.ceil((maxY - minY) * K); const c = cv.getContext('2d');
     c.setTransform(K, 0, 0, K, -minX * K, -minY * K); const pt = isoPat(c, 'path', 3); if (!pt) return;
     const g = c.createLinearGradient(0, pts[0].y, 0, pts[2].y); poly(c, pts); c.fillStyle = pt; c.fill();
-    c.globalCompositeOperation = 'destination-out'; g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.65, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)'); c.fillStyle = g; c.fillRect(minX, minY, maxX - minX, maxY - minY);   // fades into the grass
+    c.globalCompositeOperation = 'destination-out'; g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(WORLD === 1 ? 0.82 : 0.65, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)'); c.fillStyle = g; c.fillRect(minX, minY, maxX - minX, maxY - minY);   // fades into the grass
     entranceDecal = { key: outKey, cv, x: minX, y: minY, w: maxX - minX, h: maxY - minY }; }
   const d = entranceDecal;
   if (baking) { d.baked = d.x > MARGIN && d.y > MARGIN && d.x + d.w < MARGIN + SW && d.y + d.h < MARGIN + SH; if (d.baked) c0.drawImage(d.cv, d.x, d.y, d.w, d.h); return; }
