@@ -192,6 +192,7 @@ function newRecipe(n) {
 }
 
 export function isOpen() { return !!root; }
+export function weekBest() { const S = st(); if (!S || !S.mg) return 0; return S.mg.wk === weekKey() ? S.mg.wb || 0 : 0; }   // for the weekly table in the top
 export function pill() {
   const n = charges();
   return `<button class="ipill mg" data-mg aria-label="Мини-игра">🧪 ${n}</button>`;
@@ -520,6 +521,7 @@ function finish(silent) {
     if (boost) { const now = Date.now(); S.boostEnd = Math.min(now + BOOST_CAP_MIN * 60000, Math.max(now, S.boostEnd || 0) + boost * 60000); }
   }
   A.save();
+  A.onFinish && A.onFinish(score);
   if (silent) return;
   snd('end');
   const n = charges();
@@ -540,5 +542,5 @@ export function initMinigame(api) {
   A = api;
   addEventListener('resize', () => { if (R && cv) layout(); });
   window.__mg = { open, close, charges, get R() { return R; }, resolveStep, findGroups, findMove, setLeft: (s) => { if (R) R.left = s; }, setScore: (s) => { if (R) R.score = s; }, SND, SND_DB, STAR };
-  return { open, isOpen, pill, charges };
+  return { open, isOpen, pill, charges, weekBest, weekKey };
 }
