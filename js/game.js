@@ -2,10 +2,10 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=319';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=319';
-import { initMinigame } from './minigame.js?v=319';
-import { initChests } from './chests.js?v=319';
+} from './data.js?v=320';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=320';
+import { initMinigame } from './minigame.js?v=320';
+import { initChests } from './chests.js?v=320';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -20,7 +20,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 319;   // keep equal to the ?v= number in index.html
+const BUILD = 320;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3898,15 +3898,17 @@ function morph(el, html) {
   morphChildren(el, t.content);
 }
 function morphChildren(a, b) {
-  const an = [...a.childNodes], bn = [...b.childNodes];
+  const an = [...a.childNodes].filter((n) => n.id !== 'mhint'), bn = [...b.childNodes];   // the mission hint plate sits on a card: a refresh threw it away every second, it blinked and jumped (tester 2026-11-23)
   for (let k = 0; k < bn.length; k++) {
     const x = an[k], y = bn[k];
     if (!x) { a.appendChild(y.cloneNode(true)); continue; }
     if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName) { a.replaceChild(y.cloneNode(true), x); continue; }
     if (x.nodeType === 3) { if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; continue; }
     if (x.nodeType !== 1) continue;
-    for (const at of [...x.attributes]) if (!y.hasAttribute(at.name)) x.removeAttribute(at.name);
+    const pu = x.classList.contains('pulse');
+    for (const at of [...x.attributes]) if (!y.hasAttribute(at.name) && !(at.name === 'style' && x.querySelector(':scope > #mhint'))) x.removeAttribute(at.name);
     for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
+    if (pu) x.classList.add('pulse');   // the lit card keeps glowing through refreshes
     if (x.nodeName === 'TEXTAREA' || x.nodeName === 'INPUT') continue;   // keep what the player typed
     morphChildren(x, y);
   }
@@ -4166,7 +4168,7 @@ const CNTS = {
   ranks: { g: 'rank', on: () => S.stats.graduated >= 10, now: rankSum, n: () => rint(2, 6) * 5, text: (n) => `Пусть ещё ${n} ${nOf(n, 'ученик получит', 'ученика получат', 'учеников получат')} звание 🌟`, go: lowEx },
   masters: { g: 'rank', on: () => isOpen(NCLS - 1) && ((S.stats.ranks || [])[4] || 0) > 0, now: () => (S.stats.ranks || [])[5] || 0, n: () => rint(1, 3), text: (n) => `Пусть ещё ${n} ${nOf(n, 'ученик получит', 'ученика получат', 'учеников получат')} высшее звание «${RANKS[RANKS.length - 1]}» 🌟`, go: () => [slotOfId('final'), '[data-act="exlvl"]'] },
   camps: { g: 'dir', on: () => bossOn(), now: () => S.stats.camps || 0, n: () => 1, text: () => 'Проведи рекламную акцию в кабинете директора 📣', go: () => ['DIR', '[data-act="camp"]'] },
-  mails: { g: 'dir', on: () => bossOn() && S.stats.graduated >= 20 && !calm(), now: () => S.stats.mails || 0, n: () => 1, text: () => 'Ответь на письмо родителей ✉️', go: () => ['DIR', '[data-act="mail"]'] },
+  mails: { g: 'dir', on: () => bossOn() && S.stats.graduated >= 20 && !calm(), now: () => S.stats.mails || 0, n: () => 1, text: () => 'Ответь на письмо родителей ✉️', go: () => ['DIR', '[data-mailopen]'] },   // build 313 moved the answers into their own window
   pot: { g: 'mg', on: () => true, now: () => (S.mg && S.mg.pot) || 0, n: () => rint(2, 4), text: (n) => `Свари ещё ${n} ${nOf(n, 'зелье', 'зелья', 'зелий')} в Зельеварке 🧪`, go: () => ['@mg', null] },
   gifts: { g: 'gift', on: () => !!myAl(), now: () => S.stats.gifts || 0, n: () => 1, text: () => 'Отправь подарок другу из альянса 🎁', go: () => ['@ally', null] },
   forms: { g: 'rank', on: () => FORM_KEYS.some(formReady), now: formSum, n: () => 1, text: () => 'Улучши карточку ученика в альбоме 🎓', go: () => ['@album', null],
@@ -4177,6 +4179,21 @@ const CNTS = {
 };
 // where a story mission's go points: '#classId' -> that class's room; the rest as is
 const storyGo = (go) => (go && go[0] && go[0][0] === '#' ? [slotOfId(go[0].slice(1)), go[1]] : go);
+// story «first Master» (tester 2026-11-23: «перекидывает туда где ты не можешь ничего прокачать»): a Master comes only from an elder mage (rank 4,
+// made in the Elements class) passing the rank exam in the exam hall. No elder in school -> the Elements rank exam; else the cheaper of the two chance upgrades
+const ELDER_I = () => CLASSES.findIndex((c, i) => !c.final && RANK_AT(i) === 4), FINAL_I = () => CLASSES.findIndex((c) => c.final);
+const eldersNow = () => inSchool().filter((a) => SPECIES.includes(a.sp) && (a.rk || 0) === 4).length;
+const isMasterStory = (m) => !!m && (m.id === 'master' || m.id === 'w_master');
+function masterGo() {
+  const E = ELDER_I(), F = FINAL_I(), up = (i) => isOpen(i) && exLvl(i) < MAX_EX_LVL;
+  if (E >= 0 && up(E) && (!eldersNow() || !up(F) || exCost(E) < exCost(F))) return [CLASS_SLOT[E], '[data-act="exlvl"]'];
+  return [CLASS_SLOT[F], up(F) ? '[data-act="exlvl"]' : null];
+}
+function masterHint() {
+  const E = ELDER_I(), F = FINAL_I(), n = eldersNow(), W2 = WORLD === 2;
+  if (!n) return `📋 Сначала нужен ${W2 ? 'Старший мастер' : 'Старший маг'}: его дают в классе «${CLASSES[E].name}» (шанс ${pct(rankChance(E))} за урок)`;
+  return `📋 ${W2 ? 'Старших мастеров' : 'Старших магов'} сейчас: ${n} · каждый станет ${RANKS_TO[5]} с шансом ${pct(rankChance(F))} за урок`;
+}
 // story chain: S.story = ids of claimed missions; old saves kept an index S.mission into the 13 first (v1) ones
 function storyCur() {
   if (!S.story) { S.story = {}; if (WORLD === 1) MISSIONS.filter((m) => m.v1).slice(0, S.mission || 0).forEach((m) => { S.story[m.id] = 1; }); }
@@ -4312,7 +4329,7 @@ function missionList() {   // [{key, text, reward, ok, prog}]
   if (S.dyn && !S.dynList) S.dynList = [S.dyn];   // older saves had one generated mission
   S.dynList ||= [];
   const out = [];
-  { const m = storyCur(); if (m) out.push({ key: 'f', type: 'f', lk: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: m.prog ? m.prog(G) : null, go: m.go ? storyGo(m.go) : missionGo(null, m.text) }); }
+  { const m = storyCur(); if (m) out.push({ key: 'f', type: 'f', lk: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: m.prog ? m.prog(G) : null, go: isMasterStory(m) ? masterGo() : m.go ? storyGo(m.go) : missionGo(null, m.text) }); }
   let made = false;
   const kindKey = (x) => [x.type, x.i ?? '', x.k ?? ''].join(':');   // one mission per kind at a time
   const seen = new Set(); S.dynList = S.dynList.filter((x) => !seen.has(kindKey(x)) && seen.add(kindKey(x)));
@@ -4402,6 +4419,7 @@ function missionHintText(m, sel) {
   const tm = /(?:до|на)\s+(\d+)/.exec(m.text) || /(\d+)\s*(?:-?го\s*)?(?:ур|уровн)/.exec(m.text);   // fixed story missions: the target is in the text, the current level on the lit card
   const b = sel && document.querySelector('#sheet ' + sel), card = b && (b.closest('.card') || b), cm = card && /ур\.\s*(\d+)/.exec(card.textContent);
   if (tm && cm) return `📋 ур. ${cm[1]} → ${tm[1]}`;
+  if (m.key === 'f' && isMasterStory(storyCur())) return masterHint();
   return `📋 ${m.text}`;
 }
 function showMissionHint(key, sel) { mHint = { key, sel, fn: null, t: 0 }; setTimeout(() => { if (mHint && mHint.key === key) { mHint.fn = panel; updMissionHint(); } }, 150); }
@@ -4412,11 +4430,13 @@ function updMissionHint() {   // build 267 (her «Оно не в видном м
   if (!m) { if (el) el.remove(); mHint = null; return; }
   const b = mHint.sel && document.querySelector('#sheet ' + mHint.sel), card = b && (b.closest('.card') || b.parentElement);
   if (!el) { el = document.createElement('div'); el.id = 'mhint'; }
-  const base = 'z-index:60;background:#fff6cf;border:2px solid #e2b23c;border-radius:12px;padding:3px 10px;font:800 14px ui-rounded,"Nunito","Segoe UI",sans-serif;color:#5a4410;box-shadow:0 3px 10px #0003;pointer-events:none;white-space:nowrap;';
+  const base = 'z-index:60;background:#fff6cf;border:2px solid #e2b23c;border-radius:12px;padding:3px 10px;font:800 14px ui-rounded,"Nunito","Segoe UI",sans-serif;color:#5a4410;box-shadow:0 3px 10px #0003;pointer-events:none;white-space:normal;line-height:1.25;';
   if (card && b) {   // on the card: its right edge over the button, half above the card's top edge
     if (el.parentElement !== card) { if (getComputedStyle(card).position === 'static') card.style.position = 'relative'; card.appendChild(el); }
     const cr = card.getBoundingClientRect(), br = b.getBoundingClientRect();
-    el.style.cssText = base + `position:absolute;right:${Math.max(4, cr.right - br.right)}px;top:${Math.round(br.top - cr.top) - 30}px;max-width:${Math.round(cr.width - 8)}px;overflow:hidden;text-overflow:ellipsis`;
+    el.style.cssText = base + `position:absolute;right:${Math.max(4, cr.right - br.right)}px;max-width:${Math.round(cr.width - 8)}px;overflow:hidden`;
+    const html = emojiHtml(missionHintText(m, mHint.sel)); if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html; }
+    el.style.top = `${Math.round(br.top - cr.top) - el.offsetHeight - 3}px`; return;
   } else {
     if (el.parentElement !== document.body) document.body.appendChild(el);
     const r = $('#sheet').getBoundingClientRect();

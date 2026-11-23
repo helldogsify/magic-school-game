@@ -156,7 +156,7 @@ export const MISSIONS = WORLD === 2 ? [
   { id: 'camp', text: 'Проведи рекламную акцию (кабинет директора) 📣', reward: 5000, check: (g) => statOf(g, 'camps') >= 1, go: ['DIR', '[data-act="camp"]'] },
   { id: 'shop', text: 'Открой лавку 🛍️', reward: 30000, check: (g) => g.shop(), go: ['SHOP', '[data-act="shopbuild"]'] },
   { id: 'cant', text: 'Построй столовую 🍽️', reward: 100000, check: (g) => g.cant(), go: ['CANT', '[data-act="cantbuild"]'] },
-  { id: 'mail', text: 'Ответь на письмо родителей ✉️', reward: 20000, check: (g) => statOf(g, 'mails') >= 1, go: ['DIR', '[data-act="mail"]'] },
+  { id: 'mail', text: 'Ответь на письмо родителей ✉️', reward: 20000, check: (g) => statOf(g, 'mails') >= 1, go: ['DIR', '[data-mailopen]'] },
   { id: 'charms', v1: 1, text: 'Построй класс Чар', reward: 4000, build: 'charms', check: (g) => g.built('charms') },
   { id: 'fount3', text: 'Улучши Волшебный фонтан до ур. 3 ⛲', reward: 8000, check: (g) => g.court().fount >= 3, prog: (g) => [g.court().fount, 3], go: ['FOUNT', '[data-act="cfount"]'] },
   { id: 'ally', text: 'Вступи в альянс или создай свой 🤝', reward: 20000, check: (g) => g.ally(), go: ['@ally', null] },
