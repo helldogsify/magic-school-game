@@ -310,7 +310,7 @@ function css() {
 #lore .lo-pic.lock { filter: brightness(0) opacity(.35); }
 #lore .lo-ico { width: 58px; height: 58px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 34px; }
 #lore .lo-ico img { width: 38px; height: 38px; }
-#lore .lo-back { border: 0; background: none; color: #7a5528; font: 800 15px inherit; padding: 4px 0 8px; }
+#lore .lo-back { position: sticky; top: 0; z-index: 2; display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 14px; background: #7a5528; color: #fff7e6; font: 800 16px ui-rounded, sans-serif; padding: 9px 16px 9px 12px; margin: 2px 0 10px; box-shadow: 0 3px 0 #4f3417, 0 4px 12px #0002; }   /* her «должна быть ярче и очевиднее видна кнопка назад»: a solid button that stays on screen while scrolling */
 #lore .lo-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
 #lore .lo-head .lo-pic { width: 96px; height: 96px; }
 #lore .lo-head h3 { margin: 0; font-size: 21px; font-family: Georgia, serif; color: #5a3b1c; }
