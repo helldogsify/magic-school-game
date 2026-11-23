@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=348';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=348';
-import { initMinigame } from './minigame.js?v=348';
-import { initChests } from './chests.js?v=348';
-import { initAvatar } from './avatar.js?v=348';
+} from './data.js?v=349';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=349';
+import { initMinigame } from './minigame.js?v=349';
+import { initChests } from './chests.js?v=349';
+import { initAvatar } from './avatar.js?v=349';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -21,7 +21,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 348;   // keep equal to the ?v= number in index.html
+const BUILD = 349;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5007,7 +5007,9 @@ $('#sheet-bg').addEventListener('click', closePanel);
 const FB_KEY = 'AIzaSyC2BiopoOBIkkFKf1RkkbKyOSHCgZMZSTg';   // the public web key of the Firebase project (safe to ship: access is decided by the rules)
 const TOP_URL = 'https://firestore.googleapis.com/v1/projects/magic-school-game-2ae0f/databases/(default)/documents/top';
 const TOP_MIN = 300, TOP_EVERY = 60, NAME_KEY = 'magicschool.schoolName', ANON_KEY = 'magicschool.anon';
-const schoolName = () => (localStorage.getItem(NAME_KEY) || '').trim();
+const WNAME_KEY = WORLD === 1 ? NAME_KEY : NAME_KEY + '.w' + WORLD;   // every world keeps its own school name (her «Названия для школы должны быть на каждый мир свое»)
+if (WORLD > 1 && localStorage.getItem(WNAME_KEY) === null && localStorage.getItem(NAME_KEY)) localStorage.setItem(WNAME_KEY, localStorage.getItem(NAME_KEY));   // once: the old shared name, then it is changed on its own
+const schoolName = () => (localStorage.getItem(WNAME_KEY) || '').trim();
 const NICK_KEY = 'magicschool.nick';   // build 249 (her «отдельной графой ... подписывать своё имя (ник)»)
 const playerNick = () => (localStorage.getItem(NICK_KEY) || '').trim();
 const cleanName = (s) => String(s || '').replace(/[<>"&\n\r\t]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
@@ -5321,7 +5323,7 @@ function topPanel() {
   const ok = all.filter((x) => x.n >= TOP_MIN).sort((a, b) => Math.round(b.r * 100) - Math.round(a.r * 100) || b.gold - a.gold || b.g - a.g), wait = all.filter((x) => x.n < TOP_MIN);
   const rows = ok.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span>${AV.img(x.id)}<div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${x.al && allyOf(x.al) ? ' ' + allyOf(x.al).emo : ''}${mine(x) ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${r2(x.r)} · 🎓 ${fmt(x.g)} выпускников · золотых отзывов ${fmt(x.gold)}</div></div></div>`).join('');
   const myPlace = ok.findIndex(mine);
-  const nameBox = `<h3>Название твоей школы</h3><input id="school-name" class="fb" maxlength="24" placeholder="Например: Звёздная академия" value="${escTxt(schoolName())}"><h3>Твоё имя (ник)</h3><input id="school-nick" class="fb" maxlength="20" placeholder="Как тебя подписать в топе" value="${escTxt(playerNick() || localStorage.getItem('magicschool.name') || '')}"><button class="btn wide" data-school-name>💾 Сохранить</button>`;
+  const nameBox = `<h3>Название твоей школы${WORLDS.length > 1 ? ` в ${WORLD === 2 ? 'мире гномов' : 'Школе магии'}` : ''}</h3><p class="muted" style="margin:0 0 4px">У каждого мира своё название, имя (ник) общее.</p><input id="school-name" class="fb" maxlength="24" placeholder="Например: Звёздная академия" value="${escTxt(schoolName())}"><h3>Твоё имя (ник)</h3><input id="school-nick" class="fb" maxlength="20" placeholder="Как тебя подписать в топе" value="${escTxt(playerNick() || localStorage.getItem('magicschool.name') || '')}"><button class="btn wide" data-school-name>💾 Сохранить</button>`;
   return `<div class="sh-head"><span class="remoji big">🏆</span><div><h2>Топ школ</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'} · по рейтингу 🏅</div></div><button class="x" data-close>✕</button></div>
     ${schoolName() ? `<p>Твоя школа «<b>${escTxt(schoolName())}</b>»${playerNick() ? ` (👤 ${escTxt(playerNick())})` : ''}: рейтинг 🏅 ${ratingTxt()}${myPlace >= 0 ? `, <b>${myPlace + 1}-е место</b>` : rating().n < TOP_MIN ? ` — в топ попадёт после ${TOP_MIN} отзывов (сейчас ${fmt(rating().n)})` : ''}.</p>` : '<p><b>Придумай название школы</b> и впиши своё имя, чтобы школа появилась в топе. Их увидят все игроки.</p>'}
     ${nameBox}${AV.myBox()}${AV.modBox()}
@@ -5347,7 +5349,7 @@ function saveSchoolName() {
   const v = cleanName(el.value);
   if (!v) { toast('Напиши название школы'); return; }
   const nk = cleanName((document.getElementById('school-nick') || {}).value).slice(0, 20);
-  localStorage.setItem(NAME_KEY, v); if (nk) localStorage.setItem(NICK_KEY, nk); else localStorage.removeItem(NICK_KEY);
+  localStorage.setItem(WNAME_KEY, v); if (nk) localStorage.setItem(NICK_KEY, nk); else localStorage.removeItem(NICK_KEY);
   toast(`🏫 Школа «${v}»${nk ? ', директор ' + nk : ''} — записано`);
   topPush(true).finally(topLoad); refreshPanel();
 }
