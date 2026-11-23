@@ -31,7 +31,9 @@ const BOOSTS = [
   { id: 'x2', name: 'Зелья ×2 очков', min: 1.5, ico: () => FLASK },
 ];
 const bsel = new Set();   // chosen boosters (kept between rounds while affordable)
-const boostCost = (b) => Math.max(100, Math.round(((st().ema || 0) * 60 * b.min) / 10) * 10);
+let emaSnap = 0;   // the school's income per second taken when the mini-game opens (her report: prices fell on every tap, the live average sags while the overlay is open)
+const incomeNow = () => emaSnap || st().ema || 0;
+const boostCost = (b) => Math.max(100, Math.round((incomeNow() * 60 * b.min) / 10) * 10);
 const bTotal = () => BOOSTS.reduce((a, b) => a + (bsel.has(b.id) ? boostCost(b) : 0), 0);
 export const weekKey = (t = Date.now()) => Math.floor((t / 86400000 + 3) / 7);   // weeks start on Monday 00:00 UTC
 
@@ -304,6 +306,7 @@ export function open() {
   css(); if (!imgs.length) loadArt();
   root = el(`<div id="mg"></div>`); document.body.appendChild(root);
   root.addEventListener('click', onClick);
+  emaSnap = st().ema || 0;   // prices and rewards use the income of the moment the mini-game was opened
   A.onOpen && A.onOpen();
   showStart();
 }
@@ -629,7 +632,7 @@ function finish(silent) {
   let coins = 0, boost = 0;
   if (R.rewarded && score > 0) {
     const min = Math.min(MAX_MIN, MAX_MIN * score / STAR[2]);
-    coins = Math.max(10, Math.round(Math.max(min * 60 * (S.ema || 0), min * 30) / 10) * 10);
+    coins = Math.max(10, Math.round(Math.max(min * 60 * incomeNow(), min * 30) / 10) * 10);
     A.earn(coins);
     boost = BOOST[stars];
     if (boost) { const now = Date.now(); S.boostEnd = Math.min(now + BOOST_CAP_MIN * 60000, Math.max(now, S.boostEnd || 0) + boost * 60000); }
