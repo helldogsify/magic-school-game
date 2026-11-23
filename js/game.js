@@ -2,11 +2,11 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=367';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=367';
-import { initMinigame } from './minigame.js?v=367';
-import { initChests } from './chests.js?v=367';
-import { initAvatar } from './avatar.js?v=367';
+} from './data.js?v=368';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=368';
+import { initMinigame } from './minigame.js?v=368';
+import { initChests } from './chests.js?v=368';
+import { initAvatar } from './avatar.js?v=368';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -22,7 +22,7 @@ const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => sa
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 367;   // keep equal to the ?v= number in index.html
+const BUILD = 368;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -529,6 +529,7 @@ function genLayoutW2() {
   { const m = SLOTS.C3 || SLOTS.C1; if (m) SLOTS.EXPED = slot(28, m.y0, [[28, m.y0 + 3], [27, m.y0 + 3]], {}, 6, 6); }   // the gates of the deep: an open yard right of the middle row   // a short way from the gate road into the yard
   GATE_TILE = { x: 16.5, y: recY + 12.5 };
   GATE_Y = recY + 9;
+  { const L5 = SLOTS.C5; LAKE = L5 ? { cx: L5.x1 + 6, cy: (L5.y0 + L5.y1) / 2 - 1, rx: 4.0, ry: 4.8 } : null; }   // the underground lake (plan item)
   GH = recY + 21; GW = 50;
 }
 // World 1 layout «двор с фонтаном» (her pick 2026-11-22, design/layout_C_court.png): the rooms stand along the two far edges of the
@@ -630,7 +631,9 @@ function genLayout() {
   return genLayoutCourt();
 
 }
-let GATE_Y = 0;
+let GATE_Y = 0, LAKE = null;
+const lakeD = (x, y, m = 0) => (LAKE ? Math.pow((x - LAKE.cx) / (LAKE.rx + m), 2) + Math.pow((y - LAKE.cy) / (LAKE.ry + m), 2) : 9);   // < 1 inside the lake grown by m tiles
+function lakeRing(m = 0, n = 64) { const o = []; for (let k = 0; k < n; k++) { const an = k / n * Math.PI * 2, w = 1 + 0.06 * Math.sin(an * 3 + 1) + 0.04 * Math.sin(an * 5 + 2); o.push(P(LAKE.cx + Math.cos(an) * (LAKE.rx + m) * w, LAKE.cy + Math.sin(an) * (LAKE.ry + m) * w)); } return o; }
 // region grid (rebuilt with the layout)
 let REG = [];
 const YOFF = 0;
@@ -1145,10 +1148,12 @@ const storeCost = () => paced(tuition(2) * 120 * Math.pow(2.0, W2().store - 1), 
 const MAX_STORE = 15, ORE_FORGE = 2, GEM_CHANCE = 0.04;
 const w2Id = (i) => (WORLD === 2 ? CLASSES[i].id : '');
 const w2Pay = (i) => (w2Id(i) === 'forge' && W2().ore < ORE_FORGE ? 0.5 : 1);   // a forge lesson without ore pays half
+const FISH_CHANCE = 0.15, FISH_MAX = 30;   // the lake hall's catch for the feasting hall
 function w2Lesson(i, p) {
   const id = w2Id(i); if (!id) return; const w = W2();
   if (id === 'mine') { if (w.ore < oreCap()) { w.ore++; S.stats.ore = (S.stats.ore || 0) + 1; if (!ffwd) popup('⛏️ +1', p.x + 0.4, p.y - 0.2, '#8a6d3b', 30); } else if (!ffwd) popup('📦 склад полон', p.x + 0.4, p.y - 0.2, '#a05a2c', 30); }
   else if (id === 'forge') { if (w.ore >= ORE_FORGE) { w.ore -= ORE_FORGE; w.items++; S.stats.forged = (S.stats.forged || 0) + 1; if (!ffwd) popup('⚒️ +1', p.x + 0.4, p.y - 0.2, '#b0602c', 30); } else if (!ffwd) popup('нет руды', p.x + 0.4, p.y - 0.2, '#7a7a7a', 30); }
+  else if (id === 'lake' && Math.random() < FISH_CHANCE) { if ((w.fish || 0) < FISH_MAX) { w.fish = (w.fish || 0) + 1; S.stats.fish = (S.stats.fish || 0) + 1; if (!ffwd) popup('🐟 +1', p.x + 0.4, p.y - 0.2, '#3f8fc0', 36); } }
   else if (id === 'gems' && Math.random() < GEM_CHANCE) { w.gems++; S.stats.gemsCut = (S.stats.gemsCut || 0) + 1; if (!ffwd) popup('💎 +1', p.x + 0.4, p.y - 0.2, '#7b5cd6', 40); }
 }
 // ---- caravans (Торговый двор): items and gems are loaded into the wagon; a full wagon leaves by itself (or by the button)
@@ -1358,15 +1363,16 @@ function goCanteen(a, next) {
 const freeCantSeat = () => { for (let k = 0; k < 2 * cantTables(); k++) if (!cantSeats[k]) return k; return -1; };
 function cantServed(a) {   // the tray is ready: pay, take a seat (or wait at the counter while every seat is taken)
   const k = freeCantSeat(); if (k < 0) { a.t = a.dur; return; }
-  earn(cantPrice(), a.x, a.y, '#e08a3d', 44); S.stats.cant = (S.stats.cant || 0) + 1;
-  a.dish = rnd(cantDishes()); a.cseat = k; cantSeats[k] = a;
+  const fish = WORLD === 2 && S.w2 && S.w2.fish > 0; if (fish) S.w2.fish--; a.fish = fish;   // a glowing-fish dinner: double price, extra mood
+  earn(cantPrice() * (fish ? 2 : 1), a.x, a.y, '#e08a3d', 44); S.stats.cant = (S.stats.cant || 0) + 1;
+  a.dish = fish ? '🐟' : rnd(cantDishes()); a.cseat = k; cantSeats[k] = a;
   a.back = false; a.inLine = false; const i = cantLine.indexOf(a); if (i >= 0) cantLine.splice(i, 1);
   const p = cantSeatPos(k); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'eat'; a.t = 0; a.dur = CANT_EAT; a.flip = p.flip; a.back = false; });
   cantLine.forEach(cantPlace);   // the line moves up
 }
 function finishEating(a) {
   if (a.cseat >= 0 && cantSeats[a.cseat] === a) cantSeats[a.cseat] = null; a.cseat = -1;
-  a.mood = Math.min(100, moodOf(a) + cantMood()); a.fed = true;
+  a.mood = Math.min(100, moodOf(a) + cantMood() + (a.fish ? 10 : 0)); a.fed = true; a.fish = false;
   popup(rnd(['😋', '🥰', '😊']), a.x - 0.3, a.y - 0.3, '#e08a3d', 60);
   route(a, a.goal.n);
 }
@@ -2517,14 +2523,18 @@ const OUT_H = { oak: 180, blossom: 150, willow: 165, goldtree: 150, fir: 172, to
   cz_swing: 112, cz_target: 68, cz_picnic: 58, cz_cushions: 40, cz_bookshelf: 74, cz_lanterns: 92 };   // big enough to read at the normal zoom   // world px; a class wall is ~106, a student 30 (her ruling: trees must be big)
 // World 2 (cold mountain kingdom): the same composed territory, drawn with cave things instead of trees and flowers.
 // The world-1 layout names are mapped to cave sprites (null = nothing there); the pictures load into the same 'outdoor/<name>' keys.
-const OUT_H_W2 = { stalag_a: 168, stalag_b: 176, stalag_c: 160, mush_teal: 140, mush_violet: 128, crystal_big: 120, boulder: 40, rubble: 28, glowmush: 38, crystals: 40, ore: 36, minecart: 46, lantern: 76, runestone: 44, dwarf_statue: 64, gate_big: 200 };
+// the lake's things: [name, dx, dy from the lake centre (tiles), scale, flip]
+const LAKE_ITEMS = [['lk_rocks', -3.4, -2.4, 1], ['lk_pier', -2.6, 0.4, 1], ['lk_post', -4.3, 1.5, 1], ['lk_fish', -4.5, -0.2, 1], ['lk_boat', -1.6, 1.8, 1], ['lk_boat2', 1.2, -1.4, 1, 1], ['lk_lilies', 1.8, 2.0, 1], ['lk_lilies', -0.6, -3.0, 0.9], ['lk_crystal', 2.6, -3.2, 1], ['lk_rocks', 4.0, 1.0, 1, 1], ['lk_crystal', 3.4, 3.5, 0.8, 1]];
+const OUT_H_W2 = { lk_pier: 62, lk_boat: 44, lk_boat2: 58, lk_post: 62, lk_lilies: 24, lk_crystal: 56, lk_rocks: 40, lk_fish: 26, stalag_a: 168, stalag_b: 176, stalag_c: 160, mush_teal: 140, mush_violet: 128, crystal_big: 120, boulder: 40, rubble: 28, glowmush: 38, crystals: 40, ore: 36, minecart: 46, lantern: 76, runestone: 44, dwarf_statue: 64, gate_big: 200 };
 const CAVE_OF = { oak: 'stalag_a', fir: 'stalag_b', willow: 'stalag_c', blossom: 'mush_teal', goldtree: 'mush_violet', toadhouse: 'crystal_big', fern: 'rubble', berrybush: 'glowmush', hedge: 'boulder', roses: 'crystals', roses2: 'crystals',
   bells: 'glowmush', boulder: 'boulder', stump: 'ore', starflowers: 'glowmush', flowerbed: 'rubble', birdbath: 'ore', chestmush: 'glowmush', pumpkin: 'minecart', well: 'minecart', beehive: 'ore', fairyring: 'crystal_big',
   runestone: 'runestone', lantern_gold: 'lantern', lantern_blue: 'lantern', owl_statue: null, fox_statue: null, flowerbox: 'rubble', urn: 'lantern', signpost2: 'runestone', founder: 'dwarf_statue',
+  lk_pier: 'lk_pier', lk_boat: 'lk_boat', lk_boat2: 'lk_boat2', lk_post: 'lk_post', lk_lilies: 'lk_lilies', lk_crystal: 'lk_crystal', lk_rocks: 'lk_rocks', lk_fish: 'lk_fish',
   hydrangea: 'glowmush', peonybed: 'crystals', crystalball: 'crystals', flowerarch: 'runestone', fountain: 'crystal_big', gazebo: 'mush_teal', bench_a: 'boulder', bench_b: 'boulder', topiary_ball: 'glowmush', topiary_spiral: 'crystals', gate_big: 'gate_big' };
 const outName = (n) => (WORLD === 2 ? CAVE_OF[n] || null : n);
 if (WORLD === 2) { for (const k of Object.keys(OUT_H)) delete OUT_H[k]; Object.assign(OUT_H, OUT_H_W2); }
 const OUT_DIR = WORLD === 2 ? 'cave' : 'outdoor';
+const LAKE_WATER = new Image(); if (WORLD === 2) { LAKE_WATER.onload = () => { staticKey = ''; }; LAKE_WATER.src = 'assets/parts/cave/lk_water.webp?v=1'; }
 const outLo = {}, outMid = {}, outSh = {}, outTint = {};   // outTint[n] = { mid: [lvl1, lvl2], lo: [lvl1, lvl2] }: darker, cooler copies for the deep forest
 const OUT_TREE = new Set(['oak', 'fir', 'willow', 'blossom', 'goldtree', 'stalag_a', 'stalag_b', 'stalag_c', 'mush_teal', 'mush_violet']);
 function tintCopies(src) { return [0.17, 0.32].map((a) => { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const x = c.getContext('2d'); x.drawImage(src, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = `rgba(26,38,70,${a})`; x.fillRect(0, 0, c.width, c.height); return c; }); }   // outSh: a tiny dark silhouette of each sprite; drawn stretched it gives a soft cast shadow   // small copies (240 px tall) for the far view: downscaling an 800 px tree every frame is slow
@@ -2552,7 +2562,7 @@ function layoutOutdoor() {
   const inWorld = (x, y) => { const m = P(x, y); return m.x > -40 && m.x < WW + 40 && m.y > 40 && m.y < WH + 160; };   // trees may stand right at the map edge (crowns cut by it)
   const G0 = GATE_TILE, front = (x, y) => (Math.abs(x - G0.x - 0.5) < 10 && y > G0.y - 4) || (y > BUILDING.y1 && D(x, y) < 10);   // the view of the entrance and the south front stays open
   const behind = new Set(); for (const e of EDGES) if (e.hallWall) for (let k = 1; k <= 5; k++) for (let j = -2; j <= 2; j++) behind.add(e.side === 'y0' ? (e.x + j) + ',' + (e.y - k) : (e.x - k) + ',' + (e.y + j));   // the tall corridor walls hide what stands just behind them
-  const TD = WORLD === 2 && SLOTS.DIR, out = [], put = (n, x, y, minD, sc = 1) => { n = outName(n); if (!n) return false; if (TD && x > TD.x0 - 1 && x < TD.x1 + 5 && y > TD.y0 - 1 && y < TD.y1 + 5) return false; if (WORLD === 2 && SLOTS.CANT && x > SLOTS.CANT.x0 - 1 && x < SLOTS.CANT.x1 + 5 && y > SLOTS.CANT.y0 - 4 && y < SLOTS.CANT.y1 + 5) return false; if (WORLD === 2 && SLOTS.EXPED && x > SLOTS.EXPED.x0 - 1 && x < SLOTS.EXPED.x1 + 5 && y > SLOTS.EXPED.y0 - 1 && y < SLOTS.EXPED.y1 + 5) return false; if (D(x, y) < minD || !inWorld(x, y) || behind.has(Math.floor(x) + ',' + Math.floor(y))) return false; if (minD >= 4 && front(x, y)) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
+  const TD = WORLD === 2 && SLOTS.DIR, out = [], put = (n, x, y, minD, sc = 1) => { n = outName(n); if (!n) return false; if (TD && x > TD.x0 - 1 && x < TD.x1 + 5 && y > TD.y0 - 1 && y < TD.y1 + 5) return false; if (WORLD === 2 && SLOTS.CANT && x > SLOTS.CANT.x0 - 1 && x < SLOTS.CANT.x1 + 5 && y > SLOTS.CANT.y0 - 4 && y < SLOTS.CANT.y1 + 5) return false; if (WORLD === 2 && SLOTS.EXPED && x > SLOTS.EXPED.x0 - 1 && x < SLOTS.EXPED.x1 + 5 && y > SLOTS.EXPED.y0 - 1 && y < SLOTS.EXPED.y1 + 5) return false; if (D(x, y) < minD || !inWorld(x, y) || behind.has(Math.floor(x) + ',' + Math.floor(y))) return false; if (minD >= 4 && front(x, y)) return false; if (LAKE && (lakeD(x, y, 1.6) < 1 || (minD >= 4 && x + y > LAKE.cx + LAKE.cy && lakeD(x, y, 7) < 1))) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
   // scenes, each tied to a building (skipped when that building's slot is missing)
   const zones = [];
   const keep = [];   // every scene / entrance item: no tree may stand in front of (down-screen of) it
@@ -2655,6 +2665,7 @@ function layoutOutdoor() {
     if (coversKept(x, y)) continue;
     if (put(n, x, y, 6, sc)) out[out.length - 1].depth = depth;
   }
+  if (WORLD === 2 && LAKE) for (const [n, dx, dy, sc, fl] of LAKE_ITEMS) out.push({ n, x: LAKE.cx + dx, y: LAKE.cy + dy, th: 'outdoor', s: sc || 1, flip: !!fl });   // the lake's pier, boats and shore
   OUTDOOR = out;
 }
 // The iso grass repeats on an axis-aligned rectangle 2N*HW x 2N*HH: it is rendered once into a small tile canvas and then
@@ -3032,6 +3043,12 @@ function drawStatic() {
     if (!inside && stone) { poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]); c.fillStyle = stone; c.fill(); continue; }   // outdoor paths: rune flagstones
     poly(c, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], col, inside ? '#c08d58' : '#e3d3b6');
     if (carpet && y % 3 === 0) { const m = P(x + 0.5, y + 0.5); emoji('✦', m.x, m.y, 7, c); }
+  }
+  if (WORLD === 2 && LAKE) {   // the underground lake: wet dark shore, water with its texture, a wet rim
+    c.save(); poly(c, lakeRing(0.9)); c.fillStyle = 'rgba(28,34,48,0.22)'; c.fill(); poly(c, lakeRing(0.45)); c.fillStyle = 'rgba(28,34,48,0.22)'; c.fill(); poly(c, lakeRing(0)); c.fillStyle = '#1c3a55'; c.fill(); c.clip();
+    if (LAKE_WATER.naturalWidth) { const pt = c.createPattern(LAKE_WATER, 'repeat'), T = LAKE_WATER.naturalWidth / 3, o = P(0, 0); pt.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, o.x, o.y])); c.globalAlpha = 0.9; c.fillStyle = pt; poly(c, lakeRing(0)); c.fill(); c.globalAlpha = 1; }
+    const m0 = P(LAKE.cx, LAKE.cy), g = c.createRadialGradient(m0.x, m0.y, 4, m0.x, m0.y, LAKE.ry * HH * 2.2); g.addColorStop(0, 'rgba(8,20,40,0.45)'); g.addColorStop(0.7, 'rgba(8,20,40,0.15)'); g.addColorStop(1, 'rgba(120,200,230,0.25)'); c.fillStyle = g; poly(c, lakeRing(0)); c.fill();
+    c.restore(); c.save(); c.lineWidth = 4; c.strokeStyle = 'rgba(70,78,96,0.95)'; poly(c, lakeRing(0.05)); c.stroke(); c.lineWidth = 1.4; c.strokeStyle = 'rgba(150,215,240,0.55)'; poly(c, lakeRing(-0.12)); c.stroke(); c.restore();
   }
   const mos = WORLD === 1 && COURT && part('outdoor', 'mosaic');
   if (mos) { const cc = courtC(), R = 4.6, Wm = mos.naturalWidth, T = Wm / (2 * R), o = P(cc.x - R, cc.y - R); c.save(); c.transform(HW / T, HH / T, -HW / T, HH / T, o.x, o.y); c.drawImage(mos, 0, 0); c.restore(); }   // the mosaic picture, flat on the ground
@@ -4269,7 +4286,7 @@ function cantPanel() {
     ${row('cook', '🐲', 'Повар', 'раздаёт еду быстрее')}
     ${row('tables', '🪑', 'Столы', `столов: ${cantTables()}, больше учеников заходят (+3%)`)}
     ${row('menu', '📜', 'Меню', `обед дороже (+15% взноса), настроение +2%. Сейчас: ${cantDishes().join(' ')}`)}
-    <p class="muted">Обед поднимает настроение на ${cantMood()}%. Сытый ученик сдаёт следующий экзамен на ${Math.round(FED_BONUS * 100)}% легче.</p>`;
+    <p class="muted">Обед поднимает настроение на ${cantMood()}%. Сытый ученик сдаёт следующий экзамен на ${Math.round(FED_BONUS * 100)}% легче.</p>${WORLD === 2 ? `<div class="card up"><span class="remoji">🐟</span><div class="grow"><b>Светящаяся рыба: ${(S.w2 && S.w2.fish) || 0}/${FISH_MAX}</b><div class="muted">её ловят на уроках в Озёрном зале. Ужин из рыбы стоит вдвое дороже и поднимает настроение ещё на 10%</div></div></div>` : ''}`;
 }
 function shopPanel() {
   const u = shopUp();
