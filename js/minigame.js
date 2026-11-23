@@ -67,10 +67,12 @@ export const SND = {
   brew(c, o, t) { tone(c, o, t, 160, 70, 0.4, 0.3, 'sine', 0.01); hiss(c, o, t, 0.6, 0.2, 'lowpass', 1200, 200, 0.7, 0.01);
     for (let k = 0; k < 9; k++) tone(c, o, t + 0.25 + k * 0.09 + Math.random() * 0.03, 300 + Math.random() * 250, 700 + Math.random() * 300, 0.06, 0.08);
     [784, 988, 1175, 1568].forEach((f, k) => tone(c, o, t + 0.9 + k * 0.1, f, f, 0.7, 0.06, 'triangle', 0.005)); },
+  boom(c, o, t) { tone(c, o, t, 180, 60, 0.45, 0.4, 'sine', 0.005); hiss(c, o, t, 0.5, 0.25, 'lowpass', 2000, 200, 0.7, 0.005);
+    for (let k = 0; k < 10; k++) { const f = PENTA[3 + (k % 7)]; tone(c, o, t + 0.15 + k * 0.05, f, f * 1.01, 0.4, 0.06, 'triangle', 0.004); } },
   tick(c, o, t) { tone(c, o, t, 1200, 1150, 0.06, 0.06, 'sine', 0.003); },
   end(c, o, t) { [523, 659, 784, 1047].forEach((f, k) => tone(c, o, t + k * 0.14, f, f, 0.8, 0.08, 'triangle', 0.005)); for (let k = 0; k < 6; k++) { const f = PENTA[5 + (k % 5)]; tone(c, o, t + 0.7 + k * 0.12, f, f, 0.5, 0.03, 'sine', 0.01); } },
 };
-export const SND_DB = { pop: 0, nope: 0, special: 2, brew: -4.5, tick: 6, end: 5 };   // measured peaks then: pop -15.7, nope -18.8, special -14.8, brew -13.9, tick -18.5, end -14.7 dB
+export const SND_DB = { boom: -8, pop: 0, nope: 0, special: 2, brew: -4.5, tick: 6, end: 5 };   // measured peaks then: pop -15.7, nope -18.8, special -14.8, brew -13.9, tick -18.5, end -14.7 dB
 function snd(name, arg) {
   const a = A.audioOut && A.audioOut(); if (!a) return;
   try { const g = a.c.createGain(); g.gain.value = Math.pow(10, (SND_DB[name] || 0) / 20); g.connect(a.out); SND[name](a.c, g, a.c.currentTime + 0.01, arg); } catch (e) { /* never break the game for a sound */ }
@@ -144,16 +146,25 @@ function blast(g, r, c, tile, target) {
 // one resolve step: returns {clear:[[r,c]..], make:[{r,c,t,sp}], fired:n} or null when nothing matches.
 // swap = [a,b] of the move that started it (special combos and where new specials appear)
 export function resolveStep(g, swap) {
-  const clear = new Map(), make = [], queue = [];
+  const clear = new Map(), make = [], queue = [], fx = []; let combo = null;   // fx: what to draw (beams, rings, lightning); combo: name of a special+special swap
   const add = (r, c, why) => { const k = r * N + c; if (clear.has(k) || !g[r][c]) return; clear.set(k, why); if (g[r][c].sp || g[r][c].t === RAINBOW) queue.push([r, c]); };
   if (swap && isSpecialSwap(g, swap[0], swap[1])) {
     const [a, b] = swap, x = g[a[0]][a[1]], y = g[b[0]][b[1]];
-    if (x.t === RAINBOW && y.t === RAINBOW) { for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) add(r, c, 's'); }
+    if (x.t === RAINBOW && y.t === RAINBOW) { combo = 'rr'; fx.push({ k: 'rr', r: b[0], c: b[1] }); for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) add(r, c, 's'); }
     else if (x.t === RAINBOW || y.t === RAINBOW) {
       const [rp, other] = x.t === RAINBOW ? [a, y] : [b, x];
-      clear.set(rp[0] * N + rp[1], 's');
-      for (const [r, c] of blast(g, rp[0], rp[1], g[rp[0]][rp[1]], other.t)) { if (other.sp && g[r][c] && !g[r][c].sp && g[r][c].t >= 0) g[r][c].sp = other.sp === 'b' ? 'b' : Math.random() < 0.5 ? 'h' : 'v'; add(r, c, 's'); }
-    } else { add(a[0], a[1], 's'); add(b[0], b[1], 's'); }
+      clear.set(rp[0] * N + rp[1], 's'); combo = other.sp ? 'r+' : 'r';
+      const cells = blast(g, rp[0], rp[1], g[rp[0]][rp[1]], other.t); fx.push({ k: 'r', r: rp[0], c: rp[1], cells });
+      for (const [r, c] of cells) { if (other.sp && g[r][c] && !g[r][c].sp && g[r][c].t >= 0) g[r][c].sp = other.sp === 'b' ? 'b' : Math.random() < 0.5 ? 'h' : 'v'; add(r, c, 's'); }
+    } else {   // build 354 combos: line+line = cross, bomb+line = 3-wide cross, bomb+bomb = big 5x5 blast
+      const [br, bc] = b, lines = [x.sp, y.sp].filter((k) => k === 'h' || k === 'v').length;
+      clear.set(a[0] * N + a[1], 's'); clear.set(b[0] * N + b[1], 's');
+      const cells = [];
+      if (lines === 2) { combo = 'x'; for (let k = 0; k < N; k++) cells.push([br, k], [k, bc]); fx.push({ k: 'h', r: br, c: bc }, { k: 'v', r: br, c: bc }); }
+      else if (lines === 1) { combo = 'x3'; for (let d = -1; d <= 1; d++) for (let k = 0; k < N; k++) { if (br + d >= 0 && br + d < N) cells.push([br + d, k]); if (bc + d >= 0 && bc + d < N) cells.push([k, bc + d]); } for (let d = -1; d <= 1; d++) fx.push({ k: 'h', r: br + d, c: bc, w: 1 }, { k: 'v', r: br, c: bc + d, w: 1 }); }
+      else { combo = 'b5'; for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) { const rr = br + dr, cc = bc + dc; if (rr >= 0 && rr < N && cc >= 0 && cc < N) cells.push([rr, cc]); } fx.push({ k: 'b', r: br, c: bc, big: 1 }); }
+      for (const [r, c] of cells) add(r, c, 's');
+    }
   } else {
     const groups = findGroups(g); if (!groups.length) return null;
     for (const gr of groups) {
@@ -168,10 +179,10 @@ export function resolveStep(g, swap) {
     }
   }
   let fired = 0;
-  while (queue.length) { const [r, c] = queue.shift(); const tile = g[r][c]; if (!tile) continue; fired++; for (const [rr, cc] of blast(g, r, c, tile)) add(rr, cc, 's'); }
+  while (queue.length) { const [r, c] = queue.shift(); const tile = g[r][c]; if (!tile) continue; fired++; const cells = blast(g, r, c, tile); fx.push({ k: tile.t === RAINBOW ? 'r' : tile.sp, r, c, cells }); for (const [rr, cc] of cells) add(rr, cc, 's'); }
   // a new special appears on its spot only if that spot was not blown by another special in the same step
   const made = make.filter((m) => clear.get(m.r * N + m.c) === 'm');
-  return { clear: [...clear.keys()].map((k) => [Math.floor(k / N), k % N]), make: made, fired };
+  return { clear: [...clear.keys()].map((k) => [Math.floor(k / N), k % N]), make: made, fired, fx, combo };
 }
 export function points(nTiles, chain, nMade, fired) { return Math.round(nTiles * 10 * (1 + 0.5 * chain) + nMade * 30 + fired * 20); }
 
@@ -241,6 +252,19 @@ function css() {
 #mg .mg-caul-in img { width: 100%; height: 100%; object-fit: contain; }
 #mg .mg-caul-in .em { width: 70%; height: 70%; }
 #mg .mg-caul-in.puff { animation: mgpuff .7s ease-out; }
+#mg .mg-board-wrap { position: relative; }
+#mg .mg-praise { position: absolute; left: 0; right: 0; top: 38%; text-align: center; pointer-events: none; font: 900 34px ui-rounded, "Nunito", system-ui, sans-serif;
+  -webkit-text-stroke: 7px #fff; paint-order: stroke fill; text-shadow: 0 4px 14px #7b5cd655; animation: mgpraise 1.3s ease-out forwards; }
+@keyframes mgpraise { 0% { transform: scale(.3) rotate(-8deg); opacity: 0; } 18% { transform: scale(1.18) rotate(3deg); opacity: 1; } 30% { transform: scale(1) rotate(0); } 80% { opacity: 1; } 100% { transform: translateY(-30px) scale(.95); opacity: 0; } }
+#mg .mg-fly { position: fixed; z-index: 3; pointer-events: none; will-change: transform; }
+#mg .mg-caul { position: relative; }
+#mg .mg-caul-in.gulp { animation: mggulp .32s ease-out; }
+@keyframes mggulp { 40% { transform: scale(1.07, .94); } }
+#mg .mg-bubs { position: absolute; left: 50%; top: 50%; width: min(26vh, 100%); height: min(26vh, 100%); transform: translate(-50%, -50%); pointer-events: none; }
+#mg .mg-bubs i { position: absolute; bottom: 62%; width: 9%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #ffb3d6 45%, #ff7fb8); opacity: 0; animation: mgbub 2.6s ease-in infinite; }
+#mg .mg-bubs i:nth-child(1) { left: 36%; animation-delay: 0s; } #mg .mg-bubs i:nth-child(2) { left: 50%; animation-delay: .5s; width: 7%; }
+#mg .mg-bubs i:nth-child(3) { left: 60%; animation-delay: 1.1s; } #mg .mg-bubs i:nth-child(4) { left: 43%; animation-delay: 1.6s; width: 6%; } #mg .mg-bubs i:nth-child(5) { left: 55%; animation-delay: 2.1s; width: 8%; }
+@keyframes mgbub { 0% { transform: translateY(0) scale(.4); opacity: 0; } 15% { opacity: .95; } 80% { opacity: .8; } 100% { transform: translateY(-120%) scale(1.1); opacity: 0; } }
 @keyframes mgbob { 50% { transform: translateY(-4px) rotate(-1.5deg); } }
 @keyframes mgpuff { 30% { transform: scale(1.18); filter: brightness(1.3); } }
 @keyframes mgpulse { 50% { transform: scale(1.07); } }
@@ -280,7 +304,7 @@ function showStart() {
     <div class="mg-pot">${FLASK}</div><h2>Зельеварка</h2>
     <p>Меняй соседние ингредиенты местами и собирай <b>3 в ряд</b>. Собери ингредиенты рецепта — и сваришь зелье!</p>
     <div class="mg-ings">${ING.map((_, t) => ingImg(t)).join('')}</div>
-    <p class="muted">4 в ряд — волшебная полоска, уголок — взрыв, 5 в ряд — ${ingImg(RAINBOW)} звёздочка: поменяй её с любым ингредиентом.</p>
+    <p class="muted">4 в ряд — волшебная полоска, уголок — взрыв, 5 в ряд — ${ingImg(RAINBOW)} звёздочка: поменяй её с любым ингредиентом. Поменяй местами две особые фишки — будет сильное сочетание!</p>
     <p>Раунд — ${ROUND} секунд. Награда: монеты (до ${MAX_MIN} минут дохода школы), за 2–3 ⭐ ещё ✨ Вдохновение.</p>
     <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
     <p class="muted">Рекорд недели: ${num(best)}${m.best ? ` · за всё время: ${num(m.best)}` : ''}</p>
@@ -304,14 +328,15 @@ function start() {
   if (rewarded) { const m = mg(); if (m.ch >= CH_MAX) m.t = Date.now(); m.ch--; }
   mg().n++;
   A.save();
-  R = { live: true, rewarded, g: makeBoard(), score: 0, shown: 0, left: ROUND, state: 'idle', anim: 0, chain: 0, sel: null, swap: null, idleT: 0, fx: [], texts: [], brewed: 0, rec: null, lastTick: 0, busyT: 0 };
+  R = { live: true, rewarded, g: makeBoard(), score: 0, shown: 0, left: ROUND, state: 'idle', anim: 0, chain: 0, sel: null, swap: null, idleT: 0, fx: [], texts: [], beams: [], shake: 0, brewed: 0, rec: null, lastTick: 0, busyT: 0 };
   R.rec = newRecipe(0);
   root.innerHTML = A.emojiHtml(`<div class="mg-top"><button class="mg-x" data-mgx aria-label="Закончить">✕</button><div class="mg-chip time">⏱️ <span class="mg-t"></span></div><div class="mg-chip score">✨ <span class="mg-s">0</span></div></div>
     <div class="mg-rec"></div>
     <div class="mg-board-wrap"><canvas></canvas></div>
     <div class="mg-hint">Проведи пальцем по ингредиенту в сторону соседа</div>
-    <div class="mg-caul"><div class="mg-caul-in">🫕</div></div>`);
-  { const c = root.querySelector('.mg-caul-in'), im = imgs.caul; if (artOk(im)) { c.innerHTML = ''; c.appendChild(im); } }
+    <div class="mg-caul"><div class="mg-caul-in">🫕</div><div class="mg-bubs"><i></i><i></i><i></i><i></i><i></i></div></div>`);
+  { const c = root.querySelector('.mg-caul-in'), im = imgs.caul, put = () => { if (c.isConnected && artOk(im)) { c.innerHTML = ''; c.appendChild(im); } };
+    if (artOk(im)) put(); else im.addEventListener('load', put, { once: true }); }   // the picture may still be loading on the first round
   cv = root.querySelector('canvas'); cx = cv.getContext('2d');
   layout(); recHtml(); hud();
   cv.addEventListener('pointerdown', pDown); cv.addEventListener('pointermove', pMove); cv.addEventListener('pointerup', pUp); cv.addEventListener('pointercancel', pUp);
@@ -381,12 +406,17 @@ function doResolve() {
   for (const [r, c] of res.clear) {
     const t = R.g[r][c]; cxs += c; cys += r;
     if (t.t >= 0) for (const x of R.rec.need) if (x.t === t.t) x.got++;
-    for (let k = 0; k < 4; k++) R.fx.push({ x: c + 0.5, y: r + 0.5, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.8) * 4, life: 0.6, t: 0, col: t.t >= 0 ? ING[t.t].col : '#f2c03a' });
+    for (let k = 0, n = nT > 14 ? 2 : 4; k < n; k++) R.fx.push({ x: c + 0.5, y: r + 0.5, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.8) * 4, life: 0.6, t: 0, col: t.t >= 0 ? ING[t.t].col : '#f2c03a' });
     t.die = 0.001;
   }
   R.texts.push({ x: cxs / nT + 0.5, y: cys / nT + 0.5, s: `+${pts}`, t: 0, big: R.chain > 0 || res.fired > 0 });
-  if (R.chain >= 1) R.texts.push({ x: 3.5, y: 3.0, s: `Каскад ×${R.chain + 1}!`, t: 0, big: true, col: '#ff6fa5' });
-  snd(res.fired || res.make.length ? 'special' : 'pop', Math.min(9, R.chain * 2 + Math.floor(Math.random() * 2)));
+  for (const f of res.fx) R.beams.push({ ...f, t: 0 });
+  const big = res.combo || res.fx.some((f) => f.k === 'b' || f.k === 'r');
+  if (big) R.shake = Math.max(R.shake, res.combo ? 0.35 : 0.2);
+  const word = COMBO_WORD[res.combo] || (R.chain >= 4 ? 'Невероятно!' : R.chain === 3 ? 'Волшебно!' : R.chain === 2 ? 'Отлично!' : nT >= 10 ? 'Здорово!' : '');
+  if (word) praise(word, res.combo ? '#ff6fa5' : R.chain >= 3 ? '#7b5cd6' : '#e0a400');
+  flyToCauldron(res.clear);
+  snd(res.combo ? 'boom' : res.fired || res.make.length ? 'special' : 'pop', Math.min(9, R.chain * 2 + Math.floor(Math.random() * 2)));
   R.pending = res; R.state = 'clear'; R.anim = 0; R.chain++;
   // recipe
   if (R.rec.need.every((x) => x.got >= x.n)) {
@@ -398,6 +428,30 @@ function doResolve() {
     R.rec = newRecipe(R.brewed);
   }
   recHtml();
+}
+const COMBO_WORD = { x: 'Крест!', x3: 'Супер-крест!', b5: 'Большой взрыв!', r: 'Звездопад!', 'r+': 'Звёздная буря!', rr: 'Волшебный вихрь!' };
+function praise(text, col) {   // a big word over the board (chains and combos)
+  const w = root && root.querySelector('.mg-board-wrap'); if (!w) return;
+  w.querySelectorAll('.mg-praise').forEach((e) => e.remove());
+  const d = document.createElement('div'); d.className = 'mg-praise'; d.textContent = text; d.style.color = col;
+  w.appendChild(d); setTimeout(() => d.remove(), 1300);
+}
+function flyToCauldron(cells) {   // cleared recipe ingredients fly into the cauldron (at most 6 a step: phones stay smooth)
+  const caul = root && root.querySelector('.mg-caul-in'); if (!caul || !cv || !caul.animate) return;
+  const cb = cv.getBoundingClientRect(), kb = caul.getBoundingClientRect(); if (kb.height < 30) return;
+  const want = new Set(R.rec.need.map((x) => x.t));
+  const list = cells.filter(([r, c]) => R.g[r][c] && want.has(R.g[r][c].t)).slice(0, 6);
+  const tx = kb.left + kb.width / 2, ty = kb.top + kb.height * 0.3, sz = R.cell * 0.7;
+  list.forEach(([r, c], k) => {
+    const t = R.g[r][c].t, x0 = cb.left + (c + 0.5) * R.cell, y0 = cb.top + (r + 0.5) * R.cell;
+    const im = document.createElement('img'); im.className = 'mg-fly'; im.src = `assets/minigame/ing_${t}.webp?v=${ART_V}`;
+    im.style.cssText = `left:${x0 - sz / 2}px;top:${y0 - sz / 2}px;width:${sz}px;height:${sz}px`;
+    root.appendChild(im);
+    const dx = tx - x0, dy = ty - y0, up = -60 - Math.random() * 50;
+    const an = im.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${dx * 0.45}px,${dy * 0.35 + up}px) scale(0.85) rotate(${(Math.random() - 0.5) * 120}deg)`, opacity: 1 }, { transform: `translate(${dx}px,${dy}px) scale(0.35) rotate(${(Math.random() - 0.5) * 300}deg)`, opacity: 0.9 }],
+      { duration: 520 + k * 40, delay: 120, easing: 'cubic-bezier(.4,0,.7,1)', fill: 'forwards' });
+    an.onfinish = () => { im.remove(); caul.classList.remove('gulp'); void caul.offsetWidth; caul.classList.add('gulp'); };
+  });
 }
 function afterClear() {
   const { clear, make } = R.pending; R.pending = null;
@@ -445,6 +499,7 @@ function loop(now) {
     if (R.left <= 0 && R.live) finish(false);
   }
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const t = R.g[r] && R.g[r][c]; if (t && t.born) { t.born += dt / 0.25; if (t.born >= 1) t.born = 0; } }
+  R.beams = R.beams.filter((b) => (b.t += dt) < 0.42); R.shake = Math.max(0, R.shake - dt);
   R.fx = R.fx.filter((p) => { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 8 * dt; return p.t < p.life; });
   R.texts = R.texts.filter((p) => { p.t += dt; return p.t < (p.long ? 2.2 : 1.1); });
   draw(now / 1000);
@@ -464,6 +519,7 @@ function drawIng(t, x, y, s) {
 function draw(time) {
   const d = R.dpr, C = R.cell * d, W = cv.width;
   cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, W, W);
+  if (R.shake > 0) { const k = R.shake * 18 * d; cx.setTransform(1, 0, 0, 1, (Math.random() - 0.5) * k, (Math.random() - 0.5) * k); }
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { cx.fillStyle = (r + c) % 2 ? '#f6eeffcc' : '#fff9f2cc'; rr(c * C + 2 * d, r * C + 2 * d, C - 4 * d, C - 4 * d, 10 * d); cx.fill(); }
   if (R.sel) { const [r, c] = R.sel; cx.strokeStyle = '#7b5cd6'; cx.lineWidth = 3 * d; rr(c * C + 3 * d, r * C + 3 * d, C - 6 * d, C - 6 * d, 10 * d); cx.stroke(); }
   cx.save(); cx.beginPath(); cx.rect(0, 0, W, W); cx.clip();
@@ -492,6 +548,7 @@ function draw(time) {
     }
   }
   cx.restore();
+  drawBeams(C, d);
   for (const p of R.fx) { cx.globalAlpha = 1 - p.t / p.life; cx.fillStyle = p.col; cx.beginPath(); cx.arc(p.x * C, p.y * C, (3 + 3 * (1 - p.t / p.life)) * d, 0, 7); cx.fill(); }
   cx.globalAlpha = 1;
   cx.textAlign = 'center'; cx.textBaseline = 'middle';
@@ -502,6 +559,27 @@ function draw(time) {
     cx.lineWidth = 5 * d; cx.strokeStyle = '#ffffff'; cx.strokeText(p.s, x, y); cx.fillStyle = p.col || '#8a5a00'; cx.fillText(p.s, x, y);
   }
   cx.globalAlpha = 1;
+}
+
+function drawBeams(C, d) {   // light of the specials: a beam along a row / column, a ring for a blast, lightning from the star
+  cx.save();   // normal blending: 'lighter' vanished on the light board
+  for (const b of R.beams) {
+    const u = b.t / 0.42, a = 1 - u, x = (b.c + 0.5) * C, y = (b.r + 0.5) * C, W = N * C;
+    if (b.k === 'h' || b.k === 'v') {
+      const th = C * (b.w ? 0.55 : 0.8) * (0.4 + 0.6 * a), g = b.k === 'h' ? cx.createLinearGradient(0, y - th / 2, 0, y + th / 2) : cx.createLinearGradient(x - th / 2, 0, x + th / 2, 0);
+      g.addColorStop(0, 'rgba(150,100,250,0)'); g.addColorStop(0.3, `rgba(150,100,250,${0.55 * a})`); g.addColorStop(0.5, `rgba(255,250,255,${0.95 * a})`); g.addColorStop(0.7, `rgba(150,100,250,${0.55 * a})`); g.addColorStop(1, 'rgba(150,100,250,0)');
+      cx.fillStyle = g; if (b.k === 'h') cx.fillRect(0, y - th / 2, W, th); else cx.fillRect(x - th / 2, 0, th, W);
+    } else if (b.k === 'b') {
+      const rad = C * (b.big ? 2.8 : 1.7) * (0.3 + 0.9 * u);
+      const g = cx.createRadialGradient(x, y, rad * 0.2, x, y, rad); g.addColorStop(0, `rgba(255,236,150,${0.9 * a})`); g.addColorStop(0.7, `rgba(255,170,60,${0.5 * a})`); g.addColorStop(1, 'rgba(255,170,60,0)');
+      cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, rad, 0, 7); cx.fill();
+    } else if (b.k === 'r' || b.k === 'rr') {
+      cx.strokeStyle = `rgba(255,240,180,${a})`; cx.lineWidth = 3 * d; cx.shadowColor = '#ffd76a'; cx.shadowBlur = 10 * d;
+      for (const [r, c] of (b.cells || [])) { const x2 = (c + 0.5) * C, y2 = (r + 0.5) * C; cx.beginPath(); cx.moveTo(x, y); cx.lineTo((x + x2) / 2 + (Math.random() - 0.5) * C * 0.5, (y + y2) / 2 + (Math.random() - 0.5) * C * 0.5); cx.lineTo(x2, y2); cx.stroke(); }
+      if (b.k === 'rr') { const g = cx.createRadialGradient(x, y, 0, x, y, W * u + C); g.addColorStop(0, `rgba(255,250,220,${a})`); g.addColorStop(1, 'rgba(255,200,255,0)'); cx.fillStyle = g; cx.fillRect(0, 0, W, W); }
+    }
+  }
+  cx.restore();
 }
 
 // ---- end of round ----

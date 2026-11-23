@@ -19,4 +19,9 @@ let ok = 0, bad = 0; const chk = (name, cond) => { (cond ? ok++ : bad++); consol
 { const g = B(base, { '2,2': 'h', '2,3': 'v' }); const res = resolveStep(g, [[2, 2], [2, 3]]); chk('special+special fires both (row+col = 13+)', res.clear.length >= 13); }
 // rainbow + rainbow clears board
 { const g = B(base); g[0][0] = newTile(-1); g[0][1] = newTile(-1); const res = resolveStep(g, [[0, 0], [0, 1]]); chk('rainbow+rainbow clears all 49', res.clear.length === 49); }
+// build 354 combos
+{ const g = B(base, { '2,2': 'h', '2,3': 'v' }); const res = resolveStep(g, [[2, 2], [2, 3]]); chk('line+line = cross (13), combo x', res.combo === 'x' && res.clear.length >= 13); }
+{ const g = B(base, { '3,2': 'b', '3,3': 'h' }); const res = resolveStep(g, [[3, 2], [3, 3]]); chk('bomb+line = 3-wide cross (>=33), combo x3', res.combo === 'x3' && res.clear.length >= 33); }
+{ const g = B(base, { '3,2': 'b', '3,3': 'b' }); const res = resolveStep(g, [[3, 2], [3, 3]]); chk('bomb+bomb = 5x5 (25), combo b5', res.combo === 'b5' && res.clear.length >= 25); }
+{ const g = B(['1112345', ...base.slice(1)], { '0,0': 'h' }); const res = resolveStep(g, null); chk('fired line gives an fx beam', res.fx.some((f) => f.k === 'h' && f.r === 0)); }
 console.log(ok + ' ok, ' + bad + ' failed');
