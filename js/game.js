@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=428';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=428';
-import { initMinigame } from './minigame.js?v=428';
-import { initChests } from './chests.js?v=428';
-import { initLore } from './lore.js?v=428';
-import { initAvatar } from './avatar.js?v=428';
+} from './data.js?v=429';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=429';
+import { initMinigame } from './minigame.js?v=429';
+import { initChests } from './chests.js?v=429';
+import { initLore } from './lore.js?v=429';
+import { initAvatar } from './avatar.js?v=429';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 428;   // keep equal to the ?v= number in index.html
+const BUILD = 429;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1618,9 +1618,10 @@ function fixIncident(i) {
   const s = slotOf(i); popup('✨ Починено!', (s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, '#2f9e7a', 50);
   toast(`✨ ${CLASSES[i].name}: всё в порядке, урок продолжается`); save();
 }
-const STAR_DUTY = {};   // per class: { id, t0, from, to } — one student at the big telescope at a time
-function dutyPos(a) { const d = STAR_DUTY[a.c]; if (!d || d.id !== a.id || a.state !== 'study' || (a.path && a.path.length)) return null; const u = (performance.now() - d.t0) / 1000; if (u >= 10) return null;
-  const k = u < 2.5 ? u / 2.5 : u < 7.5 ? 1 : 1 - (u - 7.5) / 2.5, e = k * k * (3 - 2 * k); return { x: d.from.x + (d.to.x - d.from.x) * e, y: d.from.y + (d.to.y - d.from.y) * e }; }
+const STAR_DUTY = window.__starDuty = {};   // per class: { id, t0, from, to } — one student at the big telescope at a time
+function dutyPos(a) { const d = STAR_DUTY[a.c]; if (!d || d.id !== a.id || a.state !== 'study' || (a.path && a.path.length)) return null; const u = (performance.now() - d.t0) / 1000; if (u >= 7) return null;   // the whole trip fits into one lesson (lessons are ~10 s on a grown school)
+  const k = u < 1.8 ? u / 1.8 : u < 5.2 ? 1 : 1 - (u - 5.2) / 1.8, e = k * k * (3 - 2 * k), x = d.from.x + (d.to.x - d.from.x) * e, y = d.from.y + (d.to.y - d.from.y) * e;
+  const tg = u < 1.8 ? d.to : u < 5.2 ? d.look : d.from; return { x, y, duty: 1, left: (tg.x - tg.y) < (x - y), up: u < 5.2 ? (tg.x + tg.y) < (x + y) + 0.01 : false }; }   // her «не подходил вплотную ... был повернут лицом к нам»: faces where he goes, at the telescope he turns his back to us and looks into it
 function panicPos(a) {   // where a panicking student is now: a wobbly loop around the room, different for everyone
   { const dp = WORLD === 1 && STAR_DUTY[a.c] && dutyPos(a); if (dp) return dp; }
   if (a.state !== 'study' || !incOf(a.c) || (a.path && a.path.length)) return null;
@@ -3491,7 +3492,7 @@ const ROOM_ART = {
     // the big telescope on its platform (where the teacher's telescope stood) + the duty student
     const stl = stageOf(lv('telescope')), bx = s.x0 + 1.05, by = s.y0 + 0.95;   // the platform fills the back-left corner
     if (stl) { const k = [0, 0.8, 0.9, 1, 1.05][stl]; add(bx, by, () => { const r = itemDraw('st_bigtel', bx, by, 76 * k, { shadow: 1 }); if (r && stl >= 4) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.12 + 0.05 * Math.sin(T); ctx.fillStyle = 'rgba(200,220,255,1)'; ctx.beginPath(); ctx.moveTo(r.x + r.w * 0.28, r.top + r.h * 0.05); ctx.lineTo(r.x + r.w * 0.5, r.top - 60); ctx.lineTo(r.x + r.w * 0.75, r.top - 50); ctx.lineTo(r.x + r.w * 0.34, r.top + r.h * 0.12); ctx.closePath(); ctx.fill(); ctx.restore(); } }); }   // a beam of starlight at 40
-      const dut = STAR_DUTY[i], now = performance.now(); if (stl && (!dut || now - dut.t0 > 10000)) { if (!dut || now > dut.next) { const cand = agents.filter((a) => a.c === i && a.state === 'study' && !(a.path && a.path.length)); if (cand.length) { const a = cand[Math.floor(Math.random() * cand.length)]; STAR_DUTY[i] = { id: a.id, t0: now, from: { x: a.x, y: a.y }, to: { x: bx + 0.55, y: by + 0.95 }, next: now + 60000 + Math.random() * 60000 }; } else if (dut) dut.next = now + 20000; } }
+      const dut = STAR_DUTY[i], now = performance.now(); if (stl && (!dut || now - dut.t0 > 7000)) { if (!dut || now > dut.next) { const cand = agents.filter((a) => a.c === i && a.state === 'study' && !(a.path && a.path.length) && (a.dur || 0) - (a.t || 0) > 7.3); if (cand.length) { const a = cand[Math.floor(Math.random() * cand.length)]; STAR_DUTY[i] = { id: a.id, t0: now, from: { x: a.x, y: a.y }, to: { x: bx + 0.05, y: by + 0.22 }, look: { x: bx - 0.6, y: by - 0.6 }, next: now + 60000 + Math.random() * 60000 }; } else if (dut) dut.next = now + 20000; } }
     // the armillary globe in the back-right corner
     const sg = stageOf(lv('globe')); if (sg) { const gx = s.x1 - 0.7, gy = s.y0 + 0.75, k = [0, 0.75, 0.88, 1, 1.05][sg]; add(gx, gy, () => { const r = itemDraw('st_globe', gx, gy, 62 * k, { shadow: 1 }); if (r) { const an = T * 0.9; fxStar(r.x + Math.cos(an) * r.w * 0.3, r.top + r.h * 0.3 + Math.sin(an) * r.h * 0.08, 3, 0.6 + 0.4 * Math.sin(an * 2), '255,226,150'); } }); }
     // the hourglass against the back wall beside the globe (left of it the teacher walks)
@@ -4439,7 +4440,7 @@ function render() {
     if (a.state === 'court' && a.act === 'swing' && courtPose(a) && !(a.path && a.path.length)) a.z = 26 + 5 * Math.abs(Math.sin(performance.now() / 1000 * 2.6));   // on the swing seat, swinging
     if (pn) { a._panic = true; a.flip = pn.left; a.back = pn.up; } else if (a._panic) { a._panic = false; if (a.state === 'study') faceTeacher(a, a.c); }
     const draw = () => drawCreature(a, ax, ay, 30, (x, y) => {
-      if (pn) { if (Math.sin(a.ph * 3 + a.id) > 0.2) emoji(a.id % 3 ? '❗' : '😱', x + 2, y - 36, 12); return; }
+      if (pn && !pn.duty) { if (Math.sin(a.ph * 3 + a.id) > 0.2) emoji(a.id % 3 ? '❗' : '😱', x + 2, y - 36, 12); return; }
       if (a.state === 'study' && !a.path.length) ring(x + 13, y - 32, Math.min(1, a.t / a.dur));
       if (a.state === 'fly') emoji('✨', x - 12, y - 6, 10);
       if (a.state === 'mclass') { const T = performance.now() / 1000 + a.id, e = ELEMS[a.el || 0].emo;   // the master shows magic: his element circles above his paws (one turn 4.5 s)
