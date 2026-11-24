@@ -1,14 +1,14 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
-import './edit_guard.js?v=464';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=465';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=464';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=464';
-import { initMinigame } from './minigame.js?v=464';
-import { initChests } from './chests.js?v=464';
-import { initLore } from './lore.js?v=464';
-import { initAvatar } from './avatar.js?v=464';
+} from './data.js?v=465';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=465';
+import { initMinigame } from './minigame.js?v=465';
+import { initChests } from './chests.js?v=465';
+import { initLore } from './lore.js?v=465';
+import { initAvatar } from './avatar.js?v=465';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -31,7 +31,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 464;   // keep equal to the ?v= number in index.html
+const BUILD = 465;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3650,7 +3650,7 @@ function layExtra(i, s, add) {   // sprites added in the editor
       const im = layIm(a.src); if (!im) return; const h = a.h || 40, w = h * im.naturalWidth / im.naturalHeight;
       if (a.wall) { const b = up(a.wall === 'x0' ? P(s.x0, q.y) : P(q.x, s.y0), a.lift || 0); ctx.save(); ctx.translate(b.x, b.y); ctx.transform(1, (a.wall === 'x0' ? -1 : 1) * HH / HW, 0, 1, 0, 0); if (a.flip) ctx.scale(-1, 1); if (a.rot) ctx.rotate(a.rot * (a.flip ? -1 : 1) * Math.PI / 180); ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore(); return; }
       const p = P(q.x, q.y); if (!a.lift && !a.flat && zoom >= 1.2) ctx.drawImage(propShadow(), p.x - w * 0.4, p.y - w * 0.12, w * 0.8, w * 0.24);
-      ctx.save(); if (a.flip) { ctx.translate(p.x, 0); ctx.scale(-1, 1); ctx.translate(-p.x, 0); } if (a.rot) { const by = a.flat ? p.y : p.y - (a.lift || 0); ctx.translate(p.x, by); ctx.rotate(a.rot * (a.flip ? -1 : 1) * Math.PI / 180); ctx.translate(-p.x, -by); } ctx.drawImage(im, p.x - w / 2, a.flat ? p.y - h / 2 : p.y - (a.lift || 0) - h, w, h);   // flat (rugs): centred on the floor point ctx.restore();
+      ctx.save(); if (a.flip) { ctx.translate(p.x, 0); ctx.scale(-1, 1); ctx.translate(-p.x, 0); } if (a.rot) { const by = a.flat ? p.y : p.y - (a.lift || 0); ctx.translate(p.x, by); ctx.rotate(a.rot * (a.flip ? -1 : 1) * Math.PI / 180); ctx.translate(-p.x, -by); } ctx.drawImage(im, p.x - w / 2, a.flat ? p.y - h / 2 : p.y - (a.lift || 0) - h, w, h); /* flat (rugs): centred on the floor point */ ctx.restore();
     }), a.flat ? -1e5 + (a.bias || 0) : a.bias || 0);   // a rug goes under the desks and everyone
   });
 }
@@ -6845,5 +6845,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=464').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=465').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
