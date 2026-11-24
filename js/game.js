@@ -1,16 +1,16 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=490';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=491';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=490';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=490';
-import { initMinigame } from './minigame.js?v=490';
-import { initChests } from './chests.js?v=490';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=490';
-import { initLore } from './lore.js?v=490';
-import { initAvatar } from './avatar.js?v=490';
+} from './data.js?v=491';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=491';
+import { initMinigame } from './minigame.js?v=491';
+import { initChests } from './chests.js?v=491';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=491';
+import { initLore } from './lore.js?v=491';
+import { initAvatar } from './avatar.js?v=491';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -33,7 +33,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 490;   // keep equal to the ?v= number in index.html
+const BUILD = 491;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -524,8 +524,8 @@ for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (
 for (const [n, f] of [['wall', 'el_arcade'], ['floor', 'el_floor'], ...['el_med_fire', 'el_med_water', 'el_med_earth', 'el_med_air', 'el_win_a', 'el_win_b', 'el_painting'].map((q) => [q, q])]) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/${f}.webp?v=3`; if (WORLD === 1) parts['elements/' + n] = im; }   // Elements: the concept's arcade wall and what hangs in its arches
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/fl_${n}.webp?v=1`; if (WORLD === 1) parts['flight/' + n] = im; }   // Flight redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/ch_${n}.webp?v=1`; if (WORLD === 1) parts['charms/' + n] = im; }
-if (WORLD === 1 && window.__EDIT) Object.assign(THEMES.final, { decor: [], back: ['', ''], side: ['', ''], teacherProp: '', bays: { w: 2.4, y0: ['exwin', 'exboard', 'exwin', 'exboard', 'exwin', 'exboard', 'exwin'], x0: [] } });   /* exam hall redesign: editor only until her OK */
-if (window.__EDIT) for (const [n, f] of [['wall', 'ex_wall'], ['floor', 'ex_floor'], ['iso_exwin', 'ex_window_day'], ['exboard', 'ex_board']]) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/${f}.webp?v=1`; if (WORLD === 1) parts['final/' + n] = im; }   // Final exam hall redesign   // Charms redesign
+if (WORLD === 1) Object.assign(THEMES.final, { decor: [], back: ['', ''], side: ['', ''], teacherProp: '', bays: { w: 2.4, y0: ['exwin', 'exboard', 'exwin', 'exboard', 'exwin', 'exboard', 'exwin'], x0: [] } });   /* exam hall redesign (live since her OK 2026-11-25) */
+for (const [n, f] of [['wall', 'ex_wall'], ['floor', 'ex_floor'], ['iso_exwin', 'ex_window_day'], ['exboard', 'ex_board']]) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/${f}.webp?v=1`; if (WORLD === 1) parts['final/' + n] = im; }   // Final exam hall redesign   // Charms redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/st_${n}.webp?v=1`; if (WORLD === 1) parts['stars/' + n] = im; }   // Stargazing redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/pot_${n}.webp?v=1`; if (WORLD === 1) parts['potions/' + n] = im; }   // Potions redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/herbs_${n}.webp?v=1`; if (WORLD === 1) parts['herbs/' + n] = im; }
@@ -3806,7 +3806,7 @@ function editState() {   // the editor's school: every class built, at the chose
 }
 const EX_BOW = {};   /* exam hall: when the portrait last bowed to a graduate */
 const ROOM_ART = {
-  ...(WORLD === 1 && window.__EDIT ? { final(i, s, st, add) {   /* world 2's final hall has its own theme and keeps the item emoji */
+  ...(WORLD === 1 ? { final(i, s, st, add) {   /* world 2's final hall has its own theme and keeps the item emoji */
     const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000, now = performance.now(), me = s.x0 + ',' + s.y0, K = [0, 0.75, 0.88, 1, 1.05];
     const D = dayTint(), tt = D.sun.map((v, j) => (v + D.shade[j]) / 2), nt = Math.min(1, Math.max(0, (1 - (tt[0] + tt[1] + tt[2]) / 765) * 2.2)), pass = now - (passAt[i] || -1e9);
     add(s.x0 + 0.05, s.y0 + 0.05, () => { for (const wv of HERBS_WINS.values()) { if (wv.s0 !== me) continue; const im = nt > 0.03 && itemIm(wv.night); if (im) { ctx.save(); ctx.globalAlpha = nt; ctx.translate(wv.x, wv.y); if (wv.flip) ctx.scale(-1, 1); ctx.drawImage(im, -wv.sw / 2, -wv.sh / 2, wv.sw, wv.sh); ctx.restore(); } } });
@@ -7130,5 +7130,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=490').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=491').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
