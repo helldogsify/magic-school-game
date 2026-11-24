@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=438';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=438';
-import { initMinigame } from './minigame.js?v=438';
-import { initChests } from './chests.js?v=438';
-import { initLore } from './lore.js?v=438';
-import { initAvatar } from './avatar.js?v=438';
+} from './data.js?v=439';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=439';
+import { initMinigame } from './minigame.js?v=439';
+import { initChests } from './chests.js?v=439';
+import { initLore } from './lore.js?v=439';
+import { initAvatar } from './avatar.js?v=439';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 438;   // keep equal to the ?v= number in index.html
+const BUILD = 439;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3018,13 +3018,13 @@ function stonesBuy(k) {
 // Experience per graduate grows with his rank (novice 1 ... master 30); old saves start from their history (graduates + ranks reached).
 // Level n needs LV_K * n^LV_P experience in total (guess: ~level 50 for a nearly finished world 1; tune with the pacing sims).
 // Every 5 levels: moonstones. One level per world (each world has its own top).
-const XP_RANK = [1, 2, 4, 8, 15, 30], LV_K = 10, LV_P = 2.5;
+const XP_RANK = [1, 2, 4, 8, 15, 30], LV_EASY = 10, LV_C0 = 100, LV_G = 1.2;   // curve since build 439: easy start, then +20% per level
 function schoolXp() {
   if (S.xp == null) { const r = S.stats.ranks || []; let x = S.stats.graduated || 0; for (let k = 1; k < 6; k++) x += (r[k] || 0) * (XP_RANK[k] - 1); S.xp = x; }
   return S.xp;
 }
-const lvNeed = (n) => Math.round(LV_K * Math.pow(n, LV_P));   // total experience for level n
-function schoolLevel() { const x = schoolXp(); let n = Math.max(1, Math.floor(Math.pow(x / LV_K, 1 / LV_P))); while (lvNeed(n + 1) <= x) n++; while (n > 1 && lvNeed(n) > x) n--; return n; }
+const lvNeed = (n) => { const e = Math.min(n, LV_EASY); let x = e * (e + 1) - 2; if (n > LV_EASY) x += LV_C0 * (Math.pow(LV_G, n - LV_EASY) - 1) / (LV_G - 1); return Math.round(Math.max(0, x)); };   // total experience for level n
+function schoolLevel() { const x = schoolXp(); let n = 1; while (n < 999 && lvNeed(n + 1) <= x) n++; return n; }
 function gainXp(a) {
   const before = schoolLevel(); S.xp = schoolXp() + XP_RANK[Math.min(5, a.rk || 0)];
   const now = schoolLevel(); if (now <= before) return;
