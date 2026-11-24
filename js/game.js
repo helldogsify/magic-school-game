@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=455';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=455';
-import { initMinigame } from './minigame.js?v=455';
-import { initChests } from './chests.js?v=455';
-import { initLore } from './lore.js?v=455';
-import { initAvatar } from './avatar.js?v=455';
+} from './data.js?v=456';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=456';
+import { initMinigame } from './minigame.js?v=456';
+import { initChests } from './chests.js?v=456';
+import { initLore } from './lore.js?v=456';
+import { initAvatar } from './avatar.js?v=456';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 455;   // keep equal to the ?v= number in index.html
+const BUILD = 456;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5343,12 +5343,13 @@ const Q_TG = 'https://t.me/begemoti4ka';   // her channel («Мой тгк по�
 const QF_ON = true;   // top fields aw/ag/am/ap/rf: Firestore rules allow them (her «да» 2026-11-24)
 const DQ_STONES = 2, DQ_MIN = 5, AQ_STONES = 3, REF_LV = 5, REF_IN_STONES = 3;
 const SP_LIST = [
-  { id: 'tg', icon: '📣', t: 'Подпишись на Telegram-канал игры', s: 'там новости и подсказки', n: 5 },
+  { id: 'tg', icon: '📣', t: 'Подпишись на канал разработчика в Telegram', s: 'новости игры и подсказки', n: 5 },
   { id: 'ava', icon: '🖼️', t: 'Поставь аватарку', s: 'засчитается, когда её одобрят', n: 3 },
   { id: 'ally', icon: '🤝', t: 'Вступи в альянс или создай свой', s: '', n: 3 },
   { id: 'ref', icon: '💌', t: 'Пригласи друга', s: `друг вводит твой код и доводит школу до ${REF_LV}-го уровня`, n: 10 },
 ];
 let qTab = '';
+document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('a[data-tglink]')) setTimeout(() => { qMetaSet((q) => { q.tg ||= Date.now(); }); if (panel === missionsPanel) refreshPanel(); }, 1500); });   // a real link: iOS PWAs ignore window.open from a delegated handler
 const qDay = (t = new Date()) => `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;   // the same local day as the chests
 const mgRounds = () => ((S.mg && S.mg.n) || 0) + ((S.mg && S.mg.f && S.mg.f.n) || 0);   // potion + flight rounds ever played
 const qMeta = () => { const m = stMeta(); return m.q || {}; };
@@ -5512,7 +5513,7 @@ function qSpTab() {
     let act = '';
     if (got) act = '<span class="done">получено</span>';
     else if (ok) act = `<button class="btn hot small" data-spc="${s.id}">Забрать ${ST_IMG(16)} ${s.n}</button>`;
-    else if (s.id === 'tg') act = `<button class="btn small go" data-sp="tg">Открыть ➜</button>`;
+    else if (s.id === 'tg') act = `<a class="btn small go" href="${Q_TG}" target="_blank" rel="noopener" data-tglink style="text-decoration:none;display:inline-block">Открыть ➜</a>`;
     else if (s.id === 'ava') act = `<button class="btn small go" data-qgo="@top">Выполнить ➜</button>`;
     else if (s.id === 'ally') act = `<button class="btn small go" data-qgo="@ally">Выполнить ➜</button>`;
     else act = `<span class="qr">${ST_IMG(16)} ${s.n}</span>`;
