@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=443';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=443';
-import { initMinigame } from './minigame.js?v=443';
-import { initChests } from './chests.js?v=443';
-import { initLore } from './lore.js?v=443';
-import { initAvatar } from './avatar.js?v=443';
+} from './data.js?v=444';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=444';
+import { initMinigame } from './minigame.js?v=444';
+import { initChests } from './chests.js?v=444';
+import { initLore } from './lore.js?v=444';
+import { initAvatar } from './avatar.js?v=444';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 443;   // keep equal to the ?v= number in index.html
+const BUILD = 444;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5463,6 +5463,7 @@ document.addEventListener('click', (e) => {
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
   if (d.top !== undefined) { openTop(); return; }
   if (d.mgsub !== undefined) { mgSub = d.mgsub; const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; return; }
+  if (d.allyshow !== undefined) { allyShown = allyShown === d.allyshow ? '' : d.allyshow; refreshPanel(); return; }
   if (d.toptab !== undefined) { topTab = d.toptab; const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; return; }
   if (d.ally !== undefined) { openAlly(); return; }
   if (d.stones !== undefined) { openPanel(stonesPanel); return; }
@@ -5887,13 +5888,17 @@ function allyPanel() {
   return h;
 }
 allyPanel.still = true;   // has text fields
+let allyShown = '';   // the alliance whose members are open in the top
+function allyMembersHtml(x) {
+  return `<div style="margin:-4px 0 10px 14px;border-left:3px solid #c9b8ee;padding-left:8px">${x.m.slice().sort((p, q) => q.r - p.r || q.g - p.g).map((m) => `<div class="card up" style="padding:6px 10px">${AV.img(m.id, 34)}<div class="grow"><b>${escTxt(m.name)}</b>${x.a.owner && m.id.replace(/_w\d+$/, '') === x.a.owner ? ' 👑' : ''}${m.nick ? ` <span class="muted">👤 ${escTxt(m.nick)}</span>` : ''}<div class="muted">🏅 ${r2(m.r)}${m.lv ? ` · 🌟 ${m.lv}` : ''} · 🎓 ${fmt(m.g)}</div></div></div>`).join('')}</div>`;
+}
 function allyTopRows() {   // the top of alliances by strength = the SUM of its schools' ratings (her pick 2026-11-23: a one-school alliance led the mean-rating table)
   const groups = {};
   for (const x of (topList || []).filter((t) => t.w === WORLD && t.al)) (groups[x.al] ||= []).push(x);
   const rows = Object.entries(groups).map(([id, m0]) => { const a = allyOf(id), k = (a && a.kick) || [], m = m0.filter((x) => !k.includes(x.id.replace(/_w\d+$/, ''))), sum = m.reduce((n, x) => n + x.r, 0);
     return { id, a, m, s: sum, r: m.length ? sum / m.length : 0, g: m.reduce((n, x) => n + x.g, 0) }; }).filter((x) => x.a && x.m.length).sort((p, q) => Math.round(q.s * 100) - Math.round(p.s * 100) || q.g - p.g);
   if (!rows.length) return '<p class="muted">Пока ни одного альянса — создай свой в окне 🤝!</p>';
-  return rows.slice(0, 30).map((x, k) => `<div class="card up"${x.id === myAl() ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${x.a.emo}</span><div class="grow"><b>${k + 1}. ${escTxt(x.a.name)}</b>${x.id === myAl() ? ' <span class="muted">(твой)</span>' : ''}<div class="muted">💪 сила ${r2(x.s)} · средний 🏅 ${r2(x.r)} · школ ${x.m.length} · 🎓 ${fmt(x.g)} выпускников</div></div></div>`).join('');
+  return '<p class="muted">Нажми на альянс, чтобы увидеть его школы.</p>' + rows.slice(0, 30).map((x, k) => `<button class="card up" data-allyshow="${x.id}" style="width:100%;text-align:left;font:inherit;cursor:pointer${x.id === myAl() ? ';border:2px solid #e8b923;background:#fff8dc' : ''}"><span class="remoji">${x.a.emo}</span><div class="grow"><b>${k + 1}. ${escTxt(x.a.name)}</b>${x.id === myAl() ? ' <span class="muted">(твой)</span>' : ''}<div class="muted">💪 сила ${r2(x.s)} · средний 🏅 ${r2(x.r)} · школ ${x.m.length} · 🎓 ${fmt(x.g)} выпускников</div></div><span class="muted">${allyShown === x.id ? '▲' : '▼'}</span></button>${allyShown === x.id ? allyMembersHtml(x) : ''}`).join('');
 }
 let topTab = 's';
 function openTop() { topPush(true).finally(() => Promise.all([topLoad(), allyLoad()]).finally(() => { if (panel === topPanel) refreshPanel(); })); openPanel(topPanel); }
