@@ -1,14 +1,14 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
-import './edit_guard.js?v=469';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=470';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=469';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=469';
-import { initMinigame } from './minigame.js?v=469';
-import { initChests } from './chests.js?v=469';
-import { initLore } from './lore.js?v=469';
-import { initAvatar } from './avatar.js?v=469';
+} from './data.js?v=470';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=470';
+import { initMinigame } from './minigame.js?v=470';
+import { initChests } from './chests.js?v=470';
+import { initLore } from './lore.js?v=470';
+import { initAvatar } from './avatar.js?v=470';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -31,7 +31,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 469;   // keep equal to the ?v= number in index.html
+const BUILD = 470;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -103,7 +103,11 @@ const fee = () => { let mx = 0; for (let i = 0; i < CLASSES.length; i++) if (!CL
 const PACE_FREE = 2000;   // coins per minute of income not counted
 const paceMin = (n) => (BAL.floorM || 0) * Math.pow(BAL.floorG || 1, Math.max(0, n - 1));
 const paceInc = () => Math.max(0, ((S && (S.paceEma ?? S.ema)) || 0) * 60 - PACE_FREE);
-const paced = (price, n) => Math.round(Math.max(price, paceInc() * paceMin(n)));
+// frozen floors (tester №73po7zf1, 2026-11-24: prices of a growing school crept up every second, 178K -> 179K -> 180K ... +20% in 25 s on screen):
+// the floor of an upgrade level is taken once and kept until something is bought or a room is opened, so the shown price stands still
+const PRICE_FROZEN = new Map();
+const paceFloor = (price, n) => { const k = Math.round(price) + '|' + n; let f = PRICE_FROZEN.get(k); if (f === undefined) { f = paceInc() * paceMin(n); PRICE_FROZEN.set(k, f); } return f; };
+const paced = (price, n) => Math.round(Math.max(price, paceFloor(price, n)));
 const arrivalInterval = () => 5 * Math.pow(0.9, adsLvl() - 1) / bossArrK();   // bossArrK: the director's contract tariff and ad campaigns (build 238, tester Ruslan's idea)
 const recCost = () => paced(20 * Math.pow(BAL.rec, S.reception.level - 1), S.reception.level);
 const adsCost = () => paced(30 * Math.pow(BAL.ads, S.reception.ads - 1), S.reception.ads);
@@ -201,7 +205,7 @@ const MAILS = [
   ['😢', 'Мой ребёнок приходит грустный. Ему у вас скучно.'],
   ['🍽️', 'Чем вы кормите детей? Жалуются, что всё время голодные.'],
 ];
-const mailPayCost = () => Math.max(200, Math.round((S.ema || 1) * 20 / 10) * 10);
+const mailPayCost = () => { const c = boss().mail.cur, v = Math.max(200, Math.round((S.ema || 1) * 20 / 10) * 10); return c ? (c.pay ||= v) : v; };   // fixed for the letter (it moved every second)
 const repK = () => 1 + 0.05 * (bossOn() ? boss().rep || 0 : 0);   // the school's name among parents: inspection reward ±5% per point
 function cheerAll(d, icon) {   // every student in school gets mood d
   for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && a.goal.t === 'x')) { a.mood = Math.max(0, Math.min(100, moodOf(a) + d)); if (icon && Math.random() < 0.35) popup(icon, a.x, a.y, d > 0 ? '#ff6fa3' : '#5b7fd6', 44); }
@@ -294,7 +298,7 @@ const refundCap = () => 0.5 * (S.ema || 0) * 60;
 window.__leave = (a) => leaveSchool(a);   // test hook
 function stepRefund(dt) { const cap = refundCap(); S.refBud = Math.min(cap, (S.refBud ?? cap) + 0.5 * (S.ema || 0) * dt); }
 function earn(n, x, y, color, lift) { S.coins += n; S.stats.earned = (S.stats.earned || 0) + n; earnedThisSec += n; if (x !== undefined) popup(`+${fmt(n)}`, x, y, color || '#c98a00', lift); }
-function spend(c) { if (S.coins < c) { toast('Не хватает монет 🪙'); return false; } S.coins -= c; return true; }
+function spend(c) { if (S.coins < c) { toast('Не хватает монет 🪙'); return false; } S.coins -= c; PRICE_FROZEN.clear(); return true; }   // a purchase: the next prices are taken anew
 
 // ======================= world geometry (isometric tile map) =======================
 // Tile coords (x, y). Screen: sx = OX + (x - y) * HW, sy = OY + (x + y) * HH.
@@ -4786,7 +4790,7 @@ function costBtn(label, cost, act, extra = '') { return `<button class="btn" dat
 
 let panel = null; let dirtyPanel = false;
 let panelHtml = '';
-function openPanel(fn) { $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; panelHtml = emojiHtml(fn()); sh.innerHTML = panelHtml; sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
+function openPanel(fn) { PRICE_FROZEN.clear(); $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; panelHtml = emojiHtml(fn()); sh.innerHTML = panelHtml; sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
 function closePanel() { panel = null; $('#sheet-wrap').classList.add('hidden'); $('#tour').classList.remove('under-panel'); }   // the tour card hides while a panel is open
 // Update the DOM in place: unchanged nodes (icons!) stay, only changed text and attributes are written.
 // A fresh innerHTML re-created every <img> and on phones the icons blinked on each refresh.
@@ -6869,5 +6873,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=469').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=470').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
