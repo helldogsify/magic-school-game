@@ -1,23 +1,24 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
-import './edit_guard.js?v=474';   // room editor (?edit only): in-memory storage, no cloud
+import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
+import './edit_guard.js?v=475';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=474';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=474';
-import { initMinigame } from './minigame.js?v=474';
-import { initChests } from './chests.js?v=474';
-import { initLore } from './lore.js?v=474';
-import { initAvatar } from './avatar.js?v=474';
+} from './data.js?v=475';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=475';
+import { initMinigame } from './minigame.js?v=475';
+import { initChests } from './chests.js?v=475';
+import { initLore } from './lore.js?v=475';
+import { initAvatar } from './avatar.js?v=475';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
-const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
+const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
   onOpen: () => { if (S.inc && Object.keys(S.inc).length) { S.inc = {}; dirtyPanel = true; } },   // a running incident is fixed quietly: the class cannot be tapped from the mini-game
   onFinish: () => { topPush(true); },   // a new weekly best goes to the top at once
   flyers: () => FORM_KEYS.filter((k) => S.forms && S.forms[k] && S.forms[k].seen).map((k) => ({ k, src: formImg(k), name: formTitle(k), faceLeft: !!FACES_LEFT[k.split(':')[0]] })),   // who may fly in «Полёт через кольца»: every look opened in the album
   onClose: () => { incT = Math.max(incT, 30); renderInsp(); updateHud(); } });   // no incident the very second the player comes back
 // daily chests (js/chests.js, Maria 2026-11-23 «Ежедневные сундучки надо»): a tile in the ✨ menu, own overlay, state S.chest per world
-const CHESTS = initChests({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml,
+const CHESTS = initChests({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
   mgCharge: () => MG.addCharges(1) /* the shared pool, above 3 too (her «должна приплюсываться») */, onClose: () => { renderInsp(); updateHud(); } });
 
@@ -31,7 +32,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 474;   // keep equal to the ?v= number in index.html
+const BUILD = 475;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -62,16 +63,18 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !a.mcls && !(a.goal && a.goal.t === 'tw')).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed, les: a.les, rest: a.rest, dream: a.dream })),
+    agents: agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !a.mcls && !(a.goal && a.goal.t === 'tw')).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed, les: a.les, rest: a.rest, dream: a.dream, pk: a.pk })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
 
 // ---- balance (rebalance 2026-11-22, her goal: world 1 in ~1.5 weeks, first master on ~day 5; tuned with tools/sim_driver.js) ----
 const BAL_NEW = { chance0: 0.45, maxChance: 0.8, item: 1.5, teacher: 1.6, expand: 600, expandK: 4, desk: 3.0, examDesk: 1.8, time: 2.0, rec: 1.5, ads: 1.55,
-  build: [0, 2000, 50000, 1000000, 60000000, 150000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000, pay: 0.55, lesson: 2, floorM: 0.5, floorG: 1.08, itemHi: 2.5 };   // pace floor (build 297, her pick «Мягкая планка»): 0.5 min of income for the 1st level, x1.08 per level   // lesson: length multiplier of every lesson (build 184, her «ученики слишком быстро сменяются»: 2.6 s at max level was shorter than the walk)   // pay 0.45 since build 178 (0.5 in 177): the queue fix (build 176) nearly doubled the flow; sim back to Elements ~4.2 d, first master ~5 d
+  build: [0, 2000, 12000, 3000000, 20000000, 100000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000, pay: 0.55, lesson: 2, floorM: 0.5, floorG: 1.08, itemHi: 1.25 };   // pace floor (build 297, her pick «Мягкая планка»): 0.5 min of income for the 1st level, x1.08 per level   // lesson: length multiplier of every lesson (build 184, her «ученики слишком быстро сменяются»: 2.6 s at max level was shorter than the walk)   // pay 0.45 since build 178 (0.5 in 177): the queue fix (build 176) nearly doubled the flow; sim back to Elements ~4.2 d, first master ~5 d
 const BAL_OLD = { pay: 1, chance0: 0.6, maxChance: 0.85, item: 1.25, teacher: 1.35, expand: 120, expandK: 3, desk: 2.3, examDesk: 1.6, time: 1.6, rec: 1.4, ads: 1.45, build: [], buildTime: [], tower: 500000 };
 BAL_NEW.lessonLate = { charms: 1.4, flight: 1.4, elements: 1.4 };   // build 237, her pick «1 вариант для стихий» (42 waiting for Elements): these classes x1.4 instead of BAL.lesson x2; Flight too, else the queue only moved to Flight (her save: 40 waiting there); sim all classes 4.7 d, first master 5.2 d
+Object.assign(BAL_NEW.lessonLate, { gems: 1.4, guards: 1.4, lake: 1.4 });   // build audit 2026-11-24: world 2's 4th-6th halls, like charms/flight/elements (they ran x2.0, +43% longer)
+// build audit 2026-11-24 (pacing sim with the EMA): the old ladder 50K / 1M / 60M / 150M left ~3 game days with no new class (Charms d0.7 -> Flight d3.7) and Stars came only after the first offline gap; itemHi 2.5 made item levels 26-40 cost ~8300 days of income
 const BAL = { ...BAL_NEW };   // live since build 153 (tuned with the pacing simulation; BAL_OLD kept for comparison runs)
 const buildCost = (i) => (WORLD <= 2 && BAL.build[i] !== undefined ? BAL.build[i] : CLASSES[i].build);
 const buildTime = (i) => (WORLD <= 2 && BAL.buildTime[i] !== undefined ? BAL.buildTime[i] : CLASSES[i].buildTime);
@@ -81,10 +84,13 @@ const kindSum = (i, kind) => CLASSES[i].items.reduce((a, it, k) => a + (it.kind 
 const rawSuccess = (i) => BAL.chance0 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kindSum(i, 'success');
 const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
 const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance above the cap is not wasted: each 1% gives +2% tuition
-const W2_PAY = 0.7;   // world 2 pays 30% less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
+const W2_PAY = 0.5;   // build audit 2026-11-24: was 0.7; caravans now bring ~1/4 of world-2 income (w2_report.md). World 2 pays less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
 const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY * relicK() : 1) * boostK() * (WORLD === 1 && S && S.lore && S.lore.prize ? 1.1 : 1));   // «Последняя ночь» prize   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time) * (loreQ('teachers') ? 0.97 : 1);
-const itemCost = (i, k) => paced(CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, Math.min(25, S.classes[i].items[k])) * Math.pow(BAL.itemHi, Math.max(0, S.classes[i].items[k] - 25)), S.classes[i].items[k] + 1);   // levels 26..40 (build 299, her pick «Предметы в классах 25→40»): x2.5 per level, sim keeps all classes ~4.5 d
+const itemCost = (i, k) => { const raw = CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, Math.min(25, S.classes[i].items[k])) * Math.pow(BAL.itemHi, Math.max(0, S.classes[i].items[k] - 25)); return Math.round(Math.max(raw, paced(raw, S.classes[i].items[k] + 1) * itemW(i))); };
+// build audit 2026-11-24: Herbology earns ~1/100 of Elements per lesson, but the pace floor priced its items like Elements' ones
+// (payback ~930 days vs ~11): the floor part of an item price is scaled by the class's lesson price against the dearest open class
+const itemW = (i) => { if (WORLD !== 1) return 1; let mx = 0; for (let j = 0; j < CLASSES.length; j++) if (!CLASSES[j].final && isOpen(j)) mx = Math.max(mx, CLASSES[j].tuition); return mx > 0 ? Math.min(1, Math.max(0.01, CLASSES[i].tuition / mx)) : 1; };   // levels 26..40 (build 299, her pick «Предметы в классах 25→40»): x2.5 per level, sim keeps all classes ~4.5 d
 const teacherCost = (i) => paced(CLASSES[i].tuition * 6 * Math.pow(BAL.teacher, S.classes[i].teacher - 1), S.classes[i].teacher);
 const expandCost = (i) => paced(CLASSES[i].tuition * BAL.expand * Math.pow(BAL.expandK, sizeOf(i) - 1), sizeOf(i));
 const deskCost = (i) => paced(CLASSES[i].tuition * 15 * Math.pow(CLASSES[i].final ? BAL.examDesk : BAL.desk, S.classes[i].desks - 2), S.classes[i].desks - 1);   // exam desks grow slower: there are 21 of them
@@ -105,7 +111,8 @@ const paceMin = (n) => (BAL.floorM || 0) * Math.pow(BAL.floorG || 1, Math.max(0,
 const paceInc = () => Math.max(0, ((S && (S.paceEma ?? S.ema)) || 0) * 60 - PACE_FREE);
 // frozen floors (tester №73po7zf1, 2026-11-24: prices of a growing school crept up every second, 178K -> 179K -> 180K ... +20% in 25 s on screen):
 // the floor of an upgrade level is taken once and kept until something is bought or a room is opened, so the shown price stands still
-const PRICE_FROZEN = new Map();
+const PRICE_FROZEN = new Map(); let PRICE_AT = 0;   // build audit 2026-11-24 (same tester): a purchase re-priced every other line too; now a line
+// gets a new floor only when its own level changes (new key); all floors are renewed at most every 10 min, and only when a panel opens
 const paceFloor = (price, n) => { const k = Math.round(price) + '|' + n; let f = PRICE_FROZEN.get(k); if (f === undefined) { f = paceInc() * paceMin(n); PRICE_FROZEN.set(k, f); } return f; };
 const paced = (price, n) => Math.round(Math.max(price, paceFloor(price, n)));
 const arrivalInterval = () => 5 * Math.pow(0.9, adsLvl() - 1) / bossArrK();   // bossArrK: the director's contract tariff and ad campaigns (build 238, tester Ruslan's idea)
@@ -114,7 +121,7 @@ const adsCost = () => paced(30 * Math.pow(BAL.ads, S.reception.ads - 1), S.recep
 
 // ======================= director's office (Ruslan's idea, Maria's choices 2026-11-21) =======================
 const DIR_UP = {
-  refund: { emo: '💸', name: 'Правила возврата', max: 8, base: 1000000, k: 2.0, desc: (l) => `ушедшим возвращаем ${Math.round(refundRateAt(l) * 100)}% взноса` },
+  refund: { emo: '💸', name: 'Правила возврата', max: 8, base: 500000, k: 1.9, desc: (l) => `ушедшим возвращаем ${Math.round(refundRateAt(l) * 100)}% взноса, их отзыв ${String(+(1 + l / 8).toFixed(2)).replace('.', ',')}★` },
   care: { emo: '💗', name: 'Забота об учениках', max: 10, base: 500000, k: 1.9, desc: (l) => `в очередях грустят на ${Math.round((1 - careK(l)) * 100)}% медленнее` },
   keeper: { emo: '🧹', name: 'Дежурный завхоз', max: 10, base: 750000, k: 1.9, desc: (l) => `происшествия ${l ? `в ${String(+(1 + 0.1 * l).toFixed(1)).replace('.', ',')} раза реже` : 'как обычно'}, сами проходят за ${Math.round(INC_AUTO_AT(l) / 60)} мин` },   // build 264: the old «реже на 100%» read as «never» (her «Вообще без происшествий не может быть»); the pause between incidents is x(1 + 0.1 l)
   ties: { emo: '🤝', name: 'Связи с инспекцией', max: 10, base: 500000, k: 1.9, desc: (l) => `награда за проверку +${l * 10}%, штраф −${l * 7}%` },
@@ -126,7 +133,7 @@ const shopOpen = () => WORLD <= 2 && !!(S && bReady(S.shop));
 const shopChance = () => 0.12 + 0.03 * (shopUp().shelves - 1);                 // share of students who drop in after a lesson
 const shopTime = () => 2.2 * Math.pow(0.88, shopUp().seller - 1);              // seconds to serve one
 const loreQ = (k) => !!(WORLD === 1 && S && S.lore && S.lore.quiz && S.lore.quiz[k] && S.lore.quiz[k].done);   // Tikhon's exam passed for chapter k (js/lore.js)
-const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1)) * (loreQ('school') ? 1.05 : 1)));
+const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1)) * (1 + 0.03 * (shopUp().seller - 1)) * (loreQ('school') ? 1.05 : 1)));   // build audit 2026-11-24: the seller also sells +3% dearer per level (his speed alone did nothing while the line was short)
 const shopCost = (k) => paced(SHOP_COST * 0.4 * Math.pow(1.9, shopUp()[k] - 1), shopUp()[k]);
 const SHOP_SPOTS = (s) => [0, 1, 2, 3, 4, 5].map((k) => ({ x: s.x0 + 2.75, y: s.y0 + 1.6 + k * 0.62 }));   // a line in front of the counter: the first is served, the rest wait (her ask)
 // ---- the canteen (her choices 2026-11-22: its own house on the lawn between Charms and the masters' tower; a snack after a lesson
@@ -139,7 +146,7 @@ const cantOpen = () => cantBuilt() && Date.now() >= (S.cant.end || 0);
 const cantChance = () => 0.15 + 0.03 * (cantUp().tables - 1);              // share of students who go to eat after a lesson
 const cantServe = () => 2.0 * Math.pow(0.88, cantUp().cook - 1);           // seconds the cook needs to fill one tray
 const CANT_EAT = 4;                                                         // seconds at the table
-const cantPrice = () => Math.max(5, Math.round(fee() * (0.6 + 0.15 * (cantUp().menu - 1)) * (loreQ('school') ? 1.05 : 1)));
+const cantPrice = () => Math.max(5, Math.round(fee() * (0.6 + 0.15 * (cantUp().menu - 1)) * (1 + 0.03 * (cantUp().cook - 1)) * (loreQ('school') ? 1.05 : 1)));   // build audit 2026-11-24: the cook: +3% per level, as the seller
 const cantMood = () => 20 + 2 * (cantUp().menu - 1);
 const FED_BONUS = 0.05;                                                     // a fed student: +5% on the next exam
 const cantCost = (k) => paced(CANT_COST * 0.4 * Math.pow(1.9, cantUp()[k] - 1), cantUp()[k]);
@@ -158,27 +165,45 @@ const bObj = (id) => (id === 'SHOP' ? S.shop : id === 'TRADE' ? S.w2 && S.w2.tra
 const dirBuilt = () => !!(S && (WORLD === 2 ? S.w2 && bReady(S.w2.throne) : S.dirBuilt && Date.now() >= (S.dirEnd || 0)));
 const dirLvl = (k) => (S && S.dir && S.dir[k]) || 0;
 const dirCost = (k) => paced(DIR_UP[k].base * Math.pow(DIR_UP[k].k, dirLvl(k)), dirLvl(k) + 1);
-const refundRateAt = (l) => 3 - 0.25 * l;                 // 300% -> 100%
+const refundRateAt = (l) => 1 - 0.1 * l;   // build audit 2026-11-24: 100% -> 20% (was 300% -> 100%: a refund three times the fee read like a penalty)
+const leaverStars = () => (WORLD === 1 ? 1 + dirLvl('refund') / 8 : 1);   // build audit 2026-11-24: «Правила возврата» also soften the leavers' reviews: ★1 -> ★2 at level 8 (the rating is the school's goal)
 const refundRate = () => (WORLD === 2 ? 1 : refundRateAt(dirLvl('refund')));   // world 2 has no director to lower the penalty: just the fee back (her report 2026-11-22: coins drained to 0 by refunds)
 // world 2 (her report 2026-11-22: «прямо перед глазами в 0 ушли деньги»): newcomers kept arriving every 5 s while the
 // 2-desk halls were full and the dorm too, 2 of 3 left and each took 300% of its fee back. Now no one is admitted while full.
 const schoolFull = () => !dormFree();   // the dorm is the school's buffer: when every bed is taken, the school is overloaded
 const careK = (l) => 1 - 0.06 * l;                         // mood drop x1 -> x0.4
+// build audit 2026-11-24 (tester Гоща: reception and ads looked like 99 students/s, the school took ~0.5/s, the panel said «0,0 с»,
+// the last ads levels up to 513M did nothing): an arrival that finds the gate closed (q = the reception line is full, b = the school is
+// full) waits at the gate (up to GATE_PEND newcomers) and comes in as soon as there is room, instead of being thrown away while only
+// a very fast arrival timer caught the short moments of room; one more arrival is turned away. When more than 25% are turned away
+// more ads change nothing, so they stop selling (back on below 10%) and the panel says what to upgrade instead
+const GATE_PEND = 6, gate = () => (S.gate ||= { q: 0, b: 0, full: 0, pend: 0, lastQ: 1 });
+function gateArrive() { const g = gate(), w = 0.03, away = g.pend >= GATE_PEND; if (!away) g.pend++; g.q = g.q * (1 - w) + (away && !g.lastQ ? w : 0); g.b = g.b * (1 - w) + (away && g.lastQ ? w : 0); const blk = g.q + g.b; if (blk > 0.25) g.full = 1; else if (blk < 0.1) g.full = 0; }
+const gatePend = () => gate().pend > 0;
+function gateLet(okQ, okB) { const g = gate(); g.lastQ = okQ ? 1 : 0; if (!(okQ && okB)) return false; g.pend--; return true; }
+const adsFull = () => !!(S && S.gate && S.gate.full);
+const adsWhy = () => (gate().q > gate().b ? '🚦 Новички приходят чаще, чем секретарь успевает их оформлять: больше объявлений не помогут, сначала улучшай секретаря.' : '🏫 Школа полна: новички приходят чаще, чем освобождаются места (новенький входит, только когда в спальне свободно больше 4 кроватей). Больше объявлений не помогут: ставь парты, расширяй классы, сокращай уроки и покупай кровати.');
 const INC_AUTO_AT = (l) => 600 * (1 - 0.07 * l);           // 10 min -> 3 min
 // ---- director's routine (build 238, tester Ruslan's wish, Maria's pick 2026-11-22: contract tariff, ad campaigns, parents' letters) ----
 // World 1 only, after the office is built. State in S.boss = { plan, camp: { k, end, cd }, mail: { t, cur }, rep }.
 const boss = () => (S.boss ||= { plan: 'normal', camp: null, mail: { t: MAIL_FIRST, cur: null }, rep: 0 });
 const bossOn = () => WORLD === 1 && dirBuilt();
 const PLANS = {   // the contract a newcomer signs: fee, how many come, the mood they come with
-  cheap: { emo: '🤝', name: 'Доступный', fee: 0.7, arr: 1.3, proc: 1.3, mood: 80, desc: 'взнос ×0.7, ученики приходят и оформляются на 30% быстрее' },
-  normal: { emo: '📄', name: 'Обычный', fee: 1, arr: 1, proc: 1, mood: 80, desc: 'обычный взнос, обычный поток учеников' },
-  prestige: { emo: '🎩', name: 'Престижный', fee: 1.6, arr: 1 / 1.3, proc: 1, mood: 92, desc: 'взнос ×1.6, приходят на 30% реже, но в хорошем настроении' },
+  cheap: { emo: '🤝', name: 'Доступный', fee: 0.75, arr: 1.5, proc: 1.5, mood: 85, sad: 0.75, desc: 'взнос ×0,75, ученики приходят и оформляются в 1,5 раза быстрее, в очередях грустят на 25% медленнее. Выгодно, когда в школе есть свободные места' },
+  normal: { emo: '📄', name: 'Обычный', fee: 1, arr: 1, proc: 1, mood: 80, sad: 1, desc: 'обычный взнос, обычный поток учеников' },
+  prestige: { emo: '🎩', name: 'Престижный', fee: 1.5, arr: 0.6, proc: 1, mood: 95, sad: 1.5, desc: 'взнос ×1,5, приходят на 40% реже, весёлыми, но требовательные: в очередях грустят в 1,5 раза быстрее. Выгодно, когда школа полна, а очереди короткие' },
 };
+// build audit 2026-11-24: in a full school only the fee counted, so «Престижный» always won and «Доступный» only lost 30% of fees;
+// now cheap = more students when there are free places and calmer lines, prestige = more money but sadder in long lines (a.pk)
 const planOf = () => (bossOn() && PLANS[boss().plan]) || PLANS.normal;
-const CAMPS = {   // ad campaigns: 5 minutes each, then a 15-minute pause before the next one; cost = that many entry fees (a maxed reception enrols ~0.5/s, so ~150 newcomers per campaign)
-  flyers: { emo: '📰', name: 'Листовки в городе', arr: 1.5, proc: 1.2, fee: 1.1, cost: 10, desc: 'ученики приходят в 1.5 раза чаще, оформление на 20% быстрее, взнос +10%' },
-  open: { emo: '🎪', name: 'День открытых дверей', arr: 2, proc: 1.5, fee: 1.2, cost: 25, desc: 'приходят вдвое чаще, в приёмной помогает волонтёр (оформляют в 1.5 раза быстрее), взнос +20%' },
-  fair: { emo: '🎡', name: 'Волшебная ярмарка', arr: 2, proc: 1.5, fee: 1.5, cost: 50, desc: 'как день открытых дверей, но взнос +50%' },
+// ad campaigns: 5 minutes each, then a 15-minute pause before the next one; cost = that many entry fees.
+// build audit 2026-11-24: a full school admits the same number whatever the ads, so the arrival boost was wasted and every campaign
+// lost money below ~20 newcomers a minute; «День открытых дверей» was never best. Now: flyers = cheap, more students while there
+// are free places; open day = mood for the whole school; fair = the money one (fee +60%, pays back from ~7 newcomers a minute)
+const CAMPS = {
+  flyers: { emo: '📰', name: 'Листовки в городе', arr: 1.5, proc: 1.2, fee: 1.1, cost: 4, desc: 'ученики приходят в 1,5 раза чаще (если есть места), взнос +10%' },
+  open: { emo: '🎪', name: 'День открытых дверей', arr: 2, proc: 1.5, fee: 1, cost: 8, mood: 15, desc: 'все ученики сразу +15 настроения (весёлые лучше сдают экзамены), новички приходят весёлыми и вдвое чаще (если есть места)' },
+  fair: { emo: '🎡', name: 'Волшебная ярмарка', arr: 1, proc: 1.5, fee: 1.6, cost: 20, desc: 'взнос новичков +60%, в приёмной помогает волонтёр' },
 };
 const CAMP_LEN = 300, CAMP_PAUSE = 900;
 const campCost = (k) => Math.max(300, Math.round(fee() * planOf().fee * CAMPS[k].cost / 10) * 10);
@@ -186,12 +211,12 @@ const campNow = () => { if (!bossOn()) return null; const c = boss().camp; retur
 const campWait = () => { const c = bossOn() && boss().camp; return c ? Math.max(0, (c.cd - Date.now()) / 1000) : 0; };   // seconds until a new campaign may start
 const bossArrK = () => planOf().arr * ((campNow() || {}).arr || 1);
 const bossProcK = () => planOf().proc * ((campNow() || {}).proc || 1);
-const entryFee = () => Math.max(1, Math.round(fee() * planOf().fee * ((campNow() || {}).fee || 1)));   // what a newcomer pays at the reception
+const entryFee = () => Math.max(1, Math.round(fee() * planOf().fee * ((campNow() || {}).fee || 1) * firmK()));   // what a newcomer pays at the reception
 function startCamp(k) {
   if (!bossOn() || !CAMPS[k] || campNow() || campWait() > 0) return;
   if (!spend(campCost(k))) return;
   const now = Date.now(); boss().camp = { k, end: now + CAMP_LEN * 1000, cd: now + (CAMP_LEN + CAMP_PAUSE) * 1000 }; S.stats.camps = (S.stats.camps || 0) + 1;   // counted for the missions
-  arrivalT = Math.min(arrivalT, arrivalInterval());
+  arrivalT = Math.min(arrivalT, arrivalInterval()); if (CAMPS[k].mood) cheerAll(CAMPS[k].mood, '🎈');
   toast(`${CAMPS[k].emo} Акция «${CAMPS[k].name}» началась на 5 минут!`); save();
 }
 // parents' letters: every 8-15 minutes of play one complaint; three answers; no deadline since build 240 (only while the game is on screen)
@@ -205,7 +230,8 @@ const MAILS = [
   ['😢', 'Мой ребёнок приходит грустный. Ему у вас скучно.'],
   ['🍽️', 'Чем вы кормите детей? Жалуются, что всё время голодные.'],
 ];
-const mailPayCost = () => { const c = boss().mail.cur, v = Math.max(200, Math.round((S.ema || 1) * 20 / 10) * 10); return c ? (c.pay ||= v) : v; };   // fixed for the letter (it moved every second)
+const mailPayCost = () => { const c = boss().mail.cur, v = Math.max(200, Math.round((rateNow() || 1) * 20 / 10) * 10); return c ? (c.pay ||= v) : v; };   // fixed for the letter (it moved every second)
+const FIRM_SEC = 600, firmK = () => (bossOn() && (boss().firm || 0) > Date.now() ? 1.25 : 1);   // build audit 2026-11-24: a refused letter: the school knows its worth, newcomers pay +25% for 10 minutes (refuse was strictly worse than the open lesson)
 const repK = () => 1 + 0.05 * (bossOn() ? boss().rep || 0 : 0);   // the school's name among parents: inspection reward ±5% per point
 function cheerAll(d, icon) {   // every student in school gets mood d
   for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && a.goal.t === 'x')) { a.mood = Math.max(0, Math.min(100, moodOf(a) + d)); if (icon && Math.random() < 0.35) popup(icon, a.x, a.y, d > 0 ? '#ff6fa3' : '#5b7fd6', 44); }
@@ -231,7 +257,8 @@ function answerMail(how, auto) {
   else if (how === 'lesson') {
     if (Math.random() < 0.6) { cheerAll(8, '😊'); mailResult = '🎓 Открытый урок понравился! Родители успокоились, ученики гордятся школой.'; }
     else { B.rep = Math.max(-REP_MAX, (B.rep || 0) - 1); cheerAll(-5); mailResult = '😕 Открытый урок не убедил родителей. Репутация школы немного упала.'; }
-  } else { B.rep = Math.max(-REP_MAX, (B.rep || 0) - 1); cheerAll(-12, '😟'); mailResult = auto ? '📭 На письмо никто не ответил. Родители обиделись: репутация упала, ученики загрустили.' : '😤 Родители обиделись на отказ: репутация упала, ученики загрустили.'; }
+  } else if (auto) { B.rep = Math.max(-REP_MAX, (B.rep || 0) - 1); cheerAll(-12, '😟'); mailResult = '📭 На письмо никто не ответил. Родители обиделись: репутация упала, ученики загрустили.'; }
+  else { B.rep = Math.max(-REP_MAX, (B.rep || 0) - 1); cheerAll(-6, '😟'); B.firm = Date.now() + FIRM_SEC * 1000; mailResult = '😤 Родители обиделись на отказ: репутация упала. Зато все видят, что школа знает себе цену: взнос новичков +25% на 10 минут.'; }
   M.cur = null; dirtyPanel = true; if (!auto) S.stats.mails = (S.stats.mails || 0) + 1; save();   // mails: counted for the missions
   toast(auto ? '📭 Письмо родителей осталось без ответа' : mailResult.split(':')[0].split('!')[0]);
 }
@@ -247,9 +274,9 @@ function mailPanel() {
   return `<div class="sh-head"><span class="remoji big">✉️</span><div><h2>Письмо от родителей</h2><div class="muted">ученика ${M.cur.name}</div></div><button class="x" data-close>✕</button></div>
     <div class="card up"><span class="remoji">${e}</span><div class="grow">«${t}»</div></div>
     <p class="muted">Как ответить? От ответа зависят настроение учеников и репутация школы у родителей (сейчас ${(boss().rep || 0) > 0 ? '+' : ''}${boss().rep || 0}).</p>
-    <button class="btn wide" data-cost="${mailPayCost()}" data-act="mail" data-k="pay">💐 Извиниться и вернуть деньги <span class="cost">🪙${fmt(mailPayCost())}</span></button>
+    <button class="btn wide" data-cost="${mailPayCost()}" data-act="mail" data-k="pay">💐 Извиниться и вернуть деньги (репутация +1) <span class="cost">🪙${fmt(mailPayCost())}</span></button>
     <button class="btn ghost wide" data-act="mail" data-k="lesson">🎓 Пригласить на открытый урок <span class="cost">60%</span></button>
-    <button class="btn ghost wide" data-act="mail" data-k="no">🙅 Отказать</button>`;
+    <button class="btn ghost wide" data-act="mail" data-k="no">🙅 Отказать (взнос новичков +25% на 10 мин)</button>`;
 }
 function drawMail() {   // a bobbing envelope over the director's office while a letter waits
   if (!bossOn() || !S.boss || !S.boss.mail || !S.boss.mail.cur || !SLOTS.DIR) return;
@@ -268,18 +295,18 @@ function bossBlock() {   // the routine part of the director's panel
   else if (mailResult) h += `<p class="muted">${mailResult}</p>`;
   const rep = B.rep || 0;
   h += `<p class="muted">Репутация у родителей: <b>${rep > 0 ? '+' : ''}${rep}</b> (от −${REP_MAX} до +${REP_MAX}), награда инспектора ${rep >= 0 ? '+' : '−'}${Math.abs(rep * 5)}%. Письма приходят раз в 8–15 минут игры.</p>`;
-  h += `<h3>📜 Договор с учениками</h3><p class="muted">Взнос новичка сейчас 🪙${fmt(entryFee())}, новый ученик каждые ${sec(arrivalInterval())}. Ушедшие расстроенными получают назад свой взнос × правила возврата.</p>`;
+  h += `<h3>📜 Договор с учениками</h3><p class="muted">Взнос новичка сейчас 🪙${fmt(entryFee())}, приходят ${perMin(arrivalInterval())} в минуту${adsFull() ? ' (школа полна: больше не помещается, поэтому важнее взнос)' : ''}. Ушедшие расстроенными получают назад свой взнос × правила возврата.</p>`;
   for (const [k, p] of Object.entries(PLANS)) h += `<div class="card up"><span class="remoji">${p.emo}</span><div class="grow"><b>${p.name}</b><div class="muted">${p.desc}</div></div>${B.plan === k ? '<span class="done">выбран</span>' : `<button class="btn ghost" data-act="plan" data-k="${k}">Выбрать</button>`}</div>`;
   h += `<h3>📣 Рекламные акции</h3>`;
   if (cn) h += `<p>${cn.emo} Идёт акция «${cn.name}»: ещё ${mmss((B.camp.end - Date.now()) / 1000)}.</p>`;
   else if (w > 0) h += `<p class="muted">Следующую акцию можно запустить через ${mmss(w)}.</p>`;
-  else h += `<p class="muted">Акция идёт 5 минут, потом перерыв 15 минут. Больше учеников — больше взносов, но следи за очередями: кто не найдёт места, уйдёт и заберёт взнос назад.</p>`;
+  else h += `<p class="muted">Акция идёт 5 минут, потом перерыв 15 минут. ${adsFull() ? 'Сейчас школа полна: лишние ученики не войдут, так что выгоднее ярмарка (надбавка к взносу) или день открытых дверей (настроение).' : 'Пока в школе есть свободные места, листовки и день открытых дверей приводят больше учеников.'}</p>`;
   for (const [k, c] of Object.entries(CAMPS)) h += `<div class="card up"><span class="remoji">${c.emo}</span><div class="grow"><b>${c.name}</b><div class="muted">${c.desc}</div></div>${cn || w > 0 ? '' : costBtn('▶', campCost(k), 'camp', `data-k="${k}"`)}</div>`;
   h += `<h3>🏛️ Улучшения кабинета</h3>`;
   return h;
 }
 const G = { // helpers exposed to missions
-  get S() { return S; }, cls, built: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return isOpen(i); },
+  get S() { return S; }, calm: () => calm(), cls, built: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return isOpen(i); },
   item: (cid, iid) => { const i = CLASSES.findIndex((c) => c.id === cid); return S.classes[i].items[CLASSES[i].items.findIndex((x) => x.id === iid)]; },
   maxItem: () => Math.max(...S.classes.flatMap((c) => c.items)),
   // features added since build 237 (story missions 2026-11-23)
@@ -298,7 +325,12 @@ const refundCap = () => 0.5 * (S.ema || 0) * 60;
 window.__leave = (a) => leaveSchool(a);   // test hook
 function stepRefund(dt) { const cap = refundCap(); S.refBud = Math.min(cap, (S.refBud ?? cap) + 0.5 * (S.ema || 0) * dt); }
 function earn(n, x, y, color, lift) { S.coins += n; S.stats.earned = (S.stats.earned || 0) + n; earnedThisSec += n; if (x !== undefined) popup(`+${fmt(n)}`, x, y, color || '#c98a00', lift); }
-function spend(c) { if (S.coins < c) { toast('Не хватает монет 🪙'); return false; } S.coins -= c; PRICE_FROZEN.clear(); return true; }   // a purchase: the next prices are taken anew
+// build audit 2026-11-24: a one-off payout (chest, mini-game, moon, caravan, expedition, rumble chest, tower release) is not the school's
+// running income: it must not lift the income average, or every «N minutes of income» reward and every price floor balloons after it
+// (a chest then a mini-game round paid ~1160 min instead of 10; prices x14-x32 for half an hour after the chests)
+function bonus(n, x, y, color, lift) { if (!(n > 0)) return; S.coins += n; S.stats.bonus = (S.stats.bonus || 0) + n; if (x !== undefined) popup(`+${fmt(n)}`, x, y, color || '#c98a00', lift); }
+const rateNow = () => (steadyRate() || S.ema || 0) / boostK();   // income per second for pricing rewards and costs: spikes clipped, a running boost taken out
+function spend(c) { if (!Number.isFinite(c) || c < 0) return false; if (S.coins < c) { toast('Не хватает монет 🪙'); return false; } S.coins -= c; return true; }   // a purchase: the next prices are taken anew
 
 // ======================= world geometry (isometric tile map) =======================
 // Tile coords (x, y). Screen: sx = OX + (x - y) * HW, sy = OY + (x + y) * HH.
@@ -883,7 +915,7 @@ function walk(a, tx, ty, then) { a.path = pathTo(a, tx, ty); a.onArrive = then; 
 function spawn() {
   if (EDIT) return;   // the editor shows empty rooms
   const a = { id: S.nextId++, sp: rnd(SPECIES), name: rnd(NAMES), x: GATE_TILE.x, y: GATE_TILE.y, z: 0,
-    path: [], speed: 2.3 + Math.random() * 0.4, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6, mood: planOf().mood };
+    path: [], speed: 2.3 + Math.random() * 0.4, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6, mood: Math.min(100, planOf().mood + ((campNow() || {}).mood || 0)), pk: planOf().sad };
   agents.push(a); queue.push(a); goQueue(a);
 }
 function goQueue(a) { const p = queueSlot(queue.indexOf(a)); a.goal = { t: 'q' }; a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'queue'; }); }
@@ -963,7 +995,7 @@ function stepConcierge(dt) {
 }
 function leaveSchool(a) {   // no room anywhere: the student is upset and goes home — and the school pays its fee back with a penalty
   if (a.retake) { retakeHome(a); return; }   // an elder on a retake never leaves the school: he just goes back to the tower
-  S.stats.left = (S.stats.left || 0) + 1; review(a, 1);
+  S.stats.left = (S.stats.left || 0) + 1; review(a, leaverStars());
   const want = Math.min(S.coins, Math.round((a.paid || fee()) * refundRate())), back = Math.max(0, Math.min(want, Math.floor(S.refBud ?? refundCap())));   // build 275: the refund cap
   if (back > 0) { S.refBud = (S.refBud ?? refundCap()) - back; spendOut(back, 'refunded'); popup(`−${fmt(back)}`, a.x, a.y, '#e0245e', 60); }
   if (want > back) S.stats.unpaid = (S.stats.unpaid || 0) + (want - back);   // the till is empty this minute: he leaves without (all of) his money
@@ -1040,7 +1072,8 @@ const MAX_BENCH = 10, MAX_FOUNT = 10, MAX_COIN = 10;
 const courtUp = () => (S.courtUp ||= { bench: 1, fount: 1, coin: 0 });
 const courtCap = () => (WORLD === 1 && COURT ? COURT_CAP0 + 3 * (courtUp().bench - 1) : 0);
 const fountMoodK = () => 1 + 0.2 * (courtUp().fount - 1);
-const coinLuck = () => (courtUp().coin ? 0.05 + 0.005 * (courtUp().coin - 1) : 0);
+const coinLuck = () => (courtUp().coin ? 0.05 + 0.01 * (courtUp().coin - 1) : 0);   // build audit 2026-11-24: +1% per level (was +0.5% for 17.5B in her save)
+const fountLineK = () => (WORLD === 1 && COURT ? 1 - 0.04 * (courtUp().fount - 1) : 1);   // build audit 2026-11-24: the fountain also calms the lines (court mood hit 100 in ~30 s at level 1, so its levels were wasted)
 function courtBenches() {   // build 282 (her «Но они должны рисоваться»): every bench level puts one more real bench into the court
   const c = courtC(), W = COURT.x1 - COURT.x0, H = COURT.y1 - COURT.y0, out = [];
   [[0.75, 1], [2.36, 0], [3.93, 1], [5.5, 0]].forEach(([an, f]) => out.push({ x: c.x + Math.cos(an) * 3.6, y: c.y + Math.sin(an) * 3.6, f }));
@@ -1057,7 +1090,7 @@ function courtBenches() {   // build 282 (her «Но они должны рис�
 const paceK = () => Math.max(1, fee() / 10);
 const benchCost = () => Math.round(4000 * paceK() * Math.pow(2.0, courtUp().bench - 1));
 const fountCost = () => Math.round(6000 * paceK() * Math.pow(2.0, courtUp().fount - 1));
-const coinCost = () => Math.round(15000 * paceK() * Math.pow(2.1, courtUp().coin));
+const coinCost = () => Math.round(2000 * paceK() * Math.pow(1.6, courtUp().coin));   // build audit 2026-11-24: was 15000 x 2.1^level
 const courtRoom = () => courtList.length < courtCap();
 const courtFor = (i) => courtList.reduce((n, a) => n + (a.goal && a.goal.i === i && !a.goal.brk ? 1 : 0), 0);
 const COURT_MOOD = 0.6;   // mood per second while waiting in the court
@@ -1171,15 +1204,16 @@ function seat(a, i, d) {
 const W2 = () => (S.w2 ||= { ore: 0, items: 0, gems: 0, store: 1 });
 const oreCap = () => Math.round(40 * Math.pow(1.8, W2().store - 1));
 const storeCost = () => paced(tuition(2) * 120 * Math.pow(2.0, W2().store - 1), W2().store);
-const MAX_STORE = 15, ORE_FORGE = 2, GEM_CHANCE = 0.04;
+const MAX_STORE = 15, ORE_FORGE = 2, ORE_MINE = 3, GEM_CHANCE = 0.04;   // build audit 2026-11-24: the mine (after the forge in the chain) dug 1, the forge took 2 -> half the forge lessons paid half forever; now 3 per mine lesson, the surplus fills the store, which feeds the forge while the mine stands (cave-in, incident)
+const mineOpen = () => { const m = CLASSES.findIndex((c) => c.id === 'mine'); return m >= 0 && isOpen(m); };
 const w2Id = (i) => (WORLD === 2 ? CLASSES[i].id : '');
-const w2Pay = (i) => (w2Id(i) === 'forge' && W2().ore < ORE_FORGE ? 0.5 : 1);   // a forge lesson without ore pays half
+const w2Pay = (i) => (w2Id(i) === 'forge' && W2().ore < ORE_FORGE && mineOpen() ? 0.5 : 1);   // a forge lesson without ore pays half (build audit 2026-11-24: not before the mine is open, the player cannot help it then)
 const FISH_CHANCE = 0.15, FISH_MAX = 30;   // the lake hall's catch for the feasting hall
 function w2Lesson(i, p) {
   const id = w2Id(i); if (!id) return; const w = W2();
-  if (id === 'mine') { if (w.ore < oreCap()) { w.ore++; S.stats.ore = (S.stats.ore || 0) + 1; if (!ffwd) popup('⛏️ +1', p.x + 0.4, p.y - 0.2, '#8a6d3b', 30); } else if (!ffwd) popup('📦 склад полон', p.x + 0.4, p.y - 0.2, '#a05a2c', 30); }
+  if (id === 'mine') { const n = Math.min(ORE_MINE, oreCap() - w.ore); if (n > 0) { w.ore += n; S.stats.ore = (S.stats.ore || 0) + n; if (!ffwd) popup('⛏️ +' + n, p.x + 0.4, p.y - 0.2, '#8a6d3b', 30); } }   // build audit 2026-11-24: a full store is the normal state now, no popup for it
   else if (id === 'forge') { if (w.ore >= ORE_FORGE) { w.ore -= ORE_FORGE; w.items++; S.stats.forged = (S.stats.forged || 0) + 1; if (!ffwd) popup('⚒️ +1', p.x + 0.4, p.y - 0.2, '#b0602c', 30); } else if (!ffwd) popup('нет руды', p.x + 0.4, p.y - 0.2, '#7a7a7a', 30); }
-  else if (id === 'lake' && Math.random() < FISH_CHANCE) { if ((w.fish || 0) < FISH_MAX) { w.fish = (w.fish || 0) + 1; S.stats.fish = (S.stats.fish || 0) + 1; if (!ffwd) popup('🐟 +1', p.x + 0.4, p.y - 0.2, '#3f8fc0', 36); } }
+  else if (id === 'lake' && Math.random() < FISH_CHANCE) { if ((w.fish || 0) < FISH_MAX) { w.fish = (w.fish || 0) + 1; S.stats.fish = (S.stats.fish || 0) + 1; if (!ffwd) popup('🐟 +1', p.x + 0.4, p.y - 0.2, '#3f8fc0', 36); } else if (!ffwd && !cantBuilt()) popup('🐟 садок полон', p.x + 0.4, p.y - 0.2, '#7a7a7a', 36); }   // build audit 2026-11-24: the cap was silent
   else if (id === 'gems' && Math.random() < GEM_CHANCE) { w.gems++; S.stats.gemsCut = (S.stats.gemsCut || 0) + 1; if (!ffwd) popup('💎 +1', p.x + 0.4, p.y - 0.2, '#7b5cd6', 40); }
 }
 // ---- caravans (Торговый двор): items and gems are loaded into the wagon; a full wagon leaves by itself (or by the button)
@@ -1189,18 +1223,23 @@ const trade = () => { const w = W2(); return (w.trade ||= { built: false, wagon:
 const tradeOpen = () => WORLD === 2 && !!(S && S.w2 && bReady(S.w2.trade));
 const wagonCap = () => 20 + 10 * (trade().wagon - 1);
 const tripTime = () => Math.round(180 * Math.pow(0.9, trade().road - 1));
-const itemPrice = () => Math.round(tuition(1) * 1.4 * (1 + 0.12 * (trade().price - 1)));
-const gemPrice = () => Math.round(tuition(3) * 4 * (1 + 0.12 * (trade().price - 1)));
+// build audit 2026-11-24: goods were priced off the forge (25 of 1845 base tuition) -> caravans gave 2-6% of income instead of
+// the planned third. Now off the most expensive open hall (like fee()): an item = 0.6 of its lesson, a gem = 2.5 lessons;
+// with every hall open that is ~27% of world-2 income at price level 1. Wagon and road decide how many goods get sold.
+const ITEM_K = 0.6, GEM_K = 2.5, PRICE_STEP = 0.08, CARAVAN_WAIT = 300;
+const topPay = () => { let mx = 0; for (let i = 0; i < CLASSES.length; i++) if (!CLASSES[i].final && isOpen(i)) mx = Math.max(mx, tuition(i)); return mx; };
+const itemPrice = () => Math.round(Math.max(tuition(1), topPay() * ITEM_K) * (1 + PRICE_STEP * (trade().price - 1)));
+const gemPrice = () => Math.round(Math.max(tuition(3) * 4, topPay() * GEM_K) * (1 + PRICE_STEP * (trade().price - 1)));
 const tupCost = (k) => paced(TRADE_COST * 0.6 * Math.pow(k === 'wagon' ? 2.6 : 2.4, trade()[k] - 1), trade()[k]);   // steeper (sim: all 15 levels were bought by day ~4)
 const loadValue = () => trade().load * itemPrice() + trade().gems * gemPrice();
 let tradeAcc = 0;
-function sendCaravan() { const T = trade(); if (T.away || !(T.load + T.gems)) return; T.value = loadValue(); T.away = tripTime(); T.trip = T.away; T.load = 0; T.gems = 0; if (!ffwd) toast(`🐐 Караван ушёл: вернётся через ${mmss(T.away)} с 🪙${fmt(T.value)}`); }
+function sendCaravan() { const T = trade(); if (T.away || !(T.load + T.gems)) return; T.value = loadValue(); T.away = tripTime(); T.trip = T.away; T.load = 0; T.gems = 0; T.wt = 0; if (!ffwd) toast(`🐐 Караван ушёл: вернётся через ${mmss(T.away)} с 🪙${fmt(T.value)}`); }
 function stepTrade(dt) {
   if (!tradeOpen()) return; const T = trade(), w = W2();
   if (T.away) { T.away = Math.max(0, T.away - dt); if (!T.away) { const s = SLOTS.TRADE; earn(T.value, s.x0 + 3, s.y0 + 2, '#c98a00', 60); S.stats.caravans = (S.stats.caravans || 0) + 1; if (!ffwd) toast(`🐐 Караван вернулся: 🪙 +${fmt(T.value)}`); T.value = 0; } return; }
   tradeAcc += dt; if (tradeAcc < 1) return; tradeAcc = 0;
   const room = wagonCap() - T.load - T.gems; if (room > 0) { const g = Math.min(room, w.gems); T.gems += g; w.gems -= g; const it = Math.min(room - g, w.items); T.load += it; w.items -= it; }
-  if (T.load + T.gems >= wagonCap()) sendCaravan();
+  if (T.load + T.gems >= wagonCap() || (T.load + T.gems > 0 && (T.wt = (T.wt || 0) + 1) >= CARAVAN_WAIT)) sendCaravan();   // build audit 2026-11-24: a big wagon on a small school stood half-full for an hour; now it also leaves after 5 min
 }
 function tradePanel() {
   const T = trade(), w = W2();
@@ -1212,12 +1251,12 @@ function tradePanel() {
       ${T[k] >= mx ? '<span class="done">макс.</span>' : costBtn('↑', tupCost(k), 'tup', `data-k="${k}"`)}</div>`;
   return `<div class="sh-head"><span class="remoji big">🐐</span><div><h2>Торговый двор</h2><div class="muted">${T.away ? `Караван в пути: вернётся через ${mmss(T.away)}` : 'Повозка грузится'}</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>📦</span><b>${T.load + T.gems}/${wagonCap()}</b><i>в повозке</i></div><div><span>⚒️</span><b>${fmt(w.items)}</b><i>на складе</i></div><div><span>💰</span><b>${fmt(T.away ? T.value : loadValue())}</b><i>${T.away ? 'везут' : 'стоит груз'}</i></div></div>
-    <p class="muted">Изделие ⚒️ стоит 🪙${fmt(itemPrice())}, самоцвет 💎 — 🪙${fmt(gemPrice())}. Дорога: ${mmss(tripTime())}. Полная повозка уходит сама.</p>
+    <p class="muted">Изделие ⚒️ стоит 🪙${fmt(itemPrice())}, самоцвет 💎 — 🪙${fmt(gemPrice())}. Дорога: ${mmss(tripTime())}. Полная повозка уходит сама, неполная — через 5 минут. Цена изделий растёт вместе с платой за уроки в самом дорогом зале.${w.items > wagonCap() * 2 ? ' <b>Повозка не успевает вывозить изделия — улучши повозку или дорогу.</b>' : ''}</p>
     ${T.away ? '' : `<button class="btn wide" data-act="caravan" ${T.load + T.gems ? '' : 'disabled'}>Отправить сейчас <span class="cost">🪙${fmt(loadValue())}</span></button>`}
     ${(() => { const nx = (k, now, next) => (T[k] >= MAX_TUP ? `сейчас ${now}` : `сейчас ${now} → станет ${next}`);   // her «как было -10% пути так и осталось»: the card showed only the per-level step
       return up('wagon', '🛒', 'Повозка больше', `${nx('wagon', wagonCap() + ' мест', wagonCap() + 10 + ' мест')} (+10 за уровень)`, MAX_TUP)
         + up('road', '🛤️', 'Дорога короче', `путь ${nx('road', mmss(tripTime()), mmss(Math.round(180 * Math.pow(0.9, T.road))))} (−10% за уровень)`, MAX_TUP)
-        + up('price', '⚖️', 'Цена выше', `${nx('price', '+' + 12 * (T.price - 1) + '%', '+' + 12 * T.price + '%')} к цене изделий и самоцветов`, MAX_TUP); })()}${T.away ? '<p class="muted">Караван, который уже в пути, едет со старым временем; новое время — со следующего рейса.</p>' : ''}`;
+        + up('price', '⚖️', 'Цена выше', `${nx('price', '+' + Math.round(PRICE_STEP * 100 * (T.price - 1)) + '%', '+' + Math.round(PRICE_STEP * 100 * T.price) + '%')} к цене изделий и самоцветов`, MAX_TUP); })()}${T.away ? '<p class="muted">Караван, который уже в пути, едет со старым временем; новое время — со следующего рейса.</p>' : ''}`;
 }
 // ---- the elder's throne + rumble from the depths (world 2) ----
 const THRONE_COST = 20000000, THRONE_NEED = 'guards';
@@ -1230,13 +1269,20 @@ const THRONE_UP = {
 const throne = () => { const w = W2(); return (w.throne ||= { built: false, t: RUMBLE_MIN, cur: null, won: 0, lost: 0, watch: 0, props: 0, loot: 0 }); };
 const thCost = (k) => paced(THRONE_UP[k].base * Math.pow(THRONE_UP[k].k, throne()[k] || 0), (throne()[k] || 0) + 1);
 const guardsIdx = () => CLASSES.findIndex((c) => c.id === THRONE_NEED);
-const rumbleNeed = () => Math.max(2, Math.round((3 + Math.min(12, throne().won)) * (1 - 0.08 * (throne().props || 0))));
+// build audit 2026-11-24: the need climbed to 15 after 12 wins and never dropped, while 6 guard desks pass ~9 in 90 s -> every
+// rumble lost. Now a heat level (+1 a win, -3 a loss, 0..12) and never more than 70% of what the guard hall really passed lately.
+const rumbleRate = () => { const T = throne(); if (T.rate) return T.rate; const g = guardsIdx(); return g >= 0 ? S.classes[g].desks * success(g) / lessonTime(g) * 0.5 : 0.05; };   // guard passes per second (measured live, or a cautious estimate)
+const rumbleHeat = () => { const T = throne(); return T.heat ?? Math.min(12, T.won); };
+const rumbleNeed = () => Math.max(2, Math.round(Math.min(3 + rumbleHeat(), 0.7 * rumbleRate() * rumbleLen()) * (1 - 0.08 * (throne().props || 0))));
+const CAVE_LEN = 180;   // a cave-in left alone clears itself in 3 minutes (world 2 has no caretaker upgrade; it lasted 10 min)
 const rumbleLen = () => RUMBLE_LEN + 10 * (throne().watch || 0);
 const rumbleOn = () => WORLD === 2 && dirBuilt() && guardsIdx() >= 0 && isOpen(guardsIdx());
-function rumbleChest() { const c = Math.round(Math.max(500, (S.ema || 1) * 120) * (1 + 0.15 * (throne().loot || 0))), g = 1 + Math.floor(Math.random() * 3); return { c, g }; }
+function rumbleChest() { const c = Math.round(Math.max(500, (rateNow() || 1) * 120) * (1 + 0.15 * (throne().loot || 0))), g = 1 + Math.floor(Math.random() * 3); return { c, g }; }
 function stepRumble(dt, live) {
-  if (!rumbleOn() || calm() || !live || tourStep >= 0 || (typeof MG !== 'undefined' && MG.isOpen())) return;
-  const T = throne();
+  if (!rumbleOn()) return;
+  const T = throne(); if (!live) { T.pc = 0; T.rt = 0; return; }   // build audit 2026-11-24: the pass meter only counts live time
+  if (calm() || tourStep >= 0 || (typeof MG !== 'undefined' && MG.isOpen())) { T.pc = 0; T.rt = 0; return; }
+  T.rt = (T.rt || 0) + dt; if (T.rt >= 60) { const r = (T.pc || 0) / T.rt; T.rate = T.rate ? T.rate * 0.7 + r * 0.3 : r; T.rt = 0; T.pc = 0; }   // build audit 2026-11-24: live guard-hall pass rate
   if (!T.cur) {
     T.t -= dt;
     if (T.t <= RUMBLE_WARN && !T.warned) { T.warned = 1; toast('🌑 Из глубин доносится гул! Скоро тени полезут наверх'); hintOnce('rumble', '🌑', 'Гул из глубин', `Через ${RUMBLE_WARN} секунд из глубины горы полезут тени. Пока длится защита, каждый сданный урок в Зале стражей 🛡️ отбивает одну тень. Отбьёте сколько нужно — получите сундук с монетами и самоцветами. Не успеете — обвал закроет один зал, его надо будет расчистить нажатием.`); }
@@ -1245,16 +1291,19 @@ function stepRumble(dt, live) {
     return;
   }
   T.cur.left -= dt;
-  if (T.cur.got >= T.cur.need) { const { c, g } = rumbleChest(); earn(c); W2().gems += g; T.won++; S.stats.rumbleWon = (S.stats.rumbleWon || 0) + 1; toast(`🎁 Тени отбиты! Сундук: 🪙 +${fmt(c)} и 💎 +${g}`); T.cur = null; T.t = RUMBLE_MIN + Math.random() * (RUMBLE_MAX - RUMBLE_MIN); dirtyPanel = true; return; }
+  if (T.cur.got >= T.cur.need) { const { c, g } = rumbleChest(); bonus(c); W2().gems += g; T.heat = Math.min(12, rumbleHeat() + 1); T.won++; S.stats.rumbleWon = (S.stats.rumbleWon || 0) + 1; toast(`🎁 Тени отбиты! Сундук: 🪙 +${fmt(c)} и 💎 +${g}`); T.cur = null; T.t = RUMBLE_MIN + Math.random() * (RUMBLE_MAX - RUMBLE_MIN); dirtyPanel = true; return; }
   if (T.cur.left <= 0) {
-    T.lost++; T.cur = null; T.t = RUMBLE_MIN + Math.random() * (RUMBLE_MAX - RUMBLE_MIN);
+    T.lost++; T.heat = Math.max(0, rumbleHeat() - 3); T.cur = null; T.t = RUMBLE_MIN + Math.random() * (RUMBLE_MAX - RUMBLE_MIN);
     const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !(S.inc && S.inc[i]) && i !== guardsIdx());
-    if (open.length) { const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'r', t: 0 }; toast(`🪨 Тени прорвались: обвал в зале «${CLASSES[i].name}»! Нажми на зал, чтобы расчистить`); }
+    if (open.length && Object.keys(S.inc || {}).length < INC_MAXN) { const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'r', t: Math.max(0, INC_AUTO_AT(dirLvl('keeper')) - CAVE_LEN) }; toast(`🪨 Тени прорвались: обвал в зале «${CLASSES[i].name}»! Нажми на зал, чтобы расчистить (сам расчистится через 3 минуты)`); }   // build audit 2026-11-24: starts near the end of the auto-clear time; no third blocked hall
+    else toast('🌑 Тени прорвались, но залы устояли');
     dirtyPanel = true;
   }
 }
 function rumbleLesson(i, p) {   // a passed lesson in the guard hall during the defence beats one shadow
-  const T = WORLD === 2 && S.w2 && S.w2.throne; if (!T || !T.cur || CLASSES[i].id !== THRONE_NEED) return;
+  const T = WORLD === 2 && S.w2 && S.w2.throne; if (!T || CLASSES[i].id !== THRONE_NEED) return;
+  if (!ffwd && rumbleOn()) T.pc = (T.pc || 0) + 1;   // build audit 2026-11-24: counted for the adaptive need
+  if (!T.cur) return;
   T.cur.got++; if (!ffwd) popup(`🛡️ ${T.cur.got}/${T.cur.need}`, p.x, p.y - 0.4, '#3b6fd6', 54);
 }
 function throneBuildPanel() {
@@ -1267,7 +1316,7 @@ function thronePanel() {
   const T = throne(), c = T.cur;
   let h = `<div class="sh-head"><span class="remoji big">👑</span><div><h2>Трон старейшины</h2><div class="muted">${c ? `🌑 Тени лезут! Осталось ${mmss(c.left)}` : calm() ? 'Спокойный режим: гула нет' : `Следующий гул примерно через ${mmss(T.t)}`}</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🛡️</span><b>${c ? `${c.got}/${c.need}` : rumbleNeed()}</b><i>${c ? 'отбито' : 'нужно отбить'}</i></div><div><span>🎁</span><b>${T.won}</b><i>побед</i></div><div><span>🪨</span><b>${T.lost}</b><i>обвалов</i></div></div>
-    <p class="muted">Пока идёт защита, каждый сданный урок в Зале стражей отбивает одну тень. Больше парт и сильнее учитель в Зале стражей — быстрее защита. С каждой победой теней становится больше.</p>`;
+    <p class="muted">Пока идёт защита, каждый сданный урок в Зале стражей отбивает одну тень. Больше парт и сильнее учитель в Зале стражей — быстрее защита. С каждой победой теней становится больше, после прорыва — меньше. Больше, чем успевает Зал стражей, их не бывает.</p>`;
   for (const [k, u] of Object.entries(THRONE_UP)) {
     const l = T[k] || 0;
     h += `<div class="card up"><span class="remoji">${u.emo}</span><div class="grow"><b>${u.name}</b> <span class="muted">ур. ${l}/${THRONE_MAX}</span><div class="muted">сейчас: ${u.desc(l)}${l < THRONE_MAX ? `<br>станет: ${u.desc(l + 1)}` : ''}</div></div>
@@ -1285,7 +1334,8 @@ const DEPTHS = [{ name: 'Ближние штольни', emo: '⛏️', min: 30,
 const EXPED_MAX = 10;
 const exped = () => { const w = W2(); return (w.exped ||= { built: false, seekers: 0, gear: 0, camp: 0, cur: null, relics: {}, trips: 0 }); };
 const expedOpen = () => WORLD === 2 && !!(S && S.w2 && bReady(S.w2.exped));
-const seekCap = () => 50 + 25 * (exped().camp || 0);
+const seekCap = () => 50;   // build audit 2026-11-24: the camp raised this cap, which no trip ever needed
+const campGems = (d) => (exped().camp || 0) * (d + 1);   // the camp now gives extra gems per trip: +1/+2/+3 per level for the near/forgotten/deep trips
 const tripMin = (d) => Math.round(DEPTHS[d].min * Math.pow(0.92, exped().gear || 0));
 const exCostUp = (k) => paced(EXPED_COST * 0.15 * Math.pow(2.0, exped()[k] || 0), (exped()[k] || 0) + 1);
 function relicK() { const r = S && S.w2 && S.w2.exped && S.w2.exped.relics; return r ? 1 + 0.02 * Object.keys(r).length : 1; }
@@ -1293,10 +1343,10 @@ function w2Seeker() { if (!expedOpen()) return; const E = exped(); if (E.seekers
 function sendExped(d) { const E = exped(), D = DEPTHS[d]; if (!D || E.cur || E.seekers < D.need) return; E.seekers -= D.need; E.cur = { d, end: Date.now() + tripMin(d) * 60000 }; toast(`🎒 Отряд ушёл в «${D.name}»: вернётся через ${tripMin(d)} мин`); }
 function stepExped() {
   if (!expedOpen()) return; const E = exped(); if (!E.cur || Date.now() < E.cur.end) return;
-  const D = DEPTHS[E.cur.d], coins = Math.round(Math.max(1000, (S.ema || 1) * 60 * D.min * 0.12)), g = D.gems[0] + Math.floor(Math.random() * (D.gems[1] - D.gems[0] + 1));
-  earn(coins); W2().gems += g; E.trips++; S.stats.expeds = (S.stats.expeds || 0) + 1;
-  let msg = `🎒 Отряд вернулся из «${D.name}»: 🪙 +${fmt(coins)}, 💎 +${g}`;
-  if (Math.random() < D.relic) { const k = Math.floor(Math.random() * D.pool); if (!E.relics[k]) { E.relics[k] = 1; msg += ` и реликвия ${RELICS[k][0]} «${RELICS[k][1]}»!`; } else { const extra = coins; earn(extra); msg += ` и копия реликвии ${RELICS[k][0]} (продана: 🪙 +${fmt(extra)})`; } }
+  const D = DEPTHS[E.cur.d], coins = Math.round(Math.max(1000, (rateNow() || 1) * 60 * D.min * 0.12) * (1 + 0.05 * (exped().gear || 0))), g = D.gems[0] + Math.floor(Math.random() * (D.gems[1] - D.gems[0] + 1));
+  bonus(coins); W2().gems += g; E.trips++; const cg = campGems(E.cur.d); W2().gems += cg; S.stats.expeds = (S.stats.expeds || 0) + 1;
+  let msg = `🎒 Отряд вернулся из «${D.name}»: 🪙 +${fmt(coins)}, 💎 +${g + cg}`;
+  if (Math.random() < D.relic) { const fr = [...Array(D.pool).keys()].filter((q) => !E.relics[q]), k = fr.length ? rnd(fr) : Math.floor(Math.random() * D.pool); /* build audit 2026-11-24: no duplicates while new relics are left (album mean was ~12 days, ~29 copies) */ if (!E.relics[k]) { E.relics[k] = 1; msg += ` и реликвия ${RELICS[k][0]} «${RELICS[k][1]}»!`; } else { const extra = coins; bonus(extra); msg += ` и копия реликвии ${RELICS[k][0]} (продана: 🪙 +${fmt(extra)})`; } }
   E.cur = null; if (!ffwd) toast(msg); dirtyPanel = true;
 }
 function expedPanel() {
@@ -1308,30 +1358,32 @@ function expedPanel() {
   const n = Object.keys(E.relics).length;
   let h = `<div class="sh-head"><span class="remoji big">🕳️</span><div><h2>Врата глубин</h2><div class="muted">${E.cur ? `Отряд в «${DEPTHS[E.cur.d].name}»: вернётся через ${mmss((E.cur.end - Date.now()) / 1000)}` : 'Отряд в лагере'}</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🎒</span><b>${E.seekers}/${seekCap()}</b><i>искатели</i></div><div><span>🏺</span><b>${n}/${RELICS.length}</b><i>реликвии</i></div><div><span>💰</span><b>+${n * 2}%</b><i>к плате</i></div></div>
-    <p class="muted">Каждый выпускник второго мира становится искателем. Найденная реликвия навсегда добавляет +2% к плате за уроки, повторная продаётся.</p>`;
+    <p class="muted">Каждый выпускник второго мира становится искателем. Найденная реликвия навсегда добавляет +2% к плате за уроки. Отряд приносит только новые реликвии, пока они есть на этой глубине; потом копии продаются.</p>`;
   DEPTHS.forEach((D, d) => { const can = !E.cur && E.seekers >= D.need;
-    h += `<div class="card up"><span class="remoji">${D.emo}</span><div class="grow"><b>${D.name}</b><div class="muted">${tripMin(d)} мин · нужно 🎒 ${D.need} · реликвия ${Math.round(D.relic * 100)}% · 💎 ${D.gems[0]}–${D.gems[1]}</div></div>
+    h += `<div class="card up"><span class="remoji">${D.emo}</span><div class="grow"><b>${D.name}</b><div class="muted">${tripMin(d)} мин · нужно 🎒 ${D.need} · реликвия ${Math.round(D.relic * 100)}% (найдено ${Object.keys(E.relics).filter((q) => +q < D.pool).length}/${D.pool}) · 💎 ${D.gems[0] + campGems(d)}–${D.gems[1] + campGems(d)}</div></div>
       <button class="btn" data-act="exped" data-k="${d}" ${can ? '' : 'disabled'}>Отправить</button></div>`; });
   h += '<h3>Реликвии</h3><div class="stats3" style="flex-wrap:wrap">' + RELICS.map(([e, nm], k) => `<div style="min-width:30%"><span>${E.relics[k] ? `<img src="assets/relics/r${k}.webp" alt="" style="width:44px;height:44px;object-fit:contain">` : '❔'}</span><i>${E.relics[k] ? nm : '???'}</i></div>`).join('') + '</div>';
-  for (const [k, emo, nm, txt0] of [['gear', '🪢', 'Снаряжение', '−8% за уровень'], ['camp', '⛺', 'Лагерь искателей', '+25 за уровень']]) { const l = E[k] || 0, b = (d) => { E[k] = (E[k] || 0) + d; }, mx = l >= EXPED_MAX;
-    const txt = (k === 'gear' ? nn('первый поход', tripMin(0) + ' мин', peek(b, () => tripMin(0)) + ' мин', mx) : nn('мест для искателей', seekCap(), peek(b, seekCap), mx)) + ` (${txt0})`;
+  for (const [k, emo, nm, txt0] of [['gear', '🪢', 'Снаряжение', '−8% времени похода и +5% монет за уровень'], ['camp', '⛺', 'Лагерь искателей', '+1 за уровень, в глубинах больше']]) { const l = E[k] || 0, b = (d) => { E[k] = (E[k] || 0) + d; }, mx = l >= EXPED_MAX;
+    const txt = (k === 'gear' ? nn('первый поход', tripMin(0) + ' мин', peek(b, () => tripMin(0)) + ' мин', mx) : nn('самоцветов за поход сверху', '+' + campGems(0), '+' + peek(b, () => campGems(0)), mx)) + ` (${txt0})`;
     h += `<div class="card up"><span class="remoji">${emo}</span><div class="grow"><b>${nm}</b> <span class="muted">ур. ${l}/${EXPED_MAX}</span><div class="muted">${txt}</div></div>
       ${l >= EXPED_MAX ? '<span class="done">макс.</span>' : costBtn('↑', exCostUp(k), 'expedup', `data-k="${k}"`)}</div>`; }
   return h;
 }
 function w2Section(i) {
   const id = w2Id(i), w = WORLD === 2 ? W2() : null; if (!w) return '';
-  if (id === 'mine') return `<h3>Склад руды</h3><p class="muted">Каждый сданный урок здесь приносит ⛏️ 1 руду. Руду забирает Кузня: из 2 руды выходит 1 изделие ⚒️.</p>
-    <div class="card up"><span class="remoji">📦</span><div class="grow"><b>Склад: ${fmt(w.ore)}/${fmt(oreCap())}</b> <span class="muted">ур. ${w.store}/${MAX_STORE}</span><div class="muted">${w.ore >= oreCap() ? 'склад полон — руда не добывается. ' : ''}${nn('вмещает', fmt(oreCap()), fmt(peek((d) => { w.store += d; }, oreCap)), w.store >= MAX_STORE)}</div></div>
+  if (id === 'mine') return `<h3>Склад руды</h3><p class="muted">Каждый сданный урок здесь приносит ⛏️ ${ORE_MINE} руды. Руду забирает Кузня: из 2 руды выходит 1 изделие ⚒️. Запас на складе кормит Кузню, когда Штольня стоит (обвал или происшествие): чем больше склад, тем дольше Кузня работает без перерыва.</p>
+    <div class="card up"><span class="remoji">📦</span><div class="grow"><b>Склад: ${fmt(w.ore)}/${fmt(oreCap())}</b> <span class="muted">ур. ${w.store}/${MAX_STORE}</span><div class="muted">${w.ore >= oreCap() ? 'склад полон. ' : ''}${nn('вмещает', fmt(oreCap()), fmt(peek((d) => { w.store += d; }, oreCap)), w.store >= MAX_STORE)}</div></div>
       ${w.store >= MAX_STORE ? '<span class="done">макс.</span>' : costBtn('↑', storeCost(), 'store')}</div>`;
-  if (id === 'forge') return `<h3>Руда и изделия</h3><p class="muted">Каждый сданный урок забирает ⛏️ 2 руды из Штольни и даёт ⚒️ 1 изделие. Без руды урок платит вдвое меньше.</p>
+  if (id === 'forge') return `<h3>Руда и изделия</h3><p class="muted">Каждый сданный урок забирает ⛏️ 2 руды из Штольни и даёт ⚒️ 1 изделие. Когда Штольня построена, урок без руды платит вдвое меньше.</p>
     <div class="stats3"><div><span>⛏️</span><b>${fmt(w.ore)}</b><i>руда</i></div><div><span>⚒️</span><b>${fmt(w.items)}</b><i>изделия</i></div><div><span>💎</span><b>${fmt(w.gems)}</b><i>самоцветы</i></div></div>`;
+  if (id === 'lake') return `<h3>Светящаяся рыба</h3><p class="muted">После урока здесь иногда ловят 🐟 рыбу (${Math.round(FISH_CHANCE * 100)}%). Её подают в Пиршественном зале: обед с рыбой стоит вдвое дороже. Сейчас: <b>${w.fish || 0}/${FISH_MAX}</b>${!cantBuilt() && (w.fish || 0) >= FISH_MAX ? ' — садок полон, построй Пиршественный зал' : ''}.</p>`;   // build audit 2026-11-24
   if (id === 'gems') return `<h3>Самоцветы</h3><p class="muted">После каждого сданного урока есть шанс ${Math.round(GEM_CHANCE * 100)}%, что ученик огранит 💎 самоцвет. Сейчас: <b>${fmt(w.gems)}</b>.</p>`;
   return '';
 }
 function finishLesson(a) {
   const i = a.c, p = deskPos(i, a.desk);
-  const dream = (a.dream && CLASSES[i].final ? DREAM_BONUS : 0) + (CLASSES[i].final && loreQ('world') ? 0.03 : 0);   // + Tikhon's exam «Мир» if (CLASSES[i].final) a.dream = false;   // dorm roles: slept before the Final
+  const dream = (a.dream && CLASSES[i].final ? DREAM_BONUS : 0) + (CLASSES[i].final && loreQ('world') ? 0.03 : 0);   // + Tikhon's exam «Мир»
+  if (CLASSES[i].final) a.dream = false;   // dorm roles: slept before the Final (build audit 2026-11-24: this sat inside the comment above, the bonus never wore off)
   a.les = (a.les || 0) + 1; if (a.rest > 0) a.rest--;   // dorm roles: tiredness grows with every lesson, the rest wears off
   const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + dream; a.prepared = false; a.fed = false; a.luck = 0;   // a meal in the canteen helps one exam
   if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i)), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
@@ -1544,7 +1596,7 @@ function giveUp(a) {   // too sad to keep waiting: frees its place and goes home
   leaveSchool(a);
 }
 // ---- darkness and light (world 2)
-const LIGHT_MAX = 10, LIGHT_STEP = 0.09, DARK_MOOD = 2.2;
+const LIGHT_MAX = 10, LIGHT_STEP = 0.09, DARK_MOOD = 2.2, DARK_FLOOR = -0.3;
 const DARK0 = { runes: 0.35, forge: 0.25, mine: 0.6, gems: 0.45, guards: 0.55, lake: 0.75, final: 0.3 };   // deeper halls are darker; the forge has its own fire
 const lightLvl = (i) => (WORLD === 2 && S.w2 && S.w2.light && S.w2.light[i]) || 0;
 const hallDark = (i) => (WORLD === 2 && i >= 0 && CLASSES[i] ? Math.max(0, Math.round(((DARK0[CLASSES[i].id] || 0) - LIGHT_STEP * lightLvl(i)) * 1e6) / 1e6) : 0);   // rounded: 0.45 - 5 x 0.09 left 5e-17 «darkness»
@@ -1552,17 +1604,18 @@ const lightMax = (i) => (CLASSES[i] ? Math.min(LIGHT_MAX, Math.ceil(((DARK0[CLAS
 const lightCost = (i) => paced(CLASSES[i].tuition * 20 * Math.pow(1.9, lightLvl(i)), lightLvl(i) + 1);
 function lightHtml(i) {
   if (WORLD !== 2) return '';
-  const l = lightLvl(i), dk = hallDark(i), mood = 0.8 - DARK_MOOD * dk;
+  const l = lightLvl(i), dk = hallDark(i), mood = Math.max(DARK_FLOOR, 0.8 - DARK_MOOD * dk);
   return `<div class="card up"><span class="remoji">🕯️</span><div class="grow"><b>Светильники</b> <span class="muted">ур. ${l}/${lightMax(i)}</span><div class="muted">${dk > 0 ? `${nn('темнота', Math.round(dk * 100) + '%', Math.max(0, Math.round(peek((d) => { S.w2.light ||= {}; S.w2.light[i] = lightLvl(i) + d; if (!S.w2.light[i]) delete S.w2.light[i]; }, () => hallDark(i)) * 100)) + '%', l >= LIGHT_MAX)} · ${mood < 0 ? 'на уроке ученики грустят' : 'на уроке ученикам пока неуютно'}` : 'в зале светло · на уроке ученики радуются'} (−${Math.round(LIGHT_STEP * 100)}% темноты за уровень)</div></div>
     ${dk <= 1e-9 || l >= lightMax(i) ? '<span class="done">светло</span>' : costBtn('↑', lightCost(i), 'light', `data-i="${i}"`)}</div>`;
 }
 function stepMood(a, dt, live) {
   let d = 0;
   if (a.goal && a.goal.t === 'k') d = COURT_MOOD * fountMoodK();   // build 259: waiting in the court cheers them up
-  else if (a.state === 'study') d = incOf(a.c) ? -1.5 : 0.8 - DARK_MOOD * hallDark(a.c);
+  else if (a.state === 'study') { d = incOf(a.c) ? -1.5 : Math.max(DARK_FLOOR, 0.8 - DARK_MOOD * hallDark(a.c));   // build audit 2026-11-24: the lake hall took -30 mood a lesson (a pass gives +8)
+    if (live && d < 0 && !incOf(a.c) && !(S.hints && S.hints.dark)) hintOnce('dark', '🕯️', 'В зале темно', `В зале «${CLASSES[a.c].name}» темно, и на уроке ученикам грустно. Открой этот зал и поставь 🕯️ Светильники: в светлом зале ученики на уроке радуются и лучше сдают экзамены.`); }
   else if (a.state === 'read') d = 1.2;
   else if (a.state === 'nap') d = 1;   // dorm roles: a nap cheers them up
-  else if (MOOD_DROP[a.state] !== undefined) d = -MOOD_DROP[a.state] * (a.state === 'sleep' ? 1 - 0.05 * (dormUp().conc - 1) : 1) * careK(dirLvl('care'));   // a better dorm and the director's care keep them calmer
+  else if (MOOD_DROP[a.state] !== undefined) d = -MOOD_DROP[a.state] * (a.state === 'sleep' ? 1 - 0.05 * (dormUp().conc - 1) : 1) * careK(dirLvl('care')) * (a.pk || 1) * fountLineK();   // a better dorm and the director's care keep them calmer
   if (d < 0 && !live) return;
   a.mood = Math.max(0, Math.min(100, moodOf(a) + d * dt));
   if (live && a.mood < 8 && (a.state === 'wait' || a.state === 'sleep')) giveUp(a);
@@ -1611,11 +1664,14 @@ function hintOnce(key, emo, title, text) {   // a short explanation the first ti
   S.hints ||= {}; if (S.hints[key] || tourStep >= 0) return; S.hints[key] = 1; save();
   openPanel(() => `<div class="sh-head"><span class="remoji big">${emo}</span><div><h2>${title}</h2><div class="muted">Подсказка</div></div><button class="x" data-close>✕</button></div><p>${text}</p><button class="btn wide" data-close>Понятно</button>`);
 }
+// build audit 2026-11-24: a game left open on screen with nobody at it lost more than a closed one (incidents only start live and
+// then stop a class for 10 min, students leave with refunds). Nobody has touched the screen for 2 min = treated like a closed game.
+const idleNow = () => performance.now() - (window.__inputAt || 0) > 120000;
 function stepIncidents(dt, live) {
   S.inc ||= {};
   if (MG.isOpen()) return;   // build 278 (tester Соня): the school is quiet while the player brews potions
-  for (const [i, x] of Object.entries(S.inc)) { x.t = (x.t || 0) + dt; if (x.t > (live ? INC_AUTO_AT(dirLvl('keeper')) : Math.min(30, INC_AUTO_AT(dirLvl('keeper'))))) delete S.inc[i]; }   // away (catch-up) the caretaker fixes it within 30 s: an incident left open stopped its class for 10 min of the catch-up and emptied the rating (tester О-Дин: 3.9 -> 1.9 after 15 min away)
-  if (!live || S.stats.graduated < 5 || tourStep >= 0) return;   // never while the game is closed, nor for a brand-new school
+  for (const [i, x] of Object.entries(S.inc)) { x.t = (x.t || 0) + dt; if (x.t > (live && !idleNow() ? INC_AUTO_AT(dirLvl('keeper')) : Math.min(30, INC_AUTO_AT(dirLvl('keeper'))))) delete S.inc[i]; }   // away (catch-up) the caretaker fixes it within 30 s: an incident left open stopped its class for 10 min of the catch-up and emptied the rating (tester О-Дин: 3.9 -> 1.9 after 15 min away)
+  if (!live || idleNow() || S.stats.graduated < 5 || tourStep >= 0) return;   // never while the game is closed, nor for a brand-new school, nor while nobody touches it (build audit 2026-11-24)
   incT -= dt; if (incT > 0) return;
   incT = (INC_MIN + Math.random() * (INC_MAX - INC_MIN)) * (1 + 0.1 * dirLvl('keeper'));
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !S.inc[i] && !(WORLD === 2 && S.w2 && S.w2.throne && (S.w2.throne.cur || S.w2.throne.warned) && CLASSES[i].id === THRONE_NEED));   // the guard hall is never hit while it defends
@@ -1628,7 +1684,8 @@ function stepIncidents(dt, live) {
 function fixIncident(i) {
   sfx('fixed');
   delete S.inc[i];
-  for (const a of agents) if (a.c === i && a.state === 'study') { a.mood = Math.min(100, moodOf(a) + 10); popup(rnd(['😄', '🥰', '💖']), a.x, a.y, '#ff6fa3', 44); }   // everyone is relieved S.stats.fixed = (S.stats.fixed || 0) + 1;
+  for (const a of agents) if (a.c === i && a.state === 'study') { a.mood = Math.min(100, moodOf(a) + 10); popup(rnd(['😄', '🥰', '💖']), a.x, a.y, '#ff6fa3', 44); }   // everyone is relieved
+  S.stats.fixed = (S.stats.fixed || 0) + 1;   // (build audit 2026-11-24: was inside the comment above)
   const s = slotOf(i); popup('✨ Починено!', (s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, '#2f9e7a', 50);
   toast(`✨ ${CLASSES[i].name}: всё в порядке, урок продолжается`); save();
 }
@@ -1674,25 +1731,31 @@ const INSP_KINDS = {
   mood: { text: 'настроение учеников 60% и выше', check: () => avgMood() >= 60, now: () => `настроение ${Math.round(avgMood())}%` },
   noleave: { text: `расстроенными уйдут не больше ${NOLEAVE_MAX} учеников`, start: () => ({ v: leftNow() }), len: NOLEAVE_LEN, fail: (c) => leftNow() - c.v > NOLEAVE_MAX, now: (c) => `ушли: ${leftNow() - c.v} из ${NOLEAVE_MAX}` },   // was «nobody»: too hard (her report 2026-11-21)
   inc: { text: 'каждое происшествие исправлено быстрее чем за 20 секунд', start: () => { forceIncident(); return {}; }, fail: () => Object.values(S.inc || {}).some((x) => x.t > 20), now: () => (Object.keys(S.inc || {}).length ? '⚠️ происшествие!' : 'всё спокойно') },
-  pass: { text: 'экзамены сдают 70% учеников и больше', start: () => ({ p: S.stats.passed, f: S.stats.failed }), check: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f >= 5 && p / (p + f) >= 0.7; }, now: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f ? `сдали ${Math.round(p / (p + f) * 100)}%` : 'экзаменов ещё не было'; } },
+  pass: { text: 'экзамены сдают 70% учеников и больше', start: () => ({ p: S.stats.passed, f: S.stats.failed, g: passGoal() }), check: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f >= 5 && p / (p + f) >= (c.g || 0.7); }, now: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f ? `сдали ${Math.round(p / (p + f) * 100)}%` : 'экзаменов ещё не было'; } },
   earn: { text: 'школа заработает', start: () => ({ e: S.stats.earned || 0, goal: Math.max(300, Math.round((steadyRate() || 1) * 140 / 10) * 10) }), check: (c) => (S.stats.earned || 0) - c.e >= c.goal, now: (c) => `заработано ${fmt((S.stats.earned || 0) - c.e)} из ${fmt(c.goal)}` },
 };
 function forceIncident() {
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !(S.inc && S.inc[i])); if (!open.length) return;
   const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'c', t: 0 }; sfx(incSound(i)); const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`);
 }
-const inspText = (c) => (c.kind === 'earn' ? `${INSP_KINDS.earn.text} ${fmt(c.goal)} 🪙` : INSP_KINDS[c.kind].text);
-const INSP_SHORT = { mood: 'настроение 60%+', noleave: 'уйдут не больше 7', inc: 'чинить за 20 с', pass: 'экзамены 70%+', earn: 'заработок' };
-const inspNextText = (k) => (k === 'earn' ? 'сколько школа заработает' : INSP_KINDS[k].text);
+// build audit 2026-11-24: «70% pass» was nearly unwinnable for a young school (base chance 45%): the goal is the school's own average
+// chance + 5 points, between 50% and 70%
+const passGoal = () => { const o = CLASSES.map((c, i) => i).filter((i) => isOpen(i)); const m = o.length ? o.reduce((a, i) => a + success(i), 0) / o.length : 0.45; return Math.max(0.5, Math.min(0.7, Math.round((m + 0.05) * 20) / 20)); };
+const inspText = (c) => (c.kind === 'earn' ? `${INSP_KINDS.earn.text} ${fmt(c.goal)} 🪙` : c.kind === 'pass' ? `экзамены сдают ${Math.round((c.g || 0.7) * 100)}% учеников и больше` : INSP_KINDS[c.kind].text);
+const INSP_SHORT = { mood: 'настроение 60%+', noleave: 'уйдут не больше 7', inc: 'чинить за 20 с', pass: 'экзамены сдают', earn: 'заработок' };
+const inspNextText = (k) => (k === 'earn' ? 'сколько школа заработает' : k === 'pass' ? `экзамены сдают ${Math.round(passGoal() * 100)}% учеников и больше` : INSP_KINDS[k].text);
 const calm = () => !!(S && S.calm);
 function setCalm(on) {
+  const I = insp();
+  if (on && I.cur) { S.calmAfter = 1; toast('😌 Проверка уже идёт: спокойный режим включится, как только она закончится'); save(); dirtyPanel = true; return; }   // build audit 2026-11-24: switching it on cancelled a failing check without the fine
+  if (!on) S.calmAfter = 0;
   S.calm = on;
-  const I = insp(); if (on) { I.cur = null; I.next = null; I.t = Math.max(I.t, INSP_WARN + 60); }   // a running check is cancelled without a fine
+  if (on) { I.cur = null; I.next = null; I.t = Math.max(I.t, INSP_WARN + 60); }   // a running check is cancelled without a fine
   toast(on ? '😌 Спокойный режим: инспектор не придёт' : '🧐 Инспектор снова будет приходить');
   save(); updateHud(); dirtyPanel = true;
 }
 function stepInspector(dt, live) {
-  if (calm() || !live || MG.isOpen() || S.stats.graduated < 20 || tourStep >= 0) return;   // the inspector waits while the mini-game is open (a running check pauses too)
+  if (calm() || !live || idleNow() || MG.isOpen() || S.stats.graduated < 20 || tourStep >= 0) return;   // build audit 2026-11-24: nor while nobody is at the screen   // the inspector waits while the mini-game is open (a running check pauses too)
   const I = insp();
   if (!I.cur) {
     I.t -= dt;
@@ -1710,10 +1773,11 @@ let inspResult = null;
 function finishInspection() {
   const I = insp(), c = I.cur, K = INSP_KINDS[c.kind];
   const ok = !c.failed && (K.check ? K.check(c) : true);
-  const income = Math.max(200, Math.round((S.ema || 1) * 180 / 10) * 10), ties = dirLvl('ties');
+  const income = Math.max(200, Math.round((rateNow() || 1) * 180 / 10) * 10), ties = dirLvl('ties');   // build audit 2026-11-24: steady rate (a payout right before the end gave x5 of it)
   I.cur = null; I.t = INSP_EVERY;
   if (ok) { const rw = Math.round(income * (1 + 0.1 * ties) * repK()); I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; if (I.stars > STAR_STONE_FROM && stonesAdd(1)) setTimeout(() => toast(`⭐ Звезда ${I.stars}: ${ST_ICON} +1 лунный камень`), 1500); S.coins += rw; S.stats.earned = (S.stats.earned || 0) + rw; inspResult = { ok, income: rw }; }
   else { const fine = Math.min(S.coins, Math.round(income / 2 * (1 - 0.07 * ties))); spendOut(fine, 'fined'); I.failed = (I.failed || 0) + 1; inspResult = { ok, fine, text: inspText(c) }; }
+  if (S.calmAfter) { S.calmAfter = 0; setCalm(true); }   // calm mode asked for during the check
   openPanel(inspResultPanel); updateHud(); save();
 }
 function inspResultPanel() {
@@ -1739,7 +1803,7 @@ function inspPanel() {   // short and plain (her «миллион текста �
     ${row(ST_IMG(24), `<b>+1 лунный камень</b> за каждую новую звезду после ${STAR_STONE_FROM}-й`)}
     ${row('🏗️', 'Нужны для постройки классов, кабинета директора и новых миров (тогда тратятся)')}
     <h3>Как получить</h3>
-    ${row('🧐', 'Пройти проверку инспектора. Он приходит раз в 12 минут игры, за провал — штраф')}
+    ${row('🧐', 'Пройти проверку инспектора. Он приходит примерно раз в 15 минут, пока ты играешь, за провал — штраф')}
     ${c ? row('⏳', `<b>Сейчас проверка: ${inspText(c)}</b><div class="muted">${INSP_KINDS[c.kind].now(c)} · осталось ${mmss(c.left)}</div>`)
       : S.stats.graduated < 20 ? '<p class="muted">Инспектор начнёт приходить, когда у школы будет 20 выпускников.</p>' : `<p class="muted">Следующая проверка через <b>${mmss(I.t)}</b>${I.next ? `: ${inspNextText(I.next)}` : ''}.</p>`}
     ${calmBlock()}`;
@@ -1806,7 +1870,7 @@ function rankTry(a, i, p) {   // the rank exam right after a passed lesson
   const k = formOf(a), f = formSt(k);
   if (!f.seen) {
     f.seen = true;
-    const gift = Math.max(300, Math.round((S.ema || 1) * 60 * (1 + T)));
+    const gift = Math.max(300, Math.round((rateNow() || 1) * 60 * (1 + T)));
     S.coins += gift; S.stats.earned = (S.stats.earned || 0) + gift;
     if (!ffwd) toast(`📖 Новая карточка в альбоме: ${formName(k)} · 🪙 +${fmt(gift)}`);
   }
@@ -1863,7 +1927,8 @@ const towerUp = () => (S.tower ||= { built: false, cap: 0, res: [], wait: [] });
 const towerOpen = () => WORLD <= 2 && !!(S && bReady(S.tower));
 const towerCap = () => TOWER_BASE + towerUp().cap;
 const towerCost = () => BAL.tower;
-const towerCapCost = () => paced(BAL.tower * 0.4 * Math.pow(2.3, towerUp().cap), towerUp().cap + 1);
+// build audit 2026-11-24: places grew x2.3 each (12th 6.8B, 20th 5.33T, never paid back); x1.45: all 20 cost ~25B in total
+const towerCapCost = () => paced(BAL.tower * 0.4 * Math.pow(1.45, towerUp().cap), towerUp().cap + 1);
 const RES_K = { 4: 0.015, 5: 0.05 };   // coins per second = tuition of the last class x this
 const resRate = (r) => { const li = NCLS - 1; return isOpen(li) ? tuition(li) * (RES_K[r.rk] || 0) : 0; };
 const towerRate = () => (towerOpen() ? towerUp().res.reduce((n, r) => n + resRate(r), 0) : 0);
@@ -2172,7 +2237,7 @@ function stepWorld(dt, live = false) {
   stepExped();
   stepRumble(dt, live);
   arrivalT -= dt;
-  if (arrivalT <= 0) { arrivalT = arrivalInterval(); if (queue.length < queueCap() && !(WORLD === 2 ? schoolFull() : freeBeds() <= 4)) spawn(); }   // world 1 too: nobody new comes while the court and the dorm are (almost) full   // world 2: nobody new comes while every line and every bed is taken
+  if (arrivalT <= 0) { arrivalT = arrivalInterval(); gateArrive(); } if (gatePend() && gateLet(queue.length < queueCap(), !(WORLD === 2 ? schoolFull() : freeBeds() <= 4))) spawn();   // world 1 too: nobody new comes while the court and the dorm are (almost) full   // world 2: nobody new comes while every line and every bed is taken
   startNextProcess(live);
   if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime()) finishProcess(); }
   stepConcierge(dt);
@@ -2933,7 +2998,7 @@ function tapMoon() {
   const v = Math.max(50, Math.round(n * MOON_PAY * (steadyRate() || S.ema || 1)));
   M.f = 0; S.stats.moon = (S.stats.moon || 0) + n;
   { let pearl = 0; for (let k = 0; k < n; k++) if (Math.random() < 0.05) pearl++; if (pearl && stonesAdd(pearl)) setTimeout(() => toast(`🌙 Лунная жемчужина! ${ST_ICON} +${pearl} лунный камень`), 900); }   // the premium currency's rare free source
-  earn(v, MOON_AT.x, MOON_AT.y - 2, '#7f9cff', 70); popup(n > 1 ? `🌙×${n}` : '🌙', MOON_AT.x + 0.4, MOON_AT.y - 3, '#7f9cff', 60);
+  bonus(v, MOON_AT.x, MOON_AT.y - 2, '#7f9cff', 70); popup(n > 1 ? `🌙×${n}` : '🌙', MOON_AT.x + 0.4, MOON_AT.y - 3, '#7f9cff', 60);
   hintOnce('moon', '🌙', 'Лунное древо', `Это Лунное древо у ворот. Его плоды созревают только ночью, с 21:30 до 5:30: каждые ${MOON_EVERY / 60} минут по одному, до ${MOON_MAX} сразу. Ночь идёт, даже когда игра закрыта, — загляни утром и собери. Каждый плод стоит ${MOON_PAY / 60} минуты дохода школы.`);
   save();
 }
@@ -2959,16 +3024,25 @@ const ST_ACH = [   // big one-time goals, per world (key wN_id; the second world
   { id: 'w2', t: 'Открыт второй мир', n: 15, ok: () => (stMeta().unlocked || []).includes(2) },
 ];
 const stKey = (a) => (a.id === 'w2' ? '' : 'w' + WORLD + '_') + a.id;
-let stCheckT = 0;
+let stCheckT = 0, lvBack = false;
 function stepStones(dt) {   // checks the goals every 5 s (also during the catch-up: a goal reached while away pays on return)
   if (WORLD > 2 || !S) return; stCheckT += dt; if (stCheckT < 5) return; stCheckT = 0;
   for (const a of ST_ACH) if (a.ok() && stonesAdd(a.n, stKey(a)) && !ffwd) toast(`${ST_ICON} +${a.n} лунных камней: ${a.t}!`);
   { const extra = schoolStars() - STAR_STONE_FROM; if (extra > 0 && stonesAdd(extra, 'w' + WORLD + '_starsback') && !ffwd) toast(`⭐ За звёзды сверх ${STAR_STONE_FROM}: ${ST_ICON} +${extra} лунных камней`); }   // once: stars gathered before build 451
+  if (!lvBack) {   // build audit 2026-11-24: levels reached before the level stones existed (build 439) were never paid; the same keys as gainXp, so never twice
+    lvBack = true; let sum = 0; const L = schoolLevel();
+    for (let l = 5; l <= L; l += 5) { const n = 3 + Math.floor(l / 10); if (stonesAdd(n, `w${WORLD}_lv${l}`)) sum += n; }
+    if (sum && !ffwd) setTimeout(() => toast(`🌟 За уровни школы до ${L - (L % 5)}: ${ST_ICON} +${sum} лунных камней`), 1500);
+  }
 }
+const GOLD_MIN = 30, GOLD_CAP = 120;   // «Звёздный час»: lessons pay x2 (boostK); minutes per purchase, most that can be stacked
 const ST_SHOP = [
   { k: 'mg', icon: '🧪', name: 'Попытка в мини-игре', txt: '+1 попытка с наградой', price: 5, can: () => true, why: () => '',
     buy: () => MG.addCharges(1) },
-  { k: 'moon', icon: '🌙', name: 'Лунное древо созревает', txt: 'все 3 лунных плода сразу, днём тоже', price: 8, can: () => WORLD === 1 && moonSt().f < MOON_MAX, why: () => (WORLD === 1 ? 'плоды уже созрели' : 'Лунное древо растёт в первом мире'),
+  { k: 'gold', icon: '🌟', name: 'Звёздный час', get txt() { const left = (S.goldEnd || 0) - Date.now(); return `плата за уроки ×2 на ${GOLD_MIN} минут в этом мире${left > 0 ? ` · идёт ещё ${mmss(left / 1000)}` : ''}`; }, price: 10,   // build audit 2026-11-24: a sink in both worlds (her «тратить некуда»)
+    can: () => (S.goldEnd || 0) - Date.now() < (GOLD_CAP - GOLD_MIN) * 60000, why: () => `Звёздный час можно копить до ${GOLD_CAP / 60} часов`,
+    buy: () => { const now = Date.now(); S.goldEnd = Math.max(now, S.goldEnd || 0) + GOLD_MIN * 60000; } },
+  { k: 'moon', icon: '🌙', name: 'Лунное древо созревает', txt: 'все 3 лунных плода сразу, днём тоже', get price() { return WORLD === 1 ? Math.min(8, 3 * Math.max(1, MOON_MAX - moonSt().f)) : 8; }, can: () => WORLD === 1 && moonSt().f < MOON_MAX, why: () => (WORLD === 1 ? 'плоды уже созрели' : 'Лунное древо растёт в первом мире'),
     buy: () => { moonSt().f = MOON_MAX; } },
 ];
 const FOUNT_COL = {   // magic water of the court fountain: glow, drops, jet, the floating orbs
@@ -3006,7 +3080,7 @@ function fountTint(im, hue) {   // a copy of the fountain picture with its cyan 
   fountTintC.set(key, c); return c;
 }
 
-const ST_SOON = [['👘', 'Наряды для учеников'], ['🪧', 'Табличка школы'], ['🤝', 'Цели альянса']];
+const ST_SOON = [['👘', 'Наряды для учеников'], ['🪧', 'Табличка школы']];   // alliance goals exist since build 454
 const ST_PACKS = [[30, '99 ₽'], [100, '299 ₽'], [350, '899 ₽']];   // real-money packs (her «делай всё»): shown, not sold yet
 function stonesPanel() {
   const n = stones(), got = (stMeta().stones || {}).got || {};
@@ -3016,7 +3090,7 @@ function stonesPanel() {
     return `<div class="card up"><span class="remoji">${it.icon}</span><div class="grow"><b>${it.name}</b><div class="muted">${ok ? it.txt : it.why()}</div></div><button class="btn small" data-stbuy="${it.k}" ${ok && n >= it.price ? '' : 'disabled'}>${ST_IMG(15)} ${it.price}</button></div>`; }).join('');
   return `<div class="sh-head"><span class="remoji big">${ST_IMG(44)}</span><div><h2>Лунные камни</h2><div class="muted">Редкая волшебная валюта — одна на оба мира</div></div><button class="x" data-close>✕</button></div>
     <div class="card" style="justify-content:center;font-size:22px"><b>${ST_IMG(26)} ${n}</b></div>
-    <h3>Как добыть</h3><p class="muted">Лунные камни даются за большие достижения школы в каждом мире, за 1–3 место в недельном турнире мини-игр (🥇 15, 🥈 10, 🥉 5). А ещё ночью на Лунном древе иногда вызревает лунная жемчужина 🌙.</p>${ach}
+    <h3>Как добыть</h3><p class="muted">Лунные камни дают: большие достижения школы в каждом мире (ниже); каждые 5 уровней школы 🌟; каждая звезда школы ⭐ сверх ${STAR_STONE_FROM}; все дела дня 📅 (${DQ_STONES} в день); цели альянса 🤝 (по ${AQ_STONES} за цель каждую неделю); особые задания 🎁; 1–3 место в недельном турнире мини-игр (🥇 15, 🥈 10, 🥉 5). А ещё ночью на Лунном древе иногда вызревает лунная жемчужина 🌙.</p>${ach}
     <h3>Лавка</h3>${shop}
     ${WORLD === 1 ? `<h3>Волшебная вода фонтана</h3><p class="muted">Цвет воды и сияния фонтана во дворе. Купленный цвет остаётся навсегда.</p>${Object.entries(FOUNT_COL).map(([k, f]) => { const ow = (stMeta().stones || {}).own || {}, own = !f.price || ow['fnt_' + k] || (k === 'rainbow' && ow.fnt_gold), cur = fountCol().name === f.name;
       return `<div class="card up"><span class="remoji" style="width:26px;height:26px;border-radius:50%;background:${f.rainbow ? 'conic-gradient(#ff9ad5,#c9a0ff,#8fd3ff,#9ff0c8,#ffe28f,#ff9ad5)' : `rgb(${f.glow})`};display:inline-block"></span><div class="grow"><b>${f.name}</b><div class="muted">${cur ? 'сейчас в фонтане' : own ? 'куплено' : ''}${f.price ? `${cur || own ? ' · ' : ''}цена ${ST_IMG(13)} ${f.price}` : cur ? '' : 'бесплатно'}</div></div>${cur ? '<span class="done">✓</span>' : `<button class="btn small" data-stfnt="${k}" ${own || n >= f.price ? '' : 'disabled'}>${own ? 'Выбрать' : `${ST_IMG(15)} ${f.price}`}</button>`}</div>`; }).join('')}` : ''}
@@ -3031,7 +3105,8 @@ function stonesFount(k) {   // buy (once) and choose a fountain water colour
 function stonesBuy(k) {
   const it = ST_SHOP.find((x) => x.k === k); if (!it) return;
   if (!it.can()) { toast(it.why()); return; } if (stones() < it.price) { toast(`Нужно ${ST_ICON} ${it.price}`); return; }
-  it.buy(); stonesAdd(-it.price); save(); toast(`${it.icon} ${it.name}!`); dirtyPanel = true;
+  const price = it.price; if (!stonesAdd(-price)) { toast('Не получилось сохранить покупку'); return; }   // build audit 2026-11-24: pay first, then give
+  it.buy(); save(); toast(`${it.icon} ${it.name}!`); dirtyPanel = true;
 }
 // ======================= «Уровень школы» (Maria 2026-11-24: «Может быть нужно в игре ввести какие-то уровни? ... в топах соревноваться
 // ими ... понимать кто насколько развит, и что он может позволить себе») =======================
@@ -4821,19 +4896,22 @@ function render() {
 
 // ======================= UI =======================
 function fmt(n) {
+  if (!Number.isFinite(n)) return '—';   // build audit 2026-11-24: never «NaN» / «InfinityT» on screen
   n = Math.floor(n);
   if (n < 1000) return String(n);
-  const u = [['T', 1e12], ['B', 1e9], ['M', 1e6], ['K', 1e3]];
+  if (n >= 1e21) return n.toExponential(1).replace('.', ',').replace('e+', 'e');
+  const u = [['Qi', 1e18], ['Qa', 1e15], ['T', 1e12], ['B', 1e9], ['M', 1e6], ['K', 1e3]];
   for (const [s, v] of u) if (n >= v) return (n / v).toFixed(n / v < 10 ? 1 : 0).replace('.', ',') + s;
   return String(n);
 }
 const pct = (x) => Math.round(x * 100) + '%';
 const sec = (x) => x.toFixed(1).replace('.', ',') + ' с';
+const perMin = (s) => { const v = 60 / Math.max(1e-6, s); return v >= 100 ? fmt(Math.round(v)) : String(+v.toFixed(v < 10 ? 1 : 0)).replace('.', ','); };   // build audit 2026-11-24: «12 в минуту» instead of «0,0 с»
 function costBtn(label, cost, act, extra = '') { return `<button class="btn" data-cost="${cost}" data-act="${act}" ${extra}>${label} <span class="cost">🪙${fmt(cost)}</span></button>`; }
 
 let panel = null; let dirtyPanel = false;
 let panelHtml = '';
-function openPanel(fn) { PRICE_FROZEN.clear(); $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; panelHtml = emojiHtml(fn()); sh.innerHTML = panelHtml; sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
+function openPanel(fn) { if (Date.now() - PRICE_AT > 600000) { PRICE_FROZEN.clear(); PRICE_AT = Date.now(); } $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; panelHtml = emojiHtml(fn()); sh.innerHTML = panelHtml; sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
 function closePanel() { panel = null; $('#sheet-wrap').classList.add('hidden'); $('#tour').classList.remove('under-panel'); }   // the tour card hides while a panel is open
 // Update the DOM in place: unchanged nodes (icons!) stay, only changed text and attributes are written.
 // A fresh innerHTML re-created every <img> and on phones the icons blinked on each refresh.
@@ -4906,9 +4984,9 @@ function fountainPanel() {
     <div class="stats3"><div><span>🪑</span><b>${courtList.length}/${courtCap()}</b><i>места во дворе</i></div><div><span>😊</span><b>+${Math.round(COURT_MOOD * fountMoodK() * 60)}</b><i>настроения в минуту</i></div><div><span>🍀</span><b>${coinLuck() ? '+' + (Math.round(coinLuck() * 1000) / 10) + '%' : '—'}</b><i>монетка к экзамену</i></div></div>
     <div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Больше скамеек</b> <span class="muted">ур. ${u.bench}/${MAX_BENCH}</span><div class="muted">${nn('мест во дворе', courtCap(), peek((d) => { u.bench += d; }, courtCap), u.bench >= MAX_BENCH)} (+3 за уровень): ждут здесь, а не в спальне</div></div>
       ${u.bench >= MAX_BENCH ? '<span class="done">макс.</span>' : costBtn('↑', benchCost(), 'cbench')}</div>
-    <div class="card up"><span class="remoji">⛲</span><div class="grow"><b>Волшебный фонтан</b> <span class="muted">ур. ${u.fount}/${MAX_FOUNT}</span><div class="muted">${nn('настроение во дворе', '+' + Math.round(COURT_MOOD * fountMoodK() * 60), '+' + Math.round(COURT_MOOD * peek((d) => { u.fount += d; }, fountMoodK) * 60), u.fount >= MAX_FOUNT)} в минуту (+20% за уровень)</div></div>
+    <div class="card up"><span class="remoji">⛲</span><div class="grow"><b>Волшебный фонтан</b> <span class="muted">ур. ${u.fount}/${MAX_FOUNT}</span><div class="muted">${nn('настроение во дворе', '+' + Math.round(COURT_MOOD * fountMoodK() * 60), '+' + Math.round(COURT_MOOD * peek((d) => { u.fount += d; }, fountMoodK) * 60), u.fount >= MAX_FOUNT)} в минуту (+20% за уровень); в очередях всей школы грустят на ${4 * (u.fount - 1)}% медленнее (−4% за уровень)</div></div>
       ${u.fount >= MAX_FOUNT ? '<span class="done">макс.</span>' : costBtn('↑', fountCost(), 'cfount')}</div>
-    <div class="card up"><span class="remoji">🍀</span><div class="grow"><b>Монетка на счастье</b> <span class="muted">ур. ${u.coin}/${MAX_COIN}</span><div class="muted">бросил монетку в фонтан — ${u.coin ? nn('к следующему экзамену', '+' + pc1(coinLuck()), '+' + pc1(peek((d) => { u.coin += d; }, coinLuck)), u.coin >= MAX_COIN) + ' (+0,5% за уровень)' : '+5% к следующему экзамену'}</div></div>
+    <div class="card up"><span class="remoji">🍀</span><div class="grow"><b>Монетка на счастье</b> <span class="muted">ур. ${u.coin}/${MAX_COIN}</span><div class="muted">бросил монетку в фонтан — ${u.coin ? nn('к следующему экзамену', '+' + pc1(coinLuck()), '+' + pc1(peek((d) => { u.coin += d; }, coinLuck)), u.coin >= MAX_COIN) + ' (+1% за уровень)' : '+5% к следующему экзамену'}</div></div>
       ${u.coin >= MAX_COIN ? '<span class="done">макс.</span>' : costBtn(u.coin ? '↑' : 'Открыть', coinCost(), 'ccoin')}</div>
     <p class="muted">Ждут места: <b>${n}</b> · на перемене: <b>${b}</b></p>`;
 }
@@ -4923,7 +5001,7 @@ function dormPanel() {
       ${dorm2Built() ? '<span class="done">✓ есть</span>' : costBtn('Построить', DORM2_COST, 'dorm2')}</div>
     ${[1, 2].filter((k) => k === 1 || dorm2Built()).map((k) => `<div class="card up"><span class="remoji">📐</span><div class="grow"><b>Расширить ${k === 1 ? 'первую' : 'вторую'} спальню</b> <span class="muted">${['маленькая', 'средняя', 'большая'][dormSize(k) - 1]}</span><div class="muted">${dormSize(k) < 3 ? `место до ${4 * (dormRows(k) + 2)} кроватей` : 'уже самая большая'}</div></div>
       ${dormSize(k) >= 3 ? '<span class="done">макс.</span>' : costBtn('↑', dormExpandCost(k), 'dormexp', `data-k="${k}"`)}</div>`).join('')}
-    <div class="card up"><span class="remoji">🗝️</span><div class="grow"><b>Консьержка быстрее</b> <span class="muted">ур. ${u.conc}/${MAX_CONC}</span><div class="muted">${nn('запись', sec(checkinTime()), sec(peek((d) => { u.conc += d; }, checkinTime)), u.conc >= MAX_CONC)} (−15% за уровень)</div></div>
+    <div class="card up"><span class="remoji">🗝️</span><div class="grow"><b>Консьержка быстрее</b> <span class="muted">ур. ${u.conc}/${MAX_CONC}</span><div class="muted">${nn('запись', sec(checkinTime()), sec(peek((d) => { u.conc += d; }, checkinTime)), u.conc >= MAX_CONC)} (−15% за уровень), спящие грустят на ${5 * (u.conc - 1)}% медленнее (−5% за уровень)</div></div>
       ${u.conc >= MAX_CONC ? '<span class="done">макс.</span>' : costBtn('↑', concCost(), 'conc')}</div>
     <p class="muted">У консьержки в очереди: ${dormLine.length}</p>
     ${CLASSES.map((C, i) => [C, sleepersFor(i)]).filter((x) => x[1]).map(([C, n]) => `<p class="muted">Ждут место в классе ${C.emoji} ${C.name}: <b>${n}</b></p>`).join('')}`;
@@ -4950,7 +5028,7 @@ function cantPanel() {
   return `${head(`Накормлено: ${fmt(S.stats.cant || 0)}`)}
     <div class="stats3"><div><span>🪙</span><b>${fmt(cantPrice())}</b><i>за обед</i></div><div><span>🚶</span><b>${Math.round(cantChance() * 100)}%</b><i>заходят</i></div><div><span>⏱️</span><b>${sec(cantServe())}</b><i>раздача</i></div></div>
     ${(() => { const b = (k) => (d) => { u[k] += d; }, mx = (k) => u[k] >= CANT_MAX[k];
-      return row('cook', '🐲', 'Повар', `${nn('раздача', sec(cantServe()), sec(peek(b('cook'), cantServe)), mx('cook'))} (быстрее на 12% за уровень)`)
+      return row('cook', '🐲', 'Повар', `${nn('раздача', sec(cantServe()), sec(peek(b('cook'), cantServe)), mx('cook'))} · ${nnC('обед', cantPrice(), peek(b('cook'), cantPrice), mx('cook'))} (быстрее на 12% и обед +3% за уровень)`)
         + row('tables', '🪑', 'Столы', `${nn('столов', cantTables(), peek(b('tables'), cantTables), mx('tables'))} · ${nn('заходят', Math.round(cantChance() * 100) + '%', Math.round(peek(b('tables'), cantChance) * 100) + '%', mx('tables'))}`)
         + row('menu', '📜', 'Меню', `${nnC('обед', cantPrice(), peek(b('menu'), cantPrice), mx('menu'))} · ${nn('настроение', '+' + cantMood() + '%', '+' + peek(b('menu'), cantMood) + '%', mx('menu'))}. Сейчас: ${cantDishes().join(' ')}`); })()}
     <p class="muted">Обед поднимает настроение на ${cantMood()}%. Сытый ученик сдаёт следующий экзамен на ${Math.round(FED_BONUS * 100)}% легче.</p>${WORLD === 2 ? `<div class="card up"><span class="remoji">🐟</span><div class="grow"><b>Светящаяся рыба: ${(S.w2 && S.w2.fish) || 0}/${FISH_MAX}</b><div class="muted">её ловят на уроках в Озёрном зале. Ужин из рыбы стоит вдвое дороже и поднимает настроение ещё на 10%</div></div></div>` : ''}`;
@@ -4964,7 +5042,7 @@ function shopPanel() {
   return `<div class="sh-head"><span class="remoji big">🛍️</span><div><h2>${WORLD === 2 ? 'Самоцветная лавка' : 'Лавка'}</h2><div class="muted">Продано: ${fmt(S.stats.shop || 0)}</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🪙</span><b>${fmt(shopPrice())}</b><i>за покупку</i></div><div><span>🚶</span><b>${Math.round(shopChance() * 100)}%</b><i>заходят</i></div><div><span>⏱️</span><b>${sec(shopTime())}</b><i>обслуживание</i></div></div>
     ${(() => { const b = (k) => (d) => { u[k] += d; }, mx = (k) => u[k] >= SHOP_MAX;
-      return row('seller', '🧑‍🍳', 'Продавец', u.seller, `${nn('обслуживание', sec(shopTime()), sec(peek(b('seller'), shopTime)), mx('seller'))} (быстрее на 12% за уровень)`)
+      return row('seller', '🧑‍🍳', 'Продавец', u.seller, `${nn('обслуживание', sec(shopTime()), sec(peek(b('seller'), shopTime)), mx('seller'))} · ${nnC('покупка', shopPrice(), peek(b('seller'), shopPrice), mx('seller'))} (быстрее на 12% и покупка +3% за уровень)`)
         + row('shelves', '🧺', 'Витрины', u.shelves, `${nn('заходят', Math.round(shopChance() * 100) + '%', Math.round(peek(b('shelves'), shopChance) * 100) + '%', mx('shelves'))} (+3% за уровень)`)
         + row('goods', '🍭', 'Товары', u.goods, `${nnC('покупка', shopPrice(), peek(b('goods'), shopPrice), mx('goods'))} (+15% взноса за уровень)`); })()}
     <p class="muted">Покупка поднимает настроение ученика на 15%.</p>`;
@@ -4989,10 +5067,11 @@ function dirPanel() {
 }
 function receptionPanel() {
   return `<div class="sh-head"><span class="remoji big">🛎️</span><div><h2>Приёмная</h2><div class="muted">Здесь новые ученики поступают в школу</div></div><button class="x" data-close>✕</button></div>
-    <div class="stats3"><div><span>🪙</span><b>${entryFee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${sec(procTime())}</b><i>оформление</i></div><div><span>🚶</span><b>${sec(arrivalInterval())}</b><i>новый ученик</i></div></div>
-    <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${recLvl()}/${MAX_REC_LVL}</span><div class="muted">${(() => { const mx = S.reception.level >= MAX_REC_LVL, b = (d) => { S.reception.level += d; }; return `${nn('оформление', sec(procTime()), sec(peek(b, procTime)), mx)}${peek(b, entryFee) !== entryFee() ? ' · ' + nnC('взнос', entryFee(), peek(b, entryFee), mx) : mx ? ' · взнос 🪙' + fmt(entryFee()) : ''}`; })()}</div></div>${S.reception.level >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', recCost(), 'rec')}</div>
-    <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${adsLvl()}/${MAX_REC_LVL}</span><div class="muted">${nn('новый ученик раз в', sec(arrivalInterval()), sec(peek((d) => { S.reception.ads += d; }, arrivalInterval)), S.reception.ads >= MAX_REC_LVL)}</div></div>${S.reception.ads >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', adsCost(), 'ads')}</div>
+    <div class="stats3"><div><span>🪙</span><b>${entryFee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${perMin(procTime())}</b><i>оформляют в минуту</i></div><div><span>🚶</span><b>${perMin(arrivalInterval())}</b><i>приходят в минуту</i></div></div>
+    <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${recLvl()}/${MAX_REC_LVL}</span><div class="muted">${(() => { const mx = S.reception.level >= MAX_REC_LVL, b = (d) => { S.reception.level += d; }; return `${nn('оформляют в минуту', perMin(procTime()), perMin(peek(b, procTime)), mx)}${peek(b, entryFee) !== entryFee() ? ' · ' + nnC('взнос', entryFee(), peek(b, entryFee), mx) : mx ? ' · взнос 🪙' + fmt(entryFee()) : ''}`; })()}</div></div>${S.reception.level >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', recCost(), 'rec')}</div>
+    <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${adsLvl()}/${MAX_REC_LVL}</span><div class="muted">${nn('приходят в минуту', perMin(arrivalInterval()), perMin(peek((d) => { S.reception.ads += d; }, arrivalInterval)), S.reception.ads >= MAX_REC_LVL)}${adsFull() && S.reception.ads < MAX_REC_LVL ? '<br>' + adsWhy() : ''}</div></div>${S.reception.ads >= MAX_REC_LVL ? '<span class="done">макс.</span>' : adsFull() ? '<span class="done">хватает</span>' : costBtn('↑', adsCost(), 'ads')}</div>
     <p class="muted">Настроение учеников: <b>${moodFace(avgMood())} ${Math.round(avgMood())}%</b>. Долгие очереди огорчают, уроки и библиотека радуют. Весёлые сдают экзамен лучше, а совсем грустные уходят домой (ушли от тоски: ${S.stats.gaveUp || 0}).</p>
+    <p class="muted">Сейчас школа принимает ~${perMin(1 / Math.max(1e-6, (S.rt && S.rt.enrolled) || 0))} новичков в минуту${adsFull() ? ', больше не помещается' : ''}.</p>
     <p class="muted">Всего поступило: ${S.stats.enrolled} · выпускников: ${S.stats.graduated} · ушли расстроенными: ${S.stats.left || 0}</p>`;
 }
 function buildPanel(i) {
@@ -5120,13 +5199,13 @@ const openId = (id) => { const i = CLASSES.findIndex((c) => c.id === id); return
 const UPS = {
   cbench: { g: 'court', name: 'Скамейки во дворе', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().bench, max: () => MAX_BENCH, cost: () => benchCost(), k: 2.0, go: () => ['FOUNT', '[data-act="cbench"]'] },
   cfount: { g: 'court', name: 'Волшебный фонтан', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().fount, max: () => MAX_FOUNT, cost: () => fountCost(), k: 2.0, go: () => ['FOUNT', '[data-act="cfount"]'] },
-  ccoin: { g: 'court', name: 'Монетка на счастье', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().coin, max: () => MAX_COIN, cost: () => coinCost(), k: 2.1, go: () => ['FOUNT', '[data-act="ccoin"]'] },
+  ccoin: { g: 'court', name: 'Монетка на счастье', on: () => WORLD === 1 && !!COURT, lvl: () => courtUp().coin, max: () => MAX_COIN, cost: () => coinCost(), k: 1.6, go: () => ['FOUNT', '[data-act="ccoin"]'] },
   ...Object.fromEntries(Object.keys(DIR_UP).map((k) => ['dir_' + k, { g: 'dir', name: DIR_UP[k].name, on: () => bossOn(), lvl: () => dirLvl(k), max: () => DIR_UP[k].max, cost: () => dirCost(k), k: DIR_UP[k].k, go: () => ['DIR', `[data-act="dir"][data-k="${k}"]`] }])),
   ...Object.fromEntries([['seller', 'Продавец'], ['shelves', 'Витрины'], ['goods', 'Товары']].map(([k, name]) => ['shop_' + k, { g: 'shop', name: name + ' в лавке', on: () => shopOpen(), lvl: () => shopUp()[k], max: () => SHOP_MAX, cost: () => shopCost(k), k: 1.9, go: () => ['SHOP', `[data-act="shopup"][data-k="${k}"]`] }])),
   ...Object.fromEntries([['cook', 'Повар'], ['tables', 'Столы'], ['menu', 'Меню']].map(([k, name]) => ['cant_' + k, { g: 'cant', name: name + ' в столовой', on: () => cantOpen(), lvl: () => cantUp()[k], max: () => CANT_MAX[k], cost: () => cantCost(k), k: 1.9, go: () => ['CANT', `[data-act="cantup"][data-k="${k}"]`] }])),
-  towercap: { g: 'tower', name: WORLD === 2 ? 'Места в Чертоге Хранителей' : 'Места в Башне мастеров', show: (v) => v + TOWER_BASE, unit: 'мест', text: (t) => `Расширь ${WORLD === 2 ? 'Чертог Хранителей' : 'Башню мастеров'} до ${t + TOWER_BASE} мест`, on: () => towerOpen(), lvl: () => towerUp().cap, max: () => TOWER_MAXUP, cost: () => towerCapCost(), k: 2.3, go: () => ['TOWER', '[data-act="towercap"]'] },
+  towercap: { g: 'tower', name: WORLD === 2 ? 'Места в Чертоге Хранителей' : 'Места в Башне мастеров', show: (v) => v + TOWER_BASE, unit: 'мест', text: (t) => `Расширь ${WORLD === 2 ? 'Чертог Хранителей' : 'Башню мастеров'} до ${t + TOWER_BASE} мест`, on: () => towerOpen(), lvl: () => towerUp().cap, max: () => TOWER_MAXUP, cost: () => towerCapCost(), k: 1.45, go: () => ['TOWER', '[data-act="towercap"]'] },
   towerprep: { g: 'tower', name: WORLD === 2 ? 'Подготовка хранителей' : 'Подготовка мастеров', on: () => towerOpen(), lvl: () => retakeLvl(), max: () => RETAKE_MAX, cost: () => retakeCost(), k: 2.0, go: () => ['TOWER', '[data-act="towerprep"]'] },
-  ads: { g: 'room', name: 'Объявления о школе', on: () => true, lvl: () => S.reception.ads, max: () => MAX_REC_LVL, cost: () => adsCost(), k: BAL.ads, go: () => ['REC', '[data-act="ads"]'] },
+  ads: { g: 'room', name: 'Объявления о школе', on: () => !adsFull(), lvl: () => S.reception.ads, max: () => MAX_REC_LVL, cost: () => adsCost(), k: BAL.ads, go: () => ['REC', '[data-act="ads"]'] },
   libspeed: { g: 'room', name: 'Быстрее подготовка (библиотека)', on: () => true, lvl: () => libUp().speed, max: () => MAX_LIB_LVL, cost: () => libSpeedCost(), k: 1.5, go: () => ['LIB', '[data-act="libspeed"]'] },
   libbonus: { g: 'room', name: 'Лучше подготовка (библиотека)', on: () => true, lvl: () => libUp().bonus, max: () => MAX_LIB_LVL, cost: () => libBonusCost(), k: 1.55, go: () => ['LIB', '[data-act="libbonus"]'] },
   conc: { g: 'room', name: 'Консьержка быстрее', on: () => true, lvl: () => dormUp().conc, max: () => MAX_CONC, cost: () => concCost(), k: 1.5, go: () => ['DORM', '[data-act="conc"]'] },
@@ -5143,16 +5222,18 @@ const upOf = (m) => { const U = m.i >= 0 && CUPS[m.k] ? CUPS[m.k] : UPS[m.k]; re
 const rankSum = () => (S.stats.ranks || []).reduce((a, b) => a + (b || 0), 0);
 const formSum = () => FORM_KEYS.reduce((a, k) => a + ((S.forms && S.forms[k] && S.forms[k].lvl) || 0), 0);
 const lowEx = () => { let b = -1; for (let i = 0; i < CLASSES.length; i++) if (isOpen(i) && RANK_AT(i) && exLvl(i) < MAX_EX_LVL && (b < 0 || exLvl(i) < exLvl(b))) b = i; return b < 0 ? null : [CLASS_SLOT[b], '[data-act="exlvl"]']; };
+// build audit 2026-11-24: other schools in my alliance (-1 = the top list is not loaded yet); a founder alone got gift tasks he could never do
+const allyMates = () => { const a = myAl(); if (!a) return 0; if (!topList) return -1; const me = anonUid() + '_w' + WORLD; return allyMembers(a).filter((x) => x.id !== me).length; };
 const nOf = (n, one, few, many) => (n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many);
 const CNTS = {
   shop: { g: 'shop', on: () => shopOpen(), now: () => S.stats.shop || 0, n: () => rint(3, 8) * 10, text: (n) => `Пусть ученики купят в лавке ещё ${n} сладостей 🍭`, go: () => ['SHOP', '[data-act="shopup"][data-k="shelves"]'] },
   cant: { g: 'cant', on: () => cantOpen(), now: () => S.stats.cant || 0, n: () => rint(3, 8) * 10, text: (n) => `Накорми в столовой ещё ${n} учеников 🍲`, go: () => ['CANT', '[data-act="cantup"][data-k="tables"]'] },
   ranks: { g: 'rank', on: () => S.stats.graduated >= 10, now: rankSum, n: () => rint(2, 6) * 5, text: (n) => `Пусть ещё ${n} ${nOf(n, 'ученик получит', 'ученика получат', 'учеников получат')} звание 🌟`, go: lowEx },
   masters: { g: 'rank', on: () => isOpen(NCLS - 1) && ((S.stats.ranks || [])[4] || 0) > 0, now: () => (S.stats.ranks || [])[5] || 0, n: () => rint(1, 3), text: (n) => `Пусть ещё ${n} ${nOf(n, 'ученик получит', 'ученика получат', 'учеников получат')} высшее звание «${RANKS[RANKS.length - 1]}» 🌟`, go: () => [slotOfId('final'), '[data-act="exlvl"]'] },
-  camps: { g: 'dir', on: () => bossOn(), now: () => S.stats.camps || 0, n: () => 1, text: () => 'Проведи рекламную акцию в кабинете директора 📣', go: () => ['DIR', '[data-act="camp"]'] },
+  camps: { g: 'dir', on: () => bossOn(), cost: () => Math.min(...Object.keys(CAMPS).map((k) => campCost(k))), back: 1, now: () => S.stats.camps || 0, n: () => 1, text: () => 'Проведи рекламную акцию в кабинете директора 📣', go: () => ['DIR', '[data-act="camp"]'] },
   mails: { g: 'dir', on: () => bossOn() && S.stats.graduated >= 20 && !calm(), now: () => S.stats.mails || 0, n: () => 1, text: () => 'Ответь на письмо родителей ✉️', go: () => ['DIR', '[data-mailopen]'] },   // build 313 moved the answers into their own window
   pot: { g: 'mg', on: () => true, now: () => (S.mg && S.mg.pot) || 0, n: () => rint(2, 4), text: (n) => `Свари ещё ${n} ${nOf(n, 'зелье', 'зелья', 'зелий')} в Зельеварке 🧪`, go: () => ['@mg', null] },
-  gifts: { g: 'gift', on: () => !!myAl(), now: () => S.stats.gifts || 0, n: () => 1, text: () => 'Отправь подарок другу из альянса 🎁', go: () => ['@ally', null] },
+  gifts: { g: 'gift', on: () => allyMates() > 0, keep: () => allyMates() !== 0, now: () => S.stats.gifts || 0, n: () => 1, text: () => 'Отправь подарок другу из альянса 🎁', go: () => ['@ally', null] },
   forms: { g: 'rank', on: () => FORM_KEYS.some(formReady), now: formSum, n: () => 1, text: () => 'Улучши карточку ученика в альбоме 🎓', go: () => ['@album', null],
     cost: () => Math.min(...FORM_KEYS.filter(formReady).map(formCost)) },
   ore: { g: 'w2', on: () => WORLD === 2 && openId('mine'), now: () => S.stats.ore || 0, n: () => rint(3, 8) * 10, text: (n) => `Добудь в Штольне ещё ${n} руды ⛏️`, go: () => [slotOfId('mine'), '[data-act="desk"]'] },
@@ -5182,6 +5263,18 @@ function storyCur() {
   return MISSIONS.find((m) => !S.story[m.id]) || null;
 }
 const storyBuilds = () => { const c = storyCur(); return !!(c && c.build); };   // the story itself asks to build the next class
+// build audit 2026-11-24: Tikhon's rewards were sized for the old prices (60 000 for a 150 000 000 class, while the level mission for the same
+// class would pay 30 %). A story step that builds something now pays at least REWARD_SHARE of that building's live price, like the level
+// missions, and every step at least STORY_MIN minutes of the school's steady income; the listed reward stays the floor (early chain unchanged).
+const STORY_COST = { dir: () => DIR_COST, shop: () => SHOP_COST, cant: () => CANT_COST, tower: () => towerCost(), w_trade: () => TRADE_COST };
+const STORY_MIN = 3;
+function storyReward(m) {
+  let cost = 0, inc = 1;
+  try { const i = m.build ? CLASSES.findIndex((c) => c.id === m.build) : -1; cost = i >= 0 ? buildCost(i) : STORY_COST[m.id] ? STORY_COST[m.id]() : 0; } catch (e) { cost = 0; }
+  try { inc = qPerMin(); } catch (e) { inc = 1; }   // qPerMin is declared further down the module
+  return Math.max(m.reward, nice(Math.max(cost * REWARD_SHARE, inc * STORY_MIN)));
+}
+const storyNote = (m) => { try { const t = m.note && m.note(G); return t ? ` (${t})` : ''; } catch (e) { return ''; } };   // e.g. calm mode: no letters come
 window.__ms = { list: () => missionList(), make: () => makeMission(), go: (k) => goMission(k), claim: (k) => claimMission(k), story: () => storyCur(), goT: (g) => goTarget(g), hint: () => (document.getElementById('mhint') || {}).textContent || '', introNow: () => { introT = 0; }, tour: () => [tourStep, tourList.length, introKey], UPS, CNTS, CUPS };   // test hook
 // upgrades pay back REWARD_SHARE of what they cost; counting missions pay for the minutes they really take at the current pace
 const REWARD_SHARE = 0.3, TIME_SHARE = 0.25;
@@ -5229,6 +5322,8 @@ function missionCost(m) {   // coins still needed from the current state to the 
   }
   return -1;
 }
+// build audit 2026-11-24: counting missions without a measured pace were all priced at 3 minutes; rough minutes per unit instead
+const CNT_EST = { pot: 3, gifts: 5, mails: 10, caravans: 8 };
 const RATE_KEY = { grad: 'graduated', exams: 'passed', enroll: 'enrolled', read: 'read' };
 const CNT_RATE = ['shop', 'cant', 'ranks', 'masters', 'ore', 'forged'];   // counting missions priced by their measured pace
 let rateLast = null;
@@ -5241,11 +5336,11 @@ function stepRates(sec) {   // per-second pace of every counter (EMA), measured 
 }
 function rewardFor(m) {
   const cost = missionCost(m);
-  if (cost >= 0) return Math.max(50, nice(cost * REWARD_SHARE));
-  const perMin = Math.max(1, (S.ema || 1) * 60);
+  if (cost >= 0) return Math.max(50, nice(cost * ((m.type === 'cnt' && CNTS[m.k] && CNTS[m.k].back) || REWARD_SHARE)));   // back: a mission that only spends coins (an ad campaign) pays them back
+  const perMin = Math.max(1, (rateNow() || 1) * 60);
   if (m.type === 'earn') return Math.max(50, nice((m.n || 0) * TIME_SHARE));
   const key = m.type === 'cnt' ? (CNT_RATE.includes(m.k) ? 'c_' + m.k : null) : RATE_KEY[m.type], rate = key ? (S.rt && S.rt[key]) || 0 : 0;
-  const minutes = rate > 0.001 ? Math.min(15, Math.max(0.5, (m.n || 0) / (rate * 60))) : 3;
+  const minutes = rate > 0.001 ? Math.min(60, Math.max(0.5, (m.n || 0) / (rate * 60))) : m.type === 'cnt' ? Math.min(60, (CNT_EST[m.k] || 3) * Math.max(1, m.n || 1)) : 3;   // build audit 2026-11-24: cap 15 -> 60 min (a 1-hour mission paid like a 15-minute one)
   return Math.max(50, nice(perMin * minutes * TIME_SHARE));
 }
 const lvMul = () => 1 + 0.15 * (schoolLevel() - 1);   // counting missions grow with the school level (her «задания по уровню»)
@@ -5255,7 +5350,7 @@ function makeMission(onlyNew, tries = 0) {   // onlyNew: draw from the new kinds
   const kinds = [], wts = [], add = (f, w = 1) => { kinds.push(f); wts.push(w); };
   add(() => { const n = lvN(rint(3, 8) * 10, 10); return { type: 'grad', target: S.stats.graduated + n, text: `Выпусти ещё ${n} учеников 🎓` }; });
   add(() => { const n = lvN(rint(5, 15) * 10, 10); return { type: 'enroll', target: S.stats.enrolled + n, text: `Прими в школу ещё ${n} новичков 🛎️` }; });
-  add(() => { const n = Math.max(500, Math.round((S.ema || 1) * 60 * rint(3, 8) / 100) * 100); return { type: 'earn', target: (S.stats.earned || 0) + n, text: `Заработай ещё ${fmt(n)} монет 🪙` }; });
+  add(() => { const n = Math.max(500, Math.round((rateNow() || 1) * 60 * rint(3, 8) / 100) * 100); return { type: 'earn', target: (S.stats.earned || 0) + n, text: `Заработай ещё ${fmt(n)} монет 🪙` }; });
   add(() => { const n = lvN(rint(2, 6) * 5, 5); return { type: 'read', target: (S.stats.read || 0) + n, text: `Пусть ${n} учеников подготовятся в библиотеке 📚` }; });
   add(() => { const n = lvN(rint(5, 15) * 10, 10); return { type: 'exams', target: S.stats.passed + n, text: `Пусть ученики сдадут ещё ${n} экзаменов` }; });
   for (const i of open) {
@@ -5335,7 +5430,7 @@ function missionList() {   // [{key, text, reward, ok, prog}]
   if (S.dyn && !S.dynList) S.dynList = [S.dyn];   // older saves had one generated mission
   S.dynList ||= [];
   const out = [];
-  { const m = storyCur(); if (m) out.push({ key: 'f', type: 'f', lk: 'f', text: m.text, reward: m.reward, ok: m.check(G), prog: m.prog ? m.prog(G) : null, go: isMasterStory(m) ? masterGo() : m.go ? storyGo(m.go) : missionGo(null, m.text) }); }
+  { const m = storyCur(); if (m) out.push({ key: 'f', type: 'f', lk: 'f', text: m.text + storyNote(m), reward: storyReward(m), ok: m.check(G), prog: m.prog ? m.prog(G) : null, go: isMasterStory(m) ? masterGo() : m.go ? storyGo(m.go) : missionGo(null, m.text) }); }
   let made = false;
   const kindKey = (x) => [x.type, x.i ?? '', x.k ?? ''].join(':');   // one mission per kind at a time
   const seen = new Set(); S.dynList = S.dynList.filter((x) => !seen.has(kindKey(x)) && seen.add(kindKey(x)));
@@ -5350,7 +5445,7 @@ function missionList() {   // [{key, text, reward, ok, prog}]
       case 'beds': return m.target <= maxBeds();
       case 'lib': return m.target <= MAX_LIB_SEATS;
       case 'up': { const U = upOf(m); return !!U && U.on() && m.target <= U.max(); }
-      case 'cnt': { const K = CNTS[m.k]; return !!K && K.on(); }
+      case 'cnt': { const K = CNTS[m.k]; return !!K && (K.keep ? K.keep() : K.on()); }   // keep: a gift mission waits while the alliance list loads
       default: return true;
     }
   };
@@ -5500,7 +5595,7 @@ function worldsPanel() {
     else {
       const src = worldStats(WORLD === 1 ? 1 : 1) || { grads: 0, coins: 0 }, n = w.need;
       const ok = src.grads >= n.grads && src.coins >= n.coins && (src.stars || 0) >= (n.stars || 0) && (src.masters || 0) >= (n.masters || 0);
-      right = ok ? `<button class="btn hot" data-world-open="${w.id}">Открыть 🪙${fmt(n.coins)}${n.stars ? ` ⭐${n.stars}` : ''}</button>` : '<span class="lock">🔒</span>';
+      right = ok ? `<button class="btn hot" data-world-open="${w.id}">Открыть 🪙${fmt(n.coins)}</button>` : '<span class="lock">🔒</span>';
       w._need = `🎓 ${fmt(Math.min(src.grads, n.grads))}/${fmt(n.grads)} выпускников · 🪙 ${fmt(Math.min(src.coins, n.coins))}/${fmt(n.coins)}${n.stars ? ` · ⭐ ${Math.min(src.stars || 0, n.stars)}/${n.stars}` : ''}${n.masters ? ` · 🌟 Мастер стихии ${Math.min(src.masters || 0, n.masters)}/${n.masters}` : ''} в Школе магии`;
     }
     return `<div class="card up world ${cur ? 'cur' : ''}"><span class="remoji big">${w.emoji}</span><div class="grow"><b>${w.name}</b><div class="muted">${w.desc}</div>${w._need && !open ? `<div class="muted">${w._need}</div>` : ''}</div>${right}</div>`;
@@ -5515,8 +5610,8 @@ function goWorld(w) {
 function openWorld(w) {
   const n = WORLDS.find((x) => x.id === w).need, src = worldStats(1);
   if (WORLD !== 1 || !src || src.grads < n.grads || src.coins < n.coins || (src.stars || 0) < (n.stars || 0) || (src.masters || 0) < (n.masters || 0)) return;
-  if (!confirm(`Открыть новый мир за 🪙${fmt(n.coins)}${n.stars ? ` и ⭐ ${n.stars}` : ''}? Они спишутся в Школе магии.`)) return;
-  S.coins -= n.coins; if (n.stars) insp().stars -= n.stars; save();
+  if (!confirm(`Открыть новый мир за 🪙${fmt(n.coins)}? Монеты спишутся в Школе магии${n.stars ? ', звёзды ⭐ останутся у тебя' : ''}.`)) return;
+  S.coins -= n.coins; save();   // build audit 2026-11-24: the stars are a requirement, no longer spent
   const m = readMetaLocal(); m.unlocked = [...new Set([...(m.unlocked || []), w])]; localStorage.setItem('magicschool.meta', JSON.stringify(m));
   toast('✨ Новый мир открыт!'); openPanel(worldsPanel);
 }
@@ -5533,11 +5628,11 @@ const SP_LIST = [
   { id: 'tg', icon: '📣', t: 'Подпишись на канал разработчика в Telegram', s: 'новости игры и подсказки', n: 5 },
   { id: 'ava', icon: '🖼️', t: 'Поставь аватарку', s: 'засчитается, когда её одобрят', n: 3 },
   { id: 'ally', icon: '🤝', t: 'Вступи в альянс или создай свой', s: '', n: 3 },
-  { id: 'ref', icon: '💌', t: 'Пригласи друга', s: `друг вводит твой код и доводит школу до ${REF_LV}-го уровня`, n: 10 },
+  { id: 'ref', icon: '💌', t: 'Пригласи друга', s: `друг вводит твой код и доводит школу до ${REF_LV}-го уровня (награда — за первого друга)`, n: 10 },
 ];
 let qTab = '';
 document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('a[data-tglink]')) setTimeout(() => { qMetaSet((q) => { q.tg ||= Date.now(); }); if (panel === missionsPanel) refreshPanel(); }, 1500); });   // a real link: iOS PWAs ignore window.open from a delegated handler
-const qDay = (t = new Date()) => `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;   // the same local day as the chests
+const qDay = (t = new Date(Date.now())) => `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;   // the same local day as the chests
 const mgRounds = () => ((S.mg && S.mg.n) || 0) + ((S.mg && S.mg.f && S.mg.f.n) || 0);   // potion + flight rounds ever played
 const qMeta = () => { const m = stMeta(); return m.q || {}; };
 function qMetaSet(fn) { const m = stMeta(); m.q ||= {}; fn(m.q); try { localStorage.setItem('magicschool.meta', JSON.stringify(m)); } catch (e) { /* full storage */ } dirtyPanel = true; }
@@ -5549,7 +5644,7 @@ const DQ = [
   { id: 'grad', on: () => true, n: () => lvN(20, 10), text: (n) => `Выпусти ${n} учеников 🎓`, now: () => S.stats.graduated, go: () => missionGo({ type: 'grad' }) },
   { id: 'chest', on: () => true, n: () => 1, text: () => 'Открой сундучок дня 🎁', done: () => { const c = S.chest; return !!c && c.day === qDay() && (c.k > 0 || c.done || c.dead); }, go: () => ['@chest', null] },
   { id: 'moon', on: () => WORLD === 1, n: () => 1, text: () => 'Собери плоды Лунного древа 🌙', now: () => S.stats.moon || 0, go: () => ['@moon', null] },
-  { id: 'gift', on: () => !!myAl(), n: () => 1, text: () => 'Подари подарок другу из альянса 🎁', done: () => { const L = giftLog(); return [...Object.values(L.g || {}), ...Object.values(L.b || {})].reduce((a, b) => a + b, 0) >= 1; }, go: () => ['@ally', null] },   // build 457: everything sent today counts
+  { id: 'gift', on: () => allyMates() > 0, n: () => 1, text: () => 'Подари подарок другу из альянса 🎁', done: () => { if (allyMates() === 0) return true; const L = giftLog(); return [...Object.values(L.g || {}), ...Object.values(L.b || {})].reduce((a, b) => a + b, 0) >= 1; }, go: () => ['@ally', null] },   // build 457: everything sent today counts
   { id: 'read', on: () => (S.stats.read || 0) > 0, n: () => lvN(10, 5), text: (n) => `Пусть ${n} учеников позанимаются в библиотеке 📚`, now: () => S.stats.read || 0, go: () => ['LIB', '[data-act="libseats"]'] },
   { id: 'earn', on: () => true, n: () => Math.max(500, nice(qPerMin() * 10)), text: (n) => `Заработай ${fmt(n)} монет 🪙`, now: () => S.stats.earned || 0, go: () => null },
 ];
@@ -5574,7 +5669,12 @@ function dqList() {
 const dqAllKey = () => 'dq_' + qDay();   // one moonstone prize a day for both worlds
 const dqAllReady = () => { const L = dqList(); return L.length > 0 && L.every((x) => x.got) && !stGot(dqAllKey()) && !S.dq.all; };
 // ---- 🤝 alliance (week = the mini-game week, Monday 00:00 UTC)
-function aqSt() { const wk = MG.weekKey(); if (!S.aq || S.aq.wk !== wk) S.aq = { wk, g0: S.stats.graduated, m0: mgRounds(), p0: S.stats.gifts || 0 }; return S.aq; }
+function aqSt() {   // build audit 2026-11-24: a new alliance starts the count again (the week's work no longer travels with the player)
+  const wk = MG.weekKey(), al = myAl();
+  if (!S.aq || S.aq.wk !== wk || (S.aq.al != null && S.aq.al !== al)) S.aq = { wk, al, g0: S.stats.graduated, m0: mgRounds(), p0: S.stats.gifts || 0 };
+  else if (S.aq.al == null) S.aq.al = al;   // saves from before: keep this week's count
+  return S.aq;
+}
 const aqMine = () => { const a = aqSt(); return { ag: Math.max(0, S.stats.graduated - a.g0), am: Math.max(0, mgRounds() - a.m0), ap: Math.max(0, (S.stats.gifts || 0) - a.p0) }; };
 function aqGoals() {
   if (!myAl()) return null;
@@ -5585,7 +5685,7 @@ function aqGoals() {
   return { wk, n: rows.length, goals: [
     { id: 'g', text: 'Выпустите вместе учеников 🎓', have: sum('ag'), need: nice(Math.max(100 * n, 0.1 * sum('g0'))), mine: mine.ag },
     { id: 'm', text: 'Сыграйте вместе в мини-игры 🧪', have: sum('am'), need: 8 * n, mine: mine.am },
-    { id: 'p', text: 'Подарите друг другу подарки 🎁', have: sum('ap'), need: 5 * n, mine: mine.ap },
+    ...(allyMates() === 0 ? [] : [{ id: 'p', text: 'Подарите друг другу подарки 🎁', have: sum('ap'), need: 5 * n, mine: mine.ap }]),   // build audit 2026-11-24: no gift goal for an alliance of one
   ].map((g) => ({ ...g, ok: g.have >= g.need, key: `al_${wk}_${g.id}_w${WORLD}` })) };
 }
 const qTopFields = (I) => { if (!QF_ON) return {}; const a = aqMine(), q = qMeta(); return { aw: I(aqSt().wk), ag: I(a.ag), am: I(a.am), ap: I(a.ap), ...(q.rf ? { rf: { stringValue: q.rf } } : {}) }; };
@@ -5659,7 +5759,7 @@ function qRow(m) {   // a story / level mission, the same look as before
   const tk = WORLD === 1;
   return `<div class="q ${m.ok ? 'ok' : ''}"><span class="qi">${m.ok ? '🎁' : '📋'}</span>
       <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}${tk && MISSION_LORE[m.lk || m.type] ? `<span class="muted" style="display:block;font-style:italic;font-size:12px">${MISSION_LORE[m.lk || m.type]}</span>` : ''}</span>
-      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo">${m.need > 0 ? `<span class="qneed" style="display:block;font-size:12px;font-weight:800;color:${S.coins >= m.need ? '#2f9e5a' : '#d0304e'}">нужно 🪙${fmt(m.need)}</span>` : ''}<span class="qr">🪙${fmt(m.reward)}</span>${qBtnGo(m.go, `data-mgo="${m.key}"`)}</span>`}</div>`;
+      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo">${m.key !== 'f' && S.mswap !== qDay() ? `<button class="btn small ghost" data-mswap="${m.key}" title="Заменить задание" style="float:right;margin-left:4px">🔄</button>` : ''}${m.need > 0 ? `<span class="qneed" style="display:block;font-size:12px;font-weight:800;color:${S.coins >= m.need ? '#2f9e5a' : '#d0304e'}">нужно 🪙${fmt(m.need)}</span>` : ''}<span class="qr">🪙${fmt(m.reward)}</span>${qBtnGo(m.go, `data-mgo="${m.key}"`)}</span>`}</div>`;
 }
 function qStoryTab(list) {
   const m = list.find((x) => x.key === 'f'), done = MISSIONS.filter((x) => S.story && S.story[x.id]).length;
@@ -5668,7 +5768,7 @@ function qStoryTab(list) {
 }
 function qDayTab() {
   const L = dqList(), d = S.dq, all = L.every((x) => x.got), gotAll = stGot(dqAllKey()) || d.all;
-  const mid = new Date(); mid.setHours(24, 0, 0, 0); const left = Math.max(0, mid - Date.now()), hh = Math.floor(left / 3600000), mm = Math.floor((left % 3600000) / 60000);
+  const mid = new Date(Date.now()); mid.setHours(24, 0, 0, 0); const left = Math.max(0, mid - Date.now()), hh = Math.floor(left / 3600000), mm = Math.floor((left % 3600000) / 60000);
   const rows = L.map((x) => `<div class="q ${x.ok && !x.got ? 'ok' : ''}"><span class="qi">${x.got ? '✅' : x.ok ? '🎁' : '📅'}</span>
       <span class="qt">${x.text}${!x.ok && x.need > 1 ? ` <span class="qp">${fmt(x.have)}/${fmt(x.need)}</span>` : ''}</span>
       ${x.got ? '<span class="done">готово</span>' : x.ok ? `<button class="btn hot small" data-dqc="${x.id}">Забрать 🪙${fmt(d.r)}</button>` : `<span class="qgo"><span class="qr">🪙${fmt(d.r)}</span>${qBtnGo(x.go, `data-dqgo="${x.id}"`)}</span>`}</div>`).join('');
@@ -5680,7 +5780,7 @@ function qLvlTab(list) {
   const L = list.filter((m) => m.key !== 'f'), lv = schoolLevel(), next = [];
   for (let l = Math.ceil((lv + 1) / 5) * 5; next.length < 3; l += 5) next.push(l);
   const ms = next.map((l) => `<span class="qp" style="margin-right:10px">ур. ${l} → ${ST_IMG(14)} ${3 + Math.floor(l / 10)}</span>`).join('');
-  return `<div class="qnote">Задания подстраиваются под уровень школы 🌟${lv} и под то, на что хватает монет. Сделал одно — сразу появится новое.</div>
+  return `<div class="qnote">Задания подстраиваются под уровень школы 🌟${lv} и под то, на что хватает монет. Сделал одно — сразу появится новое. ${S.mswap !== qDay() ? 'Не нравится задание? 🔄 заменит одно в день.' : 'Замена задания сегодня уже использована.'}</div>
     <div class="qbar">${L.map(qRow).join('')}</div>
     <div class="qbig" style="background:#f1eafd;font-weight:700;flex-wrap:wrap">🌟 Лунные камни за уровни школы (приходят сами): ${ms}</div>`;
 }
@@ -5738,6 +5838,11 @@ function qClick(d) {   // true when the button was ours
   if (d.dqgo !== undefined) { const x = dqList().find((t) => t.id === d.dqgo); if (x) qGo(x.go); return true; }
   if (d.dqc !== undefined) { const x = dqList().find((t) => t.id === d.dqc); if (x && x.ok && !x.got) { S.dq.c[x.id] = 1; S.coins += S.dq.r; toast(`🎁 Награда 🪙${fmt(S.dq.r)}`); updateHud(); save(); } refreshPanel(); return true; }
   if (d.dqall !== undefined) { if (dqAllReady()) { S.dq.all = 1; if (stonesAdd(DQ_STONES, dqAllKey())) toast(`📅 Все дела дня! ${ST_ICON} +${DQ_STONES} лунных камня`); save(); } refreshPanel(); return true; }
+  if (d.mswap !== undefined) {   // build audit 2026-11-24: a stuck level mission can be swapped, once a day
+    const k = +String(d.mswap).slice(1), m = S.dynList && S.dynList[k];
+    if (m && !dynDone(m)) { if (S.mswap === qDay()) toast('Заменить задание можно раз в день'); else { S.mswap = qDay(); S.dynList.splice(k, 1); missionList(); save(); toast('🔄 Задание заменено'); } }
+    refreshPanel(); return true;
+  }
   if (d.alq !== undefined) { const A = aqGoals(), g = A && A.goals.find((x) => x.id === d.alq); if (g && g.ok && stonesAdd(AQ_STONES, g.key)) { toast(`🤝 Цель альянса! ${ST_ICON} +${AQ_STONES} лунных камня`); save(); } refreshPanel(); return true; }
   if (d.sp !== undefined) { if (d.sp === 'tg') { window.open(Q_TG, '_blank'); setTimeout(() => qMetaSet((q) => { q.tg = Date.now(); }), 1500); } return true; }
   if (d.spc !== undefined) { const s = SP_LIST.find((x) => x.id === d.spc); if (s && spReady(s) && stonesAdd(s.n, 'sp_' + s.id)) { toast(`${s.icon} ${ST_ICON} +${s.n} лунных камней`); save(); } refreshPanel(); return true; }
@@ -5951,7 +6056,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'light') { if (WORLD === 2 && lightLvl(i) < lightMax(i) && hallDark(i) > 1e-9 && spend(lightCost(i))) { const W = W2(); W.light ||= {}; W.light[i] = lightLvl(i) + 1; } }
   else if (d.act === 'item') { if (spend(itemCost(i, +d.k))) st.items[+d.k]++; }
   else if (d.act === 'rec') { if (S.reception.level < MAX_REC_LVL && spend(recCost())) S.reception.level++; }
-  else if (d.act === 'ads') { if (S.reception.ads < MAX_REC_LVL && spend(adsCost())) S.reception.ads++; }
+  else if (d.act === 'ads') { if (S.reception.ads < MAX_REC_LVL && !adsFull() && spend(adsCost())) S.reception.ads++; }
   else if (d.act === 'cbench') { if (courtUp().bench < MAX_BENCH && spend(benchCost())) { courtUp().bench++; staticKey = ''; toast('🪑 Во дворе поставили новую скамейку!'); } }
   else if (d.act === 'cfount') { if (courtUp().fount < MAX_FOUNT && spend(fountCost())) courtUp().fount++; }
   else if (d.act === 'ccoin') { if (courtUp().coin < MAX_COIN && spend(coinCost())) courtUp().coin++; }
@@ -5974,7 +6079,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'towerbuild') { if (!(S.tower && S.tower.built) && isOpen(NCLS - 1) && spend(towerCost())) { towerUp().built = true; S.tower.end = Date.now() + BTIME.TOWER * 1000; staticKey = ''; toast(WORLD === 2 ? '🗝️ Чертог Хранителей построен!' : '🏰 Башня мастеров построена!'); panel = towerPanel; } }
   else if (d.act === 'towerprep') { if (retakeLvl() < RETAKE_MAX && spend(retakeCost())) { towerUp().prep = retakeLvl() + 1; towerUp().rt = Math.min(towerUp().rt ?? 1e9, retakeInterval()); } }
   else if (d.act === 'towercap') { if (towerUp().cap < TOWER_MAXUP && spend(towerCapCost())) { towerUp().cap++; towerPull(); } }
-  else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && !r.away && confirm(`Отпустить ${r.name} (${resTitle(r)})? Школа получит 🎁 ${fmt(releaseReward(r))}.`)) { earn(releaseReward(r)); T.res.splice(+d.k, 1); towerPull(); toast(`🎁 ${r.name} отправился в большое путешествие`); } }
+  else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && !r.away && confirm(`Отпустить ${r.name} (${resTitle(r)})? Школа получит 🎁 ${fmt(releaseReward(r))}.`)) { bonus(releaseReward(r)); T.res.splice(+d.k, 1); towerPull(); toast(`🎁 ${r.name} отправился в большое путешествие`); } }
   else if (d.act === 'towerno') { towerUp().wait.splice(+d.k, 1); }
   else if (d.act === 'toweronly') { const T = towerUp(); T.onlyM = !T.onlyM; if (T.onlyM) { const n = T.wait.length; T.wait = T.wait.filter((r) => r.rk === 5); if (n > T.wait.length) toast(`${TW.emo} Отказано ${TW.eldersD} у двери: ${n - T.wait.length}`); } }
   else if (d.act === 'cantbuild') { if (!cantBuilt() && isOpen(CANT_NEED) && spend(CANT_COST)) { const u = cantUp(); u.built = true; u.end = Date.now() + CANT_TIME * 1000; staticKey = ''; toast(WORLD === 2 ? '🏗️ Пиршественный зал строится!' : '🏗️ Столовая строится!'); panel = cantPanel; } }
@@ -6092,7 +6197,7 @@ const ALLY_URL = 'https://firestore.googleapis.com/v1/projects/magic-school-game
 const ALLY_EMOS = ['🦄', '🐉', '🦉', '🌙', '⭐', '🔮', '🌸', '🍄', '🔥', '❄️', '🌈', '👑'];
 const GIFT_DAY = 3, BOOST_DAY = 1, BOOST_MIN = 10, BOOST_MAX_MIN = 60, ALLY_MAX = 6;   // 10 -> 6 (her pick «6 школ»): members above it stay, new ones wait
 let allyList = null, allyGifts = [], allyMsg = '', allyPollT = 5, allyEmo = '🦄', myReqs = [], ownReqs = [];   // join requests (build 268): mine and those to my alliance
-function boostK() { return S && S.boostEnd && Date.now() < S.boostEnd ? 1.1 : 1; }   // «Вдохновение»: +10% to every lesson (a function: tuition() may run before this block)
+function boostK() { const now = Date.now(); return (S && S.boostEnd && now < S.boostEnd ? 1.1 : 1) * (S && S.goldEnd && now < S.goldEnd ? 2 : 1); }   // build audit 2026-11-24: x2 while «Звёздный час» (moonstones) runs   // «Вдохновение»: +10% to every lesson (a function: tuition() may run before this block)
 const myAl = () => (S && S.al) || '';
 const allyOf = (code) => (allyList || []).find((a) => a.id === code);
 const anonUid = () => { try { return (JSON.parse(localStorage.getItem(ANON_KEY)) || {}).uid || ''; } catch (e) { return ''; } };
@@ -6102,7 +6207,7 @@ function avChanged() {   // re-render the open top / alliance window, keeping wh
   if (panel === topPanel) { const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; }
   else if (panel === allyPanel) refreshAlly();
 }
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => qDay();   // build audit 2026-11-24: local midnight like the daily tasks (was UTC)
 function giftLog() { const g = (S.giftLog ||= { day: today(), g: {}, b: {} }); if (g.day !== today()) { g.day = today(); g.g = {}; g.b = {}; } return g; }
 function allyMembers(code) { const a = allyOf(code), k = (a && a.kick) || []; return (topList || []).filter((x) => x.w === WORLD && x.al === code && !k.includes(x.id.replace(/_w\d$/, ''))); }   // kicked schools drop out at once (build 270)
 async function allyLoad() {
@@ -6140,7 +6245,7 @@ async function allyClaim() {
     const r = await fetch(`${ALLY_URL}/gifts/${g.id}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + A.tok } }).catch(() => null);
     if (!r || !r.ok) continue;   // claimed only once: the gift is gone from the cloud before it is counted
     if (g.kind === 'boost') { boosts++; S.boostEnd = Math.min(Date.now() + BOOST_MAX_MIN * 60000, Math.max(Date.now(), S.boostEnd || 0) + BOOST_MIN * 60000); }
-    else coins += Math.max(300, Math.round((S.ema || 1) * 180 / 10) * 10);
+    else coins += Math.max(300, Math.round((rateNow() || 1) * 180 / 10) * 10);
   }
   if (coins) S.coins += coins;   // a gift is not the school's own income: it must not lift the income rate or the inspector's «earn» check
   allyGifts = []; save(); updateHud();
@@ -6296,7 +6401,7 @@ function allyPanel() {
   if (!schoolName()) return head + '<p>Чтобы вступить в альянс, сначала придумай название своей школы.</p><button class="btn wide" data-top>🏆 Придумать название</button>';
   let h = head;
   if (allyGifts.length) h += `<div class="card up" style="border:2px solid #e8b923;background:#fff8dc"><span class="remoji">🎁</span><div class="grow"><b>Тебе прислали подарков: ${allyGifts.length}</b><div class="muted">от: ${[...new Set(allyGifts.map((g) => escTxt(g.fname)))].join(', ')}</div></div><button class="btn hot small" data-allyclaim>Забрать</button></div>`;
-  if (boostK() > 1) h += `<p>✨ <b>Вдохновение</b>: ещё ${mmss((S.boostEnd - Date.now()) / 1000)} — плата за уроки +10%.</p>`;
+  if (S.boostEnd && Date.now() < S.boostEnd) h += `<p>✨ <b>Вдохновение</b>: ещё ${mmss((S.boostEnd - Date.now()) / 1000)} — плата за уроки +10%.</p>`;
   if (allyMsg) h += `<p class="muted">${allyMsg}</p>`;
   const me = anonUid() + '_w' + WORLD, code = myAl();
   if (code) {
@@ -6484,11 +6589,15 @@ async function cloudGet(code) {
   const d = await r.json();
   return { data: d.fields?.data?.stringValue, updated: +(d.fields?.updated?.integerValue || 0) };
 }
+// build audit 2026-11-24: the moonstone balance is shared by the device and the cloud; adopting a cloud save or a backup replaced it
+// wholesale (stones earned on this device were lost). Now: the larger balance, every one-time key and every bought colour kept.
+function keepStones(meta) { try { const loc = stMeta().stones; if (!loc) return meta; meta ||= {}; const st = (meta.stones ||= { n: 0, got: {} });
+  st.n = Math.max(st.n || 0, loc.n || 0); st.got = { ...(loc.got || {}), ...(st.got || {}) }; if (loc.own || st.own) st.own = { ...(loc.own || {}), ...(st.own || {}) }; } catch (e) { /* keep as is */ } return meta; }
 function adopt(raw) {   // replace the local save with a cloud one and restart the game on it
   if (!noSave) backupLocal('cloud');
   noSave = true;
   let o = null; try { o = JSON.parse(raw); } catch (e) { /* bad */ }
-  if (o && o.v === 3 && o.saves) { for (const [k, v] of Object.entries(o.saves)) localStorage.setItem(k, v); if (o.meta) localStorage.setItem('magicschool.meta', JSON.stringify(o.meta)); }
+  if (o && o.v === 3 && o.saves) { for (const [k, v] of Object.entries(o.saves)) localStorage.setItem(k, v); if (o.meta) localStorage.setItem('magicschool.meta', JSON.stringify(keepStones(o.meta))); }
   else localStorage.setItem(SAVE_KEY, raw);
   location.reload();
 }
@@ -6565,7 +6674,7 @@ function restoreBackup() {
   const b = backupInfo(); if (!b) return;
   if (!confirm('Вернуть прогресс из запасной копии? Текущий прогресс тоже сохранится как запасная копия.')) return;
   const cur = localBundle(); noSave = true;
-  const o = b.data; for (const [k, v] of Object.entries(o.saves || {})) localStorage.setItem(k, v); if (o.meta) localStorage.setItem('magicschool.meta', JSON.stringify(o.meta));
+  const o = b.data; for (const [k, v] of Object.entries(o.saves || {})) localStorage.setItem(k, v); if (o.meta) localStorage.setItem('magicschool.meta', JSON.stringify(keepStones(o.meta)));
   localStorage.setItem('magicschool.backup', JSON.stringify({ at: Date.now(), why: 'swap', data: cur }));
   // the restored game must win in the cloud too: push it right after the reload
   localStorage.setItem('magicschool.forcePush', '1');
@@ -6578,7 +6687,7 @@ let renderMs = 0;   // average time of one render (test hook __test.renderMs)
 // power saving (tester blazar, iPhone 14: «через пару минут начинает нагреваться»): while nobody touches the screen the school is drawn
 // 30 times a second, not 60 (a 120 Hz screen gets 60 while touched); creatures walk slowly, the eye does not see it, the phone stays cool
 let inputAt = 0, drawnAt = 0; const fpsStat = { drawn: 0, skipped: 0 };
-for (const ev of ['pointerdown', 'pointermove', 'touchstart', 'touchmove', 'wheel', 'keydown']) window.addEventListener(ev, () => { inputAt = performance.now(); }, { passive: true, capture: true });
+for (const ev of ['pointerdown', 'pointermove', 'touchstart', 'touchmove', 'wheel', 'keydown']) window.addEventListener(ev, () => { inputAt = window.__inputAt = performance.now(); }, { passive: true, capture: true });
 window.addEventListener('scroll', () => { inputAt = performance.now(); }, { passive: true, capture: true });
 function frame(now) {
   if (bootOn && bootFrame(now)) { requestAnimationFrame(frame); return; }   // loading screen (bootFrame)
@@ -6587,7 +6696,7 @@ function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
   if (catchLeft > 0) catchUpSlice(dt); else stepWorld(dt, true);   // the time the game was closed is lived through first, a slice per frame
   stepIntros(dt);   // feature intros (2026-11-23)
-  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; S.steadyEma = steadyRate() * 0.99 + Math.min(earnedThisSec / secT, 3 * steadyRate() + 1) * 0.01; S.paceEma = (S.paceEma ?? S.ema) * 0.997 + S.ema * 0.003; earnedThisSec = 0; S.outEma = (S.outEma || 0) * 0.97 + (outThisSec / secT) * 0.03; outThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); allyTick(); }
+  secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; S.steadyEma = steadyRate() * 0.99 + Math.min(earnedThisSec / secT, 3 * steadyRate() + 1) * 0.01; S.paceEma = (S.paceEma ?? S.ema) * 0.997 + S.ema / boostK() * 0.003; earnedThisSec = 0; S.outEma = (S.outEma || 0) * 0.97 + (outThisSec / secT) * 0.03; outThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); allyTick(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
   saveT += dt; if (saveT > 5) { saveT = 0; save(); cloudPush(); }
   if (!MG.isOpen()) { const t0 = performance.now(); render(); renderMs = renderMs * 0.95 + (performance.now() - t0) * 0.05; }
@@ -6682,20 +6791,28 @@ function fastForward(sec) {   // live through the time the game was closed or in
 // dozen ms per frame with the world on screen. Before, the whole catch-up ran before the first frame (her save, 2 h away:
 // 7-8.7 s of a blank screen at 4x CPU throttling). Same step size as before: a coarser step changes the economy (2 h on her
 // save: 420M coins at 0.5 s, 308M at 1 s, 167M at 2 s). Real time that passes meanwhile is added to the rest.
-var catchLeft = 0, catchDt = 0.25, catchAll = 0, catchAway = 0, catchGain = 0, catchBox = null;
+var catchLeft = 0, catchDt = 0.25, catchAll = 0, catchAway = 0, catchGain = 0, catchBox = null, catchReal = 0, catchLeft0 = 0, catchOut = 0, catchExtra = 0, catchSimT = 0;   // build audit 2026-11-24: real time away (uncapped), leavers and refunds of the catch-up, time paid without living it through
 const catchMs = () => Math.max(45, Math.min(250, 3 * renderMs));   // simulation time per frame: ~3/4 of the main thread, the picture still moves
+// offline limit 4 h (Maria 2026-11-24): the first 2 h are lived through step by step as before; the rest is paid at the rate those 2 h
+// earned (living through all 4 h held the loading screen ~1.7x longer: 9.4 s instead of 5.5 s on the PC, far more on a phone)
+const CATCH_SIM = 2 * 3600;
 function catchUp(sec) {
-  sec = Math.min(OFFLINE_CAP_SEC, sec); if (sec < 1) return;
-  if (catchLeft <= 0) { catchAll = 0; catchAway = 0; catchGain = 0; }
-  catchLeft = Math.min(OFFLINE_CAP_SEC, catchLeft + sec); catchAway += sec; catchAll = Math.max(catchAll, catchLeft);
+  const real = sec; sec = Math.min(OFFLINE_CAP_SEC, sec); if (sec < 1) return;
+  if (catchLeft <= 0) { catchAll = 0; catchAway = 0; catchGain = 0; catchReal = 0; catchLeft0 = 0; catchOut = 0; catchExtra = 0; catchSimT = 0; }
+  catchReal += real;
+  const simAdd = Math.min(sec, Math.max(0, CATCH_SIM - catchLeft)); catchExtra = Math.min(OFFLINE_CAP_SEC - CATCH_SIM, catchExtra + sec - simAdd);
+  catchLeft += simAdd; catchAway = Math.min(OFFLINE_CAP_SEC, catchAway + sec); catchAll = Math.max(catchAll, catchLeft);
   catchDt = catchLeft > 600 ? 0.5 : 0.25;
 }
 function catchUpSlice(dt, budget = catchMs()) {
   catchLeft += dt;   // the clock keeps going while we catch up
   const keep = popups.splice(0), fx = $('#fx'), fxN = fx.childElementCount, e0 = earnedThisSec, c0 = S.coins, t0 = performance.now();
+  const l0 = leftNow(), p0 = S.stats.passed, f0 = S.stats.failed, er0 = S.stats.earned || 0, o0 = (S.stats.refunded || 0) + (S.stats.fined || 0);
   ffwd = true;
-  try { while (catchLeft > 0 && performance.now() - t0 < budget) { stepWorld(catchDt); catchLeft -= catchDt; } } finally { ffwd = false; }
-  popups.length = 0; popups.push(...keep); earnedThisSec = e0; catchGain += S.coins - c0;   // as fastForward(): no flying coins or toasts from the past
+  try { while (catchLeft > 0 && performance.now() - t0 < budget) { stepWorld(catchDt); catchLeft -= catchDt; catchSimT += catchDt; } } finally { ffwd = false; }
+  popups.length = 0; popups.push(...keep); earnedThisSec = e0; catchGain += S.coins - c0;
+  catchLeft0 += leftNow() - l0; catchOut += (S.stats.refunded || 0) + (S.stats.fined || 0) - o0;
+  { const c = S.insp && S.insp.cur; if (c) { if (c.v !== undefined) c.v += leftNow() - l0; if (c.p !== undefined) { c.p += S.stats.passed - p0; c.f += S.stats.failed - f0; } if (c.e !== undefined) c.e += (S.stats.earned || 0) - er0; } }   // build audit 2026-11-24: time away never counts into a running check   // as fastForward(): no flying coins or toasts from the past
   while (fx.childElementCount > fxN) fx.lastElementChild.remove();
   if (catchLeft > 0) {
     if (!catchBox && catchAll > 20 && !bootOn) { catchBox = document.createElement('div'); catchBox.className = 'catchup'; catchBox.style.cssText = 'position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:4;background:#fffaffee;color:#5a3fb0;font:700 13px ui-rounded,system-ui,sans-serif;padding:6px 12px;border-radius:14px;box-shadow:0 2px 8px #3a2f4a33;pointer-events:none;white-space:nowrap'; $('#stage').appendChild(catchBox); }
@@ -6704,8 +6821,10 @@ function catchUpSlice(dt, budget = catchMs()) {
     return;
   }
   catchLeft = 0; if (catchBox) { catchBox.remove(); catchBox = null; }
+  if (catchExtra > 0 && catchSimT > 0 && catchGain > 0) { const x = Math.round(catchGain / catchSimT * catchExtra); S.coins += x; S.stats.earned = (S.stats.earned || 0) + x; catchGain += x; }   // the hours past the lived-through 2 h
+  catchExtra = 0;
   updateHud(); dirtyPanel = true;
-  if (panel || tourStep >= 0) { if (catchAway >= 60 && catchGain >= 1) toast(`🪙 +${fmt(catchGain)}: школа жила, пока тебя не было`); } else welcomeBack(catchAway, catchGain);   // never over an open panel or the tour
+  if (panel || tourStep >= 0) { if (catchAway >= 60 && catchGain >= 1) toast(`🪙 +${fmt(catchGain)}: школа жила, пока тебя не было`); } else welcomeBack(catchReal, catchGain);   // never over an open panel or the tour
   save();
 }
 window.__catch = () => ({ left: catchLeft, all: catchAll, gain: catchGain });   // test hook
@@ -6725,7 +6844,7 @@ function bootFrame(now) {
   const real = 0.04 + 0.96 * (catchAll ? (cuP + imgP) / 2 : imgP); bootShown = Math.min(Math.max(real, bootShown + 0.006 * Math.min(4, dt * 60)), catchLeft > 0 || imgP < 1 ? 0.95 : 1);
   const bar = document.getElementById('boot-bar'); if (bar) bar.style.transform = `scaleX(${bootShown.toFixed(3)})`;
   if (catchAll >= 60) {   // «while you were away»: live counters of what the school did meanwhile
-    if (!bootAway) { bootAway = true; const m = Math.round(catchAway / 60), box = document.getElementById('boot-away'); if (box) box.style.display = ''; const t = document.getElementById('boot-time'); if (t) t.textContent = m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`; }
+    if (!bootAway) { bootAway = true; const m = Math.round(catchReal / 60), box = document.getElementById('boot-away'); if (box) box.style.display = ''; const t = document.getElementById('boot-time'); if (t) t.textContent = (m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`) + (catchReal > OFFLINE_CAP_SEC + 60 ? ` (школа работает без тебя до ${OFFLINE_CAP_SEC / 3600} ч)` : ''); }
     const c = document.getElementById('boot-coins'), gr = document.getElementById('boot-grads');
     if (c) c.textContent = fmt(Math.max(0, catchGain)); if (gr) gr.textContent = fmt(S.stats.graduated - bootG0);
   }
@@ -6735,12 +6854,13 @@ function bootFrame(now) {
   const el = document.getElementById('boot'); if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; setTimeout(() => el.remove(), 450); }
   return false;
 }
-function welcomeBack(sec, gain) {
-  if (sec < 60 || gain < 1) return;
-  const mins = Math.round(Math.min(OFFLINE_CAP_SEC, sec) / 60);
+function welcomeBack(sec, gain) {   // build audit 2026-11-24: the real time away, the 4 h limit said plainly, losses shown too
+  if (sec < 60 || (gain < 1 && catchLeft0 < 1)) return;
+  const hm = (m) => (m >= 60 ? Math.floor(m / 60) + ' ч ' : '') + (m % 60) + ' мин', mins = Math.round(sec / 60), capH = OFFLINE_CAP_SEC / 3600, over = sec > OFFLINE_CAP_SEC + 60;
+  const lost = catchLeft0 >= 1 ? `<p class="center muted">😢 Ушли расстроенными: ${fmt(catchLeft0)}${catchOut >= 1 ? `, им вернули 🪙 ${fmt(catchOut)}` : ''}. Чтобы уходило меньше — больше мест в классах и спальне.</p>` : '';
   openPanel(() => `<div class="sh-head"><h2>С возвращением!</h2><button class="x" data-close>✕</button></div>
-    <p class="center">Пока тебя не было ${mins >= 60 ? Math.floor(mins / 60) + ' ч ' : ''}${mins % 60} мин, школа жила своей жизнью.</p>
-    <div class="center big-txt">🪙 +${fmt(gain)}</div><button class="btn wide" data-close>Ура!</button>`);
+    <p class="center">Тебя не было ${hm(mins)}. ${over ? `Без тебя школа работает до ${capH} ч — столько и засчитано.` : 'Школа жила своей жизнью.'}</p>
+    <div class="center big-txt">🪙 ${gain >= 0 ? '+' : '−'}${fmt(Math.abs(gain))}</div>${lost}<button class="btn wide" data-close>Ура!</button>`);
 }
 // ======================= incident sounds (build 256, her wish «во время происшествий проигрывать звуковой эффект ... тематический,
 // нераздражающий») =======================
@@ -6834,11 +6954,21 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) chec
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); if (S) save(); cloudPush(true); return; }
-  const away = hiddenAt ? (Date.now() - hiddenAt) / 1000 : 0; hiddenAt = 0;
-  catchUp(away); last = performance.now(); save();
-  cloudPull();   // maybe it was played on another device meanwhile
+  const h0 = hiddenAt; hiddenAt = 0;
+  (window.__clockSync ? window.__clockSync() : Promise.resolve()).then(() => {   // build audit 2026-11-24: a clock moved meanwhile is corrected first
+    if (document.hidden) return; const away = h0 ? Math.max(0, (Date.now() - h0) / 1000) : 0;
+    catchUp(away); last = performance.now(); save();
+    cloudPull();   // maybe it was played on another device meanwhile
+  });
 });
 window.addEventListener('pagehide', () => { if (S) save(); });
+// build audit 2026-11-24: two tabs of the game overwrote each other's save every 5 s. The newest tab plays; an older one stops saving
+// and says so (button: play here = reload, which in turn stops the other).
+try { if (!EDIT) { const bc = new BroadcastChannel('magicschool.tab'), me = Math.random(); bc.onmessage = (e) => { if (!e.data || e.data.id === me || e.data.w !== WORLD) return;
+  noSave = true; if (document.getElementById('dup-tab')) return; const d = document.createElement('div'); d.id = 'dup-tab';
+  d.style.cssText = 'position:fixed;inset:0;z-index:99;background:#2a1f3dcc;display:flex;align-items:center;justify-content:center;padding:24px;font:600 17px ui-rounded,system-ui,sans-serif;color:#fff;text-align:center';
+  d.innerHTML = '<div style="background:#fffaff;color:#3a2f4a;border-radius:18px;padding:20px 18px;max-width:320px">Игра открыта в другом окне — играть можно только в одном, чтобы прогресс не потерялся.<br><br><button class="btn wide" id="dup-here">Играть здесь</button></div>';
+  document.body.appendChild(d); document.getElementById('dup-here').onclick = () => location.reload(); }; bc.postMessage({ id: me, w: WORLD }); } } catch (e) { /* no BroadcastChannel */ }
 window.addEventListener('resize', resize);
 
 preloadEmoji();
@@ -6848,10 +6978,16 @@ relayout();   // the map depends on the saved class sizes
 // world 2 compensation, once (her report 2026-11-22): until build 231 every student who left took 300% of the fee back;
 // the fair refund is 100%, so the extra 200% (2/3 of all refunds so far) goes back to the player
 if (WORLD === 2 && !S.w2fix) { S.w2fix = 1; const back = Math.round((S.stats.refunded || 0) * 2 / 3); if (back > 0) { S.coins += back; setTimeout(() => toast(`🪙 +${fmt(back)}: вернули лишнее, что ушло ученикам`), 2500); } }
-if (location.hash.startsWith('#coins=')) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
+if (location.hash.startsWith('#coins=') && /^(localhost|127\.|192\.168\.|10\.)/.test(location.hostname)) { S.coins = +location.hash.slice(7) || S.coins; history.replaceState(null, '', location.pathname); } // test hook
 // pacing simulation hook (tools/sim_run.js drives it in a test browser; not used by the game itself)
+let simSecT = 0;
 window.__sim = {
-  step: (dt) => stepWorld(dt),
+  step: (dt, live) => {   // build audit 2026-11-24: S.ema / S.steadyEma / S.paceEma move per simulated second exactly like frame() (keep in sync), so the pace floor is exercised; live === false = offline catch-up, its income is not counted (as catchUpSlice)
+    const e0 = earnedThisSec; stepWorld(dt);
+    if (live === false) { earnedThisSec = e0; return; }
+    simSecT += dt; if (simSecT < 1) return;
+    stepRates(simSecT); S.ema = S.ema * 0.97 + (earnedThisSec / simSecT) * 0.03; S.steadyEma = steadyRate() * 0.99 + Math.min(earnedThisSec / simSecT, 3 * steadyRate() + 1) * 0.01; S.paceEma = (S.paceEma ?? S.ema) * 0.997 + S.ema / boostK() * 0.003; earnedThisSec = 0; simSecT = 0;
+  },
   bal: (o) => Object.assign(BAL, BAL_NEW, o || {}),
   get S() { return S; },
   addStar: () => { insp().stars = (insp().stars || 0) + 1; },
@@ -6870,7 +7006,7 @@ window.__sim = {
       if (RANK_AT(i) && xplLvl(i) < MAX_XPL_LVL) add('xpllvl', xplCost(i), { i });
     });
     if (S.reception.level < MAX_REC_LVL) add('rec', recCost());
-    if (S.reception.ads < MAX_REC_LVL) add('ads', adsCost());
+    if (S.reception.ads < MAX_REC_LVL && !adsFull()) add('ads', adsCost());
     if (bedCount() < maxBeds()) add('beds', bedsCost());
     if (!dorm2Built()) add('dorm2', DORM2_COST);
     [1, 2].forEach((k) => { if ((k === 1 || dorm2Built()) && dormSize(k) < 3) add('dormexp', dormExpandCost(k), { k }); });
@@ -6883,8 +7019,15 @@ window.__sim = {
       if (!shopOpen()) add('shopbuild', SHOP_COST); else ['seller', 'shelves', 'goods'].forEach((k) => { if (shopUp()[k] < SHOP_MAX) add('shopup', shopCost(k), { k }); });
       if (!towerOpen()) { if (isOpen(NCLS - 1)) add('towerbuild', towerCost()); } else if (towerUp().cap < TOWER_MAXUP) add('towercap', towerCapCost());
       if (!dirBuilt()) add('dirbuild', DIR_COST, { stars: DIR_STARS }); else Object.keys(DIR_UP).forEach((k) => { if (dirLvl(k) < DIR_UP[k].max) add('dir', dirCost(k), { k }); });
+      if (COURT) { const u = courtUp(); if (u.bench < MAX_BENCH) add('cbench', benchCost()); if (u.fount < MAX_FOUNT) add('cfount', fountCost()); if (u.coin < MAX_COIN) add('ccoin', coinCost()); }   // build audit 2026-11-24: the court was not in the pacing sim
     }
     if (WORLD === 2) {   // pacing sim: the ore store and the trading yard
+      // build audit 2026-11-24: the world-2 bot never paid for the feature buildings, so its pacing was too fast
+      if (!shopOpen() && !(S.shop && S.shop.built)) add('shopbuild', SHOP_COST);
+      if (!cantBuilt() && isOpen(CANT_NEED)) add('cantbuild', CANT_COST);
+      if (!(S.tower && S.tower.built) && isOpen(NCLS - 1)) add('towerbuild', towerCost());
+      if (!throne().built && guardsIdx() >= 0 && isOpen(guardsIdx())) add('thronebuild', THRONE_COST);
+      { const gi = CLASSES.findIndex((c) => c.id === EXPED_NEED); if (!exped().built && gi >= 0 && isOpen(gi)) add('expedbuild', EXPED_COST); }
       if (W2().store < MAX_STORE && CLASSES.some((c, i) => c.id === 'mine' && isOpen(i))) add('store', storeCost());
       if (!trade().built) { const fi = CLASSES.findIndex((c) => c.id === 'forge'); if (fi >= 0 && isOpen(fi)) add('tradebuild', TRADE_COST); } else ['wagon', 'road', 'price'].forEach((k) => { if (trade()[k] < MAX_TUP) add('tup', tupCost(k), { k }); });
     }
@@ -6916,5 +7059,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=474').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=475').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }

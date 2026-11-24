@@ -1,6 +1,6 @@
 // Static game data for v0.2 (top-down campus). UI text is Russian (product language).
 
-export const OFFLINE_CAP_SEC = 2 * 3600;
+export const OFFLINE_CAP_SEC = 4 * 3600;   // 2 h -> 4 h (Maria 2026-11-24)
 export const MAX_DESKS = 6;
 export const MAX_ITEM_LEVEL = 40;   // 25 -> 40 in build 299 (her pick: new levels for veterans)
 export const MAX_TEACHER_LEVEL = 20;
@@ -151,12 +151,12 @@ export const MISSIONS = WORLD === 2 ? [
   { id: 'stars', v1: 1, text: 'Построй Звездочётство', reward: 800, build: 'stars', check: (g) => g.built('stars') },
   { id: 'name', text: 'Дай школе имя и загляни в топ школ 🏆', reward: 500, check: (g) => g.named(), go: ['@top', null] },
   { id: 'g100', v1: 1, text: 'Выпусти 100 учеников', reward: 2000, check: (g) => g.S.stats.graduated >= 100, prog: (g) => [g.S.stats.graduated, 100] },
-  { id: 'star2', text: 'Заработай 2 звезды школы на проверках инспектора ⭐', reward: 2000, check: (g) => g.stars() >= 2 || g.dir(), prog: (g) => [g.stars(), 2], go: ['@insp', null] },
+  { id: 'star2', text: 'Заработай 2 звезды школы на проверках инспектора ⭐', reward: 2000, note: (g) => (g.calm() ? 'инспектор приходит, если выключить спокойный режим в ⚙️' : ''), check: (g) => g.stars() >= 2 || g.dir(), prog: (g) => [g.stars(), 2], go: ['@insp', null] },
   { id: 'dir', text: 'Построй кабинет директора 👑', reward: 10000, check: (g) => g.dir(), go: ['DIR', '[data-act="dirbuild"]'] },
   { id: 'camp', text: 'Проведи рекламную акцию (кабинет директора) 📣', reward: 5000, check: (g) => statOf(g, 'camps') >= 1, go: ['DIR', '[data-act="camp"]'] },
   { id: 'shop', text: 'Открой лавку 🛍️', reward: 30000, check: (g) => g.shop(), go: ['SHOP', '[data-act="shopbuild"]'] },
   { id: 'cant', text: 'Построй столовую 🍽️', reward: 100000, check: (g) => g.cant(), go: ['CANT', '[data-act="cantbuild"]'] },
-  { id: 'mail', text: 'Ответь на письмо родителей ✉️', reward: 20000, check: (g) => statOf(g, 'mails') >= 1, go: ['DIR', '[data-mailopen]'] },
+  { id: 'mail', text: 'Ответь на письмо родителей ✉️', reward: 20000, note: (g) => (g.calm() && statOf(g, 'mails') < 1 ? 'в спокойном режиме писем нет — задание засчитано' : ''), check: (g) => statOf(g, 'mails') >= 1 || g.calm(), go: ['DIR', '[data-mailopen]'] },
   { id: 'charms', v1: 1, text: 'Построй класс Чар', reward: 4000, build: 'charms', check: (g) => g.built('charms') },
   { id: 'fount3', text: 'Улучши Волшебный фонтан до ур. 3 ⛲', reward: 8000, check: (g) => g.court().fount >= 3, prog: (g) => [g.court().fount, 3], go: ['FOUNT', '[data-act="cfount"]'] },
   { id: 'ally', text: 'Вступи в альянс или создай свой 🤝', reward: 20000, check: (g) => g.ally(), go: ['@ally', null] },

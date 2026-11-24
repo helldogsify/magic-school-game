@@ -6,7 +6,10 @@
 // Own module: game.js passes a small API (state, earn, save, toast, fmt, emojiHtml, audioOut, mgCharge) and calls initChests().
 
 const RISK = [0, 0.10, 0.20, 0.35, 0.50, 0.70];   // chance that chest k is cursed (shown before opening)
-const MIN = [5, 10, 20, 35, 60, 100];              // coins = minutes of the school's income
+const MIN = [5, 10, 20, 35, 60, 200];              // coins = minutes of the school's income (chest 6: 100 -> 200, build audit 2026-11-24: it was always a bad bet)
+// build audit 2026-11-24 (best play lost everything 77 % of days, no pity): the curse burns HALF of what was collected (the rest is paid at once),
+// and a cursed day leaves a ward 🛡️ for the next row that turns one cursed chest into a normal one. Expected value per day, best stop: 34 -> 48 min.
+const halfLoot = (l) => ({ c: Math.round(l.c / 2 / 10) * 10, b: Math.floor(l.b / 2), m: Math.floor(l.m / 2) });
 const MGT = [0, 1, 0, 1, 0, 1];                    // «Зельеварка» tries
 const BOOST = [0, 0, 10, 0, 15, 20];               // minutes of «Вдохновение» (+10% lessons), cap 60 like gifts
 const RARE = 0.25, RARE_FROM = 4;                  // chests 5 and 6: one in four is a sparkling chest, coins x2
@@ -16,8 +19,8 @@ const IMG = { closed: 0, open: 1, curse: 2, rare: 3 };
 
 let A = null, root = null, busy = false, lastMsg = '';
 const S = () => A.state();
-const dayKey = (t = new Date()) => `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;   // local midnight reset
-const msToMidnight = () => { const d = new Date(); d.setHours(24, 0, 0, 0); return d - Date.now(); };
+const dayKey = (t = new Date(Date.now())) => `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;   // local midnight reset
+const msToMidnight = () => { const d = new Date(Date.now()); d.setHours(24, 0, 0, 0); return d - Date.now(); };
 const hhmm = (ms) => { const m = Math.ceil(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`; };
 const emptyLoot = () => ({ c: 0, b: 0, m: 0 });
 
@@ -35,7 +38,7 @@ export const ready = () => { const c = ch(); return !!c && !c.done && !c.dead; }
 export const fresh = () => { const c = ch(); return !!c && c.k === 0 && !c.done && !c.dead; };
 
 function coinsFor(k) {
-  const s = S(), inc = s.paceEma || s.ema || 0;
+  const s = S(), inc = A.rate ? A.rate() : (s.paceEma || s.ema || 0);   // build audit 2026-11-24: the steady rate (a chest lifted the next one)
   return Math.max(10, Math.round(Math.max(MIN[k] * 60 * inc, MIN[k] * 30) / 10) * 10);
 }
 function grant(l, quiet) {
@@ -137,18 +140,19 @@ function html() {
   const c = ch(), N = RISK.length;
   let btns, loot;
   if (c.dead) {
-    loot = `<div class="ch-loot"><small>Сегодня</small>Проклятый сундук забрал всё 💀</div>`;
+    loot = `<div class="ch-loot"><small>Сегодня</small>Проклятый сундук забрал половину 💀${c.loot.c || c.loot.b || c.loot.m ? `<br>Осталось и зачислено: ${lootText(c.loot)}` : ''}<br><small>Завтра тебя защитит оберег 🛡️</small></div>`;
     btns = `<button class="btn wide ghost" data-chclose>В школу</button>`;
   } else if (c.done) {
     loot = `<div class="ch-loot"><small>Сегодня забрано</small>${lootText(c.loot)}</div>`;
     btns = `<button class="btn wide ghost" data-chclose>В школу</button>`;
   } else {
-    loot = `<div class="ch-loot"><small>Собрано в этом ряду (сгорит, если попадётся проклятый сундук)</small>${lootText(c.loot)}</div>`;
+    loot = `<div class="ch-loot"><small>Собрано в этом ряду (половина сгорит, если попадётся проклятый сундук)</small>${lootText(c.loot)}</div>`;
     btns = `<button class="btn wide hot" data-chopen>Открыть сундучок ${c.k + 1} · ${RISK[c.k] ? `риск ${Math.round(RISK[c.k] * 100)}%` : 'без риска'}</button>`
       + (c.k > 0 ? `<button class="btn wide" data-chtake>Забрать и остановиться</button>` : '');
   }
   const sub = c.done || c.dead ? `Новые сундучки через ${hhmm(msToMidnight())} (в полночь).`
-    : 'Открывай по одному. Чем дальше — тем больше награда, но выше риск проклятого сундука 💀: он забирает всё, что собрано сегодня. Можно остановиться в любой момент и забрать награду.';
+    : 'Открывай по одному. Чем дальше — тем больше награда, но выше риск проклятого сундука 💀: он забирает половину того, что собрано сегодня. Можно остановиться в любой момент и забрать награду.'
+      + ((S().chestWard || 0) > 0 ? ' 🛡️ Сегодня с тобой оберег: он спасёт от одного проклятия.' : '');
   return `<div id="chests"><div class="ch-top"><h2>🎁 Сундучки дня</h2><button class="ch-x" data-chclose>✕</button></div>
     <div class="ch-sub">${sub}</div>
     <div class="ch-grid">${Array.from({ length: N }, (_, k) => cell(c, k)).join('')}</div>
@@ -172,18 +176,22 @@ function openNext() {
   const box = root.querySelectorAll('.ch-c')[k]; box?.classList.add('shake'); snd('shake');
   setTimeout(() => {
     const c2 = ch(); if (!root || c2 !== c) { busy = false; return; }   // closed or a new day meanwhile
-    if (Math.random() < RISK[k]) {
+    const s = S(), cursed = Math.random() < RISK[k], warded = cursed && (s.chestWard || 0) > 0;
+    if (warded) s.chestWard = 0;   // the ward takes the curse
+    if (cursed && !warded) {
       c.got[k] = { dead: true }; c.dead = true; c.k = k + 1;
-      const lost = lootText(c.loot); c.loot = emptyLoot();
-      lastMsg = `!Проклятый сундук! Сгорело: ${lost}`; snd('curse');
+      const keep = halfLoot(c.loot), lost = lootText({ c: c.loot.c - keep.c, b: c.loot.b - keep.b, m: c.loot.m - keep.m });
+      c.loot = keep; if (keep.c || keep.b || keep.m) grant(keep);   // the kept half is paid now (a dead row is not paid at the rollover)
+      s.chestWard = 1;   // tomorrow's row: one curse is turned away
+      lastMsg = `!Проклятый сундук! Сгорела половина: ${lost}`; snd('curse');
       A.save(); busy = false; redraw(); root.querySelectorAll('.ch-c')[k]?.classList.add('boom'); return;
     }
     const rare = k >= RARE_FROM && Math.random() < RARE;
     const g = { c: coinsFor(k) * (rare ? 2 : 1), b: BOOST[k], m: MGT[k], rare };
     c.got[k] = g; c.k = k + 1; c.loot.c += g.c; c.loot.b += g.b; c.loot.m += g.m;
     snd(rare ? 'rare' : 'open');
-    if (c.k >= RISK.length) { take(true); busy = false; return; }   // all six opened: everything is taken at once
-    lastMsg = rare ? '🌈 Сверкающий сундук — награда ×2!' : `Следующий: ${riskTxt(RISK[c.k])}. Рискнёшь?`;
+    if (c.k >= RISK.length) { take(true); if (warded) lastMsg = '🛡️ Оберег спас от проклятия! ' + lastMsg; busy = false; redraw(); return; }   // all six opened: everything is taken at once
+    lastMsg = (warded ? '🛡️ Оберег спас от проклятия! ' : '') + (rare ? '🌈 Сверкающий сундук — награда ×2!' : `Следующий: ${riskTxt(RISK[c.k])}. Рискнёшь?`);
     A.save(); busy = false; redraw(); root.querySelectorAll('.ch-c')[k]?.classList.add('pop');
   }, 650);
 }

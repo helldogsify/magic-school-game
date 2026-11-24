@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png?v=2">
 <link rel="icon" href="icons/icon-192.png?v=2">
-<link rel="stylesheet" href="style.css?v=474">
+<link rel="stylesheet" href="style.css?v=475">
 <script>/* iOS home-screen app: innerHeight / 100% / 100dvh are short by the status bar, a strip stayed at the bottom (her screenshots, builds 200-203); use the real screen height */
 (function(){function fit(){if(!(navigator.standalone||matchMedia('(display-mode: standalone)').matches))return;var h=Math.max(window.innerHeight,(Math.abs(window.orientation||0)===90?screen.width:screen.height));var r=document.documentElement;r.style.height=h+'px';if(document.body){document.body.style.height=h+'px';document.body.style.bottom='auto';}}fit();addEventListener('DOMContentLoaded',fit);addEventListener('resize',fit);addEventListener('orientationchange',function(){setTimeout(fit,300);});})();</script>
 </head>
@@ -44,8 +44,8 @@
 </style>
 <script>/* loading screen tips (her pick 2026-11-23): one every 4 s, per world */
 (function(){var w=1;try{w=(JSON.parse(localStorage.getItem('magicschool.meta')||'{}').current)||1;}catch(e){}
-var T=w===2?['Руда из шахты идёт в кузню, а из кузни — в торговый двор','Караваны сами увозят товары и камни на продажу, когда повозка полна','Склад руды можно расширить — тогда шахта не простаивает','Пока тебя нет, школа живёт сама: ученики учатся и выпускаются (до 2 часов)','Твоя школа сама сохраняется в облако — код в ⚙️']
-:['Случилось происшествие? Нажми на класс — урок сразу продолжится','Уставшие ученики спят в спальне и потом учатся на 25% быстрее. Больше кроватей — больше отдыха','Выспавшиеся перед Финальным экзаменом получают +10% к шансу сдать','Фонтан во дворе поднимает настроение учеников','Счастливая монетка у фонтана иногда приносит удачу на экзамене','Каждый выпускник оставляет отзыв — из отзывов складывается рейтинг школы','Собирай карточки учеников в альбоме 🎓 — каждый уровень карточки даёт +5%','В «Зельеварке» каждую неделю свой рейтинг — загляни в 🏆','В альянсе можно дарить друзьям подарки и вдохновение','Кабинет директора уменьшает, сколько денег забирают ушедшие ученики','Мастера стихий живут в Башне мастеров','Пока тебя нет, школа живёт сама: ученики учатся и выпускаются (до 2 часов)','Твоя школа сама сохраняется в облако — код в ⚙️'];
+var T=w===2?['Руда из шахты идёт в кузню, а из кузни — в торговый двор','Караваны сами увозят товары и камни на продажу, когда повозка полна','Склад руды можно расширить — тогда шахта не простаивает','Пока тебя нет, школа живёт сама: ученики учатся и выпускаются (до 4 часов)','Твоя школа сама сохраняется в облако — код в ⚙️']
+:['Случилось происшествие? Нажми на класс — урок сразу продолжится','Уставшие ученики спят в спальне и потом учатся на 25% быстрее. Больше кроватей — больше отдыха','Выспавшиеся перед Финальным экзаменом получают +10% к шансу сдать','Фонтан во дворе поднимает настроение учеников','Счастливая монетка у фонтана иногда приносит удачу на экзамене','Каждый выпускник оставляет отзыв — из отзывов складывается рейтинг школы','Собирай карточки учеников в альбоме 🎓 — каждый уровень карточки даёт +5%','В «Зельеварке» каждую неделю свой рейтинг — загляни в 🏆','В альянсе можно дарить друзьям подарки и вдохновение','Кабинет директора уменьшает, сколько денег забирают ушедшие ученики','Мастера стихий живут в Башне мастеров','Пока тебя нет, школа живёт сама: ученики учатся и выпускаются (до 4 часов)','Твоя школа сама сохраняется в облако — код в ⚙️'];
 var el=document.getElementById('boot-tip'),i=Math.floor(Math.random()*T.length);function show(){el.textContent='💡 '+T[i%T.length];i++;}show();
 var t=setInterval(function(){if(!document.getElementById('boot')){clearInterval(t);return;}el.style.opacity='0';setTimeout(function(){show();el.style.opacity='1';},400);},4000);})();</script>
 <div id="app">
@@ -72,6 +72,6 @@ setTimeout(function(){ if (window.__booted) return; var d=document.createElement
   d.querySelector('button').onclick=function(){ location.reload(); }; document.body.appendChild(d); }, 12000);
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h){this.rect(x,y,w,h);};}
 </script>
-<script type="module" src="js/game.js?v=474"></script>
+<script type="module" src="js/game.js?v=475"></script>
 </body>
 </html>

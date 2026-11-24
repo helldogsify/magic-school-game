@@ -32,9 +32,9 @@ const BOOSTS = [
   { id: 'star', name: 'Звёздочка на поле', min: 1.5, ico: () => ingImg(RAINBOW) },
   { id: 'x2', name: 'Зелья ×2 очков', min: 1.5, ico: () => FLASK },
 ];
-const bsel = new Set();   // chosen boosters (kept between rounds while affordable)
+const bsel = new Set();   // chosen boosters (cleared after every start since build audit 2026-11-24)
 let emaSnap = 0;   // the school's income per second taken when the mini-game opens (her report: prices fell on every tap, the live average sags while the overlay is open)
-const incomeNow = () => emaSnap || st().ema || 0;
+const incomeNow = () => emaSnap || (A.rate ? A.rate() : st().ema) || 0;
 const boostCost = (b) => Math.max(100, Math.round((incomeNow() * 60 * b.min) / 10) * 10);
 const bTotal = () => BOOSTS.reduce((a, b) => a + (bsel.has(b.id) ? boostCost(b) : 0), 0);
 export const weekKey = (t = Date.now()) => Math.floor((t / 86400000 + 3) / 7);   // weeks start on Monday 00:00 UTC
@@ -337,7 +337,7 @@ export function open() {
   css(); if (!imgs.length) loadArt();
   root = el(`<div id="mg"></div>`); document.body.appendChild(root);
   root.addEventListener('click', onClick);
-  emaSnap = st().ema || 0;   // prices and rewards use the income of the moment the mini-game was opened
+  emaSnap = (A.rate ? A.rate() : st().ema) || 0;   // build audit 2026-11-24: the steady rate: a reward right before no longer multiplies the next one   // prices and rewards use the income of the moment the mini-game was opened
   A.onOpen && A.onOpen();
   loadFlightArt();
   showChooser();
@@ -369,12 +369,12 @@ function onClick(e) {
   if (d.mgchoose !== undefined) { if (FL) { FL.h.stop(); FL = null; } showChooser(); return; }
   if (d.flwho !== undefined) { const w = A.flyers ? A.flyers() : []; if (w[+d.flwho]) { mg().fly = w[+d.flwho].k; showFlightStart(); } return; }
   if (d.flplay !== undefined) { startFlight(); return; }
-  if (d.flb !== undefined) { const b = FBOOSTS[+d.flb]; if (!b) return;
+  if (d.flb !== undefined) { const b = FBOOSTS[+d.flb]; if (!b) return; if (charges() <= 0) { A.toast('Бонусы — только для полёта с наградой'); return; }
     if (fsel.has(b.id)) fsel.delete(b.id); else if ((st().coins || 0) < fTotal() + boostCost(b)) { A.toast('🪙 Не хватает монет на этот бонус'); return; } else fsel.add(b.id);
     showFlightStart(); return; }
   if (d.mgplay !== undefined) { start(); return; }
   if (d.mgagain !== undefined) { showStart(); return; }   // «Ещё раз» goes through the start screen: boosters can be chosen again
-  if (d.mgb !== undefined) { const b = BOOSTS[+d.mgb]; if (!b) return;
+  if (d.mgb !== undefined) { const b = BOOSTS[+d.mgb]; if (!b) return; if (charges() <= 0) { A.toast('Бонусы — только для игры с наградой'); return; }
     if (bsel.has(b.id)) bsel.delete(b.id); else if ((st().coins || 0) < bTotal() + boostCost(b)) { A.toast('🪙 Не хватает монет на этот бонус'); return; } else bsel.add(b.id);
     showStart(); return; }
   if (d.mgback !== undefined) { close(); return; }
@@ -392,7 +392,7 @@ function showStart() {
     <p class="muted">Рекорд недели: ${num(best)}${m.best ? ` · за всё время: ${num(m.best)}` : ''}</p>
     <div class="mg-bh">Бонусы на раунд <span class="muted">(за монеты школы)</span></div>
     <div class="mg-boosts">${BOOSTS.map((b, k) => `<button class="mg-bst${bsel.has(b.id) ? ' on' : ''}" data-mgb="${k}"><span class="mg-bi">${b.ico()}</span><span class="mg-bn">${b.name}</span><span class="mg-bc">🪙 ${A.fmt(boostCost(b))}</span></button>`).join('')}</div>
-    ${bsel.size ? `<p class="muted">Бонусы: 🪙 ${A.fmt(bTotal())} спишутся при старте</p>` : ''}
+    ${n <= 0 ? '<p class="muted">Без награды бонусы не нужны: это тренировка, она бесплатная.</p>' : bsel.size ? `<p class="muted">Бонусы: 🪙 ${A.fmt(bTotal())} спишутся при старте, вернутся, если раунд не принесёт награды</p>` : ''}
     <button class="btn wide" data-mgplay>${n > 0 ? '▶️ Играть (1 попытка)' : '▶️ Играть без награды'}</button>
     <button class="btn wide ghost" data-mgchoose>← Другие мини-игры</button>
   </div>`);
@@ -410,16 +410,17 @@ function layout() {
 
 function start() {
   for (const id of [...bsel]) { const b = BOOSTS.find((x) => x.id === id); if (!b) bsel.delete(id); }
+  const rewarded = charges() > 0;   // build audit 2026-11-24: bonuses only on rounds with a reward (they were charged for a record-only round)
+  if (!rewarded) bsel.clear();
   const cost = bTotal(), S0 = st();
   if (cost && (S0.coins || 0) < cost) { bsel.clear(); A.toast('🪙 Не хватает монет на бонусы'); showStart(); return; }
   if (cost) { S0.coins -= cost; mg().bst = (mg().bst || 0) + bsel.size; }
   const boost = { time: bsel.has('time'), star: bsel.has('star'), x2: bsel.has('x2') };
-  const rewarded = charges() > 0;
+  bsel.clear();   // chosen again for every round
   if (rewarded) spendCharge();
-  mg().n++;
-  A.save();
+  A.save();   // the round is counted at its end, only with a score (start-and-quit was a free daily task)
   R = { live: true, rewarded, boost, g: makeBoard(), score: 0, shown: 0, left: ROUND + (boost.time ? 15 : 0), state: 'idle', anim: 0, chain: 0, sel: null, swap: null, idleT: 0, fx: [], texts: [], beams: [], shake: 0, brewed: 0, rec: null, lastTick: 0, busyT: 0 };
-  R.rec = newRecipe(0);
+  R.rec = newRecipe(0); R.cost = cost;
   if (boost.star) { const r = 2 + Math.floor(Math.random() * 3), c = 1 + Math.floor(Math.random() * 5), t = newTile(RAINBOW); t.x = c; t.y = r; t.born = 0.001; R.g[r][c] = t; }   // a ready star in the middle of the board
   root.innerHTML = A.emojiHtml(`<div class="mg-top"><button class="mg-x" data-mgx aria-label="Закончить">✕</button><div class="mg-chip time">⏱️ <span class="mg-t"></span></div><div class="mg-chip score">✨ <span class="mg-s">0</span></div></div>
     <div class="mg-rec"></div>
@@ -706,7 +707,7 @@ function showFlightStart() {
     ${cur ? `<p class="muted" style="margin-top:6px">Сила: <b>${powerOf(cur.k).txt}</b> · ${flyerCost(cur.k) ? `🪙 ${A.fmt(flyerCost(cur.k))} за полёт` : 'бесплатно'}</p>` : ''}
     <div class="mg-bh">Бонусы на полёт <span class="muted">(за монеты школы)</span></div>
     <div class="mg-boosts">${FBOOSTS.map((b, k) => `<button class="mg-bst${fsel.has(b.id) ? ' on' : ''}" data-flb="${k}"><span class="mg-bi">${b.ico()}</span><span class="mg-bn">${b.name}</span><span class="mg-bc">🪙 ${A.fmt(boostCost(b))}</span></button>`).join('')}</div>
-    ${fTotal() + (cur ? flyerCost(cur.k) : 0) ? `<p class="muted">При старте спишется: 🪙 ${A.fmt(fTotal() + (cur ? flyerCost(cur.k) : 0))}</p>` : ''}
+    ${n <= 0 ? '<p class="muted">Полёт без награды — тренировка: бесплатно, бонусы и сила летуна не действуют.</p>' : fTotal() + (cur ? flyerCost(cur.k) : 0) ? `<p class="muted">При старте спишется: 🪙 ${A.fmt(fTotal() + (cur ? flyerCost(cur.k) : 0))} (вернётся, если полёт не принесёт награды)</p>` : ''}
     <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
     <p class="muted">Награда: монеты (до ${MAX_MIN} минут дохода школы), за 2–3 ⭐ ещё ✨ Вдохновение. Рекорд недели: ${num(f.wb || 0)}${f.best ? ` · за всё время: ${num(f.best)}` : ''}</p>
     <button class="btn wide" data-flplay${cur ? '' : ' disabled'}>${n > 0 ? '▶️ Лететь (1 попытка)' : '▶️ Лететь без награды'}</button>
@@ -715,18 +716,20 @@ function showFlightStart() {
 }
 function startFlight() {
   const w = flyerList(), cur = w.find((x) => x.k === mg().fly) || w[0]; if (!cur) return;
-  const cost = fTotal() + flyerCost(cur.k), S0 = st();
+  const rewarded = charges() > 0;   // build audit 2026-11-24: bonuses and the flyer's power cost coins only on flights with a reward
+  if (!rewarded) fsel.clear();
+  const cost = rewarded ? fTotal() + flyerCost(cur.k) : 0, S0 = st();
   if (cost && (S0.coins || 0) < cost) { fsel.clear(); A.toast(flyerCost(cur.k) > (S0.coins || 0) ? '🪙 Не хватает монет на этого летуна — выбери Новичка' : '🪙 Не хватает монет на бонусы'); showFlightStart(); return; }
   if (cost) { S0.coins -= cost; fl().bst = (fl().bst || 0) + fsel.size; }
   const boost = { shield: fsel.has('shield'), magnet: fsel.has('magnet'), slow: fsel.has('slow') };
-  const rewarded = charges() > 0;
+  fsel.clear();   // chosen again for every flight
   if (rewarded) spendCharge();
-  fl().n++; A.save();
+  A.save();
   root.innerHTML = A.emojiHtml(`<div class="mg-top"><button class="mg-x" data-mgx aria-label="Закончить">✕</button><div class="mg-chip"><img class="mgi" src="assets/flight/ring.webp?v=2" alt="" style="width:14px;height:22px"> <span class="fl-r">0</span></div><div class="mg-chip score">✨ <span class="fl-s">0</span></div></div>
     <div class="fl-box"></div>`);
   const box = root.querySelector('.fl-box');
-  FL = { live: true, rewarded, h: null };
-  FL.h = runFlight(box, { img: cur.src, faceLeft: !!cur.faceLeft, snd, power: powerOf(cur.k), boost,
+  FL = { live: true, rewarded, cost, h: null };
+  FL.h = runFlight(box, { img: cur.src, faceLeft: !!cur.faceLeft, snd, power: rewarded ? powerOf(cur.k) : powerOf(''), boost,
     onScore: (sc, rings) => { const a = root.querySelector('.fl-s'), b = root.querySelector('.fl-r'); if (a) a.textContent = num(sc); if (b) b.textContent = rings; },
     onEnd: (res) => flEnd(res, false) });
 }
@@ -738,14 +741,16 @@ function flEnd(res, silent) {
   const S = st(), f = fl(), score = res.score || 0, stars = score >= F_STAR[2] ? 3 : score >= F_STAR[1] ? 2 : score >= F_STAR[0] ? 1 : 0;
   const recW = score > (f.wb || 0), recAll = score > (f.best || 0);
   f.wb = Math.max(f.wb || 0, score); f.best = Math.max(f.best || 0, score);
-  let coins = 0, boost = 0;
+  let coins = 0, boost = 0, refund = 0;
   if (FL.rewarded && score > 0) {
     const min = Math.min(MAX_MIN, MAX_MIN * score / F_STAR[2]);
     coins = Math.max(10, Math.round(Math.max(min * 60 * incomeNow(), min * 30) / 10) * 10);
     A.earn(coins);
     boost = BOOST[stars];
     if (boost) { const now = Date.now(); S.boostEnd = Math.min(now + BOOST_CAP_MIN * 60000, Math.max(now, S.boostEnd || 0) + boost * 60000); }
-  }
+  } else if (FL.cost) { S.coins += FL.cost; refund = FL.cost; }   // build audit 2026-11-24: nothing won, the bonuses come back
+  if (FL.rewarded && score <= 0) addCharges(1);   // quit at once: the try comes back
+  if (score > 0) f.n = (f.n || 0) + 1;   // only real flights count (daily task, alliance goal)
   A.save();
   A.onFinish && A.onFinish(score);
   if (silent) return;
@@ -756,7 +761,7 @@ function flEnd(res, silent) {
     <div class="mg-stars">${[0, 1, 2].map((k) => `<span class="${k < stars ? '' : 'off'}">⭐</span>`).join('')}</div>
     <div class="mg-big">${num(score)}</div>
     <p class="muted">колец: ${res.rings || 0} · искорок: ${res.sparks || 0}${recW ? ' · 🏅 рекорд недели!' : ''}${recAll && !recW ? ' · 🏅 рекорд!' : ''}</p>
-    ${FL.rewarded ? `<div class="mg-prize">Награда: 🪙 ${A.fmt(coins)}${boost ? `<br>✨ Вдохновение +${boost} мин (уроки +10%)` : ''}</div>` : '<p class="muted">Полёт без награды — только рекорд.</p>'}
+    ${FL.rewarded ? `<div class="mg-prize">Награда: 🪙 ${A.fmt(coins)}${boost ? `<br>✨ Вдохновение +${boost} мин (уроки +10%)` : ''}</div>` : '<p class="muted">Полёт без награды — только рекорд.</p>'}${refund ? `<p class="muted">Бонусы вернулись: 🪙 ${A.fmt(refund)}</p>` : ''}
     <p class="muted">${stars < 3 ? `До ${stars + 1} ⭐ — ${num(F_STAR[stars])} очков. ` : ''}Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}${n < CH_MAX ? `, следующая через ${mmss(nextIn())}` : ''}</p>
     <button class="btn wide" data-mgpick="f">${n > 0 ? '🔁 Ещё полёт (1 попытка)' : '🔁 Ещё полёт без награды'}</button>
     <button class="btn wide ghost" data-mgback>В школу</button>
@@ -802,14 +807,16 @@ function finish(silent) {
   if (m.wk !== wk) { m.wk = wk; m.wb = 0; }
   const recW = score > m.wb, recAll = score > (m.best || 0);
   m.wb = Math.max(m.wb, score); m.best = Math.max(m.best || 0, score);
-  let coins = 0, boost = 0;
+  let coins = 0, boost = 0, refund = 0;
   if (R.rewarded && score > 0) {
     const min = Math.min(MAX_MIN, MAX_MIN * score / STAR[2]);
     coins = Math.max(10, Math.round(Math.max(min * 60 * incomeNow(), min * 30) / 10) * 10);
     A.earn(coins);
     boost = BOOST[stars];
     if (boost) { const now = Date.now(); S.boostEnd = Math.min(now + BOOST_CAP_MIN * 60000, Math.max(now, S.boostEnd || 0) + boost * 60000); }
-  }
+  } else if (R.cost) { S.coins += R.cost; refund = R.cost; }   // build audit 2026-11-24: nothing won, the bonuses come back
+  if (R.rewarded && score <= 0) addCharges(1);   // quit at once: the try comes back
+  if (score > 0) m.n = (m.n || 0) + 1;   // only real rounds count (daily task, alliance goal)
   A.save();
   A.onFinish && A.onFinish(score);
   if (silent) return;
@@ -820,7 +827,7 @@ function finish(silent) {
     <div class="mg-stars">${[0, 1, 2].map((k) => `<span class="${k < stars ? '' : 'off'}">⭐</span>`).join('')}</div>
     <div class="mg-big">${num(score)}</div>
     <p class="muted">сварено зелий: ${R.brewed}${recW ? ' · 🏅 рекорд недели!' : ''}${recAll && !recW ? ' · 🏅 рекорд!' : ''}</p>
-    ${R.rewarded ? `<div class="mg-prize">Награда: 🪙 ${A.fmt(coins)}${boost ? `<br>✨ Вдохновение +${boost} мин (уроки +10%)` : ''}</div>` : '<p class="muted">Игра без награды — только рекорд.</p>'}
+    ${R.rewarded ? `<div class="mg-prize">Награда: 🪙 ${A.fmt(coins)}${boost ? `<br>✨ Вдохновение +${boost} мин (уроки +10%)` : ''}</div>` : '<p class="muted">Игра без награды — только рекорд.</p>'}${refund ? `<p class="muted">Бонусы вернулись: 🪙 ${A.fmt(refund)}</p>` : ''}
     <p class="muted">${stars < 3 ? `До ${stars + 1} ⭐ — ${num(STAR[stars])} очков. ` : ''}Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}${n < CH_MAX ? `, следующая через ${mmss(nextIn())}` : ''}</p>
     <button class="btn wide" data-mgagain>${n > 0 ? '🔁 Ещё раз (1 попытка)' : '🔁 Ещё раз без награды'}</button>
     <button class="btn wide ghost" data-mgback>В школу</button>
