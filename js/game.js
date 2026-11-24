@@ -1,14 +1,14 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
-import './edit_guard.js?v=467';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=468';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=467';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=467';
-import { initMinigame } from './minigame.js?v=467';
-import { initChests } from './chests.js?v=467';
-import { initLore } from './lore.js?v=467';
-import { initAvatar } from './avatar.js?v=467';
+} from './data.js?v=468';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=468';
+import { initMinigame } from './minigame.js?v=468';
+import { initChests } from './chests.js?v=468';
+import { initLore } from './lore.js?v=468';
+import { initAvatar } from './avatar.js?v=468';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -31,7 +31,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 467;   // keep equal to the ?v= number in index.html
+const BUILD = 468;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -420,7 +420,7 @@ const THEMES = {
     stations: ['cloud_white', 'cloud_pink', 'cloud_lilac'], teacherProp: 'perch', h: { table: 24, bookcase: 36 }, sitOn: true },
   // Elements (her choice 2026-11-21: a pedestal with a crystal of one of the four elements per student)
   elements: { dir: 'assets/parts/elements/', wallTiles: 4, floorTiles: 3, board: 'el_poster', isoOnly: true, iso: true,
-    decor: ['elwin', 'chportrait', 'elwin', 'chportrait'], back: ['', ''], side: ['', ''], front: [], rug: 'rug',
+    decor: ['window', 'shelf', 'torch', 'planter', 'round_window'], back: ['fountain', ''], side: ['bookcase', ''], front: [], rug: 'rug',
     stations: ['cr_fire', 'cr_water', 'cr_earth', 'cr_air'], teacherProp: 'altar', h: { bookcase: 36 } },
   // Final exam (her choice 2026-11-21: a festive hall, single exam desks with scrolls, the examiners' table with an hourglass)
   final: { dir: 'assets/parts/final/', wallTiles: 4, floorTiles: 6, board: 'banner', isoOnly: true, iso: true,
@@ -483,7 +483,7 @@ let partsVer = 0;   // bumped on every part load: themeReady() answers from its 
 for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
   if (!n) continue; const im = new Image(); im.onload = () => { partsVer++; }; im.src = `${t.dir}${n}.webp?v=2202`; parts[k + '/' + n] = im;
 }
-for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/el_${n}.webp?v=1`; if (WORLD === 1) parts['elements/' + n] = im; }   // Elements redesign
+for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/el_${n}.webp?v=1`; if (false) parts['elements/' + n] = im; }   // Elements redesign: off until redone (build 462 rolled back)
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/fl_${n}.webp?v=1`; if (WORLD === 1) parts['flight/' + n] = im; }   // Flight redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/ch_${n}.webp?v=1`; if (WORLD === 1) parts['charms/' + n] = im; }   // Charms redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/st_${n}.webp?v=1`; if (WORLD === 1) parts['stars/' + n] = im; }   // Stargazing redesign
@@ -3664,7 +3664,7 @@ function editState() {   // the editor's school: every class built, at the chose
   S.classes.forEach((c, i) => { c.desks = maxDesksOf(i); }); S.tourDone = true;   // no intro tour over the room
 }
 const ROOM_ART = {
-  elements(i, s, st, add) {
+  elementsOff(i, s, st, add) {
     const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000, W = s.x1 - s.x0, depth = s.y1 - s.y0, me = s.x0 + ',' + s.y0, tp = teacherPos(i), now = performance.now();
     const D = dayTint(), tt = D.sun.map((v, j) => (v + D.shade[j]) / 2), nt = Math.min(1, Math.max(0, (1 - (tt[0] + tt[1] + tt[2]) / 765) * 2.2));
     add(s.x0 + 0.05, s.y0 + 0.05, () => { for (const wv of HERBS_WINS.values()) { if (wv.s0 !== me) continue; const im = nt > 0.03 && itemIm(wv.night); if (im) { ctx.save(); ctx.globalAlpha = nt; ctx.translate(wv.x, wv.y); if (wv.flip) ctx.scale(-1, 1); ctx.drawImage(im, -wv.sw / 2, -wv.sh / 2, wv.sw, wv.sh); ctx.restore(); } } });
@@ -6849,5 +6849,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=467').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=468').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
