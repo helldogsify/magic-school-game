@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=454';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=454';
-import { initMinigame } from './minigame.js?v=454';
-import { initChests } from './chests.js?v=454';
-import { initLore } from './lore.js?v=454';
-import { initAvatar } from './avatar.js?v=454';
+} from './data.js?v=455';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=455';
+import { initMinigame } from './minigame.js?v=455';
+import { initChests } from './chests.js?v=455';
+import { initLore } from './lore.js?v=455';
+import { initAvatar } from './avatar.js?v=455';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 454;   // keep equal to the ?v= number in index.html
+const BUILD = 455;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5457,7 +5457,7 @@ const Q_TABS = [['story', '📖', 'Сюжет'], ['day', '📅', 'Ежеднев
 function qStyle() {
   if (document.getElementById('qtabs-style')) return;
   const st = document.createElement('style'); st.id = 'qtabs-style';
-  st.textContent = `.qtabs{display:flex;gap:4px;margin:2px 0 8px;overflow-x:auto;scrollbar-width:none}.qtabs::-webkit-scrollbar{display:none}
+  st.textContent = `.qtabs{display:flex;gap:4px;margin:-4px 0 6px;padding:8px 4px 2px;overflow-x:auto;scrollbar-width:none}.qtabs::-webkit-scrollbar{display:none}
 .qtab{position:relative;flex:1 0 auto;min-width:58px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 4px 4px;border:0;border-radius:12px;background:#f1eafd;color:#6b5a99;font:800 11px ui-rounded,"Nunito","Segoe UI",sans-serif;cursor:pointer}
 .qtab .remoji,.qtab img{font-size:19px;height:19px}.qtab.on{background:#7b5cd6;color:#fff;box-shadow:0 2px 6px #7b5cd655}
 .qtab .qb{position:absolute;top:-3px;right:-2px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#e5364b;color:#fff;font:800 11px/17px ui-rounded,"Nunito","Segoe UI",sans-serif;box-shadow:0 0 0 2px #fff}
