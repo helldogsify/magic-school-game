@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=439';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=439';
-import { initMinigame } from './minigame.js?v=439';
-import { initChests } from './chests.js?v=439';
-import { initLore } from './lore.js?v=439';
-import { initAvatar } from './avatar.js?v=439';
+} from './data.js?v=440';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=440';
+import { initMinigame } from './minigame.js?v=440';
+import { initChests } from './chests.js?v=440';
+import { initLore } from './lore.js?v=440';
+import { initAvatar } from './avatar.js?v=440';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 439;   // keep equal to the ?v= number in index.html
+const BUILD = 440;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2954,8 +2954,8 @@ const ST_SHOP = [
 const FOUNT_COL = {   // magic water of the court fountain: glow, drops, jet, the floating orbs
   aqua: { name: 'Бирюзовая', glow: '140,240,230', drop: '#d6fbff', jet: '#e6fdff', orb: '200,250,255', price: 0 },
   rose: { name: 'Розовая', hue: 330, glow: '255,160,215', drop: '#ffe0f2', jet: '#fff0f8', orb: '255,210,238', price: 30 },
-  rainbow: { name: 'Радужная', rainbow: true, price: 150 },   // replaced the gold (her «как моча выглядит»)
   moon: { name: 'Лунная', hue: 248, glow: '165,165,255', drop: '#e2deff', jet: '#f1efff', orb: '212,206,255', price: 40 },
+  rainbow: { name: 'Радужная', rainbow: true, price: 150 },   // replaced the gold (her «как моча выглядит»)
 };
 const hslRgb = (h, s, l) => { const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))); return [f(0), f(8), f(4)]; };
 const hexOf = (c) => '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
@@ -2999,7 +2999,7 @@ function stonesPanel() {
     <h3>Как добыть</h3><p class="muted">Лунные камни даются за большие достижения школы в каждом мире, за 1–3 место в недельном турнире мини-игр (🥇 15, 🥈 10, 🥉 5). А ещё ночью на Лунном древе иногда вызревает лунная жемчужина 🌙.</p>${ach}
     <h3>Лавка</h3>${shop}
     ${WORLD === 1 ? `<h3>Волшебная вода фонтана</h3><p class="muted">Цвет воды и сияния фонтана во дворе. Купленный цвет остаётся навсегда.</p>${Object.entries(FOUNT_COL).map(([k, f]) => { const ow = (stMeta().stones || {}).own || {}, own = !f.price || ow['fnt_' + k] || (k === 'rainbow' && ow.fnt_gold), cur = fountCol().name === f.name;
-      return `<div class="card up"><span class="remoji" style="width:26px;height:26px;border-radius:50%;background:${f.rainbow ? 'conic-gradient(#ff9ad5,#c9a0ff,#8fd3ff,#9ff0c8,#ffe28f,#ff9ad5)' : `rgb(${f.glow})`};display:inline-block"></span><div class="grow"><b>${f.name}</b><div class="muted">${cur ? 'сейчас в фонтане' : own ? 'куплено' : ''}</div></div>${cur ? '<span class="done">✓</span>' : `<button class="btn small" data-stfnt="${k}" ${own || n >= f.price ? '' : 'disabled'}>${own ? 'Выбрать' : `${ST_IMG(15)} ${f.price}`}</button>`}</div>`; }).join('')}` : ''}
+      return `<div class="card up"><span class="remoji" style="width:26px;height:26px;border-radius:50%;background:${f.rainbow ? 'conic-gradient(#ff9ad5,#c9a0ff,#8fd3ff,#9ff0c8,#ffe28f,#ff9ad5)' : `rgb(${f.glow})`};display:inline-block"></span><div class="grow"><b>${f.name}</b><div class="muted">${cur ? 'сейчас в фонтане' : own ? 'куплено' : ''}${f.price ? `${cur || own ? ' · ' : ''}цена ${ST_IMG(13)} ${f.price}` : cur ? '' : 'бесплатно'}</div></div>${cur ? '<span class="done">✓</span>' : `<button class="btn small" data-stfnt="${k}" ${own || n >= f.price ? '' : 'disabled'}>${own ? 'Выбрать' : `${ST_IMG(15)} ${f.price}`}</button>`}</div>`; }).join('')}` : ''}
     <h3>Скоро</h3>${ST_SOON.map(([i, t]) => `<div class="card up" style="opacity:.6"><span class="remoji">${i}</span><div class="grow"><b>${t}</b></div><span class="muted">скоро</span></div>`).join('')}
     <h3>Наборы камней</h3><p class="muted">Покупка за деньги появится позже.</p>${ST_PACKS.map(([k, pr]) => `<div class="card up" style="opacity:.6"><span class="remoji">${ST_IMG(30)}</span><div class="grow"><b>${k} лунных камней</b></div><button class="btn small" disabled>${pr} · скоро</button></div>`).join('')}`;
 }
