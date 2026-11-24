@@ -1,15 +1,15 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=475';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=476';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=475';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=475';
-import { initMinigame } from './minigame.js?v=475';
-import { initChests } from './chests.js?v=475';
-import { initLore } from './lore.js?v=475';
-import { initAvatar } from './avatar.js?v=475';
+} from './data.js?v=476';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=476';
+import { initMinigame } from './minigame.js?v=476';
+import { initChests } from './chests.js?v=476';
+import { initLore } from './lore.js?v=476';
+import { initAvatar } from './avatar.js?v=476';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -32,7 +32,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 475;   // keep equal to the ?v= number in index.html
+const BUILD = 476;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3656,7 +3656,7 @@ function drawWallDecor(c, id) {
 // furniture of a themed class: corners at the back, a bookcase by the left wall, small things in the free strip in front
 // ---- redesigned rooms: built-in, staged furnishing items (stage 0 = not bought, 1 = lvl 1-9, 2 = 10-24, 3 = 25-39, 4 = 40)
 const ITEM_IMS = {};
-function itemIm(n) { if (layCur && !layCur.n) layCur.n = n; let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=${n === 'pot_hearth' || n === 'fl_hoop' || n === 'fl_basket' ? 3 : 2}`; } return im.complete && im.naturalWidth ? im : null; }
+function itemIm(n) { if (layCur && !layCur.n) layCur.n = n; let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=${n === 'pot_hearth' || n === 'fl_hoop' || n === 'fl_basket' || n === 'fl_bell' ? 3 : 2}`; } return im.complete && im.naturalWidth ? im : null; }
 const stageOf = (lv) => (!lv ? 0 : lv < 10 ? 1 : lv < 25 ? 2 : lv < 40 ? 3 : 4);
 function itemDraw(n, x, y, h, o = {}) {   // a sprite standing on tile (x, y): bottom-centre on the floor point, lift = px above the floor
   const im = itemIm(n); if (!im) return null; const p = P(x, y), w = h * im.naturalWidth / im.naturalHeight, top = p.y + (o.down || 0) - (o.lift || 0) - h;
@@ -7059,5 +7059,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=475').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=476').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
