@@ -1,12 +1,13 @@
 // Mini-game 1 «Зельеварка» (build 273+): match-3 of potion ingredients.
 // Tester wish 2026-11-23 («мини-игры ... стандартные штуки типа три в ряд»), Maria's picks: match-3 of potions,
-// a pill on the main screen, reward = coins (minutes of the school's income) + «Вдохновение», 3 charges (+1 per 20 min),
+// a pill on the main screen, reward = coins (minutes of the school's income) + «Вдохновение», 3 charges (+1 per hour, shared by both worlds since build 425),
 // playing without charges allowed (record only), weekly best kept for a later tournament of schools.
 // Own module: game.js passes a small API (state, earn, save, toast, fmt, audio) and calls open(); the overlay is plain DOM + one canvas.
 
 const N = 7;                      // board 7x7
 const ROUND = 90;                 // seconds per round (the same for everybody: fair for a weekly tournament)
-const CH_MAX = 3, CH_MS = 20 * 60000;
+const CH_MAX = 3, CH_MS = 60 * 60000;   // +1 rewarded attempt per hour (was 20 min), one pool for both worlds (her «Очень много попыток, еще и двух мирах»)
+const CH_KEY = 'magicschool.mgch';
 const STAR = [2000, 3500, 5500];  // score for 1/2/3 stars (calibrated with tools/mg_sim.mjs)
 const MAX_MIN = 10;               // the best round pays 10 minutes of the school's income
 const BOOST = [0, 0, 5, 10];      // minutes of «Вдохновение» per stars
@@ -56,14 +57,21 @@ function mg() {
   const m = S.mg; rollWeek(m);
   return m;
 }
-export function charges() {
-  const m = mg(), now = Date.now();
-  if (m.ch >= CH_MAX) { m.t = now; return m.ch; }
-  const k = Math.floor((now - m.t) / CH_MS);
-  if (k > 0) { m.ch = Math.min(CH_MAX, m.ch + k); m.t = m.ch >= CH_MAX ? now : m.t + k * CH_MS; }
-  return m.ch;
+function pool() {   // the shared pool {ch, t}; the first time it starts from this world's own count (never above CH_MAX)
+  let p = null; try { p = JSON.parse(localStorage.getItem(CH_KEY) || 'null'); } catch (e) { p = null; }
+  if (!p || typeof p.ch !== 'number') { const m = mg(); p = { ch: Math.min(CH_MAX, m.ch ?? CH_MAX), t: m.t || Date.now() }; }
+  return p;
 }
-const nextIn = () => Math.max(0, mg().t + CH_MS - Date.now());
+const savePool = (p) => { try { localStorage.setItem(CH_KEY, JSON.stringify(p)); } catch (e) { /* storage full */ } };
+export function charges() {
+  const p = pool(), now = Date.now();
+  if (p.ch >= CH_MAX) { p.t = now; savePool(p); return p.ch; }
+  const k = Math.floor((now - p.t) / CH_MS);
+  if (k > 0) { p.ch = Math.min(CH_MAX, p.ch + k); p.t = p.ch >= CH_MAX ? now : p.t + k * CH_MS; }
+  savePool(p); return p.ch;
+}
+function spendCharge() { const p = pool(); if (p.ch >= CH_MAX) p.t = Date.now(); p.ch = Math.max(0, p.ch - 1); savePool(p); }
+const nextIn = () => Math.max(0, pool().t + CH_MS - Date.now());
 const num = (n) => Math.round(n).toLocaleString('ru-RU');   // scores in full: 5 600, not 5,6K
 const mmss = (ms) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
@@ -334,7 +342,7 @@ function showChooser() {   // the 🧪 pill: choose a mini-game (tries are share
   const n = charges(), m = mg(), f = fl();
   root.innerHTML = A.emojiHtml(`<div class="mg-card">
     <h2>Мини-игры</h2>
-    <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}<br><span class="muted">общие для всех мини-игр</span></p>
+    <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}<br><span class="muted">общие для всех мини-игр и обоих миров</span></p>
     <button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button>
     <button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=2" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>
     <button class="btn wide ghost" data-mgback>В школу</button>
@@ -401,7 +409,7 @@ function start() {
   if (cost) { S0.coins -= cost; mg().bst = (mg().bst || 0) + bsel.size; }
   const boost = { time: bsel.has('time'), star: bsel.has('star'), x2: bsel.has('x2') };
   const rewarded = charges() > 0;
-  if (rewarded) { const m = mg(); if (m.ch >= CH_MAX) m.t = Date.now(); m.ch--; }
+  if (rewarded) spendCharge();
   mg().n++;
   A.save();
   R = { live: true, rewarded, boost, g: makeBoard(), score: 0, shown: 0, left: ROUND + (boost.time ? 15 : 0), state: 'idle', anim: 0, chain: 0, sel: null, swap: null, idleT: 0, fx: [], texts: [], beams: [], shake: 0, brewed: 0, rec: null, lastTick: 0, busyT: 0 };
@@ -706,7 +714,7 @@ function startFlight() {
   if (cost) { S0.coins -= cost; fl().bst = (fl().bst || 0) + fsel.size; }
   const boost = { shield: fsel.has('shield'), magnet: fsel.has('magnet'), slow: fsel.has('slow') };
   const rewarded = charges() > 0;
-  if (rewarded) { const m = mg(); if (m.ch >= CH_MAX) m.t = Date.now(); m.ch--; }
+  if (rewarded) spendCharge();
   fl().n++; A.save();
   root.innerHTML = A.emojiHtml(`<div class="mg-top"><button class="mg-x" data-mgx aria-label="Закончить">✕</button><div class="mg-chip"><img class="mgi" src="assets/flight/ring.webp?v=2" alt="" style="width:14px;height:22px"> <span class="fl-r">0</span></div><div class="mg-chip score">✨ <span class="fl-s">0</span></div></div>
     <div class="fl-box"></div>`);
