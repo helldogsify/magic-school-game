@@ -158,6 +158,7 @@ const WHY = ['Ночью луна над северным лесом откли�
 const TK_LINES = ['М? Я просто гуляю…', 'Нет-нет, ничего такого. Просто вечер хороший.', 'Вы что-то хотели спросить?.. Не стоит.', 'Я обещал только записывать. Только записывать…',
   'Вы ведь не отстанете, да?', 'Он… он очень любил такие вечера.', '(вздыхает и достаёт из-за пазухи сложенный листок) Возьмите. Я хранил его слишком долго.'];
 const DAY = 86400000, HINT_EVERY = 2 * DAY, TK_RESET = 18000;
+const WAIT_MSG = (head) => `${head} Строчка записки заработана, но сегодня в летопись уже легла одна строчка: эта проступит сама завтра.`;   // one new line a day (her ruling), said plainly
 const hourNow = () => { const d = new Date(); return window.__hour ?? d.getHours() + d.getMinutes() / 60; };
 const isDawn = () => { const h = hourNow(); return h >= 5 && h < 7; };   // secret «Роса»
 const isNight = () => { const h = hourNow(); return h >= 22 || h < 5; }, isDusk = () => { const h = hourNow(); return h >= 19 && h < 22; }, isMorning = () => { const h = hourNow(); return h >= 6 && h < 10; };
@@ -197,13 +198,13 @@ export function event(kind) {   // called by game.js; true = handled (the game d
     sc.dew = Date.now(); A.save(); say('Профессор Мох: «А?.. Ты тоже рано встаёшь. Ладно, раз уж ты здесь, скажу тебе одну вещь».', 5000);
     setTimeout(() => reveal('dew'), 4800); return true;
   }
-  if (kind === 'moon') { if (isNight() && canFind(0)) { findLine(0); A.flash && A.flash('moon'); } else say(isNight() ? '🌙 Луна тихо светит над лесом.' : '🌙'); return true; }
+  if (kind === 'moon') { if (isNight() && canFind(0)) { findLine(0); A.flash && A.flash('moon'); } else if (isNight() && r.start && !has(0)) { (r.w ||= [])[0] = 1; A.save(); say(WAIT_MSG('🌙 Луна откликнулась!'), 6000); } else say(isNight() ? '🌙 Луна тихо светит над лесом.' : '🌙'); return true; }
   if (r.cv !== 2) { r.cv = 2; r.coins = 0; }   // the old passive count (100 coins) is dropped
   if (kind === 'coin') { luckAt = Date.now(); window.__luckGlow = performance.now(); return true; }   // a lucky coin flares: the catch window opens
   if (kind === 'fount') {   // a tap on the fountain
     if (!r.start || has(3) || Date.now() - luckAt > LUCK_WIN) return false;
     luckAt = 0; r.coins++; A.save();
-    if (r.coins >= 10 && canFind(3)) findLine(3); else say(r.coins >= 10 ? '🍀 Все десять желаний пойманы. Строчка проступит, когда придёт её день.' : `🍀 Поймано счастливое желание: ${r.coins} из 10`, 2500);
+    if (r.coins >= 10 && canFind(3)) findLine(3); else if (r.coins >= 10) { (r.w ||= [])[3] = 1; A.save(); say(WAIT_MSG('🍀 Все десять желаний пойманы!'), 6000); } else say(`🍀 Поймано счастливое желание: ${r.coins} из 10`, 2500);
     if (root) redraw(); return true;
   }
   if (kind === 'crown') { if (crownWanted() && !LS().prize) { if (isMorning() && (QS().world || {}).done && canFind(4)) { findLine(4); return true; } } return !!LS().prize; }
@@ -211,6 +212,7 @@ export function event(kind) {   // called by game.js; true = handled (the game d
     if (!isDusk() || !r.start || has(2)) return false;
     const now = Date.now(); if (now - tkLast > TK_RESET && tkTaps) { tkTaps = 0; say('Тихон: «Хм? О чём это я…»'); tkLast = now; return true; }
     tkLast = now; const k = Math.min(tkTaps, TK_LINES.length - 1); tkTaps++;
+    if (k === TK_LINES.length - 1 && !canFind(2)) { tkTaps = 0; (r.w ||= [])[2] = 1; A.save(); say('Тихон: «(тянется за пазуху и останавливается) Не сегодня. Сегодня в летопись уже легла одна строчка. Завтра я отдам вам листок сам.»', 7000); return true; }   // before: he said «Возьмите» and gave nothing
     say('Тихон: «' + TK_LINES[k] + '»');
     if (tkTaps >= TK_LINES.length && canFind(2)) { findLine(2); tkTaps = 0; }
     return true;
@@ -223,6 +225,7 @@ export const crown = () => !!(S() && A.on() && (LS().prize || (crownWanted() && 
 function riddleTick() {   // all classes built -> line 2; every 2 days without a new line Tikhon clarifies one random hint by one step
   if (!S() || !A.on()) return; const r = RD(); if (!r.start) return;
   if (canFind(1) && A.facts().allBuilt) findLine(1);
+  for (const k of [0, 2, 3]) if ((r.w || [])[k] && !has(k) && canFind(k)) { r.w[k] = 0; findLine(k); break; }   // a line earned on a busy day comes by itself on its day
   const since = Math.max(r.lastHint || 0, r.start, ...r.found.filter(Boolean));
   if (nFound() < 5 && Date.now() - since >= HINT_EVERY) { const open = [0, 1, 2, 3, 4].filter((k) => !has(k) && r.hint[k] < 2); if (open.length) { const k = open[Math.floor(Math.random() * open.length)]; r.hint[k]++; } r.lastHint = Date.now(); A.save(); }
 }
