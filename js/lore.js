@@ -158,6 +158,21 @@ const WHY = ['Ночью луна над северным лесом откли�
 const TK_LINES = ['М? Я просто гуляю…', 'Нет-нет, ничего такого. Просто вечер хороший.', 'Вы что-то хотели спросить?.. Не стоит.', 'Я обещал только записывать. Только записывать…',
   'Вы ведь не отстанете, да?', 'Он… он очень любил такие вечера.', '(вздыхает и достаёт из-за пазухи сложенный листок) Возьмите. Я хранил его слишком долго.'];
 const DAY = 86400000, HINT_EVERY = 2 * DAY, TK_RESET = 18000;
+const tillMidnight = () => { const d = new Date(); d.setHours(24, 0, 0, 0); const m = Math.ceil((d - Date.now()) / 60000); return m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`; };
+function waitCard(head) {   // more lines waiting = one per day: this one comes after the others
+  const q = (RD().w || []).filter((v, k) => v && !has(k)).length - 1, when = q > 0 ? `${tillMidnight()} и ещё ${q} ${q === 1 ? 'день' : q < 5 ? 'дня' : 'дней'}` : tillMidnight();   // her wish: a big message - you did everything right, well done; today's line is taken, the next in N h M min
+  document.querySelector('.lo-wait')?.remove();
+  const d = document.createElement('div'); d.className = 'lo-wait';
+  d.style.cssText = 'position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:#2a1d4a99;padding:24px';
+  d.innerHTML = `<div style="max-width:340px;width:100%;background:#fffaf0;border:3px solid #e2b23c;border-radius:22px;padding:20px 18px;text-align:center;box-shadow:0 10px 30px #0006;font:500 15px ui-rounded,'Nunito',sans-serif;color:#4a3a2a">
+    <div style="font-size:44px;line-height:1">🌟</div><h3 style="margin:6px 0 8px;font-size:21px;color:#7a4a00">Молодец, всё сделано правильно!</h3>
+    <p style="margin:0 0 8px">${esc(head)}</p>
+    <p style="margin:0 0 8px">Но сегодня строчка записки уже найдена — в день открывается только одна.</p>
+    <p style="margin:0 0 14px"><b>Эта строчка придёт сама через ${when}</b>, повторять ничего не нужно.</p>
+    <button style="width:100%;padding:12px;border:0;border-radius:14px;background:#7b5cd6;color:#fff;font:800 16px ui-rounded,'Nunito',sans-serif;box-shadow:0 4px 0 #5a3fae">Хорошо</button></div>`;
+  d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('button')) d.remove(); });
+  document.body.appendChild(d);
+}
 const WAIT_MSG = (head) => `${head} Строчка записки заработана, но сегодня в летопись уже легла одна строчка: эта проступит сама завтра.`;   // one new line a day (her ruling), said plainly
 const hourNow = () => { const d = new Date(); return window.__hour ?? d.getHours() + d.getMinutes() / 60; };
 const isDawn = () => { const h = hourNow(); return h >= 5 && h < 7; };   // secret «Роса»
@@ -198,13 +213,13 @@ export function event(kind) {   // called by game.js; true = handled (the game d
     sc.dew = Date.now(); A.save(); say('Профессор Мох: «А?.. Ты тоже рано встаёшь. Ладно, раз уж ты здесь, скажу тебе одну вещь».', 5000);
     setTimeout(() => reveal('dew'), 4800); return true;
   }
-  if (kind === 'moon') { if (isNight() && canFind(0)) { findLine(0); A.flash && A.flash('moon'); } else if (isNight() && r.start && !has(0)) { (r.w ||= [])[0] = 1; A.save(); say(WAIT_MSG('🌙 Луна откликнулась!'), 6000); } else say(isNight() ? '🌙 Луна тихо светит над лесом.' : '🌙'); return true; }
+  if (kind === 'moon') { if (isNight() && canFind(0)) { findLine(0); A.flash && A.flash('moon'); } else if (isNight() && r.start && !has(0)) { (r.w ||= [])[0] = 1; A.save(); waitCard('🌙 Луна над лесом откликнулась на прикосновение.'); } else say(isNight() ? '🌙 Луна тихо светит над лесом.' : '🌙'); return true; }
   if (r.cv !== 2) { r.cv = 2; r.coins = 0; }   // the old passive count (100 coins) is dropped
   if (kind === 'coin') { luckAt = Date.now(); window.__luckGlow = performance.now(); return true; }   // a lucky coin flares: the catch window opens
   if (kind === 'fount') {   // a tap on the fountain
     if (!r.start || has(3) || Date.now() - luckAt > LUCK_WIN) return false;
     luckAt = 0; r.coins++; A.save();
-    if (r.coins >= 10 && canFind(3)) findLine(3); else if (r.coins >= 10) { (r.w ||= [])[3] = 1; A.save(); say(WAIT_MSG('🍀 Все десять желаний пойманы!'), 6000); } else say(`🍀 Поймано счастливое желание: ${r.coins} из 10`, 2500);
+    if (r.coins >= 10 && canFind(3)) findLine(3); else if (r.coins >= 10) { (r.w ||= [])[3] = 1; A.save(); waitCard('🍀 Все десять счастливых желаний пойманы.'); } else say(`🍀 Поймано счастливое желание: ${r.coins} из 10`, 2500);
     if (root) redraw(); return true;
   }
   if (kind === 'crown') { if (crownWanted() && !LS().prize) { if (isMorning() && (QS().world || {}).done && canFind(4)) { findLine(4); return true; } } return !!LS().prize; }
@@ -212,7 +227,7 @@ export function event(kind) {   // called by game.js; true = handled (the game d
     if (!isDusk() || !r.start || has(2)) return false;
     const now = Date.now(); if (now - tkLast > TK_RESET && tkTaps) { tkTaps = 0; say('Тихон: «Хм? О чём это я…»'); tkLast = now; return true; }
     tkLast = now; const k = Math.min(tkTaps, TK_LINES.length - 1); tkTaps++;
-    if (k === TK_LINES.length - 1 && !canFind(2)) { tkTaps = 0; (r.w ||= [])[2] = 1; A.save(); say('Тихон: «(тянется за пазуху и останавливается) Не сегодня. Сегодня в летопись уже легла одна строчка. Завтра я отдам вам листок сам.»', 7000); return true; }   // before: he said «Возьмите» and gave nothing
+    if (k === TK_LINES.length - 1 && !canFind(2)) { tkTaps = 0; (r.w ||= [])[2] = 1; A.save(); say('Тихон: «(тянется за пазуху и останавливается) Не сегодня. Сегодня в летопись уже легла одна строчка. Завтра я отдам вам листок сам.»', 7000); setTimeout(() => waitCard('📜 Тихон сдался и готов отдать листок.'), 1500); return true; }   // before: he said «Возьмите» and gave nothing
     say('Тихон: «' + TK_LINES[k] + '»');
     if (tkTaps >= TK_LINES.length && canFind(2)) { findLine(2); tkTaps = 0; }
     return true;
