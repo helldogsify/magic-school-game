@@ -1,14 +1,14 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
-import './edit_guard.js?v=473';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=474';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=473';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=473';
-import { initMinigame } from './minigame.js?v=473';
-import { initChests } from './chests.js?v=473';
-import { initLore } from './lore.js?v=473';
-import { initAvatar } from './avatar.js?v=473';
+} from './data.js?v=474';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=474';
+import { initMinigame } from './minigame.js?v=474';
+import { initChests } from './chests.js?v=474';
+import { initLore } from './lore.js?v=474';
+import { initAvatar } from './avatar.js?v=474';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -31,7 +31,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 473;   // keep equal to the ?v= number in index.html
+const BUILD = 474;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3581,7 +3581,7 @@ function drawWallDecor(c, id) {
 // furniture of a themed class: corners at the back, a bookcase by the left wall, small things in the free strip in front
 // ---- redesigned rooms: built-in, staged furnishing items (stage 0 = not bought, 1 = lvl 1-9, 2 = 10-24, 3 = 25-39, 4 = 40)
 const ITEM_IMS = {};
-function itemIm(n) { if (layCur && !layCur.n) layCur.n = n; let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=${n === 'pot_hearth' ? 3 : 2}`; } return im.complete && im.naturalWidth ? im : null; }
+function itemIm(n) { if (layCur && !layCur.n) layCur.n = n; let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=${n === 'pot_hearth' || n === 'fl_hoop' || n === 'fl_basket' ? 3 : 2}`; } return im.complete && im.naturalWidth ? im : null; }
 const stageOf = (lv) => (!lv ? 0 : lv < 10 ? 1 : lv < 25 ? 2 : lv < 40 ? 3 : 4);
 function itemDraw(n, x, y, h, o = {}) {   // a sprite standing on tile (x, y): bottom-centre on the floor point, lift = px above the floor
   const im = itemIm(n); if (!im) return null; const p = P(x, y), w = h * im.naturalWidth / im.naturalHeight, top = p.y + (o.down || 0) - (o.lift || 0) - h;
@@ -3771,7 +3771,7 @@ const ROOM_ART = {
       spots.forEach(([fx, fy], m) => { const hx = s.x0 + W * fx, hy = s.y0 + depth * fy; add(hx + 0.6, hy + 0.6, () => { const im = itemIm('fl_hoop'); if (!im) return; const p = P(hx, hy), top = p.y - rafter - 40, len = 64 + m * 10, h = len, w = h * im.naturalWidth / im.naturalHeight, sw = Math.sin(T * 1.1 + m * 1.7) * 0.07;
         ctx.save(); ctx.translate(p.x, top); ctx.rotate(sw); ctx.drawImage(im, -w / 2, 0, w, h); ctx.restore(); }); }); }
     // feathers -> the wicker basket of feather cushions in the back-left corner
-    const sf = stageOf(lv('feathers')); if (sf) { const k = [0, 0.7, 0.85, 1, 1.08][sf], fx = s.x0 + 0.75, fy = s.y0 + 0.75; add(fx, fy, () => { const r = itemDraw('fl_basket', fx, fy, 50 * k, { shadow: 1 }); if (!r) return;
+    const sf = stageOf(lv('feathers')); if (sf) { const k = [0, 0.7, 0.85, 1, 1.08][sf], fx = s.x0 + 0.75, fy = s.y0 + 0.75; add(fx, fy, () => { const r = itemDraw('fl_basket', fx, fy, 63 * k, { shadow: 1 }); if (!r) return;
       if (sf >= 4) { const u = (T * 0.15) % 1; emoji('🪶', r.x + Math.sin(T * 1.3) * 14, r.top - 20 + u * 40, 9); } }); }   // at 40 a feather floats down
     // windbell -> the brass wind bell hanging from the rafter by the first window, crystals swing and glint
     const sb = stageOf(lv('windbell')); if (sb) { const w0 = [...HERBS_WINS.values()].filter((wv) => wv.s0 === me && wv.side === 'y0').sort((a, b) => b.tm - a.tm)[0], bx = w0 ? w0.tm - 1.05 : s.x1 - 1.5, k = [0, 0.75, 0.88, 1, 1.05][sb];
@@ -6916,5 +6916,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=473').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=474').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
