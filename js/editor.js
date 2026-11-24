@@ -14,7 +14,7 @@ export function initEditor(A) {
   const room = () => (L.rooms[cid] ||= {});
   const apply = (walls) => { if (walls) A.setLayout(L); else if (A.layout !== L) A.setLayout(L); dirty = true; localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); status(''); };
   const snap = () => { undo.push(JSON.stringify(L)); if (undo.length > 60) undo.shift(); };
-  const tidy = () => { const R = room(); if (R.desks) for (const k of Object.keys(R.desks)) { const o = R.desks[k]; if (!o.dx && !o.dy && !o.flip) delete R.desks[k]; } for (const k of ['items', 'walls', 'desks', 'allTint', 'deskTint']) if (R[k] && !Object.keys(R[k]).length) delete R[k]; if (R.add && !R.add.length) delete R.add; if (!Object.keys(R).length) delete L.rooms[cid]; };
+  const tidy = () => { const R = room(); if (R.desks) for (const k of Object.keys(R.desks)) { const o = R.desks[k]; if (!o.dx && !o.dy && !o.flip && !(o.k && o.k !== 1)) delete R.desks[k]; } for (const k of ['items', 'walls', 'desks', 'allTint', 'deskTint']) if (R[k] && !Object.keys(R[k]).length) delete R[k]; if (R.add && !R.add.length) delete R.add; if (!Object.keys(R).length) delete L.rooms[cid]; };
 
   // ---------- UI ----------
   document.body.classList.add('editing');
@@ -208,6 +208,8 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
       b('⧉', () => { const c = clone(a); c.x = (c.x || 0) + 0.6; R.add.push(c); sel = { t: 'add', key: 'add#' + (R.add.length - 1) }; apply(false); }, 'Копия');
       b('🗑', () => { R.add.splice(j, 1); sel = null; apply(false); }, 'Убрать'); }
     else if (sel.t === 'desk') { const d = +sel.key.split('#')[1], o = () => (R.desks ||= {})[d] ||= {};
+      const ks = () => (deskAll ? myEnts().filter((e) => e.kind === 'desk').map((e) => e.d) : [d]), sc = (f) => { for (const k of ks()) { const q = (R.desks ||= {})[k] ||= {}; q.k = Math.round(Math.min(3, Math.max(0.3, (q.k || 1) * f)) * 100) / 100; if (q.k === 1) delete q.k; } apply(false); };
+      b('➖', () => sc(1 / 1.1), deskAll ? 'Все места меньше' : 'Меньше'); b('➕', () => sc(1.1), deskAll ? 'Все места больше' : 'Больше');
       b('⇋ Развернуть', () => { o().flip = !o().flip || undefined; apply(false); }, 'Повернуть другим боком');
       b(deskAll ? '🔗 Все вместе: да' : '🔗 Все вместе: нет', () => { deskAll = !deskAll; }, 'Тянуть все места сразу');
       b('Как было', () => { if (R.desks) delete R.desks[d]; apply(false); }, 'Вернуть место'); b('Все как было', () => { delete R.desks; apply(false); }, 'Вернуть все места'); }
