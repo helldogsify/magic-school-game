@@ -1,15 +1,15 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=478';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=479';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=478';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=478';
-import { initMinigame } from './minigame.js?v=478';
-import { initChests } from './chests.js?v=478';
-import { initLore } from './lore.js?v=478';
-import { initAvatar } from './avatar.js?v=478';
+} from './data.js?v=479';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=479';
+import { initMinigame } from './minigame.js?v=479';
+import { initChests } from './chests.js?v=479';
+import { initLore } from './lore.js?v=479';
+import { initAvatar } from './avatar.js?v=479';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -32,7 +32,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 478;   // keep equal to the ?v= number in index.html
+const BUILD = 479;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -522,7 +522,9 @@ for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (
 }
 for (const [n, f] of [['wall', 'el_arcade'], ['floor', 'el_floor'], ...['el_med_fire', 'el_med_water', 'el_med_earth', 'el_med_air', 'el_win_a', 'el_win_b', 'el_painting'].map((q) => [q, q])]) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/${f}.webp?v=3`; if (WORLD === 1) parts['elements/' + n] = im; }   // Elements: the concept's arcade wall and what hangs in its arches
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/fl_${n}.webp?v=1`; if (WORLD === 1) parts['flight/' + n] = im; }   // Flight redesign
-for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/ch_${n}.webp?v=1`; if (WORLD === 1) parts['charms/' + n] = im; }   // Charms redesign
+for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/ch_${n}.webp?v=1`; if (WORLD === 1) parts['charms/' + n] = im; }
+if (WORLD === 1 && window.__EDIT) Object.assign(THEMES.final, { decor: [], back: ['', ''], side: ['', ''], teacherProp: '', bays: { w: 2.4, y0: ['exwin', 'exboard', 'exwin', 'exboard', 'exwin', 'exboard', 'exwin'], x0: [] } });   /* exam hall redesign: editor only until her OK */
+if (window.__EDIT) for (const [n, f] of [['wall', 'ex_wall'], ['floor', 'ex_floor'], ['iso_exwin', 'ex_window_day'], ['exboard', 'ex_board']]) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/${f}.webp?v=1`; if (WORLD === 1) parts['final/' + n] = im; }   // Final exam hall redesign   // Charms redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/st_${n}.webp?v=1`; if (WORLD === 1) parts['stars/' + n] = im; }   // Stargazing redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/pot_${n}.webp?v=1`; if (WORLD === 1) parts['potions/' + n] = im; }   // Potions redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/herbs_${n}.webp?v=1`; if (WORLD === 1) parts['herbs/' + n] = im; }
@@ -3584,6 +3586,7 @@ const ISO_W = { jar_shelf: 1.2, toy_rack: 1.3, owl_clock: 0.8, flying_books: 1.5
 DECOR.bigwin = { w: 1.25, lo: 0.3, deep: 0.6 }; ISO_W.bigwin = 1.45;   // windows sit higher, above the planter boxes like in the concept
 DECOR.potwin = { w: 1.15, lo: 0.3, deep: 0.6 }; ISO_W.potwin = 1.3;
 DECOR.stwin = { w: 1.2, lo: 0.3, deep: 0.6 }; ISO_W.stwin = 1.2;
+DECOR.exwin = { w: 1.3, lo: 0.2, deep: 0.6 }; ISO_W.exwin = 1.9; DECOR.exboard = { w: 1.7, lo: 0.36, deep: 0.5 };   // Final exam hall: curtained windows and honour boards
 DECOR.chwin = { w: 1.3, lo: 0.22, deep: 0.6 }; ISO_W.chwin = 1.4;   // Charms: arched windows with lilac curtains
 DECOR.flwin = { w: 1.1, lo: 0.3, deep: 0.6 }; ISO_W.flwin = 1.0; DECOR.flopen = { w: 1.5, lo: 0.12, deep: 0.6 }; ISO_W.flopen = 1.6; DECOR.elwin = { w: 0.75, lo: 0.2, deep: 0.6 }; ISO_W.elwin = 0.75;   // Flight: brass portholes and one big open arched window (her «суперское открытое окно»)
 DECOR.el_med_fire = { w: 1.05, lo: 0.35, deep: 0.5 }; DECOR.el_med_water = DECOR.el_med_earth = DECOR.el_med_air = DECOR.el_med_fire; DECOR.el_win_a = { w: 0.77, lo: 0.3, deep: 0.01 }; DECOR.el_win_b = { w: 0.62, lo: 0.3, deep: 0.01 }; DECOR.el_painting = { w: 0.97, lo: 0.38, deep: 0.8 }; const EL_HUNG = new Map(), EL_BLOOM = {};   // Elements: medallions, windows and the painting sit inside the arches
@@ -3597,7 +3600,7 @@ function hangIso(c, th, n, s, side, t0, lo) {
   c.save(); c.translate(m.x, m.y); if (side === 'y0') c.scale(-1, 1);
   c.shadowColor = 'rgba(55,35,80,0.35)'; c.shadowBlur = 3 * k; c.shadowOffsetX = (side === 'y0' ? -1.2 : 1.2) * k; c.shadowOffsetY = 1.8 * k;
   c.drawImage(im, -sw / 2, -sh / 2, sw, sh); c.restore();
-  if (n === 'bigwin' || n === 'potwin' || n === 'stwin' || n === 'chwin' || n === 'flwin' || n === 'flopen' || n === 'elwin') HERBS_WINS.set(Math.round(m.x) + ',' + Math.round(m.y), { x: m.x, y: m.y, sw, sh, flip: side === 'y0', side, tm, s0: s.x0 + ',' + s.y0, night: n === 'potwin' ? 'pot_window_night' : n === 'stwin' ? 'st_window_night' : n === 'chwin' ? 'ch_window_night' : n === 'flwin' ? 'fl_window_night' : n === 'flopen' ? 'fl_openwin_night' : n === 'elwin' ? 'el_window_night' : 'herbs_window_night', w: DECOR[n].w });
+  if (n === 'bigwin' || n === 'potwin' || n === 'stwin' || n === 'chwin' || n === 'flwin' || n === 'flopen' || n === 'elwin' || n === 'exwin') HERBS_WINS.set(Math.round(m.x) + ',' + Math.round(m.y), { x: m.x, y: m.y, sw, sh, flip: side === 'y0', side, tm, s0: s.x0 + ',' + s.y0, night: n === 'exwin' ? 'ex_window_night' : n === 'potwin' ? 'pot_window_night' : n === 'stwin' ? 'st_window_night' : n === 'chwin' ? 'ch_window_night' : n === 'flwin' ? 'fl_window_night' : n === 'flopen' ? 'fl_openwin_night' : n === 'elwin' ? 'el_window_night' : 'herbs_window_night', w: DECOR[n].w });
   return true;
 }
 function hang(c, th, n, s, side, t0, lo) {
@@ -3775,7 +3778,36 @@ function editState() {   // the editor's school: every class built, at the chose
   S.classes.forEach((c, i) => { c.built = true; c.buildEnd = 0; c.teacher = 10; if (!CLASSES[i].final) c.size = EDIT.size; c.items = c.items.map(() => EDIT.stage); });
   S.classes.forEach((c, i) => { c.desks = maxDesksOf(i); }); S.tourDone = true;   // no intro tour over the room
 }
+const EX_BOW = {};   /* exam hall: when the portrait last bowed to a graduate */
 const ROOM_ART = {
+  ...(WORLD === 1 && window.__EDIT ? { final(i, s, st, add) {   /* world 2's final hall has its own theme and keeps the item emoji */
+    const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000, now = performance.now(), me = s.x0 + ',' + s.y0, K = [0, 0.75, 0.88, 1, 1.05];
+    const D = dayTint(), tt = D.sun.map((v, j) => (v + D.shade[j]) / 2), nt = Math.min(1, Math.max(0, (1 - (tt[0] + tt[1] + tt[2]) / 765) * 2.2)), pass = now - (passAt[i] || -1e9);
+    add(s.x0 + 0.05, s.y0 + 0.05, () => { for (const wv of HERBS_WINS.values()) { if (wv.s0 !== me) continue; const im = nt > 0.03 && itemIm(wv.night); if (im) { ctx.save(); ctx.globalAlpha = nt; ctx.translate(wv.x, wv.y); if (wv.flip) ctx.scale(-1, 1); ctx.drawImage(im, -wv.sw / 2, -wv.sh / 2, wv.sw, wv.sh); ctx.restore(); } } });
+    /* the portrait of the director as a student on the short wall the students face; the polite boy bows now and then and to every graduate */
+    { const t = s.y0 + (s.y1 - s.y0) / 2, cyc = (T + 5) % 17, b = EX_BOW[i] || (EX_BOW[i] = { pa: 0, at: -1e9 }), pa = passAt[i] || 0; if (pa !== b.pa) { if (pa - b.at > 20000) b.at = pa; b.pa = pa; } const bow = cyc > 15.2 || now - b.at < 2200;
+      add(s.x0 + 0.1, t, () => { const im = itemIm(bow ? 'ex_portrait1' : 'ex_portrait0'); if (!im) return; const b = up(P(s.x0, t), TALL_H() * 0.6), h = 64, w = h * im.naturalWidth / im.naturalHeight; ctx.save(); ctx.translate(b.x, b.y); ctx.transform(1, -HH / HW, 0, 1, 0, 0); ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore(); }); }
+    /* the examiners' table in front of the portrait, the seal and the bell of silence on it */
+    const tx = s.x0 + 1.25, ty = s.y0 + (s.y1 - s.y0) / 2 + 0.15, TH = 56;
+    add(tx, ty, () => { const r = itemDraw('ex_table', tx, ty, TH, { shadow: 1 }); if (!r) return;
+      const sb = stageOf(lv('bell')); if (sb) { const p = P(tx - 0.02, ty - 0.5), h = 28 * K[sb], im = itemIm('ex_bell'), cyc = (T + 2) % 11, sw = cyc < 1.6 ? Math.sin(cyc * 9) * (1 - cyc / 1.6) * 0.5 : 0; if (im) { const w = h * im.naturalWidth / im.naturalHeight, by = p.y - TH * 0.62; ctx.drawImage(im, p.x - w / 2, by - h, w, h);
+        if (sw) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.abs(sw); ctx.drawImage(glowSprite('230,240,255'), p.x - 9, by - h * 0.62, 18, 14); ctx.restore(); }
+        if (cyc < 2.6) { const u = cyc / 2.6; ctx.globalAlpha = Math.min(1, (1 - u) * 2); emoji('🤫', p.x + 6 + u * 4, by - h - 4 - u * 14, 8); ctx.globalAlpha = 1; } } }
+      const ss = stageOf(lv('seal')); if (ss) { const p = P(tx + 0.04, ty + 0.3), h = 28 * K[ss], im = itemIm('ex_seal'); if (im) { const w = h * im.naturalWidth / im.naturalHeight, by = p.y - TH * 0.6, gl = 0.35 + 0.2 * Math.sin(T * 1.7) + (pass < 1500 ? 0.5 * (1 - pass / 1500) : 0); ctx.drawImage(im, p.x - w / 2, by - h, w, h);
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, gl); ctx.drawImage(glowSprite('200,120,255'), p.x - 16, by - h * 0.55, 32, 18); ctx.restore(); if (dnDark) frameLamps.push({ pot: 1, x: p.x, y: by - h * 0.3, r: 5, liq: '190,120,255', ly: by - h * 0.5 }); } } });
+    /* the big hourglass in the front-left corner; the Owl turns it before every question (canon): it turns over every 12 s */
+    const sh = stageOf(lv('hourglass')); if (sh) { const hx = s.x0 + 0.62, hy = s.y1 - 0.62; add(hx, hy, () => { const im = itemIm('ex_hourglass'); if (!im) return; const p = P(hx, hy), h = 58 * K[sh], w = h * im.naturalWidth / im.naturalHeight, top = p.y - h, cut = 0.573, iw = im.naturalWidth, ih = im.naturalHeight;
+      if (zoom >= 1.2) ctx.drawImage(propShadow(), p.x - w * 0.4, p.y - w * 0.12, w * 0.8, w * 0.24);
+      ctx.drawImage(im, 0, ih * cut, iw, ih * (1 - cut), p.x - w / 2, top + h * cut, w, h * (1 - cut));
+      const ph = T % 12, turn = ph > 11.2 ? (ph - 11.2) / 0.8 : 0, n = Math.floor(T / 12), up2 = n % 2 === 1, ang = (up2 ? Math.PI : 0) + Math.PI * (0.5 - 0.5 * Math.cos(turn * Math.PI)), gh = h * cut, cy = top + gh * 0.5;
+      ctx.save(); ctx.translate(p.x, cy); ctx.rotate(ang); ctx.drawImage(im, 0, 0, iw, ih * cut, -w / 2, -gh / 2, w, gh); ctx.restore();
+      if (!turn) { const u = (T * 1.5) % 1; ctx.fillStyle = 'rgba(255,215,110,0.9)'; ctx.fillRect(p.x - 0.5, cy - 1, 1, gh * 0.18); ctx.globalAlpha = 1 - u; ctx.fillRect(p.x - 0.6, cy + u * gh * 0.2, 1.2, 1.2); ctx.globalAlpha = 1; }
+      if (sh >= 4) { const tw = Math.pow(Math.max(0, Math.sin(T * 1.3)), 8); if (tw > 0.05) fxStar(p.x + w * 0.2, cy - gh * 0.25, 3 * tw, tw, '255,230,150'); } }); }
+    /* candles of concentration float along the back wall between the bays */
+    const sc = stageOf(lv('candles')); if (sc) { const xs = [4.8, 9.6, 2.4, 12, 7.2, 14.4].slice(0, [0, 2, 3, 4, 6][sc]);
+      for (const dx of xs) { const cx = s.x0 + dx, cy = s.y0 + 0.3; add(cx, cy, () => { const im = itemIm('ex_candle'); if (!im) return; const p = P(cx, cy), h = 20, w = h * im.naturalWidth / im.naturalHeight, y = p.y - TALL_H() * 0.42 + Math.sin(T * 1.1 + dx) * 2.5 - h; ctx.drawImage(im, p.x - w / 2, y, w, h);
+        const f = 0.75 + 0.25 * Math.sin(T * 9 + dx * 3) * Math.sin(T * 3.3 + dx); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (dnDark ? 0.75 : 0.4) * f; ctx.drawImage(glowSprite('255,205,120'), p.x - 9, y - 7, 18, 16); ctx.restore(); if (dnDark) frameLamps.push({ x: p.x, y: y + 2, r: 8 }); }); } }
+  } } : {}),
   elements(i, s, st, add) {
     const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000, me = s.x0 + ',' + s.y0, tp = teacherPos(i), now = performance.now();
     const D = dayTint(), tt = D.sun.map((v, j) => (v + D.shade[j]) / 2), nt = Math.min(1, Math.max(0, (1 - (tt[0] + tt[1] + tt[2]) / 765) * 2.2));
@@ -7058,5 +7090,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=478').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=479').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
