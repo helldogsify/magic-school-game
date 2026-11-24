@@ -1,14 +1,14 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
-import './edit_guard.js?v=468';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=469';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=468';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=468';
-import { initMinigame } from './minigame.js?v=468';
-import { initChests } from './chests.js?v=468';
-import { initLore } from './lore.js?v=468';
-import { initAvatar } from './avatar.js?v=468';
+} from './data.js?v=469';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=469';
+import { initMinigame } from './minigame.js?v=469';
+import { initChests } from './chests.js?v=469';
+import { initLore } from './lore.js?v=469';
+import { initAvatar } from './avatar.js?v=469';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -31,7 +31,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 468;   // keep equal to the ?v= number in index.html
+const BUILD = 469;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3509,7 +3509,7 @@ DECOR.flwin = { w: 1.1, lo: 0.3, deep: 0.6 }; ISO_W.flwin = 1.0; DECOR.flopen = 
 DECOR.chportrait = { w: 1.05, lo: 0.3, deep: 0.6 }; const CH_SLOTS = new Map();   // free wall places between the windows: the portrait takes the first one, ribbons the rest   // Stargazing: round porthole windows   // Potions: tall gothic windows with stained glass
 const HERBS_WINS = new Map();   // where the big windows were hung (world px), for the night glass drawn every frame
 function hangIso(c, th, n, s, side, t0, lo) {
-  const im = part(th, 'iso_' + n); if (!im) return false;
+  const im0 = part(th, 'iso_' + n); if (!im0) return false; const im = layHT ? tintIm(im0, layHT) : im0;
   const d = DECOR[n], w = ISO_W[n] || d.w, sw = w * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - w * HH);
   const tm = t0 + d.w / 2, base = side === 'y0' ? P(tm, s.y0) : P(s.x0, tm), m = up(base, lo * TALL_H() + vert / 2);
   const k = c === ctx ? scale * dpr : (c._q || 1);
@@ -3520,10 +3520,10 @@ function hangIso(c, th, n, s, side, t0, lo) {
   return true;
 }
 function hang(c, th, n, s, side, t0, lo) {
-  { const o = layHang(th, n, s, side, t0, lo); if (!o) return; t0 = o.t0; lo = o.lo; }   // room editor
+  { const o = layHang(th, n, s, side, t0, lo); if (!o) return; t0 = o.t0; lo = o.lo; layHT = o.tint; }   // room editor
   if (n === 'chportrait') { CH_SLOTS.set(s.x0 + ',' + s.y0 + side + Math.round(t0 * 10), { s0: s.x0 + ',' + s.y0, side, t: t0 + DECOR[n].w / 2 }); return; }   // her «Портрет на окнах тебя не смущает да?»: a reserved place, not over a window
   if (THEMES[th].iso && hangIso(c, th, n, s, side, t0, lo)) return;
-  const im = part(th, n); if (!im) return;
+  const im0 = part(th, n); if (!im0) return; const im = layHT ? tintIm(im0, layHT) : im0;
   const d = DECOR[n], H = TALL_H(), wpx = wallPx(th), hp = d.w * wpx * im.naturalHeight / im.naturalWidth;
   const at = (t) => (side === 'y0' ? P(t, s.y0) : P(s.x0, t));
   const L = side === 'y0' ? at(t0) : at(t0 + d.w), R = side === 'y0' ? at(t0 + d.w) : at(t0);   // the viewer's left end of the picture
@@ -3611,7 +3611,7 @@ function layHang(th, n, s, side, t0, lo) {   // wall decor of a room: the layout
       if (THEMES[th].iso && part(th, 'iso_' + n)) { const sw = (ISO_W[n] || w) * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - (ISO_W[n] || w) * HH), m = up(base, lo * H + vert / 2); bb = { x0: m.x - sw / 2, y0: m.y - sh / 2, x1: m.x + sw / 2, y1: m.y + sh / 2 }; }
       else { const hp = w * wallPx(th) * im.naturalHeight / im.naturalWidth, m = up(base, lo * H + hp / 2), sw = w * HW; bb = { x0: m.x - sw / 2, y0: m.y - hp / 2 - sw * 0.31, x1: m.x + sw / 2, y1: m.y + hp / 2 + sw * 0.31 }; } }
     (LAY_WALLS[th] ||= []).push({ key, n, side, t0, lo, bb, ov: o || null }); }
-  return { t0, lo };
+  return { t0, lo, tint: hasTint(o) ? o : null };
 }
 function layBox(c, a) {   // editor only: the picture a room entry draws, as a world-px box (hit test + selection frame)
   const im = a[0], n = a.length; let x, y, w, h;
@@ -3620,7 +3620,27 @@ function layBox(c, a) {   // editor only: the picture a room entry draws, as a w
   for (const [px, py] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]) { const X = (t.a * px + t.c * py + t.e + sx) / K, Y = (t.b * px + t.d * py + t.f + sy) / K;
     if (X < b.x0) b.x0 = X; if (X > b.x1) b.x1 = X; if (Y < b.y0) b.y0 = Y; if (Y > b.y1) b.y1 = Y; }
 }
-if (EDIT) { const di = ctx.drawImage; ctx.drawImage = function (...a) { if (layCur && this.globalCompositeOperation !== 'lighter' && this.globalAlpha > 0.5 && a[0] && (a[0].naturalWidth || a[0].width) > 24) layBox(this, a); return di.apply(this, a); }; }
+const hasTint = (o) => !!(o && (o.col || o.bri || o.sat || o.con));
+const tintCache = new WeakMap();
+function tintIm(im, t) {   // a recoloured copy of a picture: saturation + contrast (pixels), colour (hue, like the walls), lighter / darker
+  const w = im.naturalWidth || im.width, h = im.naturalHeight || im.height; if (!w || !h) return im;
+  const key = [t.col || '', t.amt ?? 0.6, t.bri || 0, t.sat || 0, t.con || 0].join('|'); let m = tintCache.get(im); if (!m) tintCache.set(im, (m = new Map()));
+  let cv = m.get(key); if (cv) return cv;
+  cv = document.createElement('canvas'); cv.width = w; cv.height = h; const x = cv.getContext('2d'); x.drawImage(im, 0, 0);
+  if (t.sat || t.con) { try { const d = x.getImageData(0, 0, w, h), p = d.data, S = 1 + (t.sat || 0), K = 1 + (t.con || 0);
+    for (let k = 0; k < p.length; k += 4) { if (!p[k + 3]) continue; const r = p[k], g = p[k + 1], b = p[k + 2], L = 0.299 * r + 0.587 * g + 0.114 * b;
+      p[k] = (L + (r - L) * S - 128) * K + 128; p[k + 1] = (L + (g - L) * S - 128) * K + 128; p[k + 2] = (L + (b - L) * S - 128) * K + 128; }
+    x.putImageData(d, 0, 0); } catch (e) { /* unreadable picture: colour and light only */ } }
+  if (t.col) { x.globalCompositeOperation = 'color'; x.globalAlpha = t.amt ?? 0.6; x.fillStyle = t.col; x.fillRect(0, 0, w, h); }
+  if (t.bri) { x.globalCompositeOperation = t.bri > 0 ? 'screen' : 'multiply'; x.globalAlpha = Math.min(1, Math.abs(t.bri)); x.fillStyle = t.bri > 0 ? '#ffffff' : '#000000'; x.fillRect(0, 0, w, h); }
+  x.globalCompositeOperation = 'destination-in'; x.globalAlpha = 1; x.drawImage(im, 0, 0);
+  cv.naturalWidth = w; cv.naturalHeight = h; m.set(key, cv); return cv;
+}
+let layHT = null;   // the colour of the wall decor piece being hung
+{ const di = ctx.drawImage; ctx.drawImage = function (...a) {   // pictures of an edited room entry: recoloured; in the editor also measured
+  if (layCur) { if (layCur.tint && a[0] && this.globalCompositeOperation !== 'lighter') a[0] = tintIm(a[0], layCur.tint);
+    if (EDIT && this.globalCompositeOperation !== 'lighter' && this.globalAlpha > 0.5 && a[0] && (a[0].naturalWidth || a[0].width) > 24) layBox(this, a); }
+  return di.apply(this, a); }; }
 function layRun(ent, draw) { const prev = layCur; layCur = ent; ent.bb = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 }; try { draw(); } finally { layCur = prev; }
   if (EDIT && ent.kind === 'desk' && !(ent.bb.x1 > ent.bb.x0)) { const m = P(ent.x, ent.y); ent.bb = { x0: m.x - HW * 0.75, x1: m.x + HW * 0.75, y0: m.y - 30, y1: m.y + HH * 0.6 }; }   /* plain desks are drawn as shapes, not pictures */
   if (EDIT && ent.key && ent.bb.x1 > ent.bb.x0) LAY_ENT.push(ent); }
@@ -3634,11 +3654,11 @@ function layAdd(i, s, add) {   // wraps the room's add(): each entry is one item
     const ov = key && items[key];
     const learn = (ent) => { if (!name) { seen.xy[jj] = xy; seen.names[jj] = ent.n && !/_night$/.test(ent.n) ? ent.n : '_'; } };
     if (ov && ov.hide) { if (EDIT) LAY_ENT.push({ cid, kind: 'item', key, n: nm, x, y, ov, hidden: 1, bb: null }); return; }
-    if (!ov) { add(x, y, () => { const ent = { cid, kind: 'item', key, n: name || null, x, y, ov: null }; layRun(ent, draw); learn(ent); }, bias); return; }
+    if (!ov) { add(x, y, () => { const ent = { cid, kind: 'item', key, n: name || null, x, y, ov: null, tint: (R && R.allTint) || null }; layRun(ent, draw); learn(ent); }, bias); return; }
     const x1 = x + (ov.dx || 0), y1 = y + (ov.dy || 0);
     add(Math.max(s.x0 + 0.05, Math.min(s.x1 - 0.05, x1)), Math.max(s.y0 + 0.05, Math.min(s.y1 - 0.05, y1)), () => { const m0 = P(x, y), m1 = P(x1, y1), k = ov.k || 1, f = ov.flip ? -1 : 1, px = m0.x + (ov.px || 0), py = m0.y + (ov.py || 0), n0 = frameLamps.length, lf = ov.lift || 0;
       ctx.save(); ctx.translate(m1.x - m0.x + px, m1.y - m0.y + py - lf); ctx.scale(k * f, k); if (ov.r) ctx.rotate(ov.r * f * Math.PI / 180); ctx.translate(-px, -py);
-      const ent = { cid, kind: 'item', key, n: name || null, x, y, ov }; layRun(ent, draw); learn(ent); ctx.restore();
+      const ent = { cid, kind: 'item', key, n: name || null, x, y, ov, tint: hasTint(ov) ? ov : (R && R.allTint) || null }; layRun(ent, draw); learn(ent); ctx.restore();
       for (let q = n0; q < frameLamps.length; q++) { const l = frameLamps[q]; l.x = px + (l.x - px) * k * f + m1.x - m0.x; l.y = py + (l.y - py) * k + m1.y - m0.y - lf; if (l.ly != null) l.ly = py + (l.ly - py) * k + m1.y - m0.y - lf; l.r *= k; } }, bias + (ov.z || 0));   // ov.z: the editor's «Вперёд / Назад»
   };
 }
@@ -3650,7 +3670,7 @@ function layExtra(i, s, add) {   // sprites added in the editor
   const cid = CLASSES[i].id, R = RLAY.rooms[cid]; if (!R || !R.add) return;
   R.add.forEach((a, j) => {
     const q = layPos(a, s), wx = a.wall === 'x0' ? s.x0 + 0.1 : q.x, wy = a.wall === 'y0' ? s.y0 + 0.1 : q.y;
-    add(Math.max(s.x0 + 0.05, Math.min(s.x1 - 0.05, wx)), Math.max(s.y0 + 0.05, Math.min(s.y1 - 0.05, wy)), () => layRun({ cid, kind: 'add', key: 'add#' + j, j, n: a.src, x: q.x, y: q.y, ov: a }, () => {
+    add(Math.max(s.x0 + 0.05, Math.min(s.x1 - 0.05, wx)), Math.max(s.y0 + 0.05, Math.min(s.y1 - 0.05, wy)), () => layRun({ cid, kind: 'add', key: 'add#' + j, j, n: a.src, x: q.x, y: q.y, ov: a, tint: hasTint(a) ? a : R.allTint || null }, () => {
       const im = layIm(a.src); if (!im) return; const h = a.h || 40, w = h * im.naturalWidth / im.naturalHeight;
       if (a.wall) { const b = up(a.wall === 'x0' ? P(s.x0, q.y) : P(q.x, s.y0), a.lift || 0); ctx.save(); ctx.translate(b.x, b.y); ctx.transform(1, (a.wall === 'x0' ? -1 : 1) * HH / HW, 0, 1, 0, 0); if (a.flip) ctx.scale(-1, 1); if (a.rot) ctx.rotate(a.rot * (a.flip ? -1 : 1) * Math.PI / 180); ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore(); return; }
       const p = P(q.x, q.y); if (!a.lift && !a.flat && zoom >= 1.2) ctx.drawImage(propShadow(), p.x - w * 0.4, p.y - w * 0.12, w * 0.8, w * 0.24);
@@ -4622,7 +4642,7 @@ function render() {
         drawCreature(t1, tp.x, tp.y, hh); }); }   // own drawn professor (her approval, one at a time)
       else { const t0 = staff[(i + 1) % staff.length], tch = { ...t0, back: frontFacing(i), flip: tp.left, path: tp.moving ? [1] : [], ph: performance.now() / 1000 + i }; add(tp.x, tp.y, () => (teacherGlow(tp, 42), drawCreature(tch, tp.x, tp.y, 42, (x, y) => drawHat(x, y - 40, '#6c4fd1')))); } }
     const thI = themeOf(CLASS_SLOT[i]), stations = thI && THEMES[thI].stations;   // potions: a little cauldron instead of a desk
-    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) !== !!(deskOv(i, d) && deskOv(i, d).flip) }; const sfx = STATION_FX[CLASSES[i].id]; add(p.x, p.y, () => layRun({ cid: CLASSES[i].id, kind: 'desk', key: 'desk#' + d, d, x: p.x, y: p.y, n: o.n }, () => { if (CLASSES[i].id === 'flight') { const sa = studentAt(i, d); o.lift = sa ? flightLift(sa.id) : 0; } drawProp(o); if (sfx) sfx(i, d, p, o); })); } else add(p.x, p.y, () => layRun({ cid: CLASSES[i].id, kind: 'desk', key: 'desk#' + d, d, x: p.x, y: p.y, n: null }, () => { drawDesk(p); if (CLASSES[i].id === 'herbs') herbsDeskFx(i, d, p); })); }
+    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) !== !!(deskOv(i, d) && deskOv(i, d).flip) }; const sfx = STATION_FX[CLASSES[i].id]; add(p.x, p.y, () => layRun({ cid: CLASSES[i].id, kind: 'desk', key: 'desk#' + d, d, x: p.x, y: p.y, n: o.n, tint: (RLAY.rooms[CLASSES[i].id] || {}).deskTint || null }, () => { if (CLASSES[i].id === 'flight') { const sa = studentAt(i, d); o.lift = sa ? flightLift(sa.id) : 0; } drawProp(o); if (sfx) sfx(i, d, p, o); })); } else add(p.x, p.y, () => layRun({ cid: CLASSES[i].id, kind: 'desk', key: 'desk#' + d, d, x: p.x, y: p.y, n: null }, () => { drawDesk(p); if (CLASSES[i].id === 'herbs') herbsDeskFx(i, d, p); })); }
     const addL = layAdd(i, s, add);   // room editor: items can be moved, scaled, flipped, hidden
     for (const o of roomProps(i)) addL(o.x, o.y, () => drawProp(o), 0, o.n);
     layExtra(i, s, add);
@@ -6849,5 +6869,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=468').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=469').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }

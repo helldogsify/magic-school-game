@@ -14,7 +14,7 @@ export function initEditor(A) {
   const room = () => (L.rooms[cid] ||= {});
   const apply = (walls) => { if (walls) A.setLayout(L); else if (A.layout !== L) A.setLayout(L); dirty = true; localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); status(''); };
   const snap = () => { undo.push(JSON.stringify(L)); if (undo.length > 60) undo.shift(); };
-  const tidy = () => { const R = room(); if (R.desks) for (const k of Object.keys(R.desks)) { const o = R.desks[k]; if (!o.dx && !o.dy && !o.flip) delete R.desks[k]; } for (const k of ['items', 'walls', 'desks']) if (R[k] && !Object.keys(R[k]).length) delete R[k]; if (R.add && !R.add.length) delete R.add; if (!Object.keys(R).length) delete L.rooms[cid]; };
+  const tidy = () => { const R = room(); if (R.desks) for (const k of Object.keys(R.desks)) { const o = R.desks[k]; if (!o.dx && !o.dy && !o.flip) delete R.desks[k]; } for (const k of ['items', 'walls', 'desks', 'allTint', 'deskTint']) if (R[k] && !Object.keys(R[k]).length) delete R[k]; if (R.add && !R.add.length) delete R.add; if (!Object.keys(R).length) delete L.rooms[cid]; };
 
   // ---------- UI ----------
   document.body.classList.add('editing');
@@ -48,6 +48,14 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
 #ed-wall .tx { width: 64px; height: 44px; object-fit: cover; border-radius: 8px; flex: none; border: 2px solid transparent; }
 #ed-wall .tx.on { border-color: #7b5cd6; }
 #ed-wall label { font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#ed-col { position: fixed; left: 8px; right: 8px; z-index: 91; display: none; background: #fffaf2f5; border-radius: 16px; box-shadow: 0 4px 16px #3a2f4a44; padding: 8px 10px; font: 600 13px ui-rounded, system-ui, -apple-system, sans-serif; color: #4a2f7a; max-height: 34vh; overflow-y: auto; }
+#ed-col .row:first-of-type { flex-wrap: nowrap; }
+#ed-col { left: 0; right: 0; border-radius: 16px 16px 0 0; padding-bottom: calc(env(safe-area-inset-bottom) + 8px); }
+.edt .row { display: flex; gap: 6px; overflow-x: auto; align-items: center; padding-bottom: 6px; flex-wrap: wrap; }
+.edt .tsw { width: 24px; height: 24px; border-radius: 50%; flex: none; border: 2px solid #fff; box-shadow: 0 0 0 1px #c9b8e8; padding: 0; }
+.edt .tsw.on { box-shadow: 0 0 0 3px #7b5cd6; }
+.edt label { font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.edt button.w { font: inherit; border: 0; border-radius: 12px; padding: 6px 10px; background: #efe6ff; color: #4a2f7a; }
 #ed-sel { bottom: 150px; display: none; justify-content: center; gap: 6px; flex-wrap: wrap; padding: 0 8px; pointer-events: none; }
 #ed-sel button { pointer-events: auto; box-shadow: 0 2px 8px #3a2f4a44; background: #fffaf2; min-width: 42px; }
 #ed-ov { position: fixed; pointer-events: none; z-index: 80; }
@@ -68,8 +76,8 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   const bot = document.createElement('div'); bot.id = 'ed-bot'; bot.innerHTML = `
 <div id="ed-tabs"><button data-tab="items" class="on">🪑 Предметы</button><button data-tab="layers">📚 Слои</button><button data-tab="game">🎮 Игровые</button><button data-tab="wall">🎨 Стены и пол</button><button id="ed-hidden" style="display:none"></button></div>
 <div id="ed-items"><div id="ed-groups"></div><div id="ed-grid"></div></div>
-<div id="ed-layers"></div><div id="ed-game" style="display:none;padding:4px 2px 8px;font-size:13px;line-height:1.4">🎮 Места учеников: парты, котлы, кафедры. Коснись места, чтобы выбрать, потом тяни его. Ученики сядут туда, куда ты поставишь. Кнопка «🔗 Все вместе» двигает сразу все места. Убрать место нельзя — ученикам будет некуда сесть.</div><div id="ed-wall"></div>`;
-  document.body.appendChild(bot);
+<div id="ed-layers"></div><div id="ed-col" class="edt"></div><div id="ed-game" style="display:none;padding:4px 2px 8px;font-size:13px;line-height:1.4">🎮 Места учеников: парты, котлы, кафедры. Коснись места, чтобы выбрать, потом тяни его. Ученики сядут туда, куда ты поставишь. Кнопка «🔗 Все вместе» двигает сразу все места. Убрать место нельзя — ученикам будет некуда сесть.</div><div id="ed-wall"></div>`;
+  document.body.appendChild(bot); document.body.appendChild($('#ed-col'));   // the colour panel lives outside the bottom panel (it replaces it while open)
   const selBar = document.createElement('div'); selBar.id = 'ed-sel'; document.body.appendChild(selBar);
   const ov = document.createElement('canvas'); ov.id = 'ed-ov'; document.body.appendChild(ov); const oc = ov.getContext('2d');
   function status(t) { $('#ed-st').textContent = t || (dirty ? 'Есть несохранённые изменения' : ''); }
@@ -179,7 +187,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
 
   // ---------- the selection bar ----------
   function showSel() {
-    const R = room(); selBar.innerHTML = ''; if (!sel) { selBar.style.display = 'none'; hiddenBtn(); if (tab === 'layers') layersUi(); return; }
+    const R = room(); selBar.innerHTML = ''; if (!sel) { selBar.style.display = 'none'; $('#ed-col').style.display = 'none'; hiddenBtn(); if (tab === 'layers') layersUi(); return; }
     const b = (t, f, title) => { const x = document.createElement('button'); x.textContent = t; if (title) x.title = title; x.onclick = () => { snap(); f(); tidy(); showSel(); }; selBar.appendChild(x); };
     if (sel.t === 'item') { const o = () => (R.items ||= {})[sel.key] ||= { dx: 0, dy: 0, ...pivotOf(sel.key) };
       b('➖', () => { o().k = Math.round(Math.max(0.3, (o().k || 1) / 1.1) * 100) / 100; apply(false); }, 'Меньше'); b('➕', () => { o().k = Math.round(Math.min(3, (o().k || 1) * 1.1) * 100) / 100; apply(false); }, 'Больше');
@@ -205,8 +213,9 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
       b('Как было', () => { if (R.desks) delete R.desks[d]; apply(false); }, 'Вернуть место'); b('Все как было', () => { delete R.desks; apply(false); }, 'Вернуть все места'); }
     else { const o = () => (R.walls ||= {})[sel.key] ||= {};
       b('🗑', () => { o().hide = 1; sel = null; apply(true); }, 'Убрать со стены'); b('Как было', () => { delete R.walls[sel.key]; apply(true); }, 'Вернуть как было'); }
+    b(colOpen ? '🎨 Цвет ▾' : '🎨 Цвет', () => { colOpen = !colOpen; }, 'Перекрасить');
     if (tab === 'layers') layersUi();
-    selBar.style.display = 'flex'; selBar.style.bottom = bot.offsetHeight + 8 + 'px'; hiddenBtn();
+    selBar.style.display = 'flex'; selBar.style.bottom = bot.offsetHeight + 8 + 'px'; hiddenBtn(); colPanel();
   }
   function pivotOf(k) { const e = myEnts().find((x) => x.key === k); if (!e) return { px: 0, py: 0 }; const m = A.P(e.x, e.y); return { px: Math.round(((e.bb.x0 + e.bb.x1) / 2 - m.x) * 10) / 10, py: Math.round((e.bb.y1 - m.y) * 10) / 10 }; }
   function hiddenBtn() {   // «Вернуть убранные (N)»
@@ -244,17 +253,45 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
 
   // ---------- walls and floor ----------
   const COLS = ['#f4d9e8', '#e9d6ff', '#cfe3ff', '#cdeedd', '#fff1c7', '#ffd9b8', '#f2b8c6', '#b9a3e8', '#8fb8e8', '#9fd6b3', '#e8c27a', '#b98457', '#8a6a5a', '#6b5a8a', '#3d4a6b', '#ffffff'];
+  // ---------- colour of things (her «остальные все предметы тоже можно было так перекрашивать»): hue, strength, light, saturation, contrast ----------
+  let colOpen = false, colFor = '';
+  const tintBlock = (o) => `<div class="row"><button class="tsw${!o.col ? ' on' : ''}" data-tcol="" title="Без краски" style="background:linear-gradient(135deg,#fff 45%,#e05 50%,#fff 55%)"></button>${COLS.map((c) => `<button class="tsw${o.col === c ? ' on' : ''}" data-tcol="${c}" style="background:${c}"></button>`).join('')}<input type="color" data-tcolp value="${o.col || '#e9d6ff'}" title="Свой цвет"></div>
+<div class="row"><label>Сила цвета <input type="range" min="0" max="100" value="${Math.round((o.amt ?? 0.6) * 100)}" data-tk="amt"></label><label>Светлее / темнее <input type="range" min="-70" max="70" value="${Math.round((o.bri || 0) * 100)}" data-tk="bri"></label></div>
+<div class="row"><label>Насыщенность <input type="range" min="-100" max="150" value="${Math.round((o.sat || 0) * 100)}" data-tk="sat"></label><label>Контраст <input type="range" min="-60" max="100" value="${Math.round((o.con || 0) * 100)}" data-tk="con"></label></div>`;
+  function wireTint(el, get, walls, redraw) {
+    const set = (f) => { snap(); const o = get(); f(o); for (const k of ['col', 'bri', 'sat', 'con']) if (!o[k]) delete o[k]; if (o.amt === undefined || o.amt === 0.6) delete o.amt; tidy(); apply(walls); redraw(); };
+    el.querySelectorAll('[data-tcol]').forEach((b) => (b.onclick = () => set((o) => { o.col = b.dataset.tcol || undefined; })));
+    el.querySelectorAll('[data-tcolp]').forEach((b) => (b.onchange = () => set((o) => { o.col = b.value; })));
+    el.querySelectorAll('[data-tk]').forEach((b) => (b.onchange = () => set((o) => { o[b.dataset.tk] = +b.value / 100; })));
+  }
+  const colPanel = () => {
+    const el = $('#ed-col'); if (!sel || !colOpen) { el.style.display = 'none'; bot.style.display = ''; colFor = ''; return; }
+    const R = room(); let get, walls = false, title = '🎨 Цвет предмета', all = true;
+    if (sel.t === 'item') get = () => (R.items ||= {})[sel.key] ||= { dx: 0, dy: 0, ...pivotOf(sel.key) };
+    else if (sel.t === 'add') { const j = +sel.key.split('#')[1]; get = () => R.add[j]; }
+    else if (sel.t === 'desk') { get = () => (R.deskTint ||= {}); title = '🎨 Цвет всех мест учеников класса'; all = false; }
+    else { get = () => (R.walls ||= {})[sel.key] ||= {}; walls = true; all = false; }
+    const o = get();
+    el.innerHTML = `<b>${title}</b>${tintBlock(o)}<div class="row"><button class="w" data-done style="background:#7b5cd6;color:#fff">✓ Готово</button><button class="w" data-reset>Сбросить цвет</button>${all ? '<button class="w" data-all>🪄 Так же — всем предметам класса</button>' : ''}</div>`;
+    wireTint(el, get, walls, colPanel);
+    el.querySelector('[data-reset]').onclick = () => { snap(); const t = get(); for (const k of ['col', 'amt', 'bri', 'sat', 'con']) delete t[k]; tidy(); apply(walls); colPanel(); };
+    const ab = el.querySelector('[data-all]'); if (ab) ab.onclick = () => { snap(); const t = get(), c = {}; for (const k of ['col', 'amt', 'bri', 'sat', 'con']) if (t[k] !== undefined) c[k] = t[k]; R.allTint = c; tidy(); apply(false); status('Цвет применён ко всем предметам класса (кроме тех, у кого свой цвет)'); };
+    el.querySelector('[data-done]').onclick = () => { colOpen = false; showSel(); };
+    el.style.display = 'block'; el.style.top = 'auto'; el.style.bottom = '0'; bot.style.display = 'none'; selBar.style.display = 'none';   /* the colour panel takes the palette's place, the room stays visible */
+    if (colFor !== sel.key) { colFor = sel.key; const e = curEnt(); if (e && e.bb) { const sc = A.scroller, tb = $('#ed-top').offsetHeight, free = innerHeight - tb - el.offsetHeight; sc.scrollLeft = (e.bb.x0 + e.bb.x1) / 2 * A.scale - sc.clientWidth / 2; sc.scrollTop = (e.bb.y0 + e.bb.y1) / 2 * A.scale - (tb + free / 2) + A.canvas.getBoundingClientRect().top; } }   /* bring the thing into view */
+  };
   function wallUi() {
     const R = room(), texs = Object.keys(A.parts).filter((k) => /\/(wall|floor)$/.test(k) && A.parts[k].complete && A.parts[k].naturalWidth);
     const sec = (n, title) => { const o = R[n] || {}; return `<h4>${title}</h4>
 <div class="row"><button class="sw${!o.col ? ' on' : ''}" data-n="${n}" data-col="" title="Без краски" style="background:linear-gradient(135deg,#fff 45%,#e05 50%,#fff 55%)"></button>${COLS.map((c) => `<button class="sw${o.col === c ? ' on' : ''}" data-n="${n}" data-col="${c}" style="background:${c}"></button>`).join('')}<input type="color" data-n="${n}" value="${o.col || '#e9d6ff'}" title="Свой цвет"></div>
 <div class="row"><label>Сила цвета <input type="range" min="0" max="100" value="${Math.round((o.amt ?? 0.6) * 100)}" data-n="${n}" data-k="amt"></label><label>Светлее/темнее <input type="range" min="-60" max="60" value="${Math.round((o.bri || 0) * 100)}" data-n="${n}" data-k="bri"></label></div>
 <div class="row"><img class="tx${!o.tex ? ' on' : ''}" data-n="${n}" data-tex="" src="${(A.parts[cid + '/' + n] || {}).src || ''}" title="Свой узор класса">${texs.filter((k) => k.endsWith('/' + n) && k !== cid + '/' + n).map((k) => `<img class="tx${o.tex === k ? ' on' : ''}" data-n="${n}" data-tex="${k}" src="${A.parts[k].src}">`).join('')}</div>`; };
-    $('#ed-wall').innerHTML = sec('wall', '🧱 Стены') + sec('floor', '🟫 Пол');
+    $('#ed-wall').innerHTML = sec('wall', '🧱 Стены') + sec('floor', '🟫 Пол') + `<h4>🪑 Все предметы класса (у кого нет своего цвета)</h4><div id="ed-allt" class="edt">${tintBlock(R.allTint || {})}</div>`;
+    wireTint($('#ed-allt'), () => (room().allTint ||= {}), false, wallUi);
     const set = (n, f) => { snap(); const o = (R[n] ||= {}); f(o); for (const k of Object.keys(o)) if (o[k] === undefined || o[k] === '' || o[k] === 0) delete o[k]; if (!Object.keys(o).length) delete R[n]; tidy(); apply(true); };
-    $('#ed-wall').querySelectorAll('.sw').forEach((b) => (b.onclick = () => { set(b.dataset.n, (o) => { o.col = b.dataset.col || undefined; }); wallUi(); }));
-    $('#ed-wall').querySelectorAll('input[type=color]').forEach((b) => (b.onchange = () => { set(b.dataset.n, (o) => { o.col = b.value; }); wallUi(); }));
-    $('#ed-wall').querySelectorAll('input[type=range]').forEach((b) => (b.onchange = () => set(b.dataset.n, (o) => { o[b.dataset.k] = +b.value / 100; if (b.dataset.k === 'amt' && +b.value === 60) o.amt = undefined; })));
+    $('#ed-wall').querySelectorAll('.sw[data-n]').forEach((b) => (b.onclick = () => { set(b.dataset.n, (o) => { o.col = b.dataset.col || undefined; }); wallUi(); }));
+    $('#ed-wall').querySelectorAll('input[type=color][data-n]').forEach((b) => (b.onchange = () => { set(b.dataset.n, (o) => { o.col = b.value; }); wallUi(); }));
+    $('#ed-wall').querySelectorAll('input[type=range][data-n]').forEach((b) => (b.onchange = () => set(b.dataset.n, (o) => { o[b.dataset.k] = +b.value / 100; if (b.dataset.k === 'amt' && +b.value === 60) o.amt = undefined; })));
     $('#ed-wall').querySelectorAll('.tx').forEach((b) => (b.onclick = () => { set(b.dataset.n, (o) => { o.tex = b.dataset.tex || undefined; }); wallUi(); }));
   }
 
