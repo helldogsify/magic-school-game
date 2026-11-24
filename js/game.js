@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=432';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=432';
-import { initMinigame } from './minigame.js?v=432';
-import { initChests } from './chests.js?v=432';
-import { initLore } from './lore.js?v=432';
-import { initAvatar } from './avatar.js?v=432';
+} from './data.js?v=433';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=433';
+import { initMinigame } from './minigame.js?v=433';
+import { initChests } from './chests.js?v=433';
+import { initLore } from './lore.js?v=433';
+import { initAvatar } from './avatar.js?v=433';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 432;   // keep equal to the ?v= number in index.html
+const BUILD = 433;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5266,7 +5266,8 @@ scroller.addEventListener('touchstart', (e) => {
   if (e.touches.length !== 2) return;
   e.preventDefault();
   const m = tmid(e.touches);
-  pinch = { d0: tdist(e.touches), z0: zoom, wx: (scroller.scrollLeft + m.x) / scale, wy: (scroller.scrollTop + m.y) / scale };
+  const sl = scroller.scrollLeft, st = scroller.scrollTop; scroller.style.overflow = 'hidden'; scroller.scrollLeft = sl; scroller.scrollTop = st;   // no native pan or momentum under the pinch (her «дергается»)
+  pinch = { d0: tdist(e.touches), z0: zoom, wx: (sl + m.x) / scale, wy: (st + m.y) / scale };
   pinching = true;
 }, { passive: false });
 scroller.addEventListener('touchmove', (e) => {
@@ -5275,7 +5276,7 @@ scroller.addEventListener('touchmove', (e) => {
   const m = tmid(e.touches);
   setZoom(pinch.z0 * tdist(e.touches) / pinch.d0, m.x, m.y, pinch.wx, pinch.wy);
 }, { passive: false });
-function endPinch(e) { if (pinch && e.touches.length < 2) { pinch = null; pinching = false; pinchedAt = Date.now(); } }   // no forced ground redraw any more: its resolution no longer depends on the zoom (the redraw froze the game on every pinch release, her report build 212)
+function endPinch(e) { if (pinch && e.touches.length < 2) { pinch = null; pinching = false; pinchedAt = Date.now(); } if (!e.touches.length && scroller.style.overflow) { const sl = scroller.scrollLeft, st = scroller.scrollTop; scroller.style.overflow = ''; scroller.scrollLeft = sl; scroller.scrollTop = st; } }   // native scroll back only when every finger is up   // no forced ground redraw any more: its resolution no longer depends on the zoom (the redraw froze the game on every pinch release, her report build 212)
 scroller.addEventListener('touchend', endPinch); scroller.addEventListener('touchcancel', endPinch);
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 scroller.addEventListener('wheel', (e) => {   // desktop: Ctrl + wheel
