@@ -180,20 +180,22 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
     const b = (t, f, title) => { const x = document.createElement('button'); x.textContent = t; if (title) x.title = title; x.onclick = () => { snap(); f(); tidy(); showSel(); }; selBar.appendChild(x); };
     if (sel.t === 'item') { const o = () => (R.items ||= {})[sel.key] ||= { dx: 0, dy: 0, ...pivotOf(sel.key) };
       b('➖', () => { o().k = Math.round(Math.max(0.3, (o().k || 1) / 1.1) * 100) / 100; apply(false); }, 'Меньше'); b('➕', () => { o().k = Math.round(Math.min(3, (o().k || 1) * 1.1) * 100) / 100; apply(false); }, 'Больше');
-      b('⇋', () => { o().flip = !o().flip || undefined; apply(false); }, 'Отразить');
+      b('⇋ Развернуть', () => { o().flip = !o().flip || undefined; apply(false); }, 'Повернуть другим боком');
+      b('↶', () => { o().r = ((o().r || 0) - 15) % 360 || undefined; apply(false); }, 'Наклонить влево'); b('↷', () => { o().r = ((o().r || 0) + 15) % 360 || undefined; apply(false); }, 'Наклонить вправо');
       b('⏫ Вперёд', () => { o().z = (o().z || 0) + 1; apply(false); }, 'Поверх соседей'); b('⏬ Назад', () => { o().z = (o().z || 0) - 1 || undefined; apply(false); }, 'За соседей');
       b('🗑', () => { o().hide = 1; sel = null; apply(false); }, 'Убрать');
-      b('↺', () => { delete R.items[sel.key]; apply(false); }, 'Как было'); }
+      b('Как было', () => { delete R.items[sel.key]; apply(false); }, 'Вернуть как было'); }
     else if (sel.t === 'add') { const j = +sel.key.split('#')[1], a = R.add && R.add[j]; if (!a) { sel = null; return showSel(); }
       b('➖', () => { a.h = Math.max(8, Math.round((a.h || 40) / 1.1)); apply(false); }, 'Меньше'); b('➕', () => { a.h = Math.min(400, Math.round((a.h || 40) * 1.1)); apply(false); }, 'Больше');
-      b('⇋', () => { a.flip = !a.flip || undefined; apply(false); }, 'Отразить');
+      b('⇋ Развернуть', () => { a.flip = !a.flip || undefined; apply(false); }, 'Повернуть другим боком');
+      b('↶', () => { a.rot = ((a.rot || 0) - 15) % 360 || undefined; apply(false); }, 'Наклонить влево'); b('↷', () => { a.rot = ((a.rot || 0) + 15) % 360 || undefined; apply(false); }, 'Наклонить вправо');
       b('⏫ Вперёд', () => { a.bias = (a.bias || 0) + 1; apply(false); }, 'Поверх соседей'); b('⏬ Назад', () => { a.bias = (a.bias || 0) - 1 || undefined; apply(false); }, 'За соседей');
       b('⬆', () => { a.lift = Math.round((a.lift || 0) + 6); apply(false); }, 'Выше'); b('⬇', () => { a.lift = Math.max(0, Math.round((a.lift || 0) - 6)); apply(false); }, 'Ниже');
       b(a.wall ? '⬇ На пол' : '🖼 На стену', () => { const p = A.layPos(a, s); if (a.wall) { delete a.wall; a.lift = 0; } else { a.wall = p.x - s.x0 < p.y - s.y0 ? 'x0' : 'y0'; a.lift = Math.round(A.TALL_H() * 0.55); } apply(false); });
       b('⧉', () => { const c = clone(a); c.x = (c.x || 0) + 0.6; R.add.push(c); sel = { t: 'add', key: 'add#' + (R.add.length - 1) }; apply(false); }, 'Копия');
       b('🗑', () => { R.add.splice(j, 1); sel = null; apply(false); }, 'Убрать'); }
     else { const o = () => (R.walls ||= {})[sel.key] ||= {};
-      b('🗑', () => { o().hide = 1; sel = null; apply(true); }, 'Убрать со стены'); b('↺', () => { delete R.walls[sel.key]; apply(true); }, 'Как было'); }
+      b('🗑', () => { o().hide = 1; sel = null; apply(true); }, 'Убрать со стены'); b('Как было', () => { delete R.walls[sel.key]; apply(true); }, 'Вернуть как было'); }
     if (tab === 'layers') layersUi();
     selBar.style.display = 'flex'; selBar.style.bottom = bot.offsetHeight + 8 + 'px'; hiddenBtn();
   }
