@@ -10,11 +10,11 @@ export function initEditor(A) {
   const key = localStorage.getItem(KEY_LS) || '';
   const api = (p) => `${E.api}/${p}?key=${encodeURIComponent(key)}`;
   const clone = (o) => JSON.parse(JSON.stringify(o));
-  let tab = 'items', L = { v: 1, rooms: {} }, sel = null, undo = [], dirty = false, night = false;
+  let deskAll = false, tab = 'items', L = { v: 1, rooms: {} }, sel = null, undo = [], dirty = false, night = false;
   const room = () => (L.rooms[cid] ||= {});
   const apply = (walls) => { if (walls) A.setLayout(L); else if (A.layout !== L) A.setLayout(L); dirty = true; localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); status(''); };
   const snap = () => { undo.push(JSON.stringify(L)); if (undo.length > 60) undo.shift(); };
-  const tidy = () => { const R = room(); for (const k of ['items', 'walls']) if (R[k] && !Object.keys(R[k]).length) delete R[k]; if (R.add && !R.add.length) delete R.add; if (!Object.keys(R).length) delete L.rooms[cid]; };
+  const tidy = () => { const R = room(); if (R.desks) for (const k of Object.keys(R.desks)) { const o = R.desks[k]; if (!o.dx && !o.dy && !o.flip) delete R.desks[k]; } for (const k of ['items', 'walls', 'desks']) if (R[k] && !Object.keys(R[k]).length) delete R[k]; if (R.add && !R.add.length) delete R.add; if (!Object.keys(R).length) delete L.rooms[cid]; };
 
   // ---------- UI ----------
   document.body.classList.add('editing');
@@ -66,9 +66,9 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   document.body.appendChild(top);
   top.querySelectorAll('[data-size]').forEach((b) => b.classList.toggle('on', +b.dataset.size === E.size));
   const bot = document.createElement('div'); bot.id = 'ed-bot'; bot.innerHTML = `
-<div id="ed-tabs"><button data-tab="items" class="on">🪑 Предметы</button><button data-tab="layers">📚 Слои</button><button data-tab="wall">🎨 Стены и пол</button><button id="ed-hidden" style="display:none"></button></div>
+<div id="ed-tabs"><button data-tab="items" class="on">🪑 Предметы</button><button data-tab="layers">📚 Слои</button><button data-tab="game">🎮 Игровые</button><button data-tab="wall">🎨 Стены и пол</button><button id="ed-hidden" style="display:none"></button></div>
 <div id="ed-items"><div id="ed-groups"></div><div id="ed-grid"></div></div>
-<div id="ed-layers"></div><div id="ed-wall"></div>`;
+<div id="ed-layers"></div><div id="ed-game" style="display:none;padding:4px 2px 8px;font-size:13px;line-height:1.4">🎮 Места учеников: парты, котлы, кафедры. Коснись места, чтобы выбрать, потом тяни его. Ученики сядут туда, куда ты поставишь. Кнопка «🔗 Все вместе» двигает сразу все места. Убрать место нельзя — ученикам будет некуда сесть.</div><div id="ed-wall"></div>`;
   document.body.appendChild(bot);
   const selBar = document.createElement('div'); selBar.id = 'ed-sel'; document.body.appendChild(selBar);
   const ov = document.createElement('canvas'); ov.id = 'ed-ov'; document.body.appendChild(ov); const oc = ov.getContext('2d');
@@ -80,7 +80,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   $('#ed-day').onclick = () => { night = !night; window.__hour = night ? 23 : 13; $('#ed-day').textContent = night ? '🌙 Ночь' : '☀️ День'; };
   window.__hour = 13;
   $('#ed-undo').onclick = () => { if (!undo.length) return; L = JSON.parse(undo.pop()); sel = null; A.setLayout(L); dirty = true; showSel(); };
-  bot.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { bot.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('on', x === b)); tab = b.dataset.tab; $('#ed-items').style.display = tab === 'items' ? '' : 'none'; $('#ed-wall').style.display = tab === 'wall' ? 'block' : 'none'; $('#ed-layers').style.display = tab === 'layers' ? 'block' : 'none'; if (tab === 'wall') wallUi(); if (tab === 'layers') layersUi(); selBar.style.bottom = bot.offsetHeight + 8 + 'px'; }));
+  bot.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { bot.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('on', x === b)); tab = b.dataset.tab; $('#ed-items').style.display = tab === 'items' ? '' : 'none'; $('#ed-wall').style.display = tab === 'wall' ? 'block' : 'none'; $('#ed-layers').style.display = tab === 'layers' ? 'block' : 'none'; $('#ed-game').style.display = tab === 'game' ? 'block' : 'none'; sel = null; showSel(); if (tab === 'wall') wallUi(); if (tab === 'layers') layersUi(); selBar.style.bottom = bot.offsetHeight + 8 + 'px'; }));
 
   // ---------- save / publish ----------
   async function call(p, body) {
@@ -115,13 +115,14 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   const toClient = (wx, wy) => { const r = stageRect(); return { x: wx * A.scale - A.scroller.scrollLeft + r.left, y: wy * A.scale - A.scroller.scrollTop + r.top }; };
   const toWorld = (cx, cy) => { const r = stageRect(); return { x: (cx - r.left + A.scroller.scrollLeft) / A.scale, y: (cy - r.top + A.scroller.scrollTop) / A.scale }; };
   const tileDelta = (dX, dY) => ({ dx: (dX / A.HW + dY / A.HH) / 2, dy: (dY / A.HH - dX / A.HW) / 2 });   // world px -> tiles (inverse of P)
-  const inRoom = (x, y) => ({ x: Math.max(s.x0 + 0.1, Math.min(s.x1 - 0.1, x)), y: Math.max(s.y0 + 0.1, Math.min(s.y1 - 0.1, y)) });
+  const inRoom = (x, y) => ({ x, y });   // no limits (her «ставить куда хочу без ограничений»)
+  const vis = (e) => (tab === 'game') === (e.kind === 'desk');   // the students' places only in the «Игровые» tab, the rest only outside it
   const myEnts = () => A.entries().filter((e) => e.cid === cid && e.bb);
   const myWalls = () => A.walls(cid).filter((w) => w.bb && !w.hide);
   function hitAll(cx, cy) {   // everything under the finger, smallest first: a small hidden thing is usually the one she is after
     const w = toWorld(cx, cy), pad = 3 / A.scale + 1, out = [], inb = (b, p) => w.x >= b.x0 - p && w.x <= b.x1 + p && w.y >= b.y0 - p && w.y <= b.y1 + p;
-    for (const e of myEnts()) if (inb(e.bb, pad)) out.push({ t: e.kind, key: e.key, e });
-    for (const ww of myWalls()) if (inb(ww.bb, 0)) out.push({ t: 'wall', key: ww.key, e: ww });
+    for (const e of myEnts()) if (vis(e) && inb(e.bb, pad)) out.push({ t: e.kind, key: e.key, e });
+    if (tab !== 'game') for (const ww of myWalls()) if (inb(ww.bb, 0)) out.push({ t: 'wall', key: ww.key, e: ww });
     const area = (h) => (h.e.bb.x1 - h.e.bb.x0) * (h.e.bb.y1 - h.e.bb.y0);
     return out.sort((p, q) => area(p) - area(q));
   }
@@ -136,11 +137,13 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
     snap(); const R = room(), w0 = toWorld(cx, cy);
     if (h.t === 'item') { R.items ||= {}; let o = R.items[h.key]; if (!o) { const m = A.P(h.e.x, h.e.y), b = h.e.bb; o = R.items[h.key] = { dx: 0, dy: 0, px: Math.round(((b.x0 + b.x1) / 2 - m.x) * 10) / 10, py: Math.round((b.y1 - m.y) * 10) / 10 }; } drag = { h, w0, o0: { ...o } }; }
     else if (h.t === 'add') { const a = R.add[h.e.j], p = A.layPos(a, s); drag = { h, w0, a, p0: p, lift0: a.lift || 0 }; }
+    else if (h.t === 'desk') { R.desks ||= {}; const ks = deskAll ? myEnts().filter((e) => e.kind === 'desk').map((e) => e.d) : [h.e.d]; drag = { h, w0, set: ks.map((k) => [k, { ...(R.desks[k] || {}) }]) }; }
     else { R.walls ||= {}; const o = R.walls[h.key] ||= {}; drag = { h, w0, o0: { ...o } }; }
     showSel(); return true;
   }
   function move(cx, cy) {
     if (!drag) return; const w = toWorld(cx, cy), dX = w.x - drag.w0.x, dY = w.y - drag.w0.y, R = room();
+    if (drag.h.t === 'desk') { const d = tileDelta(dX, dY); for (const [k, o0] of drag.set) R.desks[k] = { ...o0, dx: Math.round(((o0.dx || 0) + d.dx) * 100) / 100, dy: Math.round(((o0.dy || 0) + d.dy) * 100) / 100 }; apply(false); return; }
     if (drag.h.t === 'item') { const o = R.items[drag.h.key], d = tileDelta(dX, dY), e = drag.h.e, p = inRoom(e.x + (drag.o0.dx || 0) + d.dx, e.y + (drag.o0.dy || 0) + d.dy); o.dx = Math.round((p.x - e.x) * 100) / 100; o.dy = Math.round((p.y - e.y) * 100) / 100; apply(false); }
     else if (drag.h.t === 'add') { const a = drag.a;
       if (a.wall) { const t = a.wall === 'x0' ? -dX / A.HW : dX / A.HW, vy = dY - t * A.HH; a.lift = Math.round(Math.max(0, Math.min(A.TALL_H() * 1.1, drag.lift0 - vy))); const p = inRoom(a.wall === 'y0' ? drag.p0.x + t : drag.p0.x, a.wall === 'x0' ? drag.p0.y + t : drag.p0.y); anchor(a, p); }
@@ -181,6 +184,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
     if (sel.t === 'item') { const o = () => (R.items ||= {})[sel.key] ||= { dx: 0, dy: 0, ...pivotOf(sel.key) };
       b('➖', () => { o().k = Math.round(Math.max(0.3, (o().k || 1) / 1.1) * 100) / 100; apply(false); }, 'Меньше'); b('➕', () => { o().k = Math.round(Math.min(3, (o().k || 1) * 1.1) * 100) / 100; apply(false); }, 'Больше');
       b('⇋ Развернуть', () => { o().flip = !o().flip || undefined; apply(false); }, 'Повернуть другим боком');
+      b('⬆ Выше', () => { o().lift = (o().lift || 0) + 6; apply(false); }, 'Поднять'); b('⬇ Ниже', () => { o().lift = (o().lift || 0) - 6 || undefined; apply(false); }, 'Опустить');
       b('↶', () => { o().r = ((o().r || 0) - 15) % 360 || undefined; apply(false); }, 'Наклонить влево'); b('↷', () => { o().r = ((o().r || 0) + 15) % 360 || undefined; apply(false); }, 'Наклонить вправо');
       b('⏫ Вперёд', () => { o().z = (o().z || 0) + 1; apply(false); }, 'Поверх соседей'); b('⏬ Назад', () => { o().z = (o().z || 0) - 1 || undefined; apply(false); }, 'За соседей');
       b('🗑', () => { o().hide = 1; sel = null; apply(false); }, 'Убрать');
@@ -195,6 +199,10 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
       b(a.wall ? '⬇ На пол' : '🖼 На стену', () => { const p = A.layPos(a, s); if (a.wall) { delete a.wall; a.lift = 0; } else { a.wall = p.x - s.x0 < p.y - s.y0 ? 'x0' : 'y0'; a.lift = Math.round(A.TALL_H() * 0.55); } apply(false); });
       b('⧉', () => { const c = clone(a); c.x = (c.x || 0) + 0.6; R.add.push(c); sel = { t: 'add', key: 'add#' + (R.add.length - 1) }; apply(false); }, 'Копия');
       b('🗑', () => { R.add.splice(j, 1); sel = null; apply(false); }, 'Убрать'); }
+    else if (sel.t === 'desk') { const d = +sel.key.split('#')[1], o = () => (R.desks ||= {})[d] ||= {};
+      b('⇋ Развернуть', () => { o().flip = !o().flip || undefined; apply(false); }, 'Повернуть другим боком');
+      b(deskAll ? '🔗 Все вместе: да' : '🔗 Все вместе: нет', () => { deskAll = !deskAll; }, 'Тянуть все места сразу');
+      b('Как было', () => { if (R.desks) delete R.desks[d]; apply(false); }, 'Вернуть место'); b('Все как было', () => { delete R.desks; apply(false); }, 'Вернуть все места'); }
     else { const o = () => (R.walls ||= {})[sel.key] ||= {};
       b('🗑', () => { o().hide = 1; sel = null; apply(true); }, 'Убрать со стены'); b('Как было', () => { delete R.walls[sel.key]; apply(true); }, 'Вернуть как было'); }
     if (tab === 'layers') layersUi();
@@ -209,7 +217,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
 
   // ---------- layers: every thing of the room, front first; a tap selects it even when it is hidden behind others ----------
   function layersUi() {
-    const all = A.entries().filter((e) => e.cid === cid && e.key), seen = new Set(), list = [];
+    const all = A.entries().filter((e) => e.cid === cid && e.key && e.kind !== 'desk'), seen = new Set(), list = [];
     for (let k = all.length - 1; k >= 0; k--) { const e = all[k]; if (!seen.has(e.key)) { seen.add(e.key); list.push(e); } }
     const row = (arr, kind) => arr.map((e) => `<button class="li${sel && sel.key === e.key ? ' on' : ''}${e.hidden || e.hide ? ' off' : ''}" data-k="${e.key}" data-t="${kind || e.kind}" data-h="${e.hidden || e.hide ? 1 : ''}"><img src="${A.thumb(e.n, cid)}" alt=""></button>`).join('');
     $('#ed-layers').innerHTML = `<h4>В комнате (первые — ближние к тебе, бледные — убранные)</h4><div class="lr">${row(list)}</div><h4>На стенах</h4><div class="lr">${row(A.walls(cid), 'wall')}</div>`;
@@ -263,7 +271,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
     Object.assign(ov.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
     oc.setTransform(d, 0, 0, d, -r.left * d, -r.top * d); oc.clearRect(r.left, r.top, r.width, r.height);
     const box = (b, on) => { const a = toClient(b.x0, b.y0), c = toClient(b.x1, b.y1); oc.lineWidth = on ? 2.5 : 1; oc.setLineDash(on ? [] : [4, 4]); oc.strokeStyle = on ? '#7b5cd6' : 'rgba(123,92,214,0.35)'; oc.strokeRect(a.x, a.y, c.x - a.x, c.y - a.y); };
-    for (const e of myEnts()) box(e.bb, sel && sel.key === e.key);
+    for (const e of myEnts()) if (vis(e)) box(e.bb, sel && sel.key === e.key);
     for (const w of myWalls()) box(w.bb, sel && sel.key === w.key);
   }
   requestAnimationFrame(frame);

@@ -1,14 +1,14 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
-import './edit_guard.js?v=465';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=466';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=465';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=465';
-import { initMinigame } from './minigame.js?v=465';
-import { initChests } from './chests.js?v=465';
-import { initLore } from './lore.js?v=465';
-import { initAvatar } from './avatar.js?v=465';
+} from './data.js?v=466';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=466';
+import { initMinigame } from './minigame.js?v=466';
+import { initChests } from './chests.js?v=466';
+import { initLore } from './lore.js?v=466';
+import { initAvatar } from './avatar.js?v=466';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -31,7 +31,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 465;   // keep equal to the ?v= number in index.html
+const BUILD = 466;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -796,7 +796,8 @@ const frontFacing = (i) => clsTheme(i)?.facing === 'front';   // students face t
 const sitsOn = (i) => !!clsTheme(i)?.sitOn;                     // students sit on their station (clouds)
 function faceTeacher(a, i) { const tp = teacherPos(i); a.flip = (tp.x - tp.y) < (a.x - a.y); a.back = !frontFacing(i); }
 const sideHall = (i) => !!CLASSES[i].final && WORLD === 1;   // the exam hall faces its left wall
-function deskPos(i, d) {   // 3 columns across the room, rows from the board towards us: the first rows stay on the room picture
+function deskPos(i, d) { const p = deskPos0(i, d), o = deskOv(i, d); return o ? { x: p.x + (o.dx || 0), y: p.y + (o.dy || 0) } : p; }   // the room editor may move a student's place
+function deskPos0(i, d) {   // 3 columns across the room, rows from the board towards us: the first rows stay on the room picture
   if (sideHall(i)) { const s = slotOf(i), per = 3, gy = (s.y1 - s.y0 - 2.2) / (per - 1); return { x: s.x0 + 3.2 + Math.floor(d / per) * 1.95, y: s.y0 + 1.1 + (d % per) * gy }; }   // rows of 3 along the left wall, 7 rows deep into the hall
   const s = slotOf(i), w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3, lm = WORLD === 1 && (CLASSES[i].id === 'herbs' || CLASSES[i].id === 'potions' || CLASSES[i].id === 'stars') ? 1.65 : 1.1, gap = (w - lm - 1.1) / (cols - 1);   // Herbology: the first column steps away from the planter boxes (her «Да» to moving the row)
   return { x: s.x0 + lm + (d % cols) * gap, y: s.y0 + (frontFacing(i) ? 1.9 : 2.5) + Math.floor(d / cols) * (CLASSES[i].final ? 1.45 : 1.2) };   // exam rows wider apart: each student clearly sits at his own desk
@@ -3604,7 +3605,7 @@ function layHang(th, n, s, side, t0, lo) {   // wall decor of a room: the layout
   const id = s.x0 + ',' + s.y0, cnt = (layHangN[id] ||= {}), k0 = side + ':' + n; cnt[k0] = (cnt[k0] || 0) + 1;
   const key = k0 + '#' + cnt[k0], R = RLAY.rooms[th], o = R && R.walls && R.walls[key], w = (DECOR[n] && DECOR[n].w) || 1;
   if (o) { if (o.hide) { if (EDIT) (LAY_WALLS[th] ||= []).push({ key, n, side, t0, lo, hide: 1 }); return null; } t0 += o.dt || 0; lo += o.dlo || 0;
-    t0 = side === 'y0' ? Math.max(s.x0, Math.min(s.x1 - w, t0)) : Math.max(s.y0, Math.min(s.y1 - w, t0)); lo = Math.max(0, Math.min(0.95, lo)); }
+    t0 = side === 'y0' ? Math.max(s.x0, Math.min(s.x1 - w, t0)) : Math.max(s.y0, Math.min(s.y1 - w, t0)); lo = Math.max(-0.3, Math.min(1.6, lo)); }
   if (EDIT) { const im = (THEMES[th].iso && part(th, 'iso_' + n)) || part(th, n); let bb = null;
     if (im) { const H = TALL_H(), tm = t0 + w / 2, base = side === 'y0' ? P(tm, s.y0) : P(s.x0, tm);
       if (THEMES[th].iso && part(th, 'iso_' + n)) { const sw = (ISO_W[n] || w) * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - (ISO_W[n] || w) * HH), m = up(base, lo * H + vert / 2); bb = { x0: m.x - sw / 2, y0: m.y - sh / 2, x1: m.x + sw / 2, y1: m.y + sh / 2 }; }
@@ -3620,7 +3621,10 @@ function layBox(c, a) {   // editor only: the picture a room entry draws, as a w
     if (X < b.x0) b.x0 = X; if (X > b.x1) b.x1 = X; if (Y < b.y0) b.y0 = Y; if (Y > b.y1) b.y1 = Y; }
 }
 if (EDIT) { const di = ctx.drawImage; ctx.drawImage = function (...a) { if (layCur && this.globalCompositeOperation !== 'lighter' && this.globalAlpha > 0.5 && a[0] && (a[0].naturalWidth || a[0].width) > 24) layBox(this, a); return di.apply(this, a); }; }
-function layRun(ent, draw) { const prev = layCur; layCur = ent; ent.bb = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 }; try { draw(); } finally { layCur = prev; } if (EDIT && ent.key && ent.bb.x1 > ent.bb.x0) LAY_ENT.push(ent); }
+function layRun(ent, draw) { const prev = layCur; layCur = ent; ent.bb = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 }; try { draw(); } finally { layCur = prev; }
+  if (EDIT && ent.kind === 'desk' && !(ent.bb.x1 > ent.bb.x0)) { const m = P(ent.x, ent.y); ent.bb = { x0: m.x - HW * 0.75, x1: m.x + HW * 0.75, y0: m.y - 30, y1: m.y + HH * 0.6 }; }   /* plain desks are drawn as shapes, not pictures */
+  if (EDIT && ent.key && ent.bb.x1 > ent.bb.x0) LAY_ENT.push(ent); }
+const deskOv = (i, d) => { const R = RLAY.rooms[CLASSES[i].id]; return (R && R.desks && R.desks[d]) || null; };
 function layAdd(i, s, add) {   // wraps the room's add(): each entry is one item; the layout moves / scales / flips / hides it
   const cid = CLASSES[i].id, R = RLAY.rooms[cid], items = (R && R.items) || {}, seen = (LAY_SEEN[cid] ||= { names: [], xy: [] }), cnt = {};
   let j = -1;
@@ -3632,15 +3636,15 @@ function layAdd(i, s, add) {   // wraps the room's add(): each entry is one item
     if (ov && ov.hide) { if (EDIT) LAY_ENT.push({ cid, kind: 'item', key, n: nm, x, y, ov, hidden: 1, bb: null }); return; }
     if (!ov) { add(x, y, () => { const ent = { cid, kind: 'item', key, n: name || null, x, y, ov: null }; layRun(ent, draw); learn(ent); }, bias); return; }
     const x1 = x + (ov.dx || 0), y1 = y + (ov.dy || 0);
-    add(x1, y1, () => { const m0 = P(x, y), m1 = P(x1, y1), k = ov.k || 1, f = ov.flip ? -1 : 1, px = m0.x + (ov.px || 0), py = m0.y + (ov.py || 0), n0 = frameLamps.length;
-      ctx.save(); ctx.translate(m1.x - m0.x + px, m1.y - m0.y + py); ctx.scale(k * f, k); if (ov.r) ctx.rotate(ov.r * f * Math.PI / 180); ctx.translate(-px, -py);
+    add(x1, y1, () => { const m0 = P(x, y), m1 = P(x1, y1), k = ov.k || 1, f = ov.flip ? -1 : 1, px = m0.x + (ov.px || 0), py = m0.y + (ov.py || 0), n0 = frameLamps.length, lf = ov.lift || 0;
+      ctx.save(); ctx.translate(m1.x - m0.x + px, m1.y - m0.y + py - lf); ctx.scale(k * f, k); if (ov.r) ctx.rotate(ov.r * f * Math.PI / 180); ctx.translate(-px, -py);
       const ent = { cid, kind: 'item', key, n: name || null, x, y, ov }; layRun(ent, draw); learn(ent); ctx.restore();
-      for (let q = n0; q < frameLamps.length; q++) { const l = frameLamps[q]; l.x = px + (l.x - px) * k * f + m1.x - m0.x; l.y = py + (l.y - py) * k + m1.y - m0.y; if (l.ly != null) l.ly = py + (l.ly - py) * k + m1.y - m0.y; l.r *= k; } }, bias + (ov.z || 0));   // ov.z: the editor's «Вперёд / Назад»
+      for (let q = n0; q < frameLamps.length; q++) { const l = frameLamps[q]; l.x = px + (l.x - px) * k * f + m1.x - m0.x; l.y = py + (l.y - py) * k + m1.y - m0.y - lf; if (l.ly != null) l.ly = py + (l.ly - py) * k + m1.y - m0.y - lf; l.r *= k; } }, bias + (ov.z || 0));   // ov.z: the editor's «Вперёд / Назад»
   };
 }
 function layPos(a, s) {   // an added item's tile from its corner anchor, kept inside the room
   const x = a.ax === 'x1' ? s.x1 - a.x : s.x0 + a.x, y = a.ay === 'y1' ? s.y1 - a.y : s.y0 + a.y;
-  return { x: Math.max(s.x0 + 0.1, Math.min(s.x1 - 0.1, x)), y: Math.max(s.y0 + 0.1, Math.min(s.y1 - 0.1, y)) };
+  return { x, y };   // no limits: she may put things anywhere, even outside the walls
 }
 function layExtra(i, s, add) {   // sprites added in the editor
   const cid = CLASSES[i].id, R = RLAY.rooms[cid]; if (!R || !R.add) return;
@@ -4618,7 +4622,7 @@ function render() {
         drawCreature(t1, tp.x, tp.y, hh); }); }   // own drawn professor (her approval, one at a time)
       else { const t0 = staff[(i + 1) % staff.length], tch = { ...t0, back: frontFacing(i), flip: tp.left, path: tp.moving ? [1] : [], ph: performance.now() / 1000 + i }; add(tp.x, tp.y, () => (teacherGlow(tp, 42), drawCreature(tch, tp.x, tp.y, 42, (x, y) => drawHat(x, y - 40, '#6c4fd1')))); } }
     const thI = themeOf(CLASS_SLOT[i]), stations = thI && THEMES[thI].stations;   // potions: a little cauldron instead of a desk
-    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) }; const sfx = STATION_FX[CLASSES[i].id]; add(p.x, p.y, () => { if (CLASSES[i].id === 'flight') { const sa = studentAt(i, d); o.lift = sa ? flightLift(sa.id) : 0; } drawProp(o); if (sfx) sfx(i, d, p, o); }); } else add(p.x, p.y, () => { drawDesk(p); if (CLASSES[i].id === 'herbs') herbsDeskFx(i, d, p); }); }
+    for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) !== !!(deskOv(i, d) && deskOv(i, d).flip) }; const sfx = STATION_FX[CLASSES[i].id]; add(p.x, p.y, () => layRun({ cid: CLASSES[i].id, kind: 'desk', key: 'desk#' + d, d, x: p.x, y: p.y, n: o.n }, () => { if (CLASSES[i].id === 'flight') { const sa = studentAt(i, d); o.lift = sa ? flightLift(sa.id) : 0; } drawProp(o); if (sfx) sfx(i, d, p, o); })); } else add(p.x, p.y, () => layRun({ cid: CLASSES[i].id, kind: 'desk', key: 'desk#' + d, d, x: p.x, y: p.y, n: null }, () => { drawDesk(p); if (CLASSES[i].id === 'herbs') herbsDeskFx(i, d, p); })); }
     const addL = layAdd(i, s, add);   // room editor: items can be moved, scaled, flipped, hidden
     for (const o of roomProps(i)) addL(o.x, o.y, () => drawProp(o), 0, o.n);
     layExtra(i, s, add);
@@ -6845,5 +6849,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=465').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=466').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
