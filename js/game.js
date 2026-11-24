@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=442';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=442';
-import { initMinigame } from './minigame.js?v=442';
-import { initChests } from './chests.js?v=442';
-import { initLore } from './lore.js?v=442';
-import { initAvatar } from './avatar.js?v=442';
+} from './data.js?v=443';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=443';
+import { initMinigame } from './minigame.js?v=443';
+import { initChests } from './chests.js?v=443';
+import { initLore } from './lore.js?v=443';
+import { initAvatar } from './avatar.js?v=443';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 442;   // keep equal to the ?v= number in index.html
+const BUILD = 443;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3571,19 +3571,19 @@ const ROOM_ART = {
     const onWall = (sd, t, hgt, draw) => add(sd === 'x0' ? s.x0 + 0.1 : t, sd === 'x0' ? t : s.y0 + 0.1, () => { const b = up(sd === 'x0' ? P(s.x0, t) : P(t, s.y0), hgt); ctx.save(); ctx.translate(b.x, b.y); ctx.transform(1, (sd === 'x0' ? -1 : 1) * HH / HW, 0, 1, 0, 0); draw(b); ctx.restore(); });   // a flat picture laid onto a wall plane
     add(s.x0 + 0.05, s.y0 + 0.05, () => { for (const wv of HERBS_WINS.values()) { if (wv.s0 !== me) continue; const im = nt > 0.03 && itemIm(wv.night); if (im) { ctx.save(); ctx.globalAlpha = nt; ctx.translate(wv.x, wv.y); if (wv.flip) ctx.scale(-1, 1); ctx.drawImage(im, -wv.sw / 2, -wv.sh / 2, wv.sw, wv.sh); ctx.restore(); } } });
     // the enchanted royal portrait (canon) on the window wall: winks and blows a heart to Iskra now and then
-    const slots = [...CH_SLOTS.values()].filter((q) => q.s0 === me).sort((a, b) => (a.side === b.side ? a.t - b.t : a.side === 'x0' ? -1 : 1)), ps = slots[0] || { side: 'x0', t: s.y0 + 2.4 };
+    const slots = [...CH_SLOTS.values()].filter((q) => q.s0 === me).sort((a, b) => (a.side === b.side ? a.t - b.t : a.side === 'x0' ? -1 : 1)), ps = slots[0] || { side: 'x0', t: s.y0 + 2.4 }; const xsl = slots.filter((q) => q.side === 'x0'), onX = !!xsl[1];   // a long window wall holds the wand cabinet in its second free place; a short one leaves it the back corner
     { const t = ps.t, sd = ps.side, cyc = (T + 3) % 13, wink = cyc > 11.2; onWall(sd, t, TALL_H() * 0.58, () => { const im = itemIm(wink ? 'ch_portrait1' : 'ch_portrait0'); if (!im) return; const h = 48, w = h * im.naturalWidth / im.naturalHeight; ctx.drawImage(im, -w / 2 + (wink ? w * 0.08 : 0), -h / 2, w, h); });
       if (wink) { const u = (cyc - 11.2) / 1.8; add(s.x1, s.y1, () => { const a = up(sd === 'x0' ? P(s.x0, t) : P(t, s.y0), TALL_H() * 0.62), b = P(tp.x, tp.y), x = a.x + (b.x - a.x) * u, y = a.y + (b.y - 40 - a.y) * u - Math.sin(u * Math.PI) * 30; ctx.globalAlpha = Math.min(1, (1 - u) * 3); emoji('💗', x, y, 9 + u * 5); ctx.globalAlpha = 1; }); } }
     // wands -> the gilded wand cabinet against the back wall, between the windows
-    const sw = stageOf(lv('wands')); if (sw) { const k = [0, 0.75, 0.88, 1, 1.05][sw], cx = s.x0 + 2.15, cy = s.y0 + 0.4; add(cx, cy, () => { const r = itemDraw('ch_wands', cx, cy, 82 * k, { shadow: 1 }); if (!r) return; const tw = Math.pow(Math.max(0, Math.sin(T * 1.4)), 8); if (tw > 0.05) fxStar(r.x - r.w * 0.05, r.top + r.h * (0.3 + 0.1 * Math.floor(T / 4.5 % 3)), 4 * tw + (sw >= 4 ? 2 : 0), tw, '255,220,250'); }); }
+    const sw = stageOf(lv('wands')); if (sw) { const k = [0, 0.75, 0.88, 1, 1.05][sw], cx = onX ? s.x0 + 0.55 : s.x0 + 0.62, cy = onX ? xsl[1].t : s.y0 + 0.62; add(cx, cy, () => { const r = itemDraw('ch_wands', cx, cy, 82 * k, { shadow: 1 }); if (!r) return; const tw = Math.pow(Math.max(0, Math.sin(T * 1.4)), 8); if (tw > 0.05) fxStar(r.x - r.w * 0.05, r.top + r.h * (0.3 + 0.1 * Math.floor(T / 4.5 % 3)), 4 * tw + (sw >= 4 ? 2 : 0), tw, '255,220,250'); }); }
     // mirror -> tall gold mirror on the back wall, a rainbow shimmer sweeps over the glass
     const sm = stageOf(lv('mirror')); if (sm) { const k = [0, 0.75, 0.88, 1, 1.05][sm], mx = s.x1 - 1.0, my = s.y0 + 0.45; add(mx, my, () => { const r = itemDraw('ch_mirror', mx, my, 84 * k, { shadow: 1 }); if (!r) return; const u = (T * 0.25) % 1.6; if (u < 1) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45 * Math.sin(u * Math.PI); ctx.drawImage(glowSprite('255,230,255'), r.x - r.w * 0.35, r.top + r.h * (0.1 + u * 0.7) - 10, r.w * 0.7, 20); ctx.restore(); } if (sm >= 4) fxStar(r.x + Math.sin(T) * r.w * 0.2, r.top + r.h * 0.4, 3, 0.8, '255,255,255'); }); }
     // crystal -> the crystal ball on its golden stand in the back corner
-    const sc = stageOf(lv('crystal')); if (sc) { const k = [0, 0.75, 0.88, 1, 1.05][sc], bx = s.x0 + 0.62, by = s.y0 + 0.62; add(bx, by, () => { const r = itemDraw('ch_ball', bx, by, 46 * k, { shadow: 1 }); if (!r) return; const cyb = r.top + r.h * 0.3; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + 0.15 * Math.sin(T * 1.8); ctx.drawImage(glowSprite('230,170,255'), r.x - 22, cyb - 22, 44, 44); ctx.restore();
+    const sc = stageOf(lv('crystal')); if (sc) { const k = [0, 0.75, 0.88, 1, 1.05][sc], bx = onX ? s.x0 + 0.62 : s.x1 - 2.35, by = onX ? s.y0 + 0.62 : s.y0 + 0.5; add(bx, by, () => { const r = itemDraw('ch_ball', bx, by, 46 * k, { shadow: 1 }); if (!r) return; const cyb = r.top + r.h * 0.3; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35 + 0.15 * Math.sin(T * 1.8); ctx.drawImage(glowSprite('230,170,255'), r.x - 22, cyb - 22, 44, 44); ctx.restore();
       for (let m = 0; m < (sc >= 4 ? 5 : 3); m++) { const an = T * 1.1 + m * 2.1; fxStar(r.x + Math.cos(an) * 16, cyb + Math.sin(an) * 6, 2, 0.5 + 0.5 * Math.sin(an * 2), m % 2 ? '255,200,250' : '210,190,255'); } if (dnDark) frameLamps.push({ pot: 1, x: r.x, y: cyb + 10, r: 4, liq: '220,170,255', ly: cyb }); }); }
     // ribbons -> silk ribbon garlands along the walls (1-4), swaying, a bell twinkles
-    const sr = stageOf(lv('ribbons')); if (sr) { const spots = slots.slice(1).map((q) => [q.side, q.t]).slice(0, sr);
-      for (const [sd, t] of spots) onWall(sd, t, TALL_H() * 0.62, () => { const im = itemIm('ch_ribbons'); if (!im) return; const w = 62, h = w * im.naturalHeight / im.naturalWidth; ctx.rotate(Math.sin(T * 1.3 + t) * 0.04); ctx.drawImage(im, -w / 2, -h / 2, w, h); const tw = Math.pow(Math.max(0, Math.sin(T * 0.9 + t * 2)), 10); if (tw > 0.05) fxStar(0, h * 0.25, 3 * tw, tw, '255,230,150'); }); }
+    const sr = stageOf(lv('ribbons')); if (sr) { const spots = [...HERBS_WINS.values()].filter((wv) => wv.s0 === me).sort((a, b) => (a.side === b.side ? a.tm - b.tm : a.side === 'x0' ? -1 : 1)).map((wv) => [wv.side, wv.tm]).slice(0, sr);
+      for (const [sd, t] of spots) onWall(sd, t, TALL_H() * 0.93, () => { const im = itemIm('ch_ribbons'); if (!im) return; const w = 62, h = w * im.naturalHeight / im.naturalWidth; ctx.rotate(Math.sin(T * 1.3 + t) * 0.04); ctx.drawImage(im, -w / 2, -h / 2, w, h); const tw = Math.pow(Math.max(0, Math.sin(T * 0.9 + t * 2)), 10); if (tw > 0.05) fxStar(0, h * 0.25, 3 * tw, tw, '255,230,150'); }); }
     // a crystal chandelier over the rug
     { const ox = s.x0 + W * 0.5, oy = s.y0 + (s.y1 - s.y0) * 0.55; add(ox + 0.8, oy + 0.8, () => { const p = P(ox, oy), lift = 56; ctx.strokeStyle = 'rgba(190,150,80,0.9)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(p.x, p.y - lift - 90); ctx.lineTo(p.x, p.y - lift - 24); ctx.stroke(); const r = itemDraw('ch_chandelier', ox, oy, 34, { lift }); if (!r) return; for (let m = 0; m < 3; m++) { const tw = Math.pow(Math.max(0, Math.sin(T * 1.7 + m * 2.2)), 6); if (tw > 0.05) fxStar(r.x + (m - 1) * r.w * 0.28, r.top + r.h * 0.55, 3 * tw, tw, '255,255,240'); } ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = dnDark ? 0.6 : 0.25; ctx.drawImage(glowSprite('255,225,170'), r.x - 26, r.top + r.h * 0.3 - 16, 52, 36); ctx.restore(); if (dnDark) frameLamps.push({ x: r.x, y: r.top + r.h * 0.5, r: 10 }); }); }
   },
