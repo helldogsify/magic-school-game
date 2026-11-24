@@ -32,7 +32,7 @@ export function runFlight(box, o) {
   fit();
   const P = o.power || {}, B = o.boost || {};
   const st = { t: 0, started: false, over: false, hold: false, x: 0, y: 0.45, vy: 0, speed: SPEED0, score: 0, rings: 0, sparks: 0, streak: 0, shield: !!(P.shield || B.shield),
-    magnet: Math.max(P.magnet || 0, B.magnet ? 0.45 : 0),   // reach in W (was 0.24: her «не работает это притяжение») wind: { t: 11 + Math.random() * 5, dur: 0, dir: 0, warned: false }, rainbows: 0,
+    magnet: Math.max(P.magnet || 0, B.magnet ? 0.45 : 0), wind: { t: 11 + Math.random() * 5, dur: 0, dir: 0, warned: false }, rainbows: 0,   // magnet reach in W (was 0.24: her «не работает это притяжение»); build 460: this comment had swallowed wind + rainbows since 452 (the flight froze at start)
     gates: [], items: [], fx: [], texts: [], bg: [], lastGap: 0.45, gateN: 0, deadT: 0, shake: 0 };
   // background clouds (parallax)
   for (let k = 0; k < 6; k++) st.bg.push({ x: Math.random() * 1.6, y: 0.05 + Math.random() * 0.6, s: 0.25 + Math.random() * 0.3, k: Math.random() < 0.6 ? 'cloud1' : 'cloud2', p: 0.25 + Math.random() * 0.25 });
@@ -179,5 +179,10 @@ export function runFlight(box, o) {
     stop() { alive = false; cancelAnimationFrame(raf); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); window.removeEventListener('resize', onResize); },
     get state() { return st; },
     crash() { if (!st.over) { st.shield = false; crash(); } },   // test hook
+    revive() {   // continue from the same place (moonstones): back in the middle, 2.5 s through clouds, the gates right ahead pushed away
+      st.over = false; st.ended = false; st.deadT = 0; st.y = 0.45; st.vy = 0; st.grace = 2.5; st.hold = false;
+      for (const g of st.gates) if (!g.done && g.x - st.x < 0.9) g.done = true;
+      st.texts.push({ x: 0.36, y: 0.38, s: 'Летим дальше!', t: 0, col: '#7b5cd6' });
+    },
   };
 }

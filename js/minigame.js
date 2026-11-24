@@ -12,7 +12,7 @@ const STAR = [2000, 3500, 5500];  // score for 1/2/3 stars (calibrated with tool
 const MAX_MIN = 10;               // the best round pays 10 minutes of the school's income
 const BOOST = [0, 0, 5, 10];      // minutes of «Вдохновение» per stars
 const BOOST_CAP_MIN = 60;         // same cap as gifts (BOOST_MAX_MIN in game.js)
-import { runFlight, loadFlightArt } from './flight.js?v=4';   // bump when flight.js changes
+import { runFlight, loadFlightArt } from './flight.js?v=5';   // bump when flight.js changes
 const ART_V = 2;   // 2: pink crystal (her «два значка синего цвета, путаешь их»)
 
 export const ING = [   // ingredient tiles; art: assets/minigame/ing_<i>.png (falls back to the emoji until the art exists)
@@ -362,7 +362,9 @@ function close() {
 function onClick(e) {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
-  if (d.mgx !== undefined) { if (FL && FL.live) { FL.h.crash(); return; } if (R && R.live) finish(false); else close(); return; }
+  if (d.mgx !== undefined) { if (FL && FL.live) { if (FL.offer) { contSkip('f'); return; } FL.noCont = true; FL.h.crash(); return; } if (R && R.live) { R.noCont = true; R.offer = false; root.querySelectorAll('.mg-cont').forEach((x) => x.remove()); finish(false); } else close(); return; }
+  if (d.mgcont !== undefined) { contTake(d.mgcont); return; }
+  if (d.mgnocont !== undefined) { contSkip(d.mgnocont); return; }
   if (d.mgpick !== undefined) { if (d.mgpick === 'f') showFlightStart(); else showStart(); return; }
   if (d.mgchoose !== undefined) { if (FL) { FL.h.stop(); FL = null; } showChooser(); return; }
   if (d.flwho !== undefined) { const w = A.flyers ? A.flyers() : []; if (w[+d.flwho]) { mg().fly = w[+d.flwho].k; showFlightStart(); } return; }
@@ -585,7 +587,7 @@ function loop(now) {
   else if (R.state === 'idle') {
     R.idleT += dt;
     if (R.idleT > 5 && !R.hint && R.left > 0) R.hint = findMove(R.g);
-    if (R.left <= 0 && R.live) finish(false);
+    if (R.left <= 0 && R.live && !R.offer) { if (!R.noCont && (R.cont || 0) < CONT_PRICE.length) { R.offer = true; snd('end'); contCard('p', R.cont || 0); } else finish(false); }
   }
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const t = R.g[r] && R.g[r][c]; if (t && t.born) { t.born += dt / 0.25; if (t.born >= 1) t.born = 0; } }
   R.beams = R.beams.filter((b) => (b.t += dt) < 0.42); R.shake = Math.max(0, R.shake - dt);
@@ -730,6 +732,8 @@ function startFlight() {
 }
 function flEnd(res, silent) {
   if (!FL || !FL.live) return;
+  if (!silent && !FL.noCont && !FL.offer && (FL.cont || 0) < CONT_PRICE.length) { FL.offer = true; FL.res = res; snd('end'); contCard('f', FL.cont || 0); return; }   // continue for moonstones first
+  if (FL.offer) { FL.offer = false; root.querySelectorAll('.mg-cont').forEach((x) => x.remove()); }
   FL.live = false;
   const S = st(), f = fl(), score = res.score || 0, stars = score >= F_STAR[2] ? 3 : score >= F_STAR[1] ? 2 : score >= F_STAR[0] ? 1 : 0;
   const recW = score > (f.wb || 0), recAll = score > (f.best || 0);
@@ -761,6 +765,34 @@ function flEnd(res, silent) {
 export function flightBest() { const S = st(); if (!S || !S.mg) return 0; return fl().wb || 0; }
 export function flightPrev() { const S = st(); if (!S || !S.mg) return 0; const f = fl(); return f.pw === weekKey() - 1 ? f.pm || 0 : 0; }
 export function flightPrizeDue() { const S = st(); if (!S || !S.mg) return false; const f = fl(), w = weekKey() - 1; return f.pw === w && f.pm > 0 && f.claimed !== w && Date.now() - (w + 1) * 7 * 86400000 + 3 * 86400000 > 15 * 60000; }
+
+// ---- continue after a lost round (moonstones): 🔮2, then 🔮4, at most twice a round
+const CONT_PRICE = [2, 4], CONT_SEC = 20;
+const stoneImg = (h = 18) => `<img src="assets/ui/moonstone.webp?v=1" alt="" style="height:${h}px;width:auto;vertical-align:-${Math.round(h * 0.2)}px">`;
+function contCard(kind, k) {   // kind 'p' potions / 'f' flight; k = continues used this round
+  const price = CONT_PRICE[k], have = A.stones ? A.stones() : 0, ok = have >= price;
+  root.appendChild(el(`<div class="mg-card mg-cont">
+    <h2>${kind === 'p' ? 'Время вышло!' : 'Ой, тучка!'}</h2>
+    <p style="margin:4px 0 10px">${kind === 'p' ? `Продолжить с этого места? Доска и очки останутся, добавится ${CONT_SEC} секунд.` : 'Продолжить полёт с этого места? Очки и кольца останутся.'}</p>
+    <button class="btn wide hot" data-mgcont="${kind}" ${ok ? '' : 'disabled'}>${kind === 'p' ? `⏳ +${CONT_SEC} секунд` : '🪶 Лететь дальше'} за ${stoneImg(18)} ${price}</button>
+    <p class="muted" style="margin:6px 0">${ok ? `У тебя ${stoneImg(14)} ${have}` : `Нужно ${stoneImg(14)} ${price}, у тебя ${have}`}</p>
+    <button class="btn wide ghost" data-mgnocont="${kind}">Закончить</button>
+  </div>`));
+}
+function contTake(kind) {
+  const R0 = kind === 'p' ? R : FL; if (!R0 || !R0.offer) return;
+  const price = CONT_PRICE[R0.cont || 0];
+  if (!A.stones || A.stones() < price) return;
+  A.spendStones(price); R0.cont = (R0.cont || 0) + 1; R0.offer = false; A.save();
+  root.querySelectorAll('.mg-cont').forEach((x) => x.remove());
+  if (kind === 'p') { R.left = CONT_SEC; R.lastTick = 0; R.idleT = 0; }
+  else FL.h.revive();
+}
+function contSkip(kind) {
+  const R0 = kind === 'p' ? R : FL; if (!R0) return;
+  R0.offer = false; R0.noCont = true; root.querySelectorAll('.mg-cont').forEach((x) => x.remove());
+  if (kind === 'p') finish(false); else flEnd(FL.res || FL.h.state, false);
+}
 
 // ---- end of round ----
 function finish(silent) {
@@ -799,7 +831,7 @@ function finish(silent) {
 export function initMinigame(api) {
   A = api;
   addEventListener('resize', () => { if (R && cv) layout(); });
-  window.__mg = { open, close, charges, get R() { return R; }, resolveStep, findGroups, findMove, setLeft: (s) => { if (R) R.left = s; }, setScore: (s) => { if (R) R.score = s; }, SND, SND_DB, STAR };
+  window.__mg = { open, close, charges, get R() { return R; }, get FL() { return FL; }, resolveStep, findGroups, findMove, setLeft: (s) => { if (R) R.left = s; }, setScore: (s) => { if (R) R.score = s; }, SND, SND_DB, STAR };
   window.__fl = { get FL() { return FL; }, F_STAR, start: () => { showFlightStart(); startFlight(); } };
   return { open, isOpen, pill, charges, addCharges, weekBest, weekKey, prevBest, prizeDue, claim: () => { mg().claimed = weekKey() - 1; A.save(); },
     flightBest, flightPrev, flightPrizeDue, claimFlight: () => { fl().claimed = weekKey() - 1; A.save(); } };
