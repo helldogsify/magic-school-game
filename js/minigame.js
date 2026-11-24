@@ -57,12 +57,15 @@ function mg() {
   const m = S.mg; rollWeek(m);
   return m;
 }
-function pool() {   // the shared pool {ch, t}; the first time it starts from this world's own count (never above CH_MAX)
-  let p = null; try { p = JSON.parse(localStorage.getItem(CH_KEY) || 'null'); } catch (e) { p = null; }
+const META_KEY = 'magicschool.meta';   // the world meta goes to the cloud with the saves: the pool lives there (build 426)
+const readMeta = () => { try { return JSON.parse(localStorage.getItem(META_KEY) || '{}') || {}; } catch (e) { return {}; } };
+function pool() {   // the shared pool {ch, t}; first time: the old device-local key (build 425), else this world's own count
+  let p = readMeta().mgch;
+  if (!p || typeof p.ch !== 'number') { try { p = JSON.parse(localStorage.getItem(CH_KEY) || 'null'); } catch (e) { p = null; } }
   if (!p || typeof p.ch !== 'number') { const m = mg(); p = { ch: Math.min(CH_MAX, m.ch ?? CH_MAX), t: m.t || Date.now() }; }
   return p;
 }
-const savePool = (p) => { try { localStorage.setItem(CH_KEY, JSON.stringify(p)); } catch (e) { /* storage full */ } };
+const savePool = (p) => { try { const m = readMeta(); m.mgch = { ch: p.ch, t: p.t }; localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) { /* storage full */ } };
 export function charges() {
   const p = pool(), now = Date.now();
   if (p.ch >= CH_MAX) { p.t = now; savePool(p); return p.ch; }
