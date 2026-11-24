@@ -1,14 +1,14 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
-import './edit_guard.js?v=471';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=472';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=471';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=471';
-import { initMinigame } from './minigame.js?v=471';
-import { initChests } from './chests.js?v=471';
-import { initLore } from './lore.js?v=471';
-import { initAvatar } from './avatar.js?v=471';
+} from './data.js?v=472';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=472';
+import { initMinigame } from './minigame.js?v=472';
+import { initChests } from './chests.js?v=472';
+import { initLore } from './lore.js?v=472';
+import { initAvatar } from './avatar.js?v=472';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -31,7 +31,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 471;   // keep equal to the ?v= number in index.html
+const BUILD = 472;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3947,6 +3947,7 @@ function drawRugAt(c, th, s) {   // rooms without desks (library): a rug in the 
   const w = s.x1 - s.x0, h = s.y1 - s.y0, d = Math.min(w, h) - 1.6, m = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2 + 0.3);
   const sw = d * HW * Math.SQRT2, sh = sw * im.naturalHeight / im.naturalWidth; c.drawImage(im, m.x - sw / 2, m.y - sh / 2, sw, sh);
 }
+const rugDyn = (i) => { const R = RLAY.rooms[CLASSES[i].id]; return !!EDIT || !!(R && R.items && R.items['rug#1']); };   // the class rug as an editor item
 function drawRug(c, th, s, i) {
   const im = part(th, THEMES[th].rug); if (!im) return;
   const w = s.x1 - s.x0, cols = w >= 9 ? 4 : 3, rows = Math.ceil(S.classes[i].desks / cols);
@@ -4130,7 +4131,7 @@ function drawSlot(c, id) {
     c.transform(m11, m21, m12, m22, e, f); c.drawImage(art, 0, 0); c.restore();
 
   } else if (themeOf(id) && texFloor(c, themeOf(id), s)) {
-    if (ci >= 0) drawRug(c, themeOf(id), s, ci); else drawRugAt(c, themeOf(id), s);
+    if (ci >= 0) { if (!rugDyn(ci)) drawRug(c, themeOf(id), s, ci); } else drawRugAt(c, themeOf(id), s);   /* an editable class rug is drawn with the room's items */
     const rn = THEMES[themeOf(id)].runner;
     if (rn) { poly(c, [P(s.x0 + rn.u0, s.y0), P(s.x0 + rn.u1, s.y0), P(s.x0 + rn.u1, s.y1), P(s.x0 + rn.u0, s.y1)], rn.color, '#c9849488'); }
   } else {
@@ -4684,6 +4685,7 @@ function render() {
     const thI = themeOf(CLASS_SLOT[i]), stations = thI && THEMES[thI].stations;   // potions: a little cauldron instead of a desk
     for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) !== !!(deskOv(i, d) && deskOv(i, d).flip) }; const sfx = STATION_FX[CLASSES[i].id]; add(p.x, p.y, () => layRun({ cid: CLASSES[i].id, kind: 'desk', key: 'desk#' + d, d, x: p.x, y: p.y, n: o.n, tint: (RLAY.rooms[CLASSES[i].id] || {}).deskTint || null }, () => { if (CLASSES[i].id === 'flight') { const sa = studentAt(i, d); o.lift = sa ? flightLift(sa.id) : 0; } drawProp(o); if (sfx) sfx(i, d, p, o); })); } else add(p.x, p.y, () => layRun({ cid: CLASSES[i].id, kind: 'desk', key: 'desk#' + d, d, x: p.x, y: p.y, n: null }, () => { drawDesk(p); if (CLASSES[i].id === 'herbs') herbsDeskFx(i, d, p); })); }
     const addL = layAdd(i, s, add);   // room editor: items can be moved, scaled, flipped, hidden
+    if (thI && THEMES[thI].rug && rugDyn(i)) addL((s.x0 + s.x1) / 2, s.y0 + 2.6, () => drawRug(ctx, thI, s, i), -1e5, 'rug');   /* the class rug, under the desks and everyone */
     for (const o of roomProps(i)) addL(o.x, o.y, () => drawProp(o), 0, o.n);
     layExtra(i, s, add);
     if (ROOM_ART[CLASSES[i].id]) ROOM_ART[CLASSES[i].id](i, s, st, addL);   // a redesigned room draws its own built-in items and light
@@ -6909,5 +6911,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=471').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=472').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
