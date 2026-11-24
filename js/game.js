@@ -1,15 +1,16 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=482';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=483';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=482';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=482';
-import { initMinigame } from './minigame.js?v=482';
-import { initChests } from './chests.js?v=482';
-import { initLore } from './lore.js?v=482';
-import { initAvatar } from './avatar.js?v=482';
+} from './data.js?v=483';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=483';
+import { initMinigame } from './minigame.js?v=483';
+import { initChests } from './chests.js?v=483';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=483';
+import { initLore } from './lore.js?v=483';
+import { initAvatar } from './avatar.js?v=483';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -32,7 +33,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 482;   // keep equal to the ?v= number in index.html
+const BUILD = 483;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1662,7 +1663,7 @@ const INCIDENTS_W2 = { runes: ['🪨', 'руны осыпались со сте�
 const incInfo = (i) => (S.inc[i].k === 'r' ? ['🪨', 'обвал завалил зал'] : S.inc[i].k === 'g' ? INC_GENERIC : (WORLD === 2 ? INCIDENTS_W2 : INCIDENTS)[CLASSES[i].id] || INC_GENERIC);
 let incT = 45;
 function hintOnce(key, emo, title, text) {   // a short explanation the first time something happens
-  S.hints ||= {}; if (S.hints[key] || tourStep >= 0) return; S.hints[key] = 1; save();
+  S.hints ||= {}; if (S.hints[key] || tourStep >= 0) return; S.hints[key] = 1; save(); glog('hint', title, WORLD);
   openPanel(() => `<div class="sh-head"><span class="remoji big">${emo}</span><div><h2>${title}</h2><div class="muted">Подсказка</div></div><button class="x" data-close>✕</button></div><p>${text}</p><button class="btn wide" data-close>Понятно</button>`);
 }
 // build audit 2026-11-24: a game left open on screen with nobody at it lost more than a closed one (incidents only start live and
@@ -1677,7 +1678,7 @@ function stepIncidents(dt, live) {
   incT = (INC_MIN + Math.random() * (INC_MAX - INC_MIN)) * (1 + 0.1 * dirLvl('keeper'));
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !S.inc[i] && !(WORLD === 2 && S.w2 && S.w2.throne && (S.w2.throne.cur || S.w2.throne.warned) && CLASSES[i].id === THRONE_NEED));   // the guard hall is never hit while it defends
   if (Object.keys(S.inc).length >= INC_MAXN || !open.length) return;
-  const i = rnd(open); S.inc[i] = { k: Math.random() < 0.3 ? 'g' : 'c', t: 0 }; sfx(incSound(i));
+  const i = rnd(open); S.inc[i] = { k: Math.random() < 0.3 ? 'g' : 'c', t: 0 }; sfx(incSound(i)); glog('event', 'происшествие: ' + CLASSES[i].name, WORLD);
   const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`); try { navigator.vibrate?.(80); } catch (er) { /* no vibration */ }
   hintOnce('inc', '💥', 'Происшествие!', `В классе «${CLASSES[i].name}» ${txt}. Урок остановился, ученики носятся по классу. Закрой подсказку и нажми на этот класс — всё починится. Если не трогать, через 10 минут пройдёт само, но школа потеряет монеты.`);
   dirtyPanel = true;
@@ -4940,8 +4941,15 @@ function costBtn(label, cost, act, extra = '') { return `<button class="btn" dat
 
 let panel = null; let dirtyPanel = false;
 let panelHtml = '';
-function openPanel(fn) { if (Date.now() - PRICE_AT > 600000) { PRICE_FROZEN.clear(); PRICE_AT = Date.now(); } $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; panelHtml = emojiHtml(fn()); sh.innerHTML = panelHtml; sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
-function closePanel() { panel = null; $('#sheet-wrap').classList.add('hidden'); $('#tour').classList.remove('under-panel'); }   // the tour card hides while a panel is open
+function openPanel(fn) { setTimeout(() => { const h = document.querySelector('#sheet h2'); if (h && panel === fn) glog('open', h.textContent, WORLD); }, 0); if (Date.now() - PRICE_AT > 600000) { PRICE_FROZEN.clear(); PRICE_AT = Date.now(); } $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; panelHtml = emojiHtml(fn()); sh.innerHTML = panelHtml; sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
+function gameLogPanel() {   // the event journal (newest first)
+  const L = gentries().slice(-200).reverse();
+  return `<div class="sh-head"><span class="remoji big">📜</span><div><h2>Журнал событий</h2><div class="muted">что происходило в игре: сообщения, подсказки, окна, нажатия, события</div></div><button class="x" data-close>✕</button></div>
+    <button class="btn ghost wide" data-gamelogcopy>📋 Скопировать весь журнал</button>
+    <div style="font:500 12px ui-monospace,Menlo,monospace;white-space:pre-wrap;line-height:1.45;margin-top:10px">${L.length ? L.map((e) => escTxt(gline(e))).join('\n') : 'Пока пусто'}</div>`;
+}
+gameLogPanel.still = true;
+function closePanel() { if (panel) glog('open', 'закрыто окно', WORLD); panel = null; $('#sheet-wrap').classList.add('hidden'); $('#tour').classList.remove('under-panel'); }   // the tour card hides while a panel is open
 // Update the DOM in place: unchanged nodes (icons!) stay, only changed text and attributes are written.
 // A fresh innerHTML re-created every <img> and on phones the icons blinked on each refresh.
 function morph(el, html) {
@@ -5128,6 +5136,7 @@ function settingsPanel() {
     <div id="fb-pics" class="fb-pics"></div>
     <label class="btn ghost wide fb-add">📷 Добавить картинку (до 3)<input id="fb-file" type="file" accept="image/*" multiple hidden></label>
     <button class="btn wide" data-feedback>💌 Отправить отзыв</button>${fbReplies().length ? `<button class="btn ghost wide" data-replies>💌 Ответы на отзывы (${fbReplies().length})</button>` : ''}
+    <button class="btn ghost wide" data-gamelog>📜 Журнал событий</button>
     <button class="btn ghost wide" data-tour-again>❓ Как играть (обучение)</button>
     <button class="btn ghost wide" data-reset>Начать игру заново</button>`;
 }
@@ -5202,7 +5211,10 @@ ${msg}
 
 — версия ${VERSION} (сборка ${BUILD})
 — ${deviceName()}
-— монет ${fmt(S.coins)}, классов ${built}, выпускников ${S.stats.graduated}, ушли ${S.stats.left || 0}, рейтинг ${ratingTxt()}`;
+— монет ${fmt(S.coins)}, классов ${built}, выпускников ${S.stats.graduated}, ушли ${S.stats.left || 0}, рейтинг ${ratingTxt()}
+
+📜 Последние события (журнал игры):
+${gtail(30)}`;
   const btn = document.querySelector('[data-feedback]'); if (btn) { btn.disabled = true; btn.textContent = 'Отправляю…'; }
   try {
     const r = await fetch(FEEDBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, images: fbPics }) });
@@ -5901,7 +5913,7 @@ function updateHud() {
   renderMission(); renderInsp();
   const sb = $('#spbtn'); if (sb) sb.classList.toggle('ready', FORM_KEYS.some((k) => formReady(k) && S.coins >= formCost(k)));   // glows when a card level can be bought (back on the screen, build 306)
 }
-function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
+function toast(t) { glog('toast', t, WORLD); const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
 
 // ======================= pinch zoom =======================
 // wide screens (tester Гоша, 2560x1440: «Адаптируй пожалуйста игру под разные разрешения экрана»): the map fills the whole window; the
@@ -6011,6 +6023,7 @@ function openRoom(id) {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button'); if (!t) return;
   const d = t.dataset, i = +d.i;
+  { const ks = Object.keys(d); if (ks.length) glog('tap', ks.map((k) => (d[k] ? `${k}=${d[k]}` : k)).join(' ').slice(0, 80) + (t.textContent ? ' «' + t.textContent.replace(/\s+/g, ' ').trim().slice(0, 40) + '»' : ''), WORLD); }   // the event journal: what was pressed
   if (t.id === 'menubtn') { setMenu(!menuOpen); return; }
   if (menuOpen && t.closest('#menugrid')) setMenu(false);   // a tile closes the menu, then opens its panel below as before
   if (d.close !== undefined) { closePanel(); return; }
@@ -6036,6 +6049,8 @@ document.addEventListener('click', (e) => {
   if (t.id === 'btn-settings') { openPanel(settingsPanel); drawFbPics(); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
   if (d.replies !== undefined) { openPanel(repliesPanel); return; }
+  if (d.gamelog !== undefined) { openPanel(gameLogPanel); return; }
+  if (d.gamelogcopy !== undefined) { const t = gdump(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('📜 Журнал скопирован')).catch(() => window.prompt('Скопируй журнал:', t)); return; }
   if (d.fbDel !== undefined) { fbPics.splice(+d.fbDel, 1); drawFbPics(); return; }
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
   if (d.top !== undefined) { openTop(); return; }
@@ -6879,11 +6894,12 @@ function bootFrame(now) {
   }
   if (catchLeft > 0 || (imgP < 1 && now - bootT0 < BOOT_MAX_MS)) return true;
   if (bootDrawn < 2) { render(); bootDrawn++; if (bar) bar.style.transform = 'scaleX(1)'; return true; }   // the map is baked under the curtain
-  bootOn = false; window.__ready = performance.now();
+  bootOn = false; window.__ready = performance.now(); glog('app', `запуск игры, сборка ${BUILD}, мир ${WORLD}`, WORLD);
   const el = document.getElementById('boot'); if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; setTimeout(() => el.remove(), 450); }
   return false;
 }
 function welcomeBack(sec, gain) {   // build audit 2026-11-24: the real time away, the 4 h limit said plainly, losses shown too
+  glog('app', `возвращение: не было ${Math.round(sec / 60)} мин, заработано ${fmt(gain || 0)}`, WORLD);
   if (sec < 60 || (gain < 1 && catchLeft0 < 1)) return;
   const hm = (m) => (m >= 60 ? Math.floor(m / 60) + ' ч ' : '') + (m % 60) + ' мин', mins = Math.round(sec / 60), capH = OFFLINE_CAP_SEC / 3600, over = sec > OFFLINE_CAP_SEC + 60;
   const lost = catchLeft0 >= 1 ? `<p class="center muted">😢 Ушли расстроенными: ${fmt(catchLeft0)}${catchOut >= 1 ? `, им вернули 🪙 ${fmt(catchOut)}` : ''}. Чтобы уходило меньше — больше мест в классах и спальне.</p>` : '';
@@ -7088,5 +7104,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=482').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=483').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
