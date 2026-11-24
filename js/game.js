@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=427';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=427';
-import { initMinigame } from './minigame.js?v=427';
-import { initChests } from './chests.js?v=427';
-import { initLore } from './lore.js?v=427';
-import { initAvatar } from './avatar.js?v=427';
+} from './data.js?v=428';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=428';
+import { initMinigame } from './minigame.js?v=428';
+import { initChests } from './chests.js?v=428';
+import { initLore } from './lore.js?v=428';
+import { initAvatar } from './avatar.js?v=428';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 427;   // keep equal to the ?v= number in index.html
+const BUILD = 428;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2118,6 +2118,7 @@ function menuItems() {
     { attr: 'data-top', icon: '🏆', label: 'Топ школ' },
     { attr: 'data-ally', icon: '🤝', label: 'Альянс', sub: ally, badge: allyGifts.length + ownReqs.length },
     { attr: 'data-people', icon: '👥', label: 'Ученики', sub: String(inSchool().length) },
+    { attr: 'data-stones', icon: ST_ICON, label: 'Лунные камни', sub: String(stones()) },   // the premium currency (Maria 2026-11-24)
     { attr: 'data-mg', icon: '🧪', label: 'Мини-игры', sub: (() => { const n = MG.charges(); return n ? `попыток: ${n}` : ''; })() },   // also in the menu (tester №73po7zf1, Maria's pick «И там, и там»: the 🧪 pill stays)
   ];
   for (const it of menuExtra) base.push({ attr: it.attr, icon: it.icon, label: it.label, sub: it.sub ? it.sub() : '', badge: it.badge ? it.badge() : 0, glow: it.glow ? it.glow() : false });
@@ -2146,6 +2147,7 @@ function stepWorld(dt, live = false) {
   stepRefund(dt);
   stepTrade(dt);
   stepMoon();
+  stepStones(dt);
   stepExped();
   stepRumble(dt, live);
   arrivalT -= dt;
@@ -2909,9 +2911,62 @@ function tapMoon() {
   }
   const v = Math.max(50, Math.round(n * MOON_PAY * (steadyRate() || S.ema || 1)));
   M.f = 0; S.stats.moon = (S.stats.moon || 0) + n;
+  { let pearl = 0; for (let k = 0; k < n; k++) if (Math.random() < 0.05) pearl++; if (pearl && stonesAdd(pearl)) setTimeout(() => toast(`🌙 Лунная жемчужина! ${ST_ICON} +${pearl} лунный камень`), 900); }   // the premium currency's rare free source
   earn(v, MOON_AT.x, MOON_AT.y - 2, '#7f9cff', 70); popup(n > 1 ? `🌙×${n}` : '🌙', MOON_AT.x + 0.4, MOON_AT.y - 3, '#7f9cff', 60);
   hintOnce('moon', '🌙', 'Лунное древо', `Это Лунное древо у ворот. Его плоды созревают только ночью, с 21:30 до 5:30: каждые ${MOON_EVERY / 60} минут по одному, до ${MOON_MAX} сразу. Ночь идёт, даже когда игра закрыта, — загляни утром и собери. Каждый плод стоит ${MOON_PAY / 60} минуты дохода школы.`);
   save();
+}
+// ======================= «Лунный камень» — the premium currency (Maria 2026-11-24, name approved) =======================
+// One balance for both worlds and every device: magicschool.meta.stones = { n, got: { key: time } } (the meta travels with the cloud
+// save; every meta write in the game is read-modify-write). Earned for free only with effort; real-money packs are shown as «скоро».
+const ST_ICON = '🔮';
+const stMeta = () => { try { return JSON.parse(localStorage.getItem('magicschool.meta') || '{}') || {}; } catch (e) { return {}; } };
+const stones = () => { const m = stMeta(); return (m.stones && m.stones.n) || 0; };
+function stonesAdd(n, key) {   // key: a one-time source (never paid twice); returns true when paid
+  const m = stMeta(), st = (m.stones ||= { n: 0, got: {} }); st.got ||= {};
+  if (key && st.got[key]) return false;
+  st.n = Math.max(0, (st.n || 0) + n); if (key) st.got[key] = Date.now();
+  try { localStorage.setItem('magicschool.meta', JSON.stringify(m)); } catch (e) { return false; }
+  dirtyPanel = true; return true;
+}
+const ST_ACH = [   // big one-time goals, per world (key wN_id; the second world's opening once), amounts in stones
+  { id: 'grad1k', t: '1 000 выпускников', n: 5, ok: () => S.stats.graduated >= 1000 },
+  { id: 'allbuilt', t: 'Все классы построены', n: 20, ok: () => S.classes.every((c) => c.built) },
+  { id: 'master', t: WORLD === 2 ? 'Первый Хранитель' : 'Первый Мастер', n: 20, ok: () => ((S.stats.ranks || [])[5] || 0) > 0 },
+  { id: 'grad100k', t: '100 000 выпускников', n: 15, ok: () => S.stats.graduated >= 100000 },
+  { id: 'w2', t: 'Открыт второй мир', n: 15, ok: () => (stMeta().unlocked || []).includes(2) },
+];
+const stKey = (a) => (a.id === 'w2' ? '' : 'w' + WORLD + '_') + a.id;
+let stCheckT = 0;
+function stepStones(dt) {   // checks the goals every 5 s (also during the catch-up: a goal reached while away pays on return)
+  if (WORLD > 2 || !S) return; stCheckT += dt; if (stCheckT < 5) return; stCheckT = 0;
+  for (const a of ST_ACH) if (a.ok() && stonesAdd(a.n, stKey(a)) && !ffwd) toast(`${ST_ICON} +${a.n} лунных камней: ${a.t}!`);
+}
+const ST_SHOP = [
+  { k: 'mg', icon: '🧪', name: 'Попытка в мини-игре', txt: '+1 попытка с наградой (не больше 3)', price: 5, can: () => MG.charges() < 3, why: () => 'попыток уже 3 из 3',
+    buy: () => { MG.charges(); const m = stMeta(), p = m.mgch || { ch: 0, t: Date.now() }; p.ch = Math.min(3, (p.ch || 0) + 1); m.mgch = p; localStorage.setItem('magicschool.meta', JSON.stringify(m)); } },
+  { k: 'moon', icon: '🌙', name: 'Лунное древо созревает', txt: 'все 3 лунных плода сразу, днём тоже', price: 8, can: () => WORLD === 1 && moonSt().f < MOON_MAX, why: () => (WORLD === 1 ? 'плоды уже созрели' : 'Лунное древо растёт в первом мире'),
+    buy: () => { moonSt().f = MOON_MAX; } },
+];
+const ST_SOON = [['👘', 'Наряды для учеников'], ['⛲', 'Новый вид фонтана'], ['🪧', 'Табличка школы'], ['🏅', 'Награды за топ мини-игр недели'], ['🤝', 'Цели альянса']];
+const ST_PACKS = [30, 100, 350];   // real-money packs: sizes only, prices after her decision
+function stonesPanel() {
+  const n = stones(), got = (stMeta().stones || {}).got || {};
+  const ach = ST_ACH.map((a) => { const done = !!got[stKey(a)];
+    return `<div class="card up"><span class="remoji">${done ? '✅' : '🎯'}</span><div class="grow"><b>${a.t}</b><div class="muted">${done ? 'получено' : 'цель'}</div></div><b>${ST_ICON} ${a.n}</b></div>`; }).join('');
+  const shop = ST_SHOP.map((it) => { const ok = it.can();
+    return `<div class="card up"><span class="remoji">${it.icon}</span><div class="grow"><b>${it.name}</b><div class="muted">${ok ? it.txt : it.why()}</div></div><button class="btn small" data-stbuy="${it.k}" ${ok && n >= it.price ? '' : 'disabled'}>${ST_ICON} ${it.price}</button></div>`; }).join('');
+  return `<div class="sh-head"><span class="remoji big">${ST_ICON}</span><div><h2>Лунные камни</h2><div class="muted">Редкая волшебная валюта — одна на оба мира</div></div><button class="x" data-close>✕</button></div>
+    <div class="card" style="justify-content:center;font-size:22px"><b>${ST_ICON} ${n}</b></div>
+    <h3>Как добыть</h3><p class="muted">Лунные камни даются за большие достижения школы в каждом мире. А ещё ночью на Лунном древе иногда вызревает лунная жемчужина 🌙.</p>${ach}
+    <h3>Лавка</h3>${shop}
+    <h3>Скоро</h3>${ST_SOON.map(([i, t]) => `<div class="card up" style="opacity:.6"><span class="remoji">${i}</span><div class="grow"><b>${t}</b></div><span class="muted">скоро</span></div>`).join('')}
+    <h3>Наборы камней</h3><p class="muted">Покупка за деньги появится позже.</p>${ST_PACKS.map((k) => `<div class="card up" style="opacity:.6"><span class="remoji">${ST_ICON}</span><div class="grow"><b>${k} лунных камней</b></div><button class="btn small" disabled>скоро</button></div>`).join('')}`;
+}
+function stonesBuy(k) {
+  const it = ST_SHOP.find((x) => x.k === k); if (!it) return;
+  if (!it.can()) { toast(it.why()); return; } if (stones() < it.price) { toast(`Нужно ${ST_ICON} ${it.price}`); return; }
+  it.buy(); stonesAdd(-it.price); save(); toast(`${it.icon} ${it.name}!`); dirtyPanel = true;
 }
 function drawTreeGrounded(o, im, p, w, h) {   // false = not a grounded tree (draw as usual)
   const g = WORLD === 1 && TREE_GROUND[o.n], soil = SOIL[(Math.round(o.x * 7 + o.y * 13) & 1)];
@@ -5279,6 +5334,8 @@ document.addEventListener('click', (e) => {
   if (d.mgsub !== undefined) { mgSub = d.mgsub; const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; return; }
   if (d.toptab !== undefined) { topTab = d.toptab; const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; return; }
   if (d.ally !== undefined) { openAlly(); return; }
+  if (d.stones !== undefined) { openPanel(stonesPanel); return; }
+  if (d.stbuy !== undefined) { stonesBuy(d.stbuy); return; }
   if (d.mg !== undefined) { MG.open(); return; }
   if (d.allyclaim !== undefined) { allyClaim(); return; }
   if (d.allygift !== undefined) { allySend(d.allygift, 'gift'); return; }
