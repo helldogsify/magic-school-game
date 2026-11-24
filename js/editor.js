@@ -59,7 +59,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
 <span><button data-size="1">Мал.</button> <button data-size="2">Сред.</button> <button data-size="3">Бол.</button></span>
 <button id="ed-stage" title="Уровень предметов класса">Ур. ${E.stage}</button>
 <button id="ed-day">☀️ День</button>
-<button id="ed-undo">↶</button>
+<button id="ed-undo">↶</button><button id="ed-go" style="display:none;background:#ffe3a8"></button>
 <span class="grow"></span>
 <button id="ed-save" class="save">💾 Сохранить</button><button id="ed-pub" class="pub">🚀 Опубликовать</button>
 <div id="ed-st"></div>`;
@@ -190,6 +190,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
       b('⇋ Развернуть', () => { a.flip = !a.flip || undefined; apply(false); }, 'Повернуть другим боком');
       b('↶', () => { a.rot = ((a.rot || 0) - 15) % 360 || undefined; apply(false); }, 'Наклонить влево'); b('↷', () => { a.rot = ((a.rot || 0) + 15) % 360 || undefined; apply(false); }, 'Наклонить вправо');
       b('⏫ Вперёд', () => { a.bias = (a.bias || 0) + 1; apply(false); }, 'Поверх соседей'); b('⏬ Назад', () => { a.bias = (a.bias || 0) - 1 || undefined; apply(false); }, 'За соседей');
+      b(a.flat ? '▯ Поставить' : '▭ Положить', () => { a.flat = a.flat ? undefined : 1; if (a.flat) { delete a.wall; a.lift = 0; } apply(false); }, a.flat ? 'Поставить стоя' : 'Положить на пол, как ковёр');
       b('⬆', () => { a.lift = Math.round((a.lift || 0) + 6); apply(false); }, 'Выше'); b('⬇', () => { a.lift = Math.max(0, Math.round((a.lift || 0) - 6)); apply(false); }, 'Ниже');
       b(a.wall ? '⬇ На пол' : '🖼 На стену', () => { const p = A.layPos(a, s); if (a.wall) { delete a.wall; a.lift = 0; } else { a.wall = p.x - s.x0 < p.y - s.y0 ? 'x0' : 'y0'; a.lift = Math.round(A.TALL_H() * 0.55); } apply(false); });
       b('⧉', () => { const c = clone(a); c.x = (c.x || 0) + 0.6; R.add.push(c); sel = { t: 'add', key: 'add#' + (R.add.length - 1) }; apply(false); }, 'Копия');
@@ -228,6 +229,8 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   }
   function addSprite(src, im) {
     snap(); const R = room(); R.add ||= []; const a = { src, h: Math.round(Math.max(24, Math.min(90, (im.naturalHeight || 300) / 5))) };
+    if (/^rugs\/|(^|[/_])(rug|carpet|mat)(_|$)/.test(src)) { a.flat = 1; a.h = Math.round(3.4 * A.HW * Math.SQRT2 * (im.naturalHeight || 1) / (im.naturalWidth || 1)); }   // rugs lie on the floor, ~3.4 tiles wide
+    look();   // the new thing appears in THIS class: bring it on screen
     anchor(a, inRoom(mid.x, mid.y)); R.add.push(a); sel = { t: 'add', key: 'add#' + (R.add.length - 1) }; apply(false); showSel();
   }
 
@@ -248,8 +251,14 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   }
 
   // ---------- overlay: thin frames on what can be moved, a bold one on the selection ----------
+  let goT = 0;
+  function goCheck() {   // the screen shows another class than the one being edited: offer to switch to it
+    const r = stageRect(), w = toWorld(r.left + r.width / 2, r.top + r.height * 0.45), td = tileDelta(w.x - A.P(0, 0).x, w.y - A.P(0, 0).y), b = $('#ed-go');
+    const j = A.CLASSES.findIndex((c, i) => { const q = A.slotOf(i); return q && td.dx >= q.x0 && td.dx < q.x1 && td.dy >= q.y0 && td.dy < q.y1; });
+    if (j >= 0 && A.CLASSES[j].id !== cid) { b.style.display = ''; b.textContent = `✏️ Править «${A.CLASSES[j].name}»`; b.onclick = () => reload({ c: A.CLASSES[j].id }); } else b.style.display = 'none';
+  }
   function frame() {
-    requestAnimationFrame(frame);
+    requestAnimationFrame(frame); if (performance.now() - goT > 500) { goT = performance.now(); goCheck(); }
     const r = stageRect(), d = devicePixelRatio || 1; if (ov.width !== Math.round(r.width * d) || ov.height !== Math.round(r.height * d)) { ov.width = Math.round(r.width * d); ov.height = Math.round(r.height * d); }
     Object.assign(ov.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
     oc.setTransform(d, 0, 0, d, -r.left * d, -r.top * d); oc.clearRect(r.left, r.top, r.width, r.height);
