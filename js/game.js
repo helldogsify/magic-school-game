@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=437';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=437';
-import { initMinigame } from './minigame.js?v=437';
-import { initChests } from './chests.js?v=437';
-import { initLore } from './lore.js?v=437';
-import { initAvatar } from './avatar.js?v=437';
+} from './data.js?v=438';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=438';
+import { initMinigame } from './minigame.js?v=438';
+import { initChests } from './chests.js?v=438';
+import { initLore } from './lore.js?v=438';
+import { initAvatar } from './avatar.js?v=438';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 437;   // keep equal to the ?v= number in index.html
+const BUILD = 438;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5278,6 +5278,9 @@ function missionsPanel() {
 }
 function lvBar() {   // «🏫 Уровень 64» and the experience bar across the purple plate under the coins row
   const top = $('#top'); if (!top || !S) return; let el = $('#lvbar');
+  if (!$('#topslim')) { const st = document.createElement('style'); st.id = 'topslim';   // her «великовата»: everything a bit lower
+    st.textContent = '#top{padding:calc(var(--safe-t) + 4px) 10px 3px;gap:5px;row-gap:0}#top .res{padding:3px 9px 3px 5px;font-size:15px}#top .res .ico{font-size:16px}#top .gear{width:32px;height:32px;font-size:17px}#lvbar{padding:2px 6px 0 !important;font-size:12px !important}#lvbar>span:nth-of-type(2){height:6px !important}';
+    document.head.appendChild(st); }
   if (!el) { top.style.flexWrap = 'wrap'; el = document.createElement('button'); el.id = 'lvbar'; el.dataset.level = ''; el.setAttribute('aria-label', 'Уровень школы');
     el.style.cssText = 'flex:1 0 100%;display:flex;align-items:center;gap:8px;background:none;border:0;padding:4px 6px 0;color:#fff;font:800 13px ui-rounded,"Nunito",sans-serif;text-shadow:0 1px 2px #3a2a7a66'; top.appendChild(el); }
   const n = schoolLevel(), x = schoolXp(), a = lvNeed(n), b = lvNeed(n + 1), pct = Math.max(0, Math.min(100, Math.floor((x - a) / (b - a) * 100))), h = `🏫 Уровень ${n}|${pct}`;
