@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=447';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=447';
-import { initMinigame } from './minigame.js?v=447';
-import { initChests } from './chests.js?v=447';
-import { initLore } from './lore.js?v=447';
-import { initAvatar } from './avatar.js?v=447';
+} from './data.js?v=448';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=448';
+import { initMinigame } from './minigame.js?v=448';
+import { initChests } from './chests.js?v=448';
+import { initLore } from './lore.js?v=448';
+import { initAvatar } from './avatar.js?v=448';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 447;   // keep equal to the ?v= number in index.html
+const BUILD = 448;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3575,7 +3575,7 @@ const ROOM_ART = {
     { const t = ps.t, sd = ps.side, cyc = (T + 3) % 8, wink = cyc > 5, wu = wink ? (cyc - 5) / 3 : 0; onWall(sd, t, TALL_H() * 0.58, () => { const im = itemIm(wink ? 'ch_portrait1' : 'ch_portrait0'); if (!im) return; const bo = wink ? 1 + 0.06 * Math.sin(Math.min(1, wu * 4) * Math.PI) : 1, h = 60 * bo, w = h * im.naturalWidth / im.naturalHeight; ctx.drawImage(im, -w / 2 + (wink ? w * 0.08 : 0), -h / 2, w, h);
         if (wink && wu < 0.5) for (let m = 0; m < 6; m++) { const an = m * 1.05 + wu * 3, rr = 18 + wu * 30; fxStar(Math.cos(an) * rr, Math.sin(an) * rr * 0.9, 3.5 * (1 - wu * 2), 1 - wu * 2, '255,170,220'); } });   // pink sparkles burst round the frame
       if (wink) add(s.x1, s.y1, () => { const a = up(sd === 'x0' ? P(s.x0, t) : P(t, s.y0), TALL_H() * 0.62), b = P(tp.x, tp.y);   // a stream of hearts pops out of the portrait and drifts to Iskra
-        for (let m = 0; m < 4; m++) { const u = wu * 1.3 - m * 0.12; if (u <= 0 || u >= 1) continue; const x = a.x + 14 + (b.x - a.x) * u * 0.8 + Math.sin(u * 9 + m) * 6, y = a.y - 8 + (b.y - 50 - a.y) * u * 0.8 - Math.sin(u * Math.PI) * 34; ctx.globalAlpha = Math.min(1, (1 - u) * 2.5, u * 8); emoji(m % 2 ? '💖' : '💗', x, y, 11 + u * 8); } ctx.globalAlpha = 1; }); }
+        for (let m = 0; m < 4; m++) { const u = wu * 1.3 - m * 0.12; if (u <= 0 || u >= 1) continue; const x = a.x + 14 + (b.x - a.x) * u * 0.8 + Math.sin(u * 9 + m) * 6, y = a.y - 8 + (b.y - 50 - a.y) * u * 0.8 - Math.sin(u * Math.PI) * 34; ctx.globalAlpha = Math.min(1, (1 - u) * 2.5, u * 8); emoji(m % 2 ? '💖' : '💗', x, y, 6 + u * 3); } ctx.globalAlpha = 1; }); }
     // wands -> the gilded wand cabinet against the back wall, between the windows
     const sw = stageOf(lv('wands')); if (sw) { const k = [0, 0.75, 0.88, 1, 1.05][sw], cx = onX ? s.x0 + 0.55 : s.x0 + 0.62, cy = onX ? xsl[1].t : s.y0 + 0.62; add(cx, cy, () => { const r = itemDraw('ch_wands', cx, cy, 82 * k, { shadow: 1 }); if (!r) return; const tw = Math.pow(Math.max(0, Math.sin(T * 1.4)), 8); if (tw > 0.05) fxStar(r.x - r.w * 0.05, r.top + r.h * (0.3 + 0.1 * Math.floor(T / 4.5 % 3)), 4 * tw + (sw >= 4 ? 2 : 0), tw, '255,220,250'); }); }
     // mirror -> tall gold mirror on the back wall, a rainbow shimmer sweeps over the glass
