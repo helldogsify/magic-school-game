@@ -73,6 +73,7 @@ export function charges() {
   if (k > 0) { p.ch = Math.min(CH_MAX, p.ch + k); p.t = p.ch >= CH_MAX ? now : p.t + k * CH_MS; }
   savePool(p); return p.ch;
 }
+export function addCharges(n = 1) { charges(); const p = pool(); p.ch = (p.ch || 0) + n; if (p.ch > CH_MAX) p.t = Date.now(); savePool(p); }   // won attempts go above 3
 function spendCharge() { const p = pool(); if (p.ch >= CH_MAX) p.t = Date.now(); p.ch = Math.max(0, p.ch - 1); savePool(p); }
 const nextIn = () => Math.max(0, pool().t + CH_MS - Date.now());
 const num = (n) => Math.round(n).toLocaleString('ru-RU');   // scores in full: 5 600, not 5,6K
@@ -345,7 +346,7 @@ function showChooser() {   // the 🧪 pill: choose a mini-game (tries are share
   const n = charges(), m = mg(), f = fl();
   root.innerHTML = A.emojiHtml(`<div class="mg-card">
     <h2>Мини-игры</h2>
-    <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}<br><span class="muted">общие для всех мини-игр и обоих миров</span></p>
+    <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : n > CH_MAX ? '<br><span class="muted">выигранные попытки сверх 3 тоже твои</span>' : ''}<br><span class="muted">общие для всех мини-игр и обоих миров</span></p>
     <button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button>
     <button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=2" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>
     <button class="btn wide ghost" data-mgback>В школу</button>
@@ -385,7 +386,7 @@ function showStart() {
     <div class="mg-ings">${ING.map((_, t) => ingImg(t)).join('')}</div>
     <p class="muted">4 в ряд — волшебная полоска, уголок — взрыв, 5 в ряд — ${ingImg(RAINBOW)} звёздочка: поменяй её с любым ингредиентом. Поменяй местами две особые фишки — будет сильное сочетание!</p>
     <p>Раунд — ${ROUND} секунд. Награда: монеты (до ${MAX_MIN} минут дохода школы), за 2–3 ⭐ ещё ✨ Вдохновение.</p>
-    <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
+    <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
     <p class="muted">Рекорд недели: ${num(best)}${m.best ? ` · за всё время: ${num(m.best)}` : ''}</p>
     <div class="mg-bh">Бонусы на раунд <span class="muted">(за монеты школы)</span></div>
     <div class="mg-boosts">${BOOSTS.map((b, k) => `<button class="mg-bst${bsel.has(b.id) ? ' on' : ''}" data-mgb="${k}"><span class="mg-bi">${b.ico()}</span><span class="mg-bn">${b.name}</span><span class="mg-bc">🪙 ${A.fmt(boostCost(b))}</span></button>`).join('')}</div>
@@ -704,7 +705,7 @@ function showFlightStart() {
     <div class="mg-bh">Бонусы на полёт <span class="muted">(за монеты школы)</span></div>
     <div class="mg-boosts">${FBOOSTS.map((b, k) => `<button class="mg-bst${fsel.has(b.id) ? ' on' : ''}" data-flb="${k}"><span class="mg-bi">${b.ico()}</span><span class="mg-bn">${b.name}</span><span class="mg-bc">🪙 ${A.fmt(boostCost(b))}</span></button>`).join('')}</div>
     ${fTotal() + (cur ? flyerCost(cur.k) : 0) ? `<p class="muted">При старте спишется: 🪙 ${A.fmt(fTotal() + (cur ? flyerCost(cur.k) : 0))}</p>` : ''}
-    <p><b>Попытки с наградой: ${n} из ${CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
+    <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
     <p class="muted">Награда: монеты (до ${MAX_MIN} минут дохода школы), за 2–3 ⭐ ещё ✨ Вдохновение. Рекорд недели: ${num(f.wb || 0)}${f.best ? ` · за всё время: ${num(f.best)}` : ''}</p>
     <button class="btn wide" data-flplay${cur ? '' : ' disabled'}>${n > 0 ? '▶️ Лететь (1 попытка)' : '▶️ Лететь без награды'}</button>
     <button class="btn wide ghost" data-mgchoose>← Другие мини-игры</button>
@@ -752,7 +753,7 @@ function flEnd(res, silent) {
     <div class="mg-big">${num(score)}</div>
     <p class="muted">колец: ${res.rings || 0} · искорок: ${res.sparks || 0}${recW ? ' · 🏅 рекорд недели!' : ''}${recAll && !recW ? ' · 🏅 рекорд!' : ''}</p>
     ${FL.rewarded ? `<div class="mg-prize">Награда: 🪙 ${A.fmt(coins)}${boost ? `<br>✨ Вдохновение +${boost} мин (уроки +10%)` : ''}</div>` : '<p class="muted">Полёт без награды — только рекорд.</p>'}
-    <p class="muted">${stars < 3 ? `До ${stars + 1} ⭐ — ${num(F_STAR[stars])} очков. ` : ''}Попытки с наградой: ${n} из ${CH_MAX}${n < CH_MAX ? `, следующая через ${mmss(nextIn())}` : ''}</p>
+    <p class="muted">${stars < 3 ? `До ${stars + 1} ⭐ — ${num(F_STAR[stars])} очков. ` : ''}Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}${n < CH_MAX ? `, следующая через ${mmss(nextIn())}` : ''}</p>
     <button class="btn wide" data-mgpick="f">${n > 0 ? '🔁 Ещё полёт (1 попытка)' : '🔁 Ещё полёт без награды'}</button>
     <button class="btn wide ghost" data-mgback>В школу</button>
   </div>`));
@@ -788,7 +789,7 @@ function finish(silent) {
     <div class="mg-big">${num(score)}</div>
     <p class="muted">сварено зелий: ${R.brewed}${recW ? ' · 🏅 рекорд недели!' : ''}${recAll && !recW ? ' · 🏅 рекорд!' : ''}</p>
     ${R.rewarded ? `<div class="mg-prize">Награда: 🪙 ${A.fmt(coins)}${boost ? `<br>✨ Вдохновение +${boost} мин (уроки +10%)` : ''}</div>` : '<p class="muted">Игра без награды — только рекорд.</p>'}
-    <p class="muted">${stars < 3 ? `До ${stars + 1} ⭐ — ${num(STAR[stars])} очков. ` : ''}Попытки с наградой: ${n} из ${CH_MAX}${n < CH_MAX ? `, следующая через ${mmss(nextIn())}` : ''}</p>
+    <p class="muted">${stars < 3 ? `До ${stars + 1} ⭐ — ${num(STAR[stars])} очков. ` : ''}Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}${n < CH_MAX ? `, следующая через ${mmss(nextIn())}` : ''}</p>
     <button class="btn wide" data-mgagain>${n > 0 ? '🔁 Ещё раз (1 попытка)' : '🔁 Ещё раз без награды'}</button>
     <button class="btn wide ghost" data-mgback>В школу</button>
   </div>`);
@@ -800,6 +801,6 @@ export function initMinigame(api) {
   addEventListener('resize', () => { if (R && cv) layout(); });
   window.__mg = { open, close, charges, get R() { return R; }, resolveStep, findGroups, findMove, setLeft: (s) => { if (R) R.left = s; }, setScore: (s) => { if (R) R.score = s; }, SND, SND_DB, STAR };
   window.__fl = { get FL() { return FL; }, F_STAR, start: () => { showFlightStart(); startFlight(); } };
-  return { open, isOpen, pill, charges, weekBest, weekKey, prevBest, prizeDue, claim: () => { mg().claimed = weekKey() - 1; A.save(); },
+  return { open, isOpen, pill, charges, addCharges, weekBest, weekKey, prevBest, prizeDue, claim: () => { mg().claimed = weekKey() - 1; A.save(); },
     flightBest, flightPrev, flightPrizeDue, claimFlight: () => { fl().claimed = weekKey() - 1; A.save(); } };
 }
