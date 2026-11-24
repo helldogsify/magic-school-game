@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=448';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=448';
-import { initMinigame } from './minigame.js?v=448';
-import { initChests } from './chests.js?v=448';
-import { initLore } from './lore.js?v=448';
-import { initAvatar } from './avatar.js?v=448';
+} from './data.js?v=449';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=449';
+import { initMinigame } from './minigame.js?v=449';
+import { initChests } from './chests.js?v=449';
+import { initLore } from './lore.js?v=449';
+import { initAvatar } from './avatar.js?v=449';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 448;   // keep equal to the ?v= number in index.html
+const BUILD = 449;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5027,14 +5027,16 @@ function rewardFor(m) {
   const minutes = rate > 0.001 ? Math.min(15, Math.max(0.5, (m.n || 0) / (rate * 60))) : 3;
   return Math.max(50, nice(perMin * minutes * TIME_SHARE));
 }
+const lvMul = () => 1 + 0.15 * (schoolLevel() - 1);   // counting missions grow with the school level (her «задания по уровню»)
+const lvN = (n, step) => Math.max(step, Math.round(n * lvMul() / step) * step);
 function makeMission(onlyNew, tries = 0) {   // onlyNew: draw from the new kinds only (the one-time refresh of old lists)
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i));
   const kinds = [], wts = [], add = (f, w = 1) => { kinds.push(f); wts.push(w); };
-  add(() => { const n = rint(3, 8) * 10; return { type: 'grad', target: S.stats.graduated + n, text: `Выпусти ещё ${n} учеников 🎓` }; });
-  add(() => { const n = rint(5, 15) * 10; return { type: 'enroll', target: S.stats.enrolled + n, text: `Прими в школу ещё ${n} новичков 🛎️` }; });
+  add(() => { const n = lvN(rint(3, 8) * 10, 10); return { type: 'grad', target: S.stats.graduated + n, text: `Выпусти ещё ${n} учеников 🎓` }; });
+  add(() => { const n = lvN(rint(5, 15) * 10, 10); return { type: 'enroll', target: S.stats.enrolled + n, text: `Прими в школу ещё ${n} новичков 🛎️` }; });
   add(() => { const n = Math.max(500, Math.round((S.ema || 1) * 60 * rint(3, 8) / 100) * 100); return { type: 'earn', target: (S.stats.earned || 0) + n, text: `Заработай ещё ${fmt(n)} монет 🪙` }; });
-  add(() => { const n = rint(2, 6) * 5; return { type: 'read', target: (S.stats.read || 0) + n, text: `Пусть ${n} учеников подготовятся в библиотеке 📚` }; });
-  add(() => { const n = rint(5, 15) * 10; return { type: 'exams', target: S.stats.passed + n, text: `Пусть ученики сдадут ещё ${n} экзаменов` }; });
+  add(() => { const n = lvN(rint(2, 6) * 5, 5); return { type: 'read', target: (S.stats.read || 0) + n, text: `Пусть ${n} учеников подготовятся в библиотеке 📚` }; });
+  add(() => { const n = lvN(rint(5, 15) * 10, 10); return { type: 'exams', target: S.stats.passed + n, text: `Пусть ученики сдадут ещё ${n} экзаменов` }; });
   for (const i of open) {
     const st = S.classes[i], C = CLASSES[i];
     C.items.forEach((it, k) => { if (st.items[k] < MAX_ITEM_LEVEL) add(() => { const t = Math.min(MAX_ITEM_LEVEL, st.items[k] + rint(2, 4)); return { type: 'item', i, k, target: t, text: `Улучши «${it.name}» (${C.name}) до ур. ${t}` }; }); });
@@ -5309,7 +5311,7 @@ function missionsPanel() {
 function lvBar() {   // «🏫 Уровень 64» and the experience bar across the purple plate under the coins row
   const top = $('#top'); if (!top || !S) return; let el = $('#lvbar');
   if (!$('#topslim')) { const st = document.createElement('style'); st.id = 'topslim';   // her «великовата»: everything a bit lower
-    st.textContent = '#top{padding:calc(var(--safe-t) + 4px) 10px 3px;gap:5px;row-gap:0}#top .res{padding:3px 9px 3px 5px;font-size:15px}#top .res .ico{font-size:16px}#top .gear{width:32px;height:32px;font-size:17px}#lvbar{padding:2px 6px 0 !important;font-size:12px !important}#lvbar>span:nth-of-type(2){height:6px !important}';
+    st.textContent = '#top{padding:calc(var(--safe-t) + 4px) 10px 3px;gap:5px;row-gap:0}#top .res{padding:3px 9px 3px 5px;font-size:15px}#top .res .ico{font-size:16px}#top .gear{width:32px;height:32px;font-size:17px}#lvbar{padding:2px 6px 0 !important;font-size:12px !important}#lvbar>span:nth-of-type(2){height:6px !important}@media (min-width:1400px){#sheet{zoom:1.25}#top{zoom:1.2}#insp{zoom:1.2}#menugrid{zoom:1.2}}';   // big monitors: bigger windows and text (her pick «5»)
     document.head.appendChild(st); }
   if (!el) { top.style.flexWrap = 'wrap'; el = document.createElement('button'); el.id = 'lvbar'; el.dataset.level = ''; el.setAttribute('aria-label', 'Уровень школы');
     el.style.cssText = 'flex:1 0 100%;display:flex;align-items:center;gap:8px;background:none;border:0;padding:4px 6px 0;color:#fff;font:800 13px ui-rounded,"Nunito",sans-serif;text-shadow:0 1px 2px #3a2a7a66'; top.appendChild(el); }
@@ -5892,7 +5894,10 @@ function allyPanel() {
 allyPanel.still = true;   // has text fields
 let allyShown = '';   // the alliance whose members are open in the top
 function allyMembersHtml(x) {
-  return `<div style="margin:-4px 0 10px 14px;border-left:3px solid #c9b8ee;padding-left:8px">${x.m.slice().sort((p, q) => q.r - p.r || q.g - p.g).map((m) => `<div class="card up" style="padding:6px 10px">${AV.img(m.id, 34)}<div class="grow"><b>${escTxt(m.name)}</b>${x.a.owner && m.id.replace(/_w\d+$/, '') === x.a.owner ? ' 👑' : ''}${m.nick ? ` <span class="muted">👤 ${escTxt(m.nick)}</span>` : ''}<div class="muted">🏅 ${r2(m.r)}${m.lv ? ` · 🌟 ${m.lv}` : ''} · 🎓 ${fmt(m.g)}</div></div></div>`).join('')}</div>`;
+  const mineHere = myAl() === x.id, full = x.m.length >= ALLY_MAX, asked = (myReqs || []).some((q) => q.al === x.id && q.st === 'wait');
+  const act = mineHere ? '' : myAl() ? '<p class="muted">Чтобы вступить сюда, сначала выйди из своего альянса (окно 🤝).</p>' : full ? `<p class="muted">В альянсе уже ${ALLY_MAX} школ — мест нет.</p>`
+    : x.a.open ? `<button class="btn wide" data-allyjoinid="${x.id}">🤝 Вступить</button>` : asked ? `<button class="btn wide ghost" data-reqcancel="${x.id}">Заявка отправлена ✓ (отменить)</button>` : `<button class="btn wide" data-reqsend="${x.id}">📩 Подать заявку</button>`;
+  return `<div style="margin:-4px 0 10px 14px;border-left:3px solid #c9b8ee;padding-left:8px">${x.m.slice().sort((p, q) => q.r - p.r || q.g - p.g).map((m) => `<div class="card up" style="padding:6px 10px">${AV.img(m.id, 34)}<div class="grow"><b>${escTxt(m.name)}</b>${x.a.owner && m.id.replace(/_w\d+$/, '') === x.a.owner ? ' 👑' : ''}${m.nick ? ` <span class="muted">👤 ${escTxt(m.nick)}</span>` : ''}<div class="muted">🏅 ${r2(m.r)}${m.lv ? ` · 🌟 ${m.lv}` : ''} · 🎓 ${fmt(m.g)}</div></div></div>`).join('')}${act}</div>`;
 }
 function allyTopRows() {   // the top of alliances by strength = the SUM of its schools' ratings (her pick 2026-11-23: a one-school alliance led the mean-rating table)
   const groups = {};
