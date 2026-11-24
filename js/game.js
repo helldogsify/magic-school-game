@@ -1,16 +1,16 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=491';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=492';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=491';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=491';
-import { initMinigame } from './minigame.js?v=491';
-import { initChests } from './chests.js?v=491';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=491';
-import { initLore } from './lore.js?v=491';
-import { initAvatar } from './avatar.js?v=491';
+} from './data.js?v=492';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=492';
+import { initMinigame } from './minigame.js?v=492';
+import { initChests } from './chests.js?v=492';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=492';
+import { initLore } from './lore.js?v=492';
+import { initAvatar } from './avatar.js?v=492';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -33,7 +33,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 491;   // keep equal to the ?v= number in index.html
+const BUILD = 492;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3208,14 +3208,19 @@ function dnPool(L) {   // a soft radial pool in the warm evening colour (transpa
   const g = x.createRadialGradient(32, 32, 0, 32, 32, 32), col = `${255},${Math.round(255 - 60 * q)},${Math.round(255 - 110 * q)}`; g.addColorStop(0, `rgba(${col},0.85)`); g.addColorStop(0.55, `rgba(${col},0.45)`); g.addColorStop(1, `rgba(${col},0)`);
   x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c;
 }   // the night tint with the lit rooms cut out
+let litEdges = new Map(), litEdgesOf = null;
 function litRooms() {   // screen polygons (device px) of every built room: floor plus its back walls
+  if (litEdgesOf !== EDGES) { litEdgesOf = EDGES; litEdges = new Map(); for (const e of EDGES) if (e.side === 'x0' || e.side === 'y0') litEdges.set(`${e.id},${e.x},${e.y},${e.side}`, 1); }
   const k = scale * dpr, ox = scroller.scrollLeft * dpr, oy = scroller.scrollTop * dpr, S2 = (m) => ({ x: m.x * k - ox, y: m.y * k - oy }), out = [];
   for (const [id, s] of Object.entries(SLOTS)) {
     const ci = CLASS_SLOT.indexOf(id);
     if (id === 'GARDEN' || id === 'TRADE' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt()) || (id === 'SHOP' && !shopOpen())) continue;
     const a = P(s.x0, s.y1), b = P(s.x0, s.y0), c = P(s.x1, s.y0), d = P(s.x1, s.y1);
     if (!onScreen(b.x, b.y, 600, 600) && !onScreen(d.x, d.y, 600, 600)) continue;
-    const q = [up(a, WALLH), up(b, WALLH), up(c, WALLH), c, d, a].map(S2); q.s = s; out.push(q);
+    const eh = (x, y, sd) => (litEdges.has(`${id},${x},${y},${sd}`) ? WALLH : 0), q = [];   // her «Часть дороги подсвечивается как комната»: no light over a doorway
+    for (let y = s.y1 - 1; y >= s.y0; y--) { const h = eh(s.x0, y, 'x0'); q.push(up(P(s.x0, y + 1), h), up(P(s.x0, y), h)); }
+    for (let x = s.x0; x < s.x1; x++) { const h = eh(x, s.y0, 'y0'); q.push(up(P(x, s.y0), h), up(P(x + 1, s.y0), h)); }
+    q.push(c, d, a); const q2 = q.map(S2); q2.s = s; out.push(q2);
   }
   return out;
 }
@@ -7130,5 +7135,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=491').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=492').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
