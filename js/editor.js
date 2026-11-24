@@ -10,7 +10,7 @@ export function initEditor(A) {
   const key = localStorage.getItem(KEY_LS) || '';
   const api = (p) => `${E.api}/${p}?key=${encodeURIComponent(key)}`;
   const clone = (o) => JSON.parse(JSON.stringify(o));
-  let L = { v: 1, rooms: {} }, sel = null, undo = [], dirty = false, night = false;
+  let tab = 'items', L = { v: 1, rooms: {} }, sel = null, undo = [], dirty = false, night = false;
   const room = () => (L.rooms[cid] ||= {});
   const apply = (walls) => { if (walls) A.setLayout(L); else if (A.layout !== L) A.setLayout(L); dirty = true; localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); status(''); };
   const snap = () => { undo.push(JSON.stringify(L)); if (undo.length > 60) undo.shift(); };
@@ -33,6 +33,13 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
 #ed-groups button { font-size: 12px; padding: 5px 9px; white-space: nowrap; }
 #ed-grid { display: flex; gap: 6px; overflow-x: auto; height: 84px; }
 #ed-grid img { height: 76px; min-width: 40px; max-width: 110px; object-fit: contain; background: #f3ecfa; border-radius: 10px; padding: 3px; flex: none; }
+#ed-layers { display: none; max-height: 170px; overflow-y: auto; }
+#ed-layers .lr { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 6px; }
+#ed-layers .li { width: 58px; height: 58px; border-radius: 10px; background: #f3ecfa; border: 2px solid transparent; padding: 2px; display: flex; align-items: center; justify-content: center; }
+#ed-layers .li img { max-width: 100%; max-height: 100%; }
+#ed-layers .li.on { border-color: #7b5cd6; background: #e4d8ff; }
+#ed-layers .li.off { opacity: .35; }
+#ed-layers h4 { margin: 4px 0; font-size: 13px; }
 #ed-wall { display: none; max-height: 170px; overflow-y: auto; }
 #ed-wall h4 { margin: 4px 0; font-size: 13px; }
 #ed-wall .row { display: flex; gap: 6px; overflow-x: auto; align-items: center; padding-bottom: 4px; }
@@ -59,9 +66,9 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   document.body.appendChild(top);
   top.querySelectorAll('[data-size]').forEach((b) => b.classList.toggle('on', +b.dataset.size === E.size));
   const bot = document.createElement('div'); bot.id = 'ed-bot'; bot.innerHTML = `
-<div id="ed-tabs"><button data-tab="items" class="on">🪑 Предметы</button><button data-tab="wall">🎨 Стены и пол</button><button id="ed-hidden" style="display:none"></button></div>
+<div id="ed-tabs"><button data-tab="items" class="on">🪑 Предметы</button><button data-tab="layers">📚 Слои</button><button data-tab="wall">🎨 Стены и пол</button><button id="ed-hidden" style="display:none"></button></div>
 <div id="ed-items"><div id="ed-groups"></div><div id="ed-grid"></div></div>
-<div id="ed-wall"></div>`;
+<div id="ed-layers"></div><div id="ed-wall"></div>`;
   document.body.appendChild(bot);
   const selBar = document.createElement('div'); selBar.id = 'ed-sel'; document.body.appendChild(selBar);
   const ov = document.createElement('canvas'); ov.id = 'ed-ov'; document.body.appendChild(ov); const oc = ov.getContext('2d');
@@ -73,7 +80,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   $('#ed-day').onclick = () => { night = !night; window.__hour = night ? 23 : 13; $('#ed-day').textContent = night ? '🌙 Ночь' : '☀️ День'; };
   window.__hour = 13;
   $('#ed-undo').onclick = () => { if (!undo.length) return; L = JSON.parse(undo.pop()); sel = null; A.setLayout(L); dirty = true; showSel(); };
-  bot.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { bot.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('on', x === b)); $('#ed-items').style.display = b.dataset.tab === 'items' ? '' : 'none'; $('#ed-wall').style.display = b.dataset.tab === 'wall' ? 'block' : 'none'; if (b.dataset.tab === 'wall') wallUi(); selBar.style.bottom = bot.offsetHeight + 8 + 'px'; }));
+  bot.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { bot.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('on', x === b)); tab = b.dataset.tab; $('#ed-items').style.display = tab === 'items' ? '' : 'none'; $('#ed-wall').style.display = tab === 'wall' ? 'block' : 'none'; $('#ed-layers').style.display = tab === 'layers' ? 'block' : 'none'; if (tab === 'wall') wallUi(); if (tab === 'layers') layersUi(); selBar.style.bottom = bot.offsetHeight + 8 + 'px'; }));
 
   // ---------- save / publish ----------
   async function call(p, body) {
@@ -111,19 +118,22 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   const inRoom = (x, y) => ({ x: Math.max(s.x0 + 0.1, Math.min(s.x1 - 0.1, x)), y: Math.max(s.y0 + 0.1, Math.min(s.y1 - 0.1, y)) });
   const myEnts = () => A.entries().filter((e) => e.cid === cid && e.bb);
   const myWalls = () => A.walls(cid).filter((w) => w.bb && !w.hide);
-  function hit(cx, cy) {
-    const w = toWorld(cx, cy), pad = 4 / A.scale + 2;
-    const es = myEnts(); for (let k = es.length - 1; k >= 0; k--) { const b = es[k].bb; if (w.x >= b.x0 - pad && w.x <= b.x1 + pad && w.y >= b.y0 - pad && w.y <= b.y1 + pad) return { t: es[k].kind, key: es[k].key, e: es[k] }; }
-    for (const ww of myWalls()) { const b = ww.bb; if (w.x >= b.x0 && w.x <= b.x1 && w.y >= b.y0 && w.y <= b.y1) return { t: 'wall', key: ww.key, e: ww }; }
-    return null;
+  function hitAll(cx, cy) {   // everything under the finger, smallest first: a small hidden thing is usually the one she is after
+    const w = toWorld(cx, cy), pad = 3 / A.scale + 1, out = [], inb = (b, p) => w.x >= b.x0 - p && w.x <= b.x1 + p && w.y >= b.y0 - p && w.y <= b.y1 + p;
+    for (const e of myEnts()) if (inb(e.bb, pad)) out.push({ t: e.kind, key: e.key, e });
+    for (const ww of myWalls()) if (inb(ww.bb, 0)) out.push({ t: 'wall', key: ww.key, e: ww });
+    const area = (h) => (h.e.bb.x1 - h.e.bb.x0) * (h.e.bb.y1 - h.e.bb.y0);
+    return out.sort((p, q) => area(p) - area(q));
   }
+  const hit = (cx, cy) => hitAll(cx, cy)[0] || null;
+  const onSel = (cx, cy) => (sel ? hitAll(cx, cy).find((h) => h.key === sel.key) || null : null);
   const curEnt = () => { if (!sel) return null; if (sel.t === 'wall') return myWalls().find((w) => w.key === sel.key) || null; return myEnts().find((e) => e.key === sel.key) || null; };
 
   // ---------- drag ----------
   let drag = null;
-  function start(cx, cy) {
-    const h = hit(cx, cy); if (!h) return false;
-    sel = { t: h.t, key: h.key }; snap(); const R = room(), w0 = toWorld(cx, cy);
+  function start(cx, cy, h) {   // only the SELECTED item is dragged (her «из под пальца при свайпе ... ускользают»)
+    h = h || onSel(cx, cy); if (!h) return false;
+    snap(); const R = room(), w0 = toWorld(cx, cy);
     if (h.t === 'item') { R.items ||= {}; let o = R.items[h.key]; if (!o) { const m = A.P(h.e.x, h.e.y), b = h.e.bb; o = R.items[h.key] = { dx: 0, dy: 0, px: Math.round(((b.x0 + b.x1) / 2 - m.x) * 10) / 10, py: Math.round((b.y1 - m.y) * 10) / 10 }; } drag = { h, w0, o0: { ...o } }; }
     else if (h.t === 'add') { const a = R.add[h.e.j], p = A.layPos(a, s); drag = { h, w0, a, p0: p, lift0: a.lift || 0 }; }
     else { R.walls ||= {}; const o = R.walls[h.key] ||= {}; drag = { h, w0, o0: { ...o } }; }
@@ -143,32 +153,48 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   function anchor(a, p) { a.ax = p.x - s.x0 <= s.x1 - p.x ? 'x0' : 'x1'; a.ay = p.y - s.y0 <= s.y1 - p.y ? 'y0' : 'y1'; a.x = Math.round((a.ax === 'x0' ? p.x - s.x0 : s.x1 - p.x) * 100) / 100; a.y = Math.round((a.ay === 'y0' ? p.y - s.y0 : s.y1 - p.y) * 100) / 100; }
   const stage = $('#stage');
   let down = null;
-  stage.addEventListener('pointerdown', (e) => { if (e.target.closest('#ed-top, #ed-bot, #ed-sel')) return; down = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false };
-    if (e.isPrimary && start(e.clientX, e.clientY)) { e.stopPropagation(); e.preventDefault(); try { stage.setPointerCapture(e.pointerId); } catch (er) { /* */ } } }, true);
-  stage.addEventListener('pointermove', (e) => { if (down && e.pointerId === down.id && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) down.moved = true; if (drag && e.pointerId === down?.id) { e.stopPropagation(); e.preventDefault(); move(e.clientX, e.clientY); } }, true);
-  const end = (e) => { if (drag) { e.stopPropagation(); drag = null; tidy(); showSel(); } else if (down && !down.moved && e.type === 'pointerup') { sel = null; showSel(); } down = null; };
+  // the first touch only selects; a swipe that does not start on the selected item pans the room; a second tap on the same spot
+  // picks the next thing under the finger
+  stage.addEventListener('pointerdown', (e) => { if (e.target.closest('#ed-top, #ed-bot, #ed-sel')) return;
+    if (!e.isPrimary) { if (down) down.multi = true; return; }
+    down = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, h: onSel(e.clientX, e.clientY) };
+    if (down.h) { e.stopPropagation(); e.preventDefault(); try { stage.setPointerCapture(e.pointerId); } catch (er) { /* */ } } }, true);
+  stage.addEventListener('pointermove', (e) => { if (!down || e.pointerId !== down.id) return;
+    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) down.moved = true;
+    if (down.h && !down.multi) { e.stopPropagation(); e.preventDefault(); if (down.moved && !drag) start(down.x, down.y, down.h); if (drag) move(e.clientX, e.clientY); } }, true);
+  function tap(cx, cy) {
+    const hs = hitAll(cx, cy); if (!hs.length) { sel = null; showSel(); status(''); return; }
+    let k = 0; if (sel) { const i = hs.findIndex((h) => h.key === sel.key); if (i >= 0) k = (i + 1) % hs.length; }
+    sel = { t: hs[k].t, key: hs[k].key }; showSel();
+    status(hs.length > 1 ? `Здесь ${hs.length} предмета друг на друге — коснись ещё раз, чтобы выбрать следующий` : '');
+  }
+  const end = (e) => { if (drag) { e.stopPropagation(); drag = null; tidy(); showSel(); } else if (down && !down.moved && !down.multi && e.type === 'pointerup' && e.pointerId === down.id) tap(down.x, down.y); if (!down || e.pointerId === down.id) down = null; };
   stage.addEventListener('pointerup', end, true); stage.addEventListener('pointercancel', end, true);
-  stage.addEventListener('touchstart', (e) => { if (e.touches.length === 1 && hit(e.touches[0].clientX, e.touches[0].clientY)) e.preventDefault(); }, { capture: true, passive: false });   // no page scroll under a dragged item
+  stage.addEventListener('touchstart', (e) => { if (e.touches.length === 1 && onSel(e.touches[0].clientX, e.touches[0].clientY)) e.preventDefault(); }, { capture: true, passive: false });   // the page must not scroll under the selected item
   stage.addEventListener('touchmove', (e) => { if (drag) e.preventDefault(); }, { capture: true, passive: false });
   stage.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); }, true);   // the game must not open its room windows
 
   // ---------- the selection bar ----------
   function showSel() {
-    const R = room(); selBar.innerHTML = ''; if (!sel) { selBar.style.display = 'none'; hiddenBtn(); return; }
+    const R = room(); selBar.innerHTML = ''; if (!sel) { selBar.style.display = 'none'; hiddenBtn(); if (tab === 'layers') layersUi(); return; }
     const b = (t, f, title) => { const x = document.createElement('button'); x.textContent = t; if (title) x.title = title; x.onclick = () => { snap(); f(); tidy(); showSel(); }; selBar.appendChild(x); };
     if (sel.t === 'item') { const o = () => (R.items ||= {})[sel.key] ||= { dx: 0, dy: 0, ...pivotOf(sel.key) };
       b('➖', () => { o().k = Math.round(Math.max(0.3, (o().k || 1) / 1.1) * 100) / 100; apply(false); }, 'Меньше'); b('➕', () => { o().k = Math.round(Math.min(3, (o().k || 1) * 1.1) * 100) / 100; apply(false); }, 'Больше');
-      b('⇋', () => { o().flip = !o().flip || undefined; apply(false); }, 'Отразить'); b('🗑', () => { o().hide = 1; sel = null; apply(false); }, 'Убрать');
+      b('⇋', () => { o().flip = !o().flip || undefined; apply(false); }, 'Отразить');
+      b('⏫ Вперёд', () => { o().z = (o().z || 0) + 1; apply(false); }, 'Поверх соседей'); b('⏬ Назад', () => { o().z = (o().z || 0) - 1 || undefined; apply(false); }, 'За соседей');
+      b('🗑', () => { o().hide = 1; sel = null; apply(false); }, 'Убрать');
       b('↺', () => { delete R.items[sel.key]; apply(false); }, 'Как было'); }
     else if (sel.t === 'add') { const j = +sel.key.split('#')[1], a = R.add && R.add[j]; if (!a) { sel = null; return showSel(); }
       b('➖', () => { a.h = Math.max(8, Math.round((a.h || 40) / 1.1)); apply(false); }, 'Меньше'); b('➕', () => { a.h = Math.min(400, Math.round((a.h || 40) * 1.1)); apply(false); }, 'Больше');
       b('⇋', () => { a.flip = !a.flip || undefined; apply(false); }, 'Отразить');
+      b('⏫ Вперёд', () => { a.bias = (a.bias || 0) + 1; apply(false); }, 'Поверх соседей'); b('⏬ Назад', () => { a.bias = (a.bias || 0) - 1 || undefined; apply(false); }, 'За соседей');
       b('⬆', () => { a.lift = Math.round((a.lift || 0) + 6); apply(false); }, 'Выше'); b('⬇', () => { a.lift = Math.max(0, Math.round((a.lift || 0) - 6)); apply(false); }, 'Ниже');
       b(a.wall ? '⬇ На пол' : '🖼 На стену', () => { const p = A.layPos(a, s); if (a.wall) { delete a.wall; a.lift = 0; } else { a.wall = p.x - s.x0 < p.y - s.y0 ? 'x0' : 'y0'; a.lift = Math.round(A.TALL_H() * 0.55); } apply(false); });
       b('⧉', () => { const c = clone(a); c.x = (c.x || 0) + 0.6; R.add.push(c); sel = { t: 'add', key: 'add#' + (R.add.length - 1) }; apply(false); }, 'Копия');
       b('🗑', () => { R.add.splice(j, 1); sel = null; apply(false); }, 'Убрать'); }
     else { const o = () => (R.walls ||= {})[sel.key] ||= {};
       b('🗑', () => { o().hide = 1; sel = null; apply(true); }, 'Убрать со стены'); b('↺', () => { delete R.walls[sel.key]; apply(true); }, 'Как было'); }
+    if (tab === 'layers') layersUi();
     selBar.style.display = 'flex'; selBar.style.bottom = bot.offsetHeight + 8 + 'px'; hiddenBtn();
   }
   function pivotOf(k) { const e = myEnts().find((x) => x.key === k); if (!e) return { px: 0, py: 0 }; const m = A.P(e.x, e.y); return { px: Math.round(((e.bb.x0 + e.bb.x1) / 2 - m.x) * 10) / 10, py: Math.round((e.bb.y1 - m.y) * 10) / 10 }; }
@@ -176,6 +202,17 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
     const R = room(), hi = Object.keys(R.items || {}).filter((k) => R.items[k].hide).length + Object.keys(R.walls || {}).filter((k) => R.walls[k].hide).length, hb = $('#ed-hidden');
     hb.style.display = hi ? '' : 'none'; hb.textContent = `↩ Вернуть убранные (${hi})`;
     hb.onclick = () => { snap(); for (const k of Object.keys(R.items || {})) if (R.items[k].hide) delete R.items[k].hide; for (const k of Object.keys(R.walls || {})) if (R.walls[k].hide) delete R.walls[k].hide; tidy(); apply(true); hiddenBtn(); };
+  }
+
+  // ---------- layers: every thing of the room, front first; a tap selects it even when it is hidden behind others ----------
+  function layersUi() {
+    const all = A.entries().filter((e) => e.cid === cid && e.key), seen = new Set(), list = [];
+    for (let k = all.length - 1; k >= 0; k--) { const e = all[k]; if (!seen.has(e.key)) { seen.add(e.key); list.push(e); } }
+    const row = (arr, kind) => arr.map((e) => `<button class="li${sel && sel.key === e.key ? ' on' : ''}${e.hidden || e.hide ? ' off' : ''}" data-k="${e.key}" data-t="${kind || e.kind}" data-h="${e.hidden || e.hide ? 1 : ''}"><img src="${A.thumb(e.n, cid)}" alt=""></button>`).join('');
+    $('#ed-layers').innerHTML = `<h4>В комнате (первые — ближние к тебе, бледные — убранные)</h4><div class="lr">${row(list)}</div><h4>На стенах</h4><div class="lr">${row(A.walls(cid), 'wall')}</div>`;
+    $('#ed-layers').querySelectorAll('.li').forEach((b) => (b.onclick = () => { const R = room();
+      if (b.dataset.h) { snap(); const o = (b.dataset.t === 'wall' ? R.walls : R.items) || {}; if (o[b.dataset.k]) delete o[b.dataset.k].hide; tidy(); apply(b.dataset.t === 'wall'); }
+      sel = { t: b.dataset.t, key: b.dataset.k }; showSel(); }));
   }
 
   // ---------- palette: every sprite of the game ----------
