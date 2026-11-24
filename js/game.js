@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=450';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=450';
-import { initMinigame } from './minigame.js?v=450';
-import { initChests } from './chests.js?v=450';
-import { initLore } from './lore.js?v=450';
-import { initAvatar } from './avatar.js?v=450';
+} from './data.js?v=451';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=451';
+import { initMinigame } from './minigame.js?v=451';
+import { initChests } from './chests.js?v=451';
+import { initLore } from './lore.js?v=451';
+import { initAvatar } from './avatar.js?v=451';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 450;   // keep equal to the ?v= number in index.html
+const BUILD = 451;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1700,7 +1700,7 @@ function finishInspection() {
   const ok = !c.failed && (K.check ? K.check(c) : true);
   const income = Math.max(200, Math.round((S.ema || 1) * 180 / 10) * 10), ties = dirLvl('ties');
   I.cur = null; I.t = INSP_EVERY;
-  if (ok) { const rw = Math.round(income * (1 + 0.1 * ties) * repK()); I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; S.coins += rw; S.stats.earned = (S.stats.earned || 0) + rw; inspResult = { ok, income: rw }; }
+  if (ok) { const rw = Math.round(income * (1 + 0.1 * ties) * repK()); I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; if (I.stars > STAR_STONE_FROM && stonesAdd(1)) setTimeout(() => toast(`⭐ Звезда ${I.stars}: ${ST_ICON} +1 лунный камень`), 1500); S.coins += rw; S.stats.earned = (S.stats.earned || 0) + rw; inspResult = { ok, income: rw }; }
   else { const fine = Math.min(S.coins, Math.round(income / 2 * (1 - 0.07 * ties))); spendOut(fine, 'fined'); I.failed = (I.failed || 0) + 1; inspResult = { ok, fine, text: inspText(c) }; }
   openPanel(inspResultPanel); updateHud(); save();
 }
@@ -1717,14 +1717,20 @@ function calmBlock() {
     ? `<p class="muted">Спокойный режим включён: инспектор не приходит, проверок и штрафов нет. Звёзды школы в этом режиме не появляются — когда захочешь их заработать (они нужны для новых классов), выключи спокойный режим.</p><button class="btn ghost wide" data-calm="0">🧐 Выключить спокойный режим</button>`
     : `<p class="muted">В спокойном режиме инспектор не приходит: никаких проверок и штрафов, но и новых звёзд школы не будет. Звёзды нужны для новых классов — зарабатывай их, когда есть настроение. Включить и выключить можно в любой момент.</p><button class="btn ghost wide" data-calm="1">😌 Включить спокойный режим</button>`;
 }
-function inspPanel() {
-  const I = insp(), c = I.cur;
-  return `<div class="sh-head"><span class="remoji big">🧐</span><div><h2>Инспектор и звёзды школы</h2><div class="muted">У школы ⭐ ${schoolStars()} · пройдено ${I.passed || 0}, провалено ${I.failed || 0}</div></div><button class="x" data-close>✕</button></div>
-    ${c ? `<div class="card up"><span class="remoji">🧐</span><div class="grow"><b>Идёт проверка: ${inspText(c)}</b><div class="muted">${INSP_KINDS[c.kind].now(c)} · осталось ${mmss(c.left)}</div></div></div>`
-      : S.stats.graduated < 20 ? '<p>Инспектор начнёт приходить, когда у школы будет 20 выпускников.</p>' : `<p>Следующая проверка через <b>${mmss(I.t)}</b>${I.next ? `: ${inspNextText(I.next)}` : ''}.</p>`}
-    ${calmBlock()}
-    <p class="muted">Раз в 12 минут игры приходит инспектор и 1–3 минуты проверяет что-то одно: настроение учеников, что почти никто не ушёл расстроенным (не больше 7 за минуту), как быстро ты чинишь происшествия, как сдают экзамены или сколько школа заработала. О проверке предупреждают за 40 секунд.</p>
-    <p class="muted">Прошла — звезда школы (+3% к плате за все уроки) и награда. Не прошла — штраф. Звёзды тратятся на постройку новых классов, кабинета директора и открытие новых миров. Пока игра закрыта, инспектор не приходит.</p>`;
+const STAR_STONE_FROM = 15;   // from the 16th star every new star also gives a moonstone (her «тратить некуда»)
+function inspPanel() {   // short and plain (her «миллион текста и глаза пугаются»)
+  const I = insp(), c = I.cur, n = schoolStars(), row = (ic, t) => `<div class="card up"><span class="remoji">${ic}</span><div class="grow">${t}</div></div>`;
+  return `<div class="sh-head"><span class="remoji big">⭐</span><div><h2>Звёзды школы</h2><div class="muted">проверок пройдено ${I.passed || 0}, провалено ${I.failed || 0}</div></div><button class="x" data-close>✕</button></div>
+    <div class="card" style="justify-content:center;text-align:center;font-size:19px"><b>⭐ ${n} = +${3 * n}% к плате за уроки</b></div>
+    <h3>Что даёт звезда</h3>
+    ${row('💰', '<b>+3% к плате за все уроки</b>, пока звезда у школы')}
+    ${row(ST_IMG(24), `<b>+1 лунный камень</b> за каждую новую звезду после ${STAR_STONE_FROM}-й`)}
+    ${row('🏗️', 'Нужны для постройки классов, кабинета директора и новых миров (тогда тратятся)')}
+    <h3>Как получить</h3>
+    ${row('🧐', 'Пройти проверку инспектора. Он приходит раз в 12 минут игры, за провал — штраф')}
+    ${c ? row('⏳', `<b>Сейчас проверка: ${inspText(c)}</b><div class="muted">${INSP_KINDS[c.kind].now(c)} · осталось ${mmss(c.left)}</div>`)
+      : S.stats.graduated < 20 ? '<p class="muted">Инспектор начнёт приходить, когда у школы будет 20 выпускников.</p>' : `<p class="muted">Следующая проверка через <b>${mmss(I.t)}</b>${I.next ? `: ${inspNextText(I.next)}` : ''}.</p>`}
+    ${calmBlock()}`;
 }
 // how many students are in the school right now (her wish 2026-11-21)
 const inSchool = () => agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && (a.goal.t === 'x' || a.goal.t === 'g')));
@@ -2945,6 +2951,7 @@ let stCheckT = 0;
 function stepStones(dt) {   // checks the goals every 5 s (also during the catch-up: a goal reached while away pays on return)
   if (WORLD > 2 || !S) return; stCheckT += dt; if (stCheckT < 5) return; stCheckT = 0;
   for (const a of ST_ACH) if (a.ok() && stonesAdd(a.n, stKey(a)) && !ffwd) toast(`${ST_ICON} +${a.n} лунных камней: ${a.t}!`);
+  { const extra = schoolStars() - STAR_STONE_FROM; if (extra > 0 && stonesAdd(extra, 'w' + WORLD + '_starsback') && !ffwd) toast(`⭐ За звёзды сверх ${STAR_STONE_FROM}: ${ST_ICON} +${extra} лунных камней`); }   // once: stars gathered before build 451
 }
 const ST_SHOP = [
   { k: 'mg', icon: '🧪', name: 'Попытка в мини-игре', txt: '+1 попытка с наградой', price: 5, can: () => true, why: () => '',
