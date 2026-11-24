@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=426';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=426';
-import { initMinigame } from './minigame.js?v=426';
-import { initChests } from './chests.js?v=426';
-import { initLore } from './lore.js?v=426';
-import { initAvatar } from './avatar.js?v=426';
+} from './data.js?v=427';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=427';
+import { initMinigame } from './minigame.js?v=427';
+import { initChests } from './chests.js?v=427';
+import { initLore } from './lore.js?v=427';
+import { initAvatar } from './avatar.js?v=427';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 426;   // keep equal to the ?v= number in index.html
+const BUILD = 427;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -406,8 +406,8 @@ const THEMES = {
     stations: ['station_pink', 'station_green', 'station_purple'] },
   // Astronomy (her choice 2026-11-21: night observatory, a small telescope per student, big brass telescope + orrery, star chart instead of a board)
   stars: { dir: 'assets/parts/stars/', wallTiles: 4, floorTiles: 3, board: 'chart', isoOnly: true, iso: true,
-    decor: ['window', 'shelf', 'clock', 'painting', 'round_window'], back: ['orrery', 'table'], side: ['bookcase', 'table'], front: [], rug: 'rug',
-    stations: ['tel_gold', 'tel_silver', 'tel_rose'], teacherProp: 'big_telescope', h: { table: 24, bookcase: 36 } },
+    decor: ['stwin', 'clock', 'stwin'], back: ['', ''], side: ['bookcase', 'table'], front: [], rug: 'rug',
+    stations: ['st_desk'], h: { table: 24, bookcase: 36, st_desk: 40 } },
   // Charms (her choice 2026-11-21: lecterns with wands and floating spellbooks)
   charms: { dir: 'assets/parts/charms/', wallTiles: 4, floorTiles: 3, board: 'circle', isoOnly: true, iso: true,
     decor: ['window', 'mirror', 'shelf', 'wand_rack', 'painting'], back: ['crystal_ball', 'table'], side: ['bookcase', 'table'], front: [], rug: 'rug',
@@ -481,6 +481,7 @@ let partsVer = 0;   // bumped on every part load: themeReady() answers from its 
 for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
   if (!n) continue; const im = new Image(); im.onload = () => { partsVer++; }; im.src = `${t.dir}${n}.webp?v=2202`; parts[k + '/' + n] = im;
 }
+for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/st_${n}.webp?v=1`; if (WORLD === 1) parts['stars/' + n] = im; }   // Stargazing redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/pot_${n}.webp?v=1`; if (WORLD === 1) parts['potions/' + n] = im; }   // Potions redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/herbs_${n}.webp?v=1`; if (WORLD === 1) parts['herbs/' + n] = im; }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
@@ -792,7 +793,7 @@ function faceTeacher(a, i) { const tp = teacherPos(i); a.flip = (tp.x - tp.y) < 
 const sideHall = (i) => !!CLASSES[i].final && WORLD === 1;   // the exam hall faces its left wall
 function deskPos(i, d) {   // 3 columns across the room, rows from the board towards us: the first rows stay on the room picture
   if (sideHall(i)) { const s = slotOf(i), per = 3, gy = (s.y1 - s.y0 - 2.2) / (per - 1); return { x: s.x0 + 3.2 + Math.floor(d / per) * 1.95, y: s.y0 + 1.1 + (d % per) * gy }; }   // rows of 3 along the left wall, 7 rows deep into the hall
-  const s = slotOf(i), w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3, lm = WORLD === 1 && (CLASSES[i].id === 'herbs' || CLASSES[i].id === 'potions') ? 1.65 : 1.1, gap = (w - lm - 1.1) / (cols - 1);   // Herbology: the first column steps away from the planter boxes (her «Да» to moving the row)
+  const s = slotOf(i), w = s.x1 - s.x0, cols = CLASSES[i].final ? 7 : w >= 9 ? 4 : 3, lm = WORLD === 1 && (CLASSES[i].id === 'herbs' || CLASSES[i].id === 'potions' || CLASSES[i].id === 'stars') ? 1.65 : 1.1, gap = (w - lm - 1.1) / (cols - 1);   // Herbology: the first column steps away from the planter boxes (her «Да» to moving the row)
   return { x: s.x0 + lm + (d % cols) * gap, y: s.y0 + (frontFacing(i) ? 1.9 : 2.5) + Math.floor(d / cols) * (CLASSES[i].final ? 1.45 : 1.2) };   // exam rows wider apart: each student clearly sits at his own desk
 }
 const seatPos = (i, d) => { const p = deskPos(i, d);   // exam hall: desks stay in the sideHall rows, students sit as before (her ruling 2026-11-22)
@@ -1617,7 +1618,11 @@ function fixIncident(i) {
   const s = slotOf(i); popup('✨ Починено!', (s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, '#2f9e7a', 50);
   toast(`✨ ${CLASSES[i].name}: всё в порядке, урок продолжается`); save();
 }
+const STAR_DUTY = {};   // per class: { id, t0, from, to } — one student at the big telescope at a time
+function dutyPos(a) { const d = STAR_DUTY[a.c]; if (!d || d.id !== a.id || a.state !== 'study' || (a.path && a.path.length)) return null; const u = (performance.now() - d.t0) / 1000; if (u >= 10) return null;
+  const k = u < 2.5 ? u / 2.5 : u < 7.5 ? 1 : 1 - (u - 7.5) / 2.5, e = k * k * (3 - 2 * k); return { x: d.from.x + (d.to.x - d.from.x) * e, y: d.from.y + (d.to.y - d.from.y) * e }; }
 function panicPos(a) {   // where a panicking student is now: a wobbly loop around the room, different for everyone
+  { const dp = WORLD === 1 && STAR_DUTY[a.c] && dutyPos(a); if (dp) return dp; }
   if (a.state !== 'study' || !incOf(a.c) || (a.path && a.path.length)) return null;
   const s = slotOf(a.c); if (!s) return null;
   const T = performance.now() / 1000, k = a.id * 1.7, sp = 0.55 + (a.id % 5) * 0.09;
@@ -3352,7 +3357,8 @@ function texWall(c, th, e, a, b, h) {
 // on the back-right wall they are mirrored. They are placed as they are, not skewed.
 const ISO_W = { jar_shelf: 1.2, toy_rack: 1.3, owl_clock: 0.8, flying_books: 1.5, candles: 0.9, portrait: 1.3, certificates: 1.4, notice: 1.0, lantern: 0.6, garland: 2.6, moon_clock: 0.85, bookshelf: 1.5, bookshelf2: 1.4, lamp: 0.6, map: 1.2, banner: 1.1, sconce: 0.7, diploma: 0.9, el_poster: 1.6, torch: 0.75, planter: 1.35, wing_poster: 1.8, birds: 1.5, circle: 1.8, mirror: 0.95, wand_rack: 1.4, chart: 1.9, painting: 0.95, poster: 1.9, round_window: 1.15, cabinet: 1.3, board: 2.6, window: 1.15, window2: 1.15, shelf: 1.8, herbs_rack: 1.6, clock: 1.15 };
 DECOR.bigwin = { w: 1.25, lo: 0.3, deep: 0.6 }; ISO_W.bigwin = 1.45;   // windows sit higher, above the planter boxes like in the concept
-DECOR.potwin = { w: 1.15, lo: 0.3, deep: 0.6 }; ISO_W.potwin = 1.3;   // Potions: tall gothic windows with stained glass
+DECOR.potwin = { w: 1.15, lo: 0.3, deep: 0.6 }; ISO_W.potwin = 1.3;
+DECOR.stwin = { w: 1.2, lo: 0.3, deep: 0.6 }; ISO_W.stwin = 1.2;   // Stargazing: round porthole windows   // Potions: tall gothic windows with stained glass
 const HERBS_WINS = new Map();   // where the big windows were hung (world px), for the night glass drawn every frame
 function hangIso(c, th, n, s, side, t0, lo) {
   const im = part(th, 'iso_' + n); if (!im) return false;
@@ -3362,7 +3368,7 @@ function hangIso(c, th, n, s, side, t0, lo) {
   c.save(); c.translate(m.x, m.y); if (side === 'y0') c.scale(-1, 1);
   c.shadowColor = 'rgba(55,35,80,0.35)'; c.shadowBlur = 3 * k; c.shadowOffsetX = (side === 'y0' ? -1.2 : 1.2) * k; c.shadowOffsetY = 1.8 * k;
   c.drawImage(im, -sw / 2, -sh / 2, sw, sh); c.restore();
-  if (n === 'bigwin' || n === 'potwin') HERBS_WINS.set(Math.round(m.x) + ',' + Math.round(m.y), { x: m.x, y: m.y, sw, sh, flip: side === 'y0', side, tm, s0: s.x0 + ',' + s.y0, night: n === 'potwin' ? 'pot_window_night' : 'herbs_window_night', w: DECOR[n].w });
+  if (n === 'bigwin' || n === 'potwin' || n === 'stwin') HERBS_WINS.set(Math.round(m.x) + ',' + Math.round(m.y), { x: m.x, y: m.y, sw, sh, flip: side === 'y0', side, tm, s0: s.x0 + ',' + s.y0, night: n === 'potwin' ? 'pot_window_night' : n === 'stwin' ? 'st_window_night' : 'herbs_window_night', w: DECOR[n].w });
   return true;
 }
 function hang(c, th, n, s, side, t0, lo) {
@@ -3422,6 +3428,26 @@ function itemDraw(n, x, y, h, o = {}) {   // a sprite standing on tile (x, y): b
 }
 const daylight = () => { const h = window.__hour ?? (new Date().getHours() + new Date().getMinutes() / 60); return h >= 7 && h < 18.5 ? Math.min(1, (h - 7) / 1.5, (18.5 - h) / 1.5) : 0; };
 const ROOM_ART = {
+  stars(i, s, st, add) {
+    const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000, W = s.x1 - s.x0, me = s.x0 + ',' + s.y0;
+    const free = s.y0 + 2.5 + (Math.ceil(maxDesksOf(i) / 3) - 1) * 1.2 + 1.0, wallEnd = Math.min(s.y1 - 1.0, free), tp = teacherPos(i);
+    const D = dayTint(), tt = D.sun.map((v, j) => (v + D.shade[j]) / 2), nt = Math.min(1, Math.max(0, (1 - (tt[0] + tt[1] + tt[2]) / 765) * 2.2));
+    add(s.x0 + 0.05, s.y0 + 0.05, () => { for (const wv of HERBS_WINS.values()) { if (wv.s0 !== me) continue; const im = nt > 0.03 && itemIm(wv.night); if (im) { ctx.save(); ctx.globalAlpha = nt; ctx.translate(wv.x, wv.y); if (wv.flip) ctx.scale(-1, 1); ctx.drawImage(im, -wv.sw / 2, -wv.sh / 2, wv.sw, wv.sh); ctx.restore(); } } });   // portholes: starry glass at night
+    // the big telescope on its platform (where the teacher's telescope stood) + the duty student
+    const stl = stageOf(lv('telescope')), bx = s.x0 + 1.05, by = s.y0 + 0.95;   // the platform fills the back-left corner
+    if (stl) { const k = [0, 0.8, 0.9, 1, 1.05][stl]; add(bx, by, () => { const r = itemDraw('st_bigtel', bx, by, 76 * k, { shadow: 1 }); if (r && stl >= 4) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.12 + 0.05 * Math.sin(T); ctx.fillStyle = 'rgba(200,220,255,1)'; ctx.beginPath(); ctx.moveTo(r.x + r.w * 0.28, r.top + r.h * 0.05); ctx.lineTo(r.x + r.w * 0.5, r.top - 60); ctx.lineTo(r.x + r.w * 0.75, r.top - 50); ctx.lineTo(r.x + r.w * 0.34, r.top + r.h * 0.12); ctx.closePath(); ctx.fill(); ctx.restore(); } }); }   // a beam of starlight at 40
+      const dut = STAR_DUTY[i], now = performance.now(); if (stl && (!dut || now - dut.t0 > 10000)) { if (!dut || now > dut.next) { const cand = agents.filter((a) => a.c === i && a.state === 'study' && !(a.path && a.path.length)); if (cand.length) { const a = cand[Math.floor(Math.random() * cand.length)]; STAR_DUTY[i] = { id: a.id, t0: now, from: { x: a.x, y: a.y }, to: { x: bx + 0.55, y: by + 0.95 }, next: now + 60000 + Math.random() * 60000 }; } else if (dut) dut.next = now + 20000; } }
+    // the armillary globe in the back-right corner
+    const sg = stageOf(lv('globe')); if (sg) { const gx = s.x1 - 0.7, gy = s.y0 + 0.75, k = [0, 0.75, 0.88, 1, 1.05][sg]; add(gx, gy, () => { const r = itemDraw('st_globe', gx, gy, 62 * k, { shadow: 1 }); if (r) { const an = T * 0.9; fxStar(r.x + Math.cos(an) * r.w * 0.3, r.top + r.h * 0.3 + Math.sin(an) * r.h * 0.08, 3, 0.6 + 0.4 * Math.sin(an * 2), '255,226,150'); } }); }
+    // the hourglass against the back wall beside the globe (left of it the teacher walks)
+    const sh = stageOf(lv('hourglass')); if (sh) { const hx = s.x1 - 1.75, hy = s.y0 + 0.5, k = [0, 0.75, 0.88, 1, 1.05][sh]; add(hx, hy, () => { const r = itemDraw('st_hourglass', hx, hy, 56 * k, { shadow: 1 }); if (!r) return; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3 + 0.08 * Math.sin(T * 1.7); ctx.drawImage(glowSprite('255,214,120'), r.x - 16, r.top + r.h * 0.55 - 12, 32, 28); ctx.restore();
+      if (sh >= 4) for (let m = 0; m < 3; m++) { const u = (T * 0.6 + m / 3) % 1; fxStar(r.x, r.top + r.h * (0.45 + u * 0.3), 1.6, 1 - u, '255,236,150'); } }); }   // sand glows; at 40 golden sparks trickle down
+    // framed star maps on the window wall, in the gaps between windows
+    const sm = stageOf(lv('maps')); if (sm) { const ws = [...HERBS_WINS.values()].filter((wv) => wv.s0 === me && wv.side === 'x0').map((wv) => wv.tm).sort((a, b) => a - b), gaps = []; let prev = s.y0 + 0.3; for (const t of [...ws, wallEnd]) { if (t - prev > 1.9) gaps.push((prev + t) / 2); prev = t; }
+      gaps.slice(0, [0, 1, 1, 2, 3][sm]).forEach((t) => add(s.x0 + 0.1, t, () => { const im = itemIm('st_map'); if (!im) return; const b = up(P(s.x0, t), TALL_H() * 0.62), h = 34, w = h * im.naturalWidth / im.naturalHeight; ctx.save(); ctx.translate(b.x, b.y); ctx.transform(1, -HH / HW, 0, 1, 0, 0); ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore(); })); }   // the flat map is sheared onto the wall plane
+    // a brass orrery hanging from the ceiling over the rug (decor)
+    { const ox = s.x0 + W * 0.5, oy = s.y0 + (s.y1 - s.y0) * 0.55; add(ox + 0.8, oy + 0.8, () => { const p = P(ox, oy), lift = 96; ctx.strokeStyle = 'rgba(120,90,50,0.9)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(p.x, p.y - lift - 60); ctx.lineTo(p.x, p.y - lift - 18); ctx.stroke(); const r = itemDraw('st_orrery', ox, oy, 30 + Math.sin(T) * 0.5, { lift }); if (r) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35; ctx.drawImage(glowSprite('255,214,130'), r.x - 12, r.top + r.h * 0.5 - 12, 24, 24); ctx.restore(); if (dnDark) frameLamps.push({ x: r.x, y: r.top + r.h * 0.6, r: 6 }); } }); }
+  },
   potions(i, s, st, add) {
     const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000, W = s.x1 - s.x0, depth = s.y1 - s.y0;
     const free = s.y0 + 2.5 + (Math.ceil(maxDesksOf(i) / 3) - 1) * 1.2 + 1.0, wallEnd = Math.min(s.y1 - 1.0, free), me = s.x0 + ',' + s.y0;
@@ -3968,8 +3994,9 @@ function starsFx(i, d, p, o) {
   const a = studentAt(i, d); if (!a) return;
   const im = part(o.th, o.n); if (!im) return;
   const h = ((THEMES[o.th] && THEMES[o.th].h) || {})[o.n] || PROP_H[o.n] || 30, w = h * im.naturalWidth / im.naturalHeight;
-  const m = P(o.x, o.y), lx = m.x + (o.flip ? -1 : 1) * w * 0.17, ly = m.y + h * 0.08 - h * 0.95;   // the big end of the tube
+  const m = P(o.x, o.y), lx = m.x + (o.flip ? -1 : 1) * w * (o.n === 'st_desk' ? -0.12 : 0.17), ly = m.y + h * 0.08 - h * (o.n === 'st_desk' ? 0.98 : 0.95);   // the big end of the tube
   const T = fxNow() + a.id * 0.53, cols = ['255,236,150', '200,220,255', '255,200,235'];
+  if (o.n === 'st_desk' && Math.floor((fxNow() + a.id * 3.7) / 9) % 2 === 0) { const qx = m.x + (o.flip ? 1 : -1) * w * 0.08, qy = m.y - h * 0.55, u = (T * 0.8) % 1; fxTop.push(() => fxStar(qx + Math.sin(T * 5) * 3, qy - u * 6, 2.2, 0.9 - u * 0.6, '255,226,140')); return; }   // writing phase: a golden quill sparkle over the parchment
   fxTop.push(() => { for (let k = 0; k < 3; k++) {
     const per = 2.8 + k * 0.5, u = ((T + k * 1.1) / per) % 1, al = Math.pow(Math.sin(u * Math.PI), 1.5);
     const an = -1.9 + k * 0.75 + Math.sin(a.id + k) * 0.3, dist = 9 + k * 4;
