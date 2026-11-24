@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=435';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=435';
-import { initMinigame } from './minigame.js?v=435';
-import { initChests } from './chests.js?v=435';
-import { initLore } from './lore.js?v=435';
-import { initAvatar } from './avatar.js?v=435';
+} from './data.js?v=436';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=436';
+import { initMinigame } from './minigame.js?v=436';
+import { initChests } from './chests.js?v=436';
+import { initLore } from './lore.js?v=436';
+import { initAvatar } from './avatar.js?v=436';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 435;   // keep equal to the ?v= number in index.html
+const BUILD = 436;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2101,7 +2101,7 @@ function renderInsp() {
   const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
   // build 304 (her «Много кнопок на экране ... меню-раскладку»): top, alliance and people live in the ✨ menu; build 306 (her «Миры повторяются,
   // не нужно их в раскладке, зельеварка тоже, звезды тоже. Рейтинг верни ... вверху, а альбом ... внизу»): rating, mini-game, stars, worlds, album stay on screen
-  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button><button class="ipill" data-level aria-label="Уровень школы">🏫 ${schoolLevel()}</button>` + MG.pill() + `<button class="ipill" data-stones aria-label="Лунные камни">${ST_IMG(16)} ${stones()}</button>` + html + res + warn;   // build 306 (her «Рейтинг верни на прежнее место вверху»)
+  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button>` + MG.pill() + `<button class="ipill" data-stones aria-label="Лунные камни">${ST_IMG(16)} ${stones()}</button>` + html + res + warn;   // build 306 (her «Рейтинг верни на прежнее место вверху»)
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }   // in-place update: icons are never re-created (they blinked)
   renderMenu();
 }
@@ -5272,7 +5272,16 @@ function missionsPanel() {
       <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}${tk && MISSION_LORE[m.lk || m.type] ? `<span class="muted" style="display:block;font-style:italic;font-size:12px">${MISSION_LORE[m.lk || m.type]}</span>` : ''}</span>
       ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo">${m.need > 0 ? `<span class="qneed" style="display:block;font-size:12px;font-weight:800;color:${S.coins >= m.need ? '#2f9e5a' : '#d0304e'}">нужно 🪙${fmt(m.need)}</span>` : ''}<span class="qr">🪙${fmt(m.reward)}</span>${m.go ? `<button class="btn small go" data-mgo="${m.key}">Выполнить ➜</button>` : ''}</span>`}</div>`).join('')}</div>`;
 }
+function lvBar() {   // «🏫 Уровень 64» and the experience bar across the purple plate under the coins row
+  const top = $('#top'); if (!top || !S) return; let el = $('#lvbar');
+  if (!el) { top.style.flexWrap = 'wrap'; el = document.createElement('button'); el.id = 'lvbar'; el.dataset.level = ''; el.setAttribute('aria-label', 'Уровень школы');
+    el.style.cssText = 'flex:1 0 100%;display:flex;align-items:center;gap:8px;background:none;border:0;padding:4px 6px 0;color:#fff;font:800 13px ui-rounded,"Nunito",sans-serif;text-shadow:0 1px 2px #3a2a7a66'; top.appendChild(el); }
+  const n = schoolLevel(), x = schoolXp(), a = lvNeed(n), b = lvNeed(n + 1), pct = Math.max(0, Math.min(100, Math.floor((x - a) / (b - a) * 100))), h = `🏫 Уровень ${n}|${pct}`;
+  if (el.dataset.h === h) return; el.dataset.h = h;
+  el.innerHTML = emojiHtml(`🏫 <span>Уровень ${n}</span>`) + `<span style="flex:1;height:8px;border-radius:4px;background:#ffffff40;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:linear-gradient(90deg,#ffe08a,#ffc24d);border-radius:4px"></span></span><span style="font-size:11px;opacity:.9">${pct}%</span>`;
+}
 function updateHud() {
+  lvBar();
   $('#coins').textContent = fmt(S.coins);
   $('#stars').textContent = fmt(S.stats.graduated);
   const net = ((S.ema || 0) - (S.outEma || 0)) * 60, rt = $('#rate');   // the real gain: income minus refunds and fines (build 275)
@@ -5571,13 +5580,13 @@ let topSentAt = 0, topSentKey = '';
 const TOP_TEST = !/[?&]top=1/.test(location.search) && (!!navigator.webdriver || /^(localhost|127\.|0\.0\.0\.0|192\.168\.|10\.|\[::1\])/.test(location.hostname));
 async function topPush(force) {   // our line in the table (only with a school name); quietly does nothing offline
   if (TOP_TEST || !S || !schoolName() || !(S.rating || S.stats.graduated)) return;
-  const R = rating(), key = [schoolName(), playerNick(), myAl(), R.v.toFixed(2), R.n, S.stats.graduated, MG.weekBest(), MG.prevBest(), MG.flightBest(), MG.flightPrev()].join('|');
+  const R = rating(), key = [schoolName(), playerNick(), myAl(), R.v.toFixed(2), R.n, schoolLevel(), S.stats.graduated, MG.weekBest(), MG.prevBest(), MG.flightBest(), MG.flightPrev()].join('|');
   if (!force && (key === topSentKey || Date.now() - topSentAt < TOP_EVERY * 1000)) return;
   topSentAt = Date.now();
   try {
     const A = await anonToken();
     const I = (v) => ({ integerValue: String(Math.round(v || 0)) });
-    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), ...(myAl() ? { al: { stringValue: myAl() } } : {}), w: I(WORLD), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), mg: I(MG.weekBest()), mw: I(MG.weekKey()), ...(MG.prevBest() ? { pm: I(MG.prevBest()), pw: I(MG.weekKey() - 1) } : {}), fl: I(MG.flightBest()), flw: I(MG.weekKey()), ...(MG.flightPrev() ? { fpm: I(MG.flightPrev()), fpw: I(MG.weekKey() - 1) } : {}), build: I(BUILD), updated: I(Date.now()) } };   // mg/mw: «Зельеварка» best of this week
+    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), ...(myAl() ? { al: { stringValue: myAl() } } : {}), w: I(WORLD), lv: I(Math.max(1, Math.min(1000, schoolLevel()))), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), mg: I(MG.weekBest()), mw: I(MG.weekKey()), ...(MG.prevBest() ? { pm: I(MG.prevBest()), pw: I(MG.weekKey() - 1) } : {}), fl: I(MG.flightBest()), flw: I(MG.weekKey()), ...(MG.flightPrev() ? { fpm: I(MG.flightPrev()), fpw: I(MG.weekKey() - 1) } : {}), build: I(BUILD), updated: I(Date.now()) } };   // mg/mw: «Зельеварка» best of this week
     const r = await fetch(`${TOP_URL}/${A.uid}_w${WORLD}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify(body) });
     if (r.ok) topSentKey = key;
   } catch (e) { /* offline: next time */ }
@@ -5587,7 +5596,7 @@ async function topLoad() {
   try {
     const r = await fetch(TOP_URL + '?pageSize=300', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
     const d = await r.json(), num = (f) => (f ? +(f.integerValue ?? f.doubleValue ?? 0) : 0);
-    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', al: (x.fields.al || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), g: num(x.fields.g), gold: num(x.fields.gold), mg: num(x.fields.mg), mw: num(x.fields.mw), pm: num(x.fields.pm), pw: num(x.fields.pw), fl: num(x.fields.fl), flw: num(x.fields.flw), fpm: num(x.fields.fpm), fpw: num(x.fields.fpw) }));
+    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', al: (x.fields.al || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), lv: num(x.fields.lv), g: num(x.fields.g), gold: num(x.fields.gold), mg: num(x.fields.mg), mw: num(x.fields.mw), pm: num(x.fields.pm), pw: num(x.fields.pw), fl: num(x.fields.fl), flw: num(x.fields.flw), fpm: num(x.fields.fpm), fpw: num(x.fields.fpw) }));
     topErr = ''; topLoadedAt = Date.now(); mgPrizeCheck();
   } catch (e) { topErr = 'Не получилось загрузить топ — проверь интернет'; }
   await AV.load();   // approved avatars (every 5 min at most)
@@ -5853,6 +5862,11 @@ function allyTopRows() {   // the top of alliances by strength = the SUM of its 
 }
 let topTab = 's';
 function openTop() { topPush(true).finally(() => Promise.all([topLoad(), allyLoad()]).finally(() => { if (panel === topPanel) refreshPanel(); })); openPanel(topPanel); }
+function lvTopHtml(all, mine) {   // schools by level (all named schools of this world, no review minimum); older builds sent no level
+  const l = all.filter((x) => x.lv > 0).sort((a, b) => b.lv - a.lv || b.g - a.g);
+  if (!l.length) return '<p class="muted">Уровни появятся в топе, когда школы обновят игру.</p>';
+  return '<h3>Самые развитые школы</h3><p class="muted">Уровень школы растёт с каждым выпускником: чем выше звание, тем больше опыта.</p>' + l.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span>${AV.img(x.id)}<div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${mine(x) ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🎓 ${fmt(x.g)} выпускников · 🏅 ${r2(x.r)}</div></div><b>🏫 ${x.lv}</b></div>`).join('');
+}
 function topPanel() {
   let me = ''; try { me = (JSON.parse(localStorage.getItem(ANON_KEY)) || {}).uid || ''; } catch (e) { /* none */ }
   const mine = (x) => me && x.id === me + '_w' + WORLD;
@@ -5864,10 +5878,10 @@ function topPanel() {
   return `<div class="sh-head"><span class="remoji big">🏆</span><div><h2>Топ школ</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'} · по рейтингу 🏅</div></div><button class="x" data-close>✕</button></div>
     ${schoolName() ? `<p>Твоя школа «<b>${escTxt(schoolName())}</b>»${playerNick() ? ` (👤 ${escTxt(playerNick())})` : ''}: рейтинг 🏅 ${ratingTxt()}${myPlace >= 0 ? `, <b>${myPlace + 1}-е место</b>` : rating().n < TOP_MIN ? ` — в топ попадёт после ${TOP_MIN} отзывов (сейчас ${fmt(rating().n)})` : ''}.</p>` : '<p><b>Придумай название школы</b> и впиши своё имя, чтобы школа появилась в топе. Их увидят все игроки.</p>'}
     ${nameBox}${AV.myBox()}${AV.modBox()}
-    <div style="display:flex;gap:6px;margin:10px 0"><button class="btn ${topTab === 's' ? '' : 'ghost'}" data-toptab="s">🏫 Школы</button><button class="btn ${topTab === 'a' ? '' : 'ghost'}" data-toptab="a">🤝 Альянсы</button><button class="btn ${topTab === 'm' ? '' : 'ghost'}" data-toptab="m">🎮 Игры</button></div>
-    ${topTab === 'm' ? mgTopHtml(mine) : topTab === 'a' ? '<h3>Лучшие альянсы</h3><p class="muted">Место альянса — по силе 💪: это сумма рейтингов всех его школ. Каждая школа добавляет альянсу силы.</p>' + allyTopRows() : topErr ? `<p class="muted">${topErr}</p>` : !topList ? '<p class="muted">Загружаю топ…</p>' : rows ? '<h3>Лучшие школы</h3>' + rows : '<p class="muted">Пока в топе никого нет — стань первой школой!</p>'}
-    ${topTab === 'm' ? '' : wait.length ? `<p class="muted">Ещё набирают отзывы: ${wait.length} ${wait.length === 1 ? 'школа' : 'школ'}.</p>` : ''}
-    ${topTab === 'm' ? '' : `<p class="muted">Места — по рейтингу 🏅 с точностью до сотых; при равном рейтинге выше та школа, у которой больше золотых отзывов. В топ попадают школы, у которых не меньше ${TOP_MIN} отзывов. Рейтинг обновляется раз в минуту, пока игра открыта.</p>`}`;
+    <div style="display:flex;gap:6px;margin:10px 0"><button class="btn ${topTab === 's' ? '' : 'ghost'}" data-toptab="s">🏫 Школы</button><button class="btn ${topTab === 'l' ? '' : 'ghost'}" data-toptab="l">🏫 Уровень</button><button class="btn ${topTab === 'a' ? '' : 'ghost'}" data-toptab="a">🤝 Альянсы</button><button class="btn ${topTab === 'm' ? '' : 'ghost'}" data-toptab="m">🎮 Игры</button></div>
+    ${topTab === 'l' ? lvTopHtml(all, mine) : topTab === 'm' ? mgTopHtml(mine) : topTab === 'a' ? '<h3>Лучшие альянсы</h3><p class="muted">Место альянса — по силе 💪: это сумма рейтингов всех его школ. Каждая школа добавляет альянсу силы.</p>' + allyTopRows() : topErr ? `<p class="muted">${topErr}</p>` : !topList ? '<p class="muted">Загружаю топ…</p>' : rows ? '<h3>Лучшие школы</h3>' + rows : '<p class="muted">Пока в топе никого нет — стань первой школой!</p>'}
+    ${topTab === 'm' || topTab === 'l' ? '' : wait.length ? `<p class="muted">Ещё набирают отзывы: ${wait.length} ${wait.length === 1 ? 'школа' : 'школ'}.</p>` : ''}
+    ${topTab === 'm' || topTab === 'l' ? '' : `<p class="muted">Места — по рейтингу 🏅 с точностью до сотых; при равном рейтинге выше та школа, у которой больше золотых отзывов. В топ попадают школы, у которых не меньше ${TOP_MIN} отзывов. Рейтинг обновляется раз в минуту, пока игра открыта.</p>`}`;
 }
 // ---- weekly tables and prizes of the mini-games (build 358 potions, flight added later; her picks «Призы за неделю», «Полёт через кольца») ----
 const MG_PRIZE = [60, 30, 15];   // minutes of «Вдохновение» for places 1-3 of last week (capped at 60 like every boost)
