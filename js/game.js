@@ -1,14 +1,14 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
-import './edit_guard.js?v=458';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=459';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=458';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=458';
-import { initMinigame } from './minigame.js?v=458';
-import { initChests } from './chests.js?v=458';
-import { initLore } from './lore.js?v=458';
-import { initAvatar } from './avatar.js?v=458';
+} from './data.js?v=459';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=459';
+import { initMinigame } from './minigame.js?v=459';
+import { initChests } from './chests.js?v=459';
+import { initLore } from './lore.js?v=459';
+import { initAvatar } from './avatar.js?v=459';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -31,7 +31,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 458;   // keep equal to the ?v= number in index.html
+const BUILD = 459;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5452,7 +5452,7 @@ const DQ = [
   { id: 'grad', on: () => true, n: () => lvN(20, 10), text: (n) => `Выпусти ${n} учеников 🎓`, now: () => S.stats.graduated, go: () => missionGo({ type: 'grad' }) },
   { id: 'chest', on: () => true, n: () => 1, text: () => 'Открой сундучок дня 🎁', done: () => { const c = S.chest; return !!c && c.day === qDay() && (c.k > 0 || c.done || c.dead); }, go: () => ['@chest', null] },
   { id: 'moon', on: () => WORLD === 1, n: () => 1, text: () => 'Собери плоды Лунного древа 🌙', now: () => S.stats.moon || 0, go: () => ['@moon', null] },
-  { id: 'gift', on: () => !!myAl(), n: () => 1, text: () => 'Подари подарок другу из альянса 🎁', now: () => S.stats.gifts || 0, go: () => ['@ally', null] },
+  { id: 'gift', on: () => !!myAl(), n: () => 1, text: () => 'Подари подарок другу из альянса 🎁', done: () => { const L = giftLog(); return [...Object.values(L.g || {}), ...Object.values(L.b || {})].reduce((a, b) => a + b, 0) >= 1; }, go: () => ['@ally', null] },   // build 457: everything sent today counts
   { id: 'read', on: () => (S.stats.read || 0) > 0, n: () => lvN(10, 5), text: (n) => `Пусть ${n} учеников позанимаются в библиотеке 📚`, now: () => S.stats.read || 0, go: () => ['LIB', '[data-act="libseats"]'] },
   { id: 'earn', on: () => true, n: () => Math.max(500, nice(qPerMin() * 10)), text: (n) => `Заработай ${fmt(n)} монет 🪙`, now: () => S.stats.earned || 0, go: () => null },
 ];
@@ -6819,5 +6819,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart,
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=458').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=459').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }

@@ -1,6 +1,6 @@
 // One emoji look on every device: emoji characters are replaced by bundled Twemoji pictures
 // (CC-BY 4.0, https://github.com/jdecked/twemoji), both in the page (DOM) and on the canvas.
-import { EMOJI_FILES } from './emoji-set.js?v=458';
+import { EMOJI_FILES } from './emoji-set.js?v=459';
 
 export const EMOJI_RE = /\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}️?|[\u{1F3FB}-\u{1F3FF}])*/gu;
 
