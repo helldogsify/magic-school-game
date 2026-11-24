@@ -1,13 +1,14 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
+import './edit_guard.js?v=457';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=456';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=456';
-import { initMinigame } from './minigame.js?v=456';
-import { initChests } from './chests.js?v=456';
-import { initLore } from './lore.js?v=456';
-import { initAvatar } from './avatar.js?v=456';
+} from './data.js?v=457';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=457';
+import { initMinigame } from './minigame.js?v=457';
+import { initChests } from './chests.js?v=457';
+import { initLore } from './lore.js?v=457';
+import { initAvatar } from './avatar.js?v=457';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +31,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 456;   // keep equal to the ?v= number in index.html
+const BUILD = 457;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -49,6 +50,7 @@ function migrate() {   // classes added to the game later (the final exam) appea
   while (S.classes.length < CLASSES.length) { const c = CLASSES[S.classes.length]; S.classes.push({ built: !!c.final, buildEnd: 0, teacher: 1, desks: c.final ? 4 : 2, time: 0, items: c.items.map(() => 0) }); }
 }
 function load() {
+  if (EDIT) { editState(); return; }
   try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { S = JSON.parse(raw); migrate(); migrateForms(); return; } } catch (e) { /* fresh */ }
   freshState();
 }
@@ -871,6 +873,7 @@ let arrivalT = 1;
 
 function walk(a, tx, ty, then) { a.path = pathTo(a, tx, ty); a.onArrive = then; if (!a.path.length && then) { a.onArrive = null; then(); } }
 function spawn() {
+  if (EDIT) return;   // the editor shows empty rooms
   const a = { id: S.nextId++, sp: rnd(SPECIES), name: rnd(NAMES), x: GATE_TILE.x, y: GATE_TILE.y, z: 0,
     path: [], speed: 2.3 + Math.random() * 0.4, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6, mood: planOf().mood };
   agents.push(a); queue.push(a); goQueue(a);
@@ -3459,22 +3462,22 @@ function railing(c, a, b) {
 // ---- themed rooms: textures through pattern transforms, so walls and floors of any length stay continuous ----
 const patCache = new WeakMap();
 function pat(c, th, n) {
-  const im = part(th, n); if (!im) return null;
+  const im = texPart(th, n); if (!im) return null;
   let m = patCache.get(c); if (!m) patCache.set(c, (m = {}));
-  return (m[th + '/' + n] ||= c.createPattern(im, 'repeat'));
+  return (m[th + '/' + n + '/' + LAY_VER] ||= c.createPattern(im, 'repeat'));
 }
 function texFloor(c, th, s) {
   const p = pat(c, th, 'floor'); if (!p) return false;
-  const T = part(th, 'floor').naturalWidth / THEMES[th].floorTiles, o = P(0, 0);   // texture px per tile; world origin keeps pieces aligned
+  const T = texPart(th, 'floor').naturalWidth / THEMES[th].floorTiles, o = P(0, 0);   // texture px per tile; world origin keeps pieces aligned
   p.setTransform(new DOMMatrix([HW / T, HH / T, -HW / T, HH / T, o.x, o.y]));
   poly(c, [P(s.x0, s.y1), P(s.x0, s.y0), P(s.x1, s.y0), P(s.x1, s.y1)]); c.fillStyle = p; c.fill();
   c.strokeStyle = '#00000018'; c.lineWidth = 1; c.stroke();
   return true;
 }
-const wallPx = (th) => { const im = part(th, 'wall'); return im ? (im.naturalWidth / THEMES[th].wallTiles) * (TALL_H() / im.naturalHeight) : 25; };   // wall-plane px per tile
+const wallPx = (th) => { const im = texPart(th, 'wall'); return im ? (im.naturalWidth / THEMES[th].wallTiles) * (TALL_H() / im.naturalHeight) : 25; };   // wall-plane px per tile
 function texWall(c, th, e, a, b, h) {
   const p = pat(c, th, 'wall'); if (!p) return false;
-  const im = part(th, 'wall'), T = im.naturalWidth / THEMES[th].wallTiles;
+  const im = texPart(th, 'wall'), T = im.naturalWidth / THEMES[th].wallTiles;
   const alongY = e.side === 'x0' || e.side === 'x1';
   const o = alongY ? up(P(e.x + (e.side === 'x1' ? 1 : 0), 0), h) : up(P(0, e.y + (e.side === 'y1' ? 1 : 0)), h);
   p.setTransform(new DOMMatrix([(alongY ? -HW : HW) / T, HH / T, 0, h / im.naturalHeight, o.x, o.y]));
@@ -3515,6 +3518,7 @@ function hangIso(c, th, n, s, side, t0, lo) {
   return true;
 }
 function hang(c, th, n, s, side, t0, lo) {
+  { const o = layHang(th, n, s, side, t0, lo); if (!o) return; t0 = o.t0; lo = o.lo; }   // room editor
   if (n === 'chportrait') { CH_SLOTS.set(s.x0 + ',' + s.y0 + side + Math.round(t0 * 10), { s0: s.x0 + ',' + s.y0, side, t: t0 + DECOR[n].w / 2 }); return; }   // her «Портрет на окнах тебя не смущает да?»: a reserved place, not over a window
   if (THEMES[th].iso && hangIso(c, th, n, s, side, t0, lo)) return;
   const im = part(th, n); if (!im) return;
@@ -3562,7 +3566,7 @@ function drawWallDecor(c, id) {
 // furniture of a themed class: corners at the back, a bookcase by the left wall, small things in the free strip in front
 // ---- redesigned rooms: built-in, staged furnishing items (stage 0 = not bought, 1 = lvl 1-9, 2 = 10-24, 3 = 25-39, 4 = 40)
 const ITEM_IMS = {};
-function itemIm(n) { let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=${n === 'pot_hearth' ? 3 : 2}`; } return im.complete && im.naturalWidth ? im : null; }
+function itemIm(n) { if (layCur && !layCur.n) layCur.n = n; let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=${n === 'pot_hearth' ? 3 : 2}`; } return im.complete && im.naturalWidth ? im : null; }
 const stageOf = (lv) => (!lv ? 0 : lv < 10 ? 1 : lv < 25 ? 2 : lv < 40 ? 3 : 4);
 function itemDraw(n, x, y, h, o = {}) {   // a sprite standing on tile (x, y): bottom-centre on the floor point, lift = px above the floor
   const im = itemIm(n); if (!im) return null; const p = P(x, y), w = h * im.naturalWidth / im.naturalHeight, top = p.y + (o.down || 0) - (o.lift || 0) - h;
@@ -3571,6 +3575,89 @@ function itemDraw(n, x, y, h, o = {}) {   // a sprite standing on tile (x, y): b
   return { x: p.x + (o.dx || 0), top, w, h };
 }
 const daylight = () => { const h = window.__hour ?? (new Date().getHours() + new Date().getMinutes() / 60); return h >= 7 && h < 18.5 ? Math.min(1, (h - 7) / 1.5, (18.5 - h) / 1.5) : 0; };
+// ---- room editor layer (Maria 2026-11-24: «приложение редактор ... подвинуть куда я хочу, покрасить стены»): layouts/layouts.json
+// changes a class room on top of the code: moves / scales / flips / hides its built-in items (keyed sprite#n in drawing order),
+// adds new sprites (anchored to the nearest room corner, so the layout stays inside small, medium and big rooms), moves or hides
+// wall decor (side:sprite#n, shift along the wall + height), recolours or swaps the wall and floor textures. Empty = the code's room.
+// The editor itself is js/editor.js, loaded only with ?edit (js/edit_guard.js keeps her real save untouched there).
+const EDIT = window.__EDIT || null;
+let RLAY = { v: 1, rooms: {} }, LAY_VER = 0;
+const LAY_ENT = [], LAY_WALLS = {}, LAY_SEEN = {}, LAY_IMS = {}, texCache = new Map();
+let layCur = null, layHangN = {};
+function setLayout(L) { RLAY = L && L.rooms ? L : { v: 1, rooms: {} }; LAY_VER++; texCache.clear(); }
+if (!EDIT) fetch('layouts/layouts.json?v=457').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.rooms && Object.keys(j.rooms).length) setLayout(j); }).catch(() => {});
+const layIm = (src) => { let im = LAY_IMS[src]; if (!im) { im = LAY_IMS[src] = new Image(); im.src = `assets/parts/${src}.webp?v=e1`; } return im.complete && im.naturalWidth ? im : null; };
+function texPart(th, n) {   // the wall / floor texture of a room, recoloured or swapped by the layout
+  const base = part(th, n), o = RLAY.rooms[th] && RLAY.rooms[th][n]; if (!o || (!o.tex && !o.col)) return base;
+  const key = th + '/' + n + '/' + LAY_VER; if (texCache.has(key)) return texCache.get(key);
+  const src = o.tex ? parts[o.tex] : base; if (!src || !src.complete || !src.naturalWidth) return base;
+  const cv = document.createElement('canvas'); cv.width = src.naturalWidth; cv.height = src.naturalHeight; const x = cv.getContext('2d'); x.drawImage(src, 0, 0);
+  if (o.col) { x.globalCompositeOperation = 'color'; x.globalAlpha = o.amt ?? 0.6; x.fillStyle = o.col; x.fillRect(0, 0, cv.width, cv.height); }
+  if (o.bri) { x.globalCompositeOperation = o.bri > 0 ? 'screen' : 'multiply'; x.globalAlpha = Math.min(1, Math.abs(o.bri)); x.fillStyle = o.bri > 0 ? '#ffffff' : '#000000'; x.fillRect(0, 0, cv.width, cv.height); }
+  x.globalCompositeOperation = 'destination-in'; x.globalAlpha = 1; x.drawImage(src, 0, 0);
+  const k = n === 'wall' ? 'wallTiles' : 'floorTiles', st = o.tex ? THEMES[o.tex.split('/')[0]] : null;   // another room's texture keeps its own size per tile
+  cv.naturalWidth = st && st[k] ? src.naturalWidth * THEMES[th][k] / st[k] : src.naturalWidth; cv.naturalHeight = src.naturalHeight;
+  texCache.set(key, cv); return cv;
+}
+function layHang(th, n, s, side, t0, lo) {   // wall decor of a room: the layout may shift it along the wall, raise it or hide it
+  const id = s.x0 + ',' + s.y0, cnt = (layHangN[id] ||= {}), k0 = side + ':' + n; cnt[k0] = (cnt[k0] || 0) + 1;
+  const key = k0 + '#' + cnt[k0], R = RLAY.rooms[th], o = R && R.walls && R.walls[key], w = (DECOR[n] && DECOR[n].w) || 1;
+  if (o) { if (o.hide) { if (EDIT) (LAY_WALLS[th] ||= []).push({ key, n, side, t0, lo, hide: 1 }); return null; } t0 += o.dt || 0; lo += o.dlo || 0;
+    t0 = side === 'y0' ? Math.max(s.x0, Math.min(s.x1 - w, t0)) : Math.max(s.y0, Math.min(s.y1 - w, t0)); lo = Math.max(0, Math.min(0.95, lo)); }
+  if (EDIT) { const im = (THEMES[th].iso && part(th, 'iso_' + n)) || part(th, n); let bb = null;
+    if (im) { const H = TALL_H(), tm = t0 + w / 2, base = side === 'y0' ? P(tm, s.y0) : P(s.x0, tm);
+      if (THEMES[th].iso && part(th, 'iso_' + n)) { const sw = (ISO_W[n] || w) * HW, sh = sw * im.naturalHeight / im.naturalWidth, vert = Math.max(sh * 0.35, sh - (ISO_W[n] || w) * HH), m = up(base, lo * H + vert / 2); bb = { x0: m.x - sw / 2, y0: m.y - sh / 2, x1: m.x + sw / 2, y1: m.y + sh / 2 }; }
+      else { const hp = w * wallPx(th) * im.naturalHeight / im.naturalWidth, m = up(base, lo * H + hp / 2), sw = w * HW; bb = { x0: m.x - sw / 2, y0: m.y - hp / 2 - sw * 0.31, x1: m.x + sw / 2, y1: m.y + hp / 2 + sw * 0.31 }; } }
+    (LAY_WALLS[th] ||= []).push({ key, n, side, t0, lo, bb, ov: o || null }); }
+  return { t0, lo };
+}
+function layBox(c, a) {   // editor only: the picture a room entry draws, as a world-px box (hit test + selection frame)
+  const im = a[0], n = a.length; let x, y, w, h;
+  if (n >= 9) { x = a[5]; y = a[6]; w = a[7]; h = a[8]; } else { x = a[1]; y = a[2]; w = n >= 5 ? a[3] : im.naturalWidth || im.width; h = n >= 5 ? a[4] : im.naturalHeight || im.height; }
+  const t = c.getTransform(), K = dpr * scale, sx = scroller.scrollLeft * dpr, sy = scroller.scrollTop * dpr, b = layCur.bb;
+  for (const [px, py] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]) { const X = (t.a * px + t.c * py + t.e + sx) / K, Y = (t.b * px + t.d * py + t.f + sy) / K;
+    if (X < b.x0) b.x0 = X; if (X > b.x1) b.x1 = X; if (Y < b.y0) b.y0 = Y; if (Y > b.y1) b.y1 = Y; }
+}
+if (EDIT) { const di = ctx.drawImage; ctx.drawImage = function (...a) { if (layCur && this.globalCompositeOperation !== 'lighter' && this.globalAlpha > 0.5 && a[0] && (a[0].naturalWidth || a[0].width) > 24) layBox(this, a); return di.apply(this, a); }; }
+function layRun(ent, draw) { const prev = layCur; layCur = ent; ent.bb = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 }; try { draw(); } finally { layCur = prev; } if (EDIT && ent.key && ent.bb.x1 > ent.bb.x0) LAY_ENT.push(ent); }
+function layAdd(i, s, add) {   // wraps the room's add(): each entry is one item; the layout moves / scales / flips / hides it
+  const cid = CLASSES[i].id, R = RLAY.rooms[cid], items = (R && R.items) || {}, seen = (LAY_SEEN[cid] ||= { names: [], xy: [] }), cnt = {};
+  let j = -1;
+  return (x, y, draw, bias = 0, name) => {
+    j++; const jj = j, xy = Math.round(x * 10) + ',' + Math.round(y * 10), known = seen.xy[jj] === xy, nm = name || (known ? seen.names[jj] : null);
+    let key = null; if (nm && nm !== '_') { cnt[nm] = (cnt[nm] || 0) + 1; key = nm + '#' + cnt[nm]; }
+    const ov = key && items[key];
+    const learn = (ent) => { if (!name) { seen.xy[jj] = xy; seen.names[jj] = ent.n && !/_night$/.test(ent.n) ? ent.n : '_'; } };
+    if (ov && ov.hide) { if (EDIT) LAY_ENT.push({ cid, kind: 'item', key, n: nm, x, y, ov, hidden: 1, bb: null }); return; }
+    if (!ov) { add(x, y, () => { const ent = { cid, kind: 'item', key, n: name || null, x, y, ov: null }; layRun(ent, draw); learn(ent); }, bias); return; }
+    const x1 = x + (ov.dx || 0), y1 = y + (ov.dy || 0);
+    add(x1, y1, () => { const m0 = P(x, y), m1 = P(x1, y1), k = ov.k || 1, f = ov.flip ? -1 : 1, px = m0.x + (ov.px || 0), py = m0.y + (ov.py || 0), n0 = frameLamps.length;
+      ctx.save(); ctx.translate(m1.x - m0.x + px, m1.y - m0.y + py); ctx.scale(k * f, k); ctx.translate(-px, -py);
+      const ent = { cid, kind: 'item', key, n: name || null, x, y, ov }; layRun(ent, draw); learn(ent); ctx.restore();
+      for (let q = n0; q < frameLamps.length; q++) { const l = frameLamps[q]; l.x = px + (l.x - px) * k * f + m1.x - m0.x; l.y = py + (l.y - py) * k + m1.y - m0.y; if (l.ly != null) l.ly = py + (l.ly - py) * k + m1.y - m0.y; l.r *= k; } }, bias);
+  };
+}
+function layPos(a, s) {   // an added item's tile from its corner anchor, kept inside the room
+  const x = a.ax === 'x1' ? s.x1 - a.x : s.x0 + a.x, y = a.ay === 'y1' ? s.y1 - a.y : s.y0 + a.y;
+  return { x: Math.max(s.x0 + 0.1, Math.min(s.x1 - 0.1, x)), y: Math.max(s.y0 + 0.1, Math.min(s.y1 - 0.1, y)) };
+}
+function layExtra(i, s, add) {   // sprites added in the editor
+  const cid = CLASSES[i].id, R = RLAY.rooms[cid]; if (!R || !R.add) return;
+  R.add.forEach((a, j) => {
+    const q = layPos(a, s), wx = a.wall === 'x0' ? s.x0 + 0.1 : q.x, wy = a.wall === 'y0' ? s.y0 + 0.1 : q.y;
+    add(wx, wy, () => layRun({ cid, kind: 'add', key: 'add#' + j, j, n: a.src, x: q.x, y: q.y, ov: a }, () => {
+      const im = layIm(a.src); if (!im) return; const h = a.h || 40, w = h * im.naturalWidth / im.naturalHeight;
+      if (a.wall) { const b = up(a.wall === 'x0' ? P(s.x0, q.y) : P(q.x, s.y0), a.lift || 0); ctx.save(); ctx.translate(b.x, b.y); ctx.transform(1, (a.wall === 'x0' ? -1 : 1) * HH / HW, 0, 1, 0, 0); if (a.flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore(); return; }
+      const p = P(q.x, q.y); if (!a.lift && zoom >= 1.2) ctx.drawImage(propShadow(), p.x - w * 0.4, p.y - w * 0.12, w * 0.8, w * 0.24);
+      ctx.save(); if (a.flip) { ctx.translate(p.x, 0); ctx.scale(-1, 1); ctx.translate(-p.x, 0); } ctx.drawImage(im, p.x - w / 2, p.y - (a.lift || 0) - h, w, h); ctx.restore();
+    }), a.bias || 0);
+  });
+}
+function editState() {   // the editor's school: every class built, at the chosen size, all items at the chosen stage, full desks
+  freshState(); noSave = true;
+  S.classes.forEach((c, i) => { c.built = true; c.buildEnd = 0; c.teacher = 10; if (!CLASSES[i].final) c.size = EDIT.size; c.items = c.items.map(() => EDIT.stage); });
+  S.classes.forEach((c, i) => { c.desks = maxDesksOf(i); }); S.tourDone = true;   // no intro tour over the room
+}
 const ROOM_ART = {
   flight(i, s, st, add) {
     const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000, W = s.x1 - s.x0, depth = s.y1 - s.y0, me = s.x0 + ',' + s.y0;
@@ -3795,7 +3882,7 @@ function themeReady(th) {   // it scanned every loaded picture for every room ev
 }
 function roomKey(id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id), th = themeOf(id);
-  return [s.x0, s.y0, s.x1, s.y1, ci >= 0 ? S.classes[ci].desks : 0, OX, OY, roomQ().toFixed(1), themeReady(th)].join(',');
+  return [s.x0, s.y0, s.x1, s.y1, ci >= 0 ? S.classes[ci].desks : 0, OX, OY, roomQ().toFixed(1), themeReady(th), LAY_VER].join(',');
 }
 function drawThemedRoom(id) {
   const rc = buildRoom(id); ctx.drawImage(rc.cv, rc.x, rc.y, rc.w, rc.h);
@@ -3845,6 +3932,7 @@ function buildRoom(id) {
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height);
     c.setTransform(q, 0, 0, q, -x0 * q, -y0 * q);
     const lamps = [], stop = recordLamps(c, lamps, x0, y0, q);
+    { const s0 = s.x0 + ',' + s.y0; layHangN[s0] = {}; if (th) delete LAY_WALLS[th]; for (const [k, v] of HERBS_WINS) if (v.s0 === s0) HERBS_WINS.delete(k); for (const [k, v] of CH_SLOTS) if (v.s0 === s0) CH_SLOTS.delete(k); }   // a rebuilt room hangs its decor afresh
     drawSlot(c, id);
     for (const e of EDGES) if (e.id === id && e.tall) drawEdge(c, e);
     drawWallDecor(c, id);
@@ -4457,7 +4545,7 @@ function render() {
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
   const list = [];
-  agentById = new Map(agents.map((a) => [a.id, a])); fxTop = []; frameLamps.length = 0; fxCometDone = new Set();
+  agentById = new Map(agents.map((a) => [a.id, a])); fxTop = []; frameLamps.length = 0; LAY_ENT.length = 0; fxCometDone = new Set();
   const zone = (x, y) => { const id = regAt(Math.floor(x), Math.floor(y)); if (id && id !== 'hall' && SLOTS[id]) { const s = SLOTS[id]; return (s.x0 + s.x1 + s.y0 + s.y1) / 2; } return x + y; };
   const add = (x, y, draw, bias = 0) => { const m = P(x, y); if (onScreen(m.x, m.y)) list.push({ k1: zone(x, y), k2: x + y + bias, draw }); };   // off-screen things are skipped
   VIEW = { x0: scroller.scrollLeft / scale, y0: scroller.scrollTop / scale, x1: (scroller.scrollLeft + scroller.clientWidth) / scale, y1: (scroller.scrollTop + scroller.clientHeight) / scale };
@@ -4505,8 +4593,10 @@ function render() {
       else { const t0 = staff[(i + 1) % staff.length], tch = { ...t0, back: frontFacing(i), flip: tp.left, path: tp.moving ? [1] : [], ph: performance.now() / 1000 + i }; add(tp.x, tp.y, () => (teacherGlow(tp, 42), drawCreature(tch, tp.x, tp.y, 42, (x, y) => drawHat(x, y - 40, '#6c4fd1')))); } }
     const thI = themeOf(CLASS_SLOT[i]), stations = thI && THEMES[thI].stations;   // potions: a little cauldron instead of a desk
     for (let d = 0; d < st.desks; d++) { const p = deskPos(i, d); if (stations && part(thI, stations[d % stations.length])) { const o = { n: stations[d % stations.length], x: p.x, y: p.y, th: thI, flip: sideHall(i) }; const sfx = STATION_FX[CLASSES[i].id]; add(p.x, p.y, () => { if (CLASSES[i].id === 'flight') { const sa = studentAt(i, d); o.lift = sa ? flightLift(sa.id) : 0; } drawProp(o); if (sfx) sfx(i, d, p, o); }); } else add(p.x, p.y, () => { drawDesk(p); if (CLASSES[i].id === 'herbs') herbsDeskFx(i, d, p); }); }
-    for (const o of roomProps(i)) add(o.x, o.y, () => drawProp(o));
-    if (ROOM_ART[CLASSES[i].id]) ROOM_ART[CLASSES[i].id](i, s, st, add);   // a redesigned room draws its own built-in items and light
+    const addL = layAdd(i, s, add);   // room editor: items can be moved, scaled, flipped, hidden
+    for (const o of roomProps(i)) addL(o.x, o.y, () => drawProp(o), 0, o.n);
+    layExtra(i, s, add);
+    if (ROOM_ART[CLASSES[i].id]) ROOM_ART[CLASSES[i].id](i, s, st, addL);   // a redesigned room draws its own built-in items and light
     else CLASSES[i].items.forEach((it, k) => {
       if (!st.items[k]) return;
       const spots = [[s.x0 + 0.7, s.y0 + 0.7], [s.x0 + 5.3, s.y0 + 0.7], [s.x0 + 0.7, s.y0 + 5.2], [s.x0 + 5.3, s.y0 + 5.2]];
@@ -6724,3 +6814,10 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { up
 const swUpdate = () => { try { navigator.serviceWorker?.getRegistration().then((r) => r && r.update()).catch(() => {}); } catch (e) { /* no service worker */ } };
 setTimeout(swUpdate, 8000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) swUpdate(); });
+if (EDIT) {   // room editor: js/editor.js gets the game's room tools
+  window.__EDIT_API = { EDIT, S, SLOTS, CLASSES, CLASS_SLOT, THEMES, DECOR, parts, P, up, HW, HH, TALL_H, slotOf, sizeOf, focusTile, setZoom,
+    get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
+    get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart,
+    zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
+  import('./editor.js?v=457').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+}

@@ -1,0 +1,224 @@
+// Room editor (Maria 2026-11-24: «приложение редактор ... подвинуть куда я хочу, покрасить стены и тд. И потом кнопку сохранить
+// (но она не опубликовывается) и опубликовать, тогда сборка готова будет»). Loaded by game.js only with ?edit; the layout data
+// and how the game applies it: game.js «room editor layer». Phone + desktop: one finger / mouse drags an item, elsewhere it pans.
+// Save = draft on the PC (editor API through lazy.vazuza.love) + this device; Publish = the PC commits layouts/layouts.json as a build.
+export function initEditor(A) {
+  const E = A.EDIT, $ = (s, r = document) => r.querySelector(s);
+  const ci = Math.max(0, A.CLASSES.findIndex((c) => c.id === E.cls)), C = A.CLASSES[ci], cid = C.id, s = A.slotOf(ci);
+  const KEY_LS = 'magicschool.editor.key', DRAFT_LS = 'magicschool.editor.draft';
+  const q = new URLSearchParams(location.search); if (q.get('key')) { localStorage.setItem(KEY_LS, q.get('key')); const u = new URL(location.href); u.searchParams.delete('key'); history.replaceState(null, '', u); }   // the key stays on this device, not in the address
+  const key = localStorage.getItem(KEY_LS) || '';
+  const api = (p) => `${E.api}/${p}?key=${encodeURIComponent(key)}`;
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  let L = { v: 1, rooms: {} }, sel = null, undo = [], dirty = false, night = false;
+  const room = () => (L.rooms[cid] ||= {});
+  const apply = (walls) => { if (walls) A.setLayout(L); else if (A.layout !== L) A.setLayout(L); dirty = true; localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); status(''); };
+  const snap = () => { undo.push(JSON.stringify(L)); if (undo.length > 60) undo.shift(); };
+  const tidy = () => { const R = room(); for (const k of ['items', 'walls']) if (R[k] && !Object.keys(R[k]).length) delete R[k]; if (R.add && !R.add.length) delete R.add; if (!Object.keys(R).length) delete L.rooms[cid]; };
+
+  // ---------- UI ----------
+  document.body.classList.add('editing');
+  const css = document.createElement('style'); css.textContent = `
+body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, body.editing #menugrid, body.editing #menudim, body.editing #sheet-wrap, body.editing #fx, body.editing .ipill, body.editing #tour { display: none !important; }
+#ed-top, #ed-bot, #ed-sel { position: fixed; left: 0; right: 0; z-index: 90; font: 600 14px ui-rounded, system-ui, -apple-system, sans-serif; color: #4a2f7a; }
+#ed-top { top: 0; padding: calc(env(safe-area-inset-top) + 6px) 8px 6px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: #fffaf2ee; box-shadow: 0 2px 10px #3a2f4a33; }
+#ed-top select, #ed-top button, #ed-sel button, #ed-bot button { font: inherit; border: 0; border-radius: 12px; padding: 7px 10px; background: #efe6ff; color: #4a2f7a; }
+#ed-top .on { background: #7b5cd6; color: #fff; }
+#ed-top .grow { flex: 1; }
+#ed-top .save { background: #d8f2dc; } #ed-top .pub { background: #7b5cd6; color: #fff; }
+#ed-st { font-size: 12px; color: #8a7a99; width: 100%; }
+#ed-bot { bottom: 0; background: #fffaf2f2; box-shadow: 0 -2px 10px #3a2f4a33; padding: 6px 8px calc(env(safe-area-inset-bottom) + 6px); }
+#ed-tabs, #ed-groups { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
+#ed-tabs .on, #ed-groups .on { background: #7b5cd6; color: #fff; }
+#ed-groups button { font-size: 12px; padding: 5px 9px; white-space: nowrap; }
+#ed-grid { display: flex; gap: 6px; overflow-x: auto; height: 84px; }
+#ed-grid img { height: 76px; min-width: 40px; max-width: 110px; object-fit: contain; background: #f3ecfa; border-radius: 10px; padding: 3px; flex: none; }
+#ed-wall { display: none; max-height: 170px; overflow-y: auto; }
+#ed-wall h4 { margin: 4px 0; font-size: 13px; }
+#ed-wall .row { display: flex; gap: 6px; overflow-x: auto; align-items: center; padding-bottom: 4px; }
+#ed-wall .sw { width: 30px; height: 30px; border-radius: 50%; flex: none; border: 2px solid #fff; box-shadow: 0 0 0 1px #c9b8e8; padding: 0; }
+#ed-wall .sw.on { box-shadow: 0 0 0 3px #7b5cd6; }
+#ed-wall .tx { width: 64px; height: 44px; object-fit: cover; border-radius: 8px; flex: none; border: 2px solid transparent; }
+#ed-wall .tx.on { border-color: #7b5cd6; }
+#ed-wall label { font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#ed-sel { bottom: 150px; display: none; justify-content: center; gap: 6px; flex-wrap: wrap; padding: 0 8px; pointer-events: none; }
+#ed-sel button { pointer-events: auto; box-shadow: 0 2px 8px #3a2f4a44; background: #fffaf2; min-width: 42px; }
+#ed-ov { position: fixed; pointer-events: none; z-index: 80; }
+@media (min-width: 900px) { #ed-grid { height: 104px; } #ed-grid img { height: 96px; } #ed-sel { bottom: 175px; } }`;
+  document.head.appendChild(css);
+  const names = A.CLASSES.filter((c) => !c.w2 && c.id).map((c) => `<option value="${c.id}"${c.id === cid ? ' selected' : ''}>${c.emoji || ''} ${c.name}</option>`).join('');
+  const top = document.createElement('div'); top.id = 'ed-top'; top.innerHTML = `
+<select id="ed-cls" aria-label="Класс">${names}</select>
+<span><button data-size="1">Мал.</button> <button data-size="2">Сред.</button> <button data-size="3">Бол.</button></span>
+<button id="ed-stage" title="Уровень предметов класса">Ур. ${E.stage}</button>
+<button id="ed-day">☀️ День</button>
+<button id="ed-undo">↶</button>
+<span class="grow"></span>
+<button id="ed-save" class="save">💾 Сохранить</button><button id="ed-pub" class="pub">🚀 Опубликовать</button>
+<div id="ed-st"></div>`;
+  document.body.appendChild(top);
+  top.querySelectorAll('[data-size]').forEach((b) => b.classList.toggle('on', +b.dataset.size === E.size));
+  const bot = document.createElement('div'); bot.id = 'ed-bot'; bot.innerHTML = `
+<div id="ed-tabs"><button data-tab="items" class="on">🪑 Предметы</button><button data-tab="wall">🎨 Стены и пол</button><button id="ed-hidden" style="display:none"></button></div>
+<div id="ed-items"><div id="ed-groups"></div><div id="ed-grid"></div></div>
+<div id="ed-wall"></div>`;
+  document.body.appendChild(bot);
+  const selBar = document.createElement('div'); selBar.id = 'ed-sel'; document.body.appendChild(selBar);
+  const ov = document.createElement('canvas'); ov.id = 'ed-ov'; document.body.appendChild(ov); const oc = ov.getContext('2d');
+  function status(t) { $('#ed-st').textContent = t || (dirty ? 'Есть несохранённые изменения' : ''); }
+  const reload = (o) => { const u = new URL(location.href); for (const [k, v] of Object.entries(o)) u.searchParams.set(k, v); u.searchParams.delete('key'); localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); location.href = u.toString(); };
+  $('#ed-cls').onchange = (e) => reload({ c: e.target.value });
+  top.querySelectorAll('[data-size]').forEach((b) => (b.onclick = () => reload({ size: b.dataset.size })));
+  $('#ed-stage').onclick = () => { const st = [1, 10, 25, 40], n = st[(st.indexOf(E.stage) + 1) % st.length] ?? 40; reload({ stage: n }); };
+  $('#ed-day').onclick = () => { night = !night; window.__hour = night ? 23 : 13; $('#ed-day').textContent = night ? '🌙 Ночь' : '☀️ День'; };
+  window.__hour = 13;
+  $('#ed-undo').onclick = () => { if (!undo.length) return; L = JSON.parse(undo.pop()); sel = null; A.setLayout(L); dirty = true; showSel(); };
+  bot.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { bot.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('on', x === b)); $('#ed-items').style.display = b.dataset.tab === 'items' ? '' : 'none'; $('#ed-wall').style.display = b.dataset.tab === 'wall' ? 'block' : 'none'; if (b.dataset.tab === 'wall') wallUi(); selBar.style.bottom = bot.offsetHeight + 8 + 'px'; }));
+
+  // ---------- save / publish ----------
+  async function call(p, body) {
+    const r = await fetch(api(p), body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j;
+  }
+  $('#ed-save').onclick = async () => { tidy(); status('Сохраняю…'); try { await call('draft', { ...L, t: Date.now() }); dirty = false; status('Сохранено ✓ (игроки этого пока не видят)'); } catch (e) { status('Не получилось сохранить на компьютер: ' + e.message + '. На этом устройстве черновик сохранён.'); } };
+  $('#ed-pub').onclick = async () => {
+    tidy(); if (!confirm('Опубликовать расстановку? Игроки увидят её после перезапуска игры.')) return;
+    status('Публикую… это займёт до минуты'); try { await call('draft', { ...L, t: Date.now() }); const j = await call('publish', {}); dirty = false; status(`Опубликовано ✓ Сборка ${j.build || ''}. Игрокам — закрыть игру и открыть снова.`); } catch (e) { status('Не получилось опубликовать: ' + e.message); } };
+
+  // ---------- load the draft: the newer of this device and the PC, else the published layout ----------
+  (async () => {
+    let loc = null; try { loc = JSON.parse(localStorage.getItem(DRAFT_LS) || 'null'); } catch (e) { loc = null; }
+    let srv = null; try { srv = await call('draft'); } catch (e) { srv = null; }
+    let pub = null; try { const r = await fetch('layouts/layouts.json?t=' + Date.now()); pub = r.ok ? await r.json() : null; } catch (e) { pub = null; }
+    const pick = [loc, srv && srv.rooms ? srv : null].filter(Boolean).sort((a, b) => (b.t || 0) - (a.t || 0))[0] || pub;
+    if (pick && pick.rooms) { L = { v: 1, rooms: pick.rooms, t: pick.t }; A.setLayout(L); }
+    status(srv ? '' : key ? 'Компьютер не отвечает — сохраняю только на этом устройстве' : 'Нет ключа редактора: сохранять можно только на этом устройстве');
+  })();
+
+  // ---------- camera ----------
+  const mid = { x: (s.x0 + s.x1) / 2, y: (s.y0 + s.y1) / 2 };
+  const look = () => {   // the room's middle (walls included) in the free space between the top bar and the palette
+    A.setZoom(innerWidth >= 900 ? 2.6 : 2.0, 0, 0, 0, 0); const c = A.P(mid.x, mid.y), sc = A.scroller, tb = $('#ed-top').offsetHeight, bb = $('#ed-bot').offsetHeight;
+    sc.scrollLeft = c.x * A.scale - sc.clientWidth / 2; sc.scrollTop = (c.y - A.TALL_H() * 0.5) * A.scale - (tb + (sc.clientHeight - bb - tb) / 2); };
+  const waitBoot = () => { if (document.getElementById('boot')) return setTimeout(waitBoot, 150); look(); setTimeout(look, 700); };   // the game puts the camera at the gate when it starts
+  waitBoot();
+
+  // ---------- geometry ----------
+  const stageRect = () => A.canvas.getBoundingClientRect();
+  const toClient = (wx, wy) => { const r = stageRect(); return { x: wx * A.scale - A.scroller.scrollLeft + r.left, y: wy * A.scale - A.scroller.scrollTop + r.top }; };
+  const toWorld = (cx, cy) => { const r = stageRect(); return { x: (cx - r.left + A.scroller.scrollLeft) / A.scale, y: (cy - r.top + A.scroller.scrollTop) / A.scale }; };
+  const tileDelta = (dX, dY) => ({ dx: (dX / A.HW + dY / A.HH) / 2, dy: (dY / A.HH - dX / A.HW) / 2 });   // world px -> tiles (inverse of P)
+  const inRoom = (x, y) => ({ x: Math.max(s.x0 + 0.1, Math.min(s.x1 - 0.1, x)), y: Math.max(s.y0 + 0.1, Math.min(s.y1 - 0.1, y)) });
+  const myEnts = () => A.entries().filter((e) => e.cid === cid && e.bb);
+  const myWalls = () => A.walls(cid).filter((w) => w.bb && !w.hide);
+  function hit(cx, cy) {
+    const w = toWorld(cx, cy), pad = 4 / A.scale + 2;
+    const es = myEnts(); for (let k = es.length - 1; k >= 0; k--) { const b = es[k].bb; if (w.x >= b.x0 - pad && w.x <= b.x1 + pad && w.y >= b.y0 - pad && w.y <= b.y1 + pad) return { t: es[k].kind, key: es[k].key, e: es[k] }; }
+    for (const ww of myWalls()) { const b = ww.bb; if (w.x >= b.x0 && w.x <= b.x1 && w.y >= b.y0 && w.y <= b.y1) return { t: 'wall', key: ww.key, e: ww }; }
+    return null;
+  }
+  const curEnt = () => { if (!sel) return null; if (sel.t === 'wall') return myWalls().find((w) => w.key === sel.key) || null; return myEnts().find((e) => e.key === sel.key) || null; };
+
+  // ---------- drag ----------
+  let drag = null;
+  function start(cx, cy) {
+    const h = hit(cx, cy); if (!h) return false;
+    sel = { t: h.t, key: h.key }; snap(); const R = room(), w0 = toWorld(cx, cy);
+    if (h.t === 'item') { R.items ||= {}; let o = R.items[h.key]; if (!o) { const m = A.P(h.e.x, h.e.y), b = h.e.bb; o = R.items[h.key] = { dx: 0, dy: 0, px: Math.round(((b.x0 + b.x1) / 2 - m.x) * 10) / 10, py: Math.round((b.y1 - m.y) * 10) / 10 }; } drag = { h, w0, o0: { ...o } }; }
+    else if (h.t === 'add') { const a = R.add[h.e.j], p = A.layPos(a, s); drag = { h, w0, a, p0: p, lift0: a.lift || 0 }; }
+    else { R.walls ||= {}; const o = R.walls[h.key] ||= {}; drag = { h, w0, o0: { ...o } }; }
+    showSel(); return true;
+  }
+  function move(cx, cy) {
+    if (!drag) return; const w = toWorld(cx, cy), dX = w.x - drag.w0.x, dY = w.y - drag.w0.y, R = room();
+    if (drag.h.t === 'item') { const o = R.items[drag.h.key], d = tileDelta(dX, dY), e = drag.h.e, p = inRoom(e.x + (drag.o0.dx || 0) + d.dx, e.y + (drag.o0.dy || 0) + d.dy); o.dx = Math.round((p.x - e.x) * 100) / 100; o.dy = Math.round((p.y - e.y) * 100) / 100; apply(false); }
+    else if (drag.h.t === 'add') { const a = drag.a;
+      if (a.wall) { const t = a.wall === 'x0' ? -dX / A.HW : dX / A.HW, vy = dY - t * A.HH; a.lift = Math.round(Math.max(0, Math.min(A.TALL_H() * 1.1, drag.lift0 - vy))); const p = inRoom(a.wall === 'y0' ? drag.p0.x + t : drag.p0.x, a.wall === 'x0' ? drag.p0.y + t : drag.p0.y); anchor(a, p); }
+      else { const d = tileDelta(dX, dY); anchor(a, inRoom(drag.p0.x + d.dx, drag.p0.y + d.dy)); }
+      apply(false); }
+    else { const o = R.walls[drag.h.key], side = drag.h.e.side, t = side === 'x0' ? -dX / A.HW : dX / A.HW, vy = dY - t * A.HH;
+      o.dt = Math.round(((drag.o0.dt || 0) + t) * 100) / 100; o.dlo = Math.round(((drag.o0.dlo || 0) - vy / A.TALL_H()) * 100) / 100; wallApplyThrottled(); }
+  }
+  let wq = 0; const wallApplyThrottled = () => { if (wq) return; wq = requestAnimationFrame(() => { wq = 0; apply(true); }); };
+  function anchor(a, p) { a.ax = p.x - s.x0 <= s.x1 - p.x ? 'x0' : 'x1'; a.ay = p.y - s.y0 <= s.y1 - p.y ? 'y0' : 'y1'; a.x = Math.round((a.ax === 'x0' ? p.x - s.x0 : s.x1 - p.x) * 100) / 100; a.y = Math.round((a.ay === 'y0' ? p.y - s.y0 : s.y1 - p.y) * 100) / 100; }
+  const stage = $('#stage');
+  let down = null;
+  stage.addEventListener('pointerdown', (e) => { if (e.target.closest('#ed-top, #ed-bot, #ed-sel')) return; down = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false };
+    if (e.isPrimary && start(e.clientX, e.clientY)) { e.stopPropagation(); e.preventDefault(); try { stage.setPointerCapture(e.pointerId); } catch (er) { /* */ } } }, true);
+  stage.addEventListener('pointermove', (e) => { if (down && e.pointerId === down.id && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) down.moved = true; if (drag && e.pointerId === down?.id) { e.stopPropagation(); e.preventDefault(); move(e.clientX, e.clientY); } }, true);
+  const end = (e) => { if (drag) { e.stopPropagation(); drag = null; tidy(); showSel(); } else if (down && !down.moved && e.type === 'pointerup') { sel = null; showSel(); } down = null; };
+  stage.addEventListener('pointerup', end, true); stage.addEventListener('pointercancel', end, true);
+  stage.addEventListener('touchstart', (e) => { if (e.touches.length === 1 && hit(e.touches[0].clientX, e.touches[0].clientY)) e.preventDefault(); }, { capture: true, passive: false });   // no page scroll under a dragged item
+  stage.addEventListener('touchmove', (e) => { if (drag) e.preventDefault(); }, { capture: true, passive: false });
+  stage.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); }, true);   // the game must not open its room windows
+
+  // ---------- the selection bar ----------
+  function showSel() {
+    const R = room(); selBar.innerHTML = ''; if (!sel) { selBar.style.display = 'none'; hiddenBtn(); return; }
+    const b = (t, f, title) => { const x = document.createElement('button'); x.textContent = t; if (title) x.title = title; x.onclick = () => { snap(); f(); tidy(); showSel(); }; selBar.appendChild(x); };
+    if (sel.t === 'item') { const o = () => (R.items ||= {})[sel.key] ||= { dx: 0, dy: 0, ...pivotOf(sel.key) };
+      b('➖', () => { o().k = Math.round(Math.max(0.3, (o().k || 1) / 1.1) * 100) / 100; apply(false); }, 'Меньше'); b('➕', () => { o().k = Math.round(Math.min(3, (o().k || 1) * 1.1) * 100) / 100; apply(false); }, 'Больше');
+      b('⇋', () => { o().flip = !o().flip || undefined; apply(false); }, 'Отразить'); b('🗑', () => { o().hide = 1; sel = null; apply(false); }, 'Убрать');
+      b('↺', () => { delete R.items[sel.key]; apply(false); }, 'Как было'); }
+    else if (sel.t === 'add') { const j = +sel.key.split('#')[1], a = R.add && R.add[j]; if (!a) { sel = null; return showSel(); }
+      b('➖', () => { a.h = Math.max(8, Math.round((a.h || 40) / 1.1)); apply(false); }, 'Меньше'); b('➕', () => { a.h = Math.min(400, Math.round((a.h || 40) * 1.1)); apply(false); }, 'Больше');
+      b('⇋', () => { a.flip = !a.flip || undefined; apply(false); }, 'Отразить');
+      b('⬆', () => { a.lift = Math.round((a.lift || 0) + 6); apply(false); }, 'Выше'); b('⬇', () => { a.lift = Math.max(0, Math.round((a.lift || 0) - 6)); apply(false); }, 'Ниже');
+      b(a.wall ? '⬇ На пол' : '🖼 На стену', () => { const p = A.layPos(a, s); if (a.wall) { delete a.wall; a.lift = 0; } else { a.wall = p.x - s.x0 < p.y - s.y0 ? 'x0' : 'y0'; a.lift = Math.round(A.TALL_H() * 0.55); } apply(false); });
+      b('⧉', () => { const c = clone(a); c.x = (c.x || 0) + 0.6; R.add.push(c); sel = { t: 'add', key: 'add#' + (R.add.length - 1) }; apply(false); }, 'Копия');
+      b('🗑', () => { R.add.splice(j, 1); sel = null; apply(false); }, 'Убрать'); }
+    else { const o = () => (R.walls ||= {})[sel.key] ||= {};
+      b('🗑', () => { o().hide = 1; sel = null; apply(true); }, 'Убрать со стены'); b('↺', () => { delete R.walls[sel.key]; apply(true); }, 'Как было'); }
+    selBar.style.display = 'flex'; selBar.style.bottom = bot.offsetHeight + 8 + 'px'; hiddenBtn();
+  }
+  function pivotOf(k) { const e = myEnts().find((x) => x.key === k); if (!e) return { px: 0, py: 0 }; const m = A.P(e.x, e.y); return { px: Math.round(((e.bb.x0 + e.bb.x1) / 2 - m.x) * 10) / 10, py: Math.round((e.bb.y1 - m.y) * 10) / 10 }; }
+  function hiddenBtn() {   // «Вернуть убранные (N)»
+    const R = room(), hi = Object.keys(R.items || {}).filter((k) => R.items[k].hide).length + Object.keys(R.walls || {}).filter((k) => R.walls[k].hide).length, hb = $('#ed-hidden');
+    hb.style.display = hi ? '' : 'none'; hb.textContent = `↩ Вернуть убранные (${hi})`;
+    hb.onclick = () => { snap(); for (const k of Object.keys(R.items || {})) if (R.items[k].hide) delete R.items[k].hide; for (const k of Object.keys(R.walls || {})) if (R.walls[k].hide) delete R.walls[k].hide; tidy(); apply(true); hiddenBtn(); };
+  }
+
+  // ---------- palette: every sprite of the game ----------
+  let groups = [], gsel = 0;
+  fetch('layouts/sprites.json?t=' + Date.now()).then((r) => r.json()).then((j) => { groups = j.groups || []; const i0 = groups.findIndex((g) => g.id === 'items'); gsel = i0 >= 0 ? i0 : 0; drawGroups(); }).catch(() => { $('#ed-grid').textContent = 'Список предметов не загрузился'; });
+  function drawGroups() {
+    $('#ed-groups').innerHTML = groups.map((g, k) => `<button data-g="${k}" class="${k === gsel ? 'on' : ''}">${g.name} (${g.list.length})</button>`).join('');
+    $('#ed-groups').querySelectorAll('[data-g]').forEach((b) => (b.onclick = () => { gsel = +b.dataset.g; drawGroups(); }));
+    const g = groups[gsel]; $('#ed-grid').innerHTML = g ? g.list.map((n) => `<img loading="lazy" data-src="${g.id}/${n}" src="assets/parts/${g.id}/${n}.webp" alt="">`).join('') : '';
+    $('#ed-grid').querySelectorAll('img').forEach((im) => (im.onclick = () => addSprite(im.dataset.src, im)));
+  }
+  function addSprite(src, im) {
+    snap(); const R = room(); R.add ||= []; const a = { src, h: Math.round(Math.max(24, Math.min(90, (im.naturalHeight || 300) / 5))) };
+    anchor(a, inRoom(mid.x, mid.y)); R.add.push(a); sel = { t: 'add', key: 'add#' + (R.add.length - 1) }; apply(false); showSel();
+  }
+
+  // ---------- walls and floor ----------
+  const COLS = ['#f4d9e8', '#e9d6ff', '#cfe3ff', '#cdeedd', '#fff1c7', '#ffd9b8', '#f2b8c6', '#b9a3e8', '#8fb8e8', '#9fd6b3', '#e8c27a', '#b98457', '#8a6a5a', '#6b5a8a', '#3d4a6b', '#ffffff'];
+  function wallUi() {
+    const R = room(), texs = Object.keys(A.parts).filter((k) => /\/(wall|floor)$/.test(k) && A.parts[k].complete && A.parts[k].naturalWidth);
+    const sec = (n, title) => { const o = R[n] || {}; return `<h4>${title}</h4>
+<div class="row"><button class="sw${!o.col ? ' on' : ''}" data-n="${n}" data-col="" title="Без краски" style="background:linear-gradient(135deg,#fff 45%,#e05 50%,#fff 55%)"></button>${COLS.map((c) => `<button class="sw${o.col === c ? ' on' : ''}" data-n="${n}" data-col="${c}" style="background:${c}"></button>`).join('')}<input type="color" data-n="${n}" value="${o.col || '#e9d6ff'}" title="Свой цвет"></div>
+<div class="row"><label>Сила цвета <input type="range" min="0" max="100" value="${Math.round((o.amt ?? 0.6) * 100)}" data-n="${n}" data-k="amt"></label><label>Светлее/темнее <input type="range" min="-60" max="60" value="${Math.round((o.bri || 0) * 100)}" data-n="${n}" data-k="bri"></label></div>
+<div class="row"><img class="tx${!o.tex ? ' on' : ''}" data-n="${n}" data-tex="" src="${(A.parts[cid + '/' + n] || {}).src || ''}" title="Свой узор класса">${texs.filter((k) => k.endsWith('/' + n) && k !== cid + '/' + n).map((k) => `<img class="tx${o.tex === k ? ' on' : ''}" data-n="${n}" data-tex="${k}" src="${A.parts[k].src}">`).join('')}</div>`; };
+    $('#ed-wall').innerHTML = sec('wall', '🧱 Стены') + sec('floor', '🟫 Пол');
+    const set = (n, f) => { snap(); const o = (R[n] ||= {}); f(o); for (const k of Object.keys(o)) if (o[k] === undefined || o[k] === '' || o[k] === 0) delete o[k]; if (!Object.keys(o).length) delete R[n]; tidy(); apply(true); };
+    $('#ed-wall').querySelectorAll('.sw').forEach((b) => (b.onclick = () => { set(b.dataset.n, (o) => { o.col = b.dataset.col || undefined; }); wallUi(); }));
+    $('#ed-wall').querySelectorAll('input[type=color]').forEach((b) => (b.onchange = () => { set(b.dataset.n, (o) => { o.col = b.value; }); wallUi(); }));
+    $('#ed-wall').querySelectorAll('input[type=range]').forEach((b) => (b.onchange = () => set(b.dataset.n, (o) => { o[b.dataset.k] = +b.value / 100; if (b.dataset.k === 'amt' && +b.value === 60) o.amt = undefined; })));
+    $('#ed-wall').querySelectorAll('.tx').forEach((b) => (b.onclick = () => { set(b.dataset.n, (o) => { o.tex = b.dataset.tex || undefined; }); wallUi(); }));
+  }
+
+  // ---------- overlay: thin frames on what can be moved, a bold one on the selection ----------
+  function frame() {
+    requestAnimationFrame(frame);
+    const r = stageRect(), d = devicePixelRatio || 1; if (ov.width !== Math.round(r.width * d) || ov.height !== Math.round(r.height * d)) { ov.width = Math.round(r.width * d); ov.height = Math.round(r.height * d); }
+    Object.assign(ov.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    oc.setTransform(d, 0, 0, d, -r.left * d, -r.top * d); oc.clearRect(r.left, r.top, r.width, r.height);
+    const box = (b, on) => { const a = toClient(b.x0, b.y0), c = toClient(b.x1, b.y1); oc.lineWidth = on ? 2.5 : 1; oc.setLineDash(on ? [] : [4, 4]); oc.strokeStyle = on ? '#7b5cd6' : 'rgba(123,92,214,0.35)'; oc.strokeRect(a.x, a.y, c.x - a.x, c.y - a.y); };
+    for (const e of myEnts()) box(e.bb, sel && sel.key === e.key);
+    for (const w of myWalls()) box(w.bb, sel && sel.key === w.key);
+  }
+  requestAnimationFrame(frame);
+  window.addEventListener('beforeunload', () => { localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); });
+  window.__ed = { get L() { return L; }, hit, select: (t, k) => { sel = { t, key: k }; showSel(); }, ents: myEnts, walls: myWalls, start, move, end: () => { drag = null; tidy(); showSel(); } };   // test hooks
+}
