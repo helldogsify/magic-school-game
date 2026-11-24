@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=433';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=433';
-import { initMinigame } from './minigame.js?v=433';
-import { initChests } from './chests.js?v=433';
-import { initLore } from './lore.js?v=433';
-import { initAvatar } from './avatar.js?v=433';
+} from './data.js?v=434';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=434';
+import { initMinigame } from './minigame.js?v=434';
+import { initChests } from './chests.js?v=434';
+import { initLore } from './lore.js?v=434';
+import { initAvatar } from './avatar.js?v=434';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 433;   // keep equal to the ?v= number in index.html
+const BUILD = 434;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1534,13 +1534,14 @@ function giveUp(a) {   // too sad to keep waiting: frees its place and goes home
 const LIGHT_MAX = 10, LIGHT_STEP = 0.09, DARK_MOOD = 2.2;
 const DARK0 = { runes: 0.35, forge: 0.25, mine: 0.6, gems: 0.45, guards: 0.55, lake: 0.75, final: 0.3 };   // deeper halls are darker; the forge has its own fire
 const lightLvl = (i) => (WORLD === 2 && S.w2 && S.w2.light && S.w2.light[i]) || 0;
-const hallDark = (i) => (WORLD === 2 && i >= 0 && CLASSES[i] ? Math.max(0, (DARK0[CLASSES[i].id] || 0) - LIGHT_STEP * lightLvl(i)) : 0);
+const hallDark = (i) => (WORLD === 2 && i >= 0 && CLASSES[i] ? Math.max(0, Math.round(((DARK0[CLASSES[i].id] || 0) - LIGHT_STEP * lightLvl(i)) * 1e6) / 1e6) : 0);   // rounded: 0.45 - 5 x 0.09 left 5e-17 «darkness»
+const lightMax = (i) => (CLASSES[i] ? Math.min(LIGHT_MAX, Math.ceil(((DARK0[CLASSES[i].id] || 0) - 1e-9) / LIGHT_STEP)) : LIGHT_MAX);   // levels a hall really needs to be fully lit
 const lightCost = (i) => paced(CLASSES[i].tuition * 20 * Math.pow(1.9, lightLvl(i)), lightLvl(i) + 1);
 function lightHtml(i) {
   if (WORLD !== 2) return '';
   const l = lightLvl(i), dk = hallDark(i), mood = 0.8 - DARK_MOOD * dk;
-  return `<div class="card up"><span class="remoji">🕯️</span><div class="grow"><b>Светильники</b> <span class="muted">ур. ${l}/${LIGHT_MAX}</span><div class="muted">${dk > 0 ? `${nn('темнота', Math.round(dk * 100) + '%', Math.max(0, Math.round(peek((d) => { S.w2.light ||= {}; S.w2.light[i] = lightLvl(i) + d; if (!S.w2.light[i]) delete S.w2.light[i]; }, () => hallDark(i)) * 100)) + '%', l >= LIGHT_MAX)} · ${mood < 0 ? 'на уроке ученики грустят' : 'на уроке ученикам пока неуютно'}` : 'в зале светло · на уроке ученики радуются'} (−${Math.round(LIGHT_STEP * 100)}% темноты за уровень)</div></div>
-    ${dk <= 0 || l >= LIGHT_MAX ? '<span class="done">светло</span>' : costBtn('↑', lightCost(i), 'light', `data-i="${i}"`)}</div>`;
+  return `<div class="card up"><span class="remoji">🕯️</span><div class="grow"><b>Светильники</b> <span class="muted">ур. ${l}/${lightMax(i)}</span><div class="muted">${dk > 0 ? `${nn('темнота', Math.round(dk * 100) + '%', Math.max(0, Math.round(peek((d) => { S.w2.light ||= {}; S.w2.light[i] = lightLvl(i) + d; if (!S.w2.light[i]) delete S.w2.light[i]; }, () => hallDark(i)) * 100)) + '%', l >= LIGHT_MAX)} · ${mood < 0 ? 'на уроке ученики грустят' : 'на уроке ученикам пока неуютно'}` : 'в зале светло · на уроке ученики радуются'} (−${Math.round(LIGHT_STEP * 100)}% темноты за уровень)</div></div>
+    ${dk <= 1e-9 || l >= lightMax(i) ? '<span class="done">светло</span>' : costBtn('↑', lightCost(i), 'light', `data-i="${i}"`)}</div>`;
 }
 function stepMood(a, dt, live) {
   let d = 0;
@@ -4854,10 +4855,10 @@ const UPS = {
 const CUPS = {   // per class (m.i)
   ex: { g: 'rank', name: 'Шанс экзамена на звание', on: (i) => RANK_AT(i) > 0, lvl: (i) => exLvl(i), max: () => MAX_EX_LVL, cost: (i) => exCost(i), k: 2.0, act: 'exlvl' },
   xpl: { g: 'rank', name: 'Опыт за урок', on: (i) => RANK_AT(i) > 0, lvl: (i) => xplLvl(i), max: () => MAX_XPL_LVL, cost: (i) => xplCost(i), k: 1.8, act: 'xpllvl' },
-  light: { g: 'w2', name: 'Светильники', on: (i) => WORLD === 2 && hallDark(i) > 0, lvl: (i) => lightLvl(i), max: () => LIGHT_MAX, cost: (i) => lightCost(i), k: 1.9, act: 'light' },
+  light: { g: 'w2', name: 'Светильники', on: (i) => WORLD === 2 && hallDark(i) > 1e-9, lvl: (i) => lightLvl(i), max: (i) => lightMax(i), cost: (i) => lightCost(i), k: 1.9, act: 'light' },
   expand: { g: 'room', name: 'Расширить класс', on: (i) => !CLASSES[i].final, lvl: (i) => sizeOf(i), max: () => MAX_SIZE, cost: (i) => expandCost(i), k: BAL.expandK, act: 'expand' },
 };
-const upOf = (m) => { const U = m.i >= 0 && CUPS[m.k] ? CUPS[m.k] : UPS[m.k]; return U ? { ...U, on: () => U.on(m.i), lvl: () => U.lvl(m.i), cost: () => U.cost(m.i), go: () => (U.go ? U.go() : [CLASS_SLOT[m.i], `[data-act="${U.act}"]`]) } : null; };
+const upOf = (m) => { const U = m.i >= 0 && CUPS[m.k] ? CUPS[m.k] : UPS[m.k]; return U ? { ...U, on: () => U.on(m.i), lvl: () => U.lvl(m.i), max: () => U.max(m.i), cost: () => U.cost(m.i), go: () => (U.go ? U.go() : [CLASS_SLOT[m.i], `[data-act="${U.act}"]`]) } : null; };
 const rankSum = () => (S.stats.ranks || []).reduce((a, b) => a + (b || 0), 0);
 const formSum = () => FORM_KEYS.reduce((a, k) => a + ((S.forms && S.forms[k] && S.forms[k].lvl) || 0), 0);
 const lowEx = () => { let b = -1; for (let i = 0; i < CLASSES.length; i++) if (isOpen(i) && RANK_AT(i) && exLvl(i) < MAX_EX_LVL && (b < 0 || exLvl(i) < exLvl(b))) b = i; return b < 0 ? null : [CLASS_SLOT[b], '[data-act="exlvl"]']; };
@@ -5424,7 +5425,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'desk') { if (st.desks < maxDesksOf(i) && spend(deskCost(i))) { st.desks++; pullWaiting(i); } }
   else if (d.act === 'expand') { if (sizeOf(i) < MAX_SIZE && spend(expandCost(i))) { st.size = sizeOf(i) + 1; relayout(); toast(`📐 ${CLASSES[i].name}: класс расширен!`); } }
   else if (d.act === 'time') { if (spend(timeCost(i))) st.time++; }
-  else if (d.act === 'light') { if (WORLD === 2 && lightLvl(i) < LIGHT_MAX && hallDark(i) > 0 && spend(lightCost(i))) { const W = W2(); W.light ||= {}; W.light[i] = lightLvl(i) + 1; } }
+  else if (d.act === 'light') { if (WORLD === 2 && lightLvl(i) < lightMax(i) && hallDark(i) > 1e-9 && spend(lightCost(i))) { const W = W2(); W.light ||= {}; W.light[i] = lightLvl(i) + 1; } }
   else if (d.act === 'item') { if (spend(itemCost(i, +d.k))) st.items[+d.k]++; }
   else if (d.act === 'rec') { if (S.reception.level < MAX_REC_LVL && spend(recCost())) S.reception.level++; }
   else if (d.act === 'ads') { if (S.reception.ads < MAX_REC_LVL && spend(adsCost())) S.reception.ads++; }
