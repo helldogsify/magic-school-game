@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=430';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=430';
-import { initMinigame } from './minigame.js?v=430';
-import { initChests } from './chests.js?v=430';
-import { initLore } from './lore.js?v=430';
-import { initAvatar } from './avatar.js?v=430';
+} from './data.js?v=431';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=431';
+import { initMinigame } from './minigame.js?v=431';
+import { initChests } from './chests.js?v=431';
+import { initLore } from './lore.js?v=431';
+import { initAvatar } from './avatar.js?v=431';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 430;   // keep equal to the ?v= number in index.html
+const BUILD = 431;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -406,7 +406,7 @@ const THEMES = {
     stations: ['station_pink', 'station_green', 'station_purple'] },
   // Astronomy (her choice 2026-11-21: night observatory, a small telescope per student, big brass telescope + orrery, star chart instead of a board)
   stars: { dir: 'assets/parts/stars/', wallTiles: 4, floorTiles: 3, board: 'chart', isoOnly: true, iso: true,
-    decor: ['stwin', 'clock', 'stwin'], back: ['', ''], side: ['bookcase', 'table'], front: [], rug: 'rug',
+    decor: ['stwin', 'clock', 'stwin'], back: ['', ''], side: ['', 'table'], front: [], rug: 'rug',   // no old shelf with the ball beside the big telescope
     stations: ['st_desk'], h: { table: 24, bookcase: 36, st_desk: 40 } },
   // Charms (her choice 2026-11-21: lecterns with wands and floating spellbooks)
   charms: { dir: 'assets/parts/charms/', wallTiles: 4, floorTiles: 3, board: 'circle', isoOnly: true, iso: true,
@@ -3530,16 +3530,22 @@ const ROOM_ART = {
     const stl = stageOf(lv('telescope')), bx = s.x0 + 1.05, by = s.y0 + 0.95;   // the platform fills the back-left corner
     if (stl) { const k = [0, 0.8, 0.9, 1, 1.05][stl]; add(bx, by, () => { const r = itemDraw('st_bigtel', bx, by, 76 * k, { shadow: 1 }); if (r && stl >= 4) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.12 + 0.05 * Math.sin(T); ctx.fillStyle = 'rgba(200,220,255,1)'; ctx.beginPath(); ctx.moveTo(r.x + r.w * 0.28, r.top + r.h * 0.05); ctx.lineTo(r.x + r.w * 0.5, r.top - 60); ctx.lineTo(r.x + r.w * 0.75, r.top - 50); ctx.lineTo(r.x + r.w * 0.34, r.top + r.h * 0.12); ctx.closePath(); ctx.fill(); ctx.restore(); } }); }   // a beam of starlight at 40
       const dut = STAR_DUTY[i], now = performance.now(); if (stl && (!dut || now - dut.t0 > 7000)) { if (!dut || now > dut.next) { const cand = agents.filter((a) => a.c === i && a.state === 'study' && !(a.path && a.path.length) && (a.dur || 0) - (a.t || 0) > 7.3); if (cand.length) { const a = cand[Math.floor(Math.random() * cand.length)]; STAR_DUTY[i] = { id: a.id, t0: now, from: { x: a.x, y: a.y }, to: { x: bx + 0.05, y: by + 0.22 }, look: { x: bx - 0.6, y: by - 0.6 }, next: now + 60000 + Math.random() * 60000 }; } else if (dut) dut.next = now + 20000; } }
+    // warm lamps like the concept (desk lamps + a floor lamp); they glow brighter at night
+    const lampAt = (x, y, h, stand) => { const p = P(x, y), top = p.y - h; if (stand) { ctx.strokeStyle = '#a8813f'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, top + 6); ctx.stroke(); ctx.fillStyle = '#a8813f'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 4, 1.8, 0, 0, Math.PI * 2); ctx.fill(); }
+      const sw = stand ? 9 : 5, sh = stand ? 8 : 5; ctx.fillStyle = '#f6e3b4'; ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(p.x - sw * 0.55, top); ctx.lineTo(p.x + sw * 0.55, top); ctx.lineTo(p.x + sw, top + sh); ctx.lineTo(p.x - sw, top + sh); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = dnDark ? 0.75 : 0.4; ctx.drawImage(glowSprite('255,206,120'), p.x - sw * 3, top - sw * 1.5, sw * 6, sw * 5); ctx.restore(); if (dnDark) frameLamps.push({ x: p.x, y: top + sh, r: stand ? 10 : 6 }); };
+    for (let d = 1; d < st.desks; d += 3) { const q = deskPos(i, d); add(q.x + 0.02, q.y + 0.02, () => lampAt(q.x + 0.28, q.y - 0.32, 22, false)); }   // on the desk's back corner
+    add(s.x0 + 0.45, s.y0 + 2.55, () => lampAt(s.x0 + 0.45, s.y0 + 2.55, 50, true));   // a floor lamp by the window wall, past the telescope platform
     // the armillary globe in the back-right corner
     const sg = stageOf(lv('globe')); if (sg) { const gx = s.x1 - 0.7, gy = s.y0 + 0.75, k = [0, 0.75, 0.88, 1, 1.05][sg]; add(gx, gy, () => { const r = itemDraw('st_globe', gx, gy, 62 * k, { shadow: 1 }); if (r) { const an = T * 0.9; fxStar(r.x + Math.cos(an) * r.w * 0.3, r.top + r.h * 0.3 + Math.sin(an) * r.h * 0.08, 3, 0.6 + 0.4 * Math.sin(an * 2), '255,226,150'); } }); }
     // the hourglass against the back wall beside the globe (left of it the teacher walks)
-    const sh = stageOf(lv('hourglass')); if (sh) { const hx = s.x1 - 1.75, hy = s.y0 + 0.5, k = [0, 0.75, 0.88, 1, 1.05][sh]; add(hx, hy, () => { const r = itemDraw('st_hourglass', hx, hy, 56 * k, { shadow: 1 }); if (!r) return; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3 + 0.08 * Math.sin(T * 1.7); ctx.drawImage(glowSprite('255,214,120'), r.x - 16, r.top + r.h * 0.55 - 12, 32, 28); ctx.restore();
+    const sh = stageOf(lv('hourglass')); if (sh) { const hx = s.x0 + 0.62, hy = Math.max(s.y0 + 3.4, wallEnd - 0.35), k = [0, 0.75, 0.88, 1, 1.05][sh]; add(hx, hy, () => { const r = itemDraw('st_hourglass', hx, hy, 56 * k, { shadow: 1 }); if (!r) return; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3 + 0.08 * Math.sin(T * 1.7); ctx.drawImage(glowSprite('255,214,120'), r.x - 16, r.top + r.h * 0.55 - 12, 32, 28); ctx.restore();
       if (sh >= 4) for (let m = 0; m < 3; m++) { const u = (T * 0.6 + m / 3) % 1; fxStar(r.x, r.top + r.h * (0.45 + u * 0.3), 1.6, 1 - u, '255,236,150'); } }); }   // sand glows; at 40 golden sparks trickle down
     // framed star maps on the window wall, in the gaps between windows
     const sm = stageOf(lv('maps')); if (sm) { const ws = [...HERBS_WINS.values()].filter((wv) => wv.s0 === me && wv.side === 'x0').map((wv) => wv.tm).sort((a, b) => a - b), gaps = []; let prev = s.y0 + 0.3; for (const t of [...ws, wallEnd]) { if (t - prev > 1.9) gaps.push((prev + t) / 2); prev = t; }
       gaps.slice(0, [0, 1, 1, 2, 3][sm]).forEach((t) => add(s.x0 + 0.1, t, () => { const im = itemIm('st_map'); if (!im) return; const b = up(P(s.x0, t), TALL_H() * 0.62), h = 34, w = h * im.naturalWidth / im.naturalHeight; ctx.save(); ctx.translate(b.x, b.y); ctx.transform(1, -HH / HW, 0, 1, 0, 0); ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore(); })); }   // the flat map is sheared onto the wall plane
     // a brass orrery hanging from the ceiling over the rug (decor)
-    { const ox = s.x0 + W * 0.5, oy = s.y0 + (s.y1 - s.y0) * 0.55; add(ox + 0.8, oy + 0.8, () => { const p = P(ox, oy), lift = 96; ctx.strokeStyle = 'rgba(120,90,50,0.9)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(p.x, p.y - lift - 60); ctx.lineTo(p.x, p.y - lift - 18); ctx.stroke(); const r = itemDraw('st_orrery', ox, oy, 30 + Math.sin(T) * 0.5, { lift }); if (r) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35; ctx.drawImage(glowSprite('255,214,130'), r.x - 12, r.top + r.h * 0.5 - 12, 24, 24); ctx.restore(); if (dnDark) frameLamps.push({ x: r.x, y: r.top + r.h * 0.6, r: 6 }); } }); }
+    { const rows = Math.ceil(maxDesksOf(i) / 3), ox = s.x0 + W * 0.55, oy = s.y0 + 2.5 + (rows - 1) * 0.6; add(ox + 0.8, oy + 0.8, () => { const p = P(ox, oy), lift = 128; ctx.strokeStyle = 'rgba(120,90,50,0.9)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(p.x, p.y - lift - 50); ctx.lineTo(p.x, p.y - lift - 18); ctx.stroke(); const r = itemDraw('st_orrery', ox, oy, 30 + Math.sin(T) * 0.5, { lift }); if (r) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35; ctx.drawImage(glowSprite('255,214,130'), r.x - 12, r.top + r.h * 0.5 - 12, 24, 24); ctx.restore(); if (dnDark) frameLamps.push({ x: r.x, y: r.top + r.h * 0.6, r: 6 }); } }); }
   },
   potions(i, s, st, add) {
     const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000, W = s.x1 - s.x0, depth = s.y1 - s.y0;
