@@ -8,7 +8,7 @@ const N = 7;                      // board 7x7
 const ROUND = 90;                 // seconds per round (the same for everybody: fair for a weekly tournament)
 const CH_MAX = 3, CH_MS = 60 * 60000;   // +1 rewarded attempt per hour (was 20 min), one pool for both worlds (her «Очень много попыток, еще и двух мирах»)
 const CH_KEY = 'magicschool.mgch';
-const STAR = [2000, 3500, 5500];  // score for 1/2/3 stars (calibrated with tools/mg_sim.mjs)
+const STAR = [2700, 4700, 7300];   // build 4xx: tiers raise scores ~1/3 (tools/mg_sim.mjs: random 3260, average 4470, good 6130, fast 7850); was 2000/3500/5500  // score for 1/2/3 stars (calibrated with tools/mg_sim.mjs)
 const MAX_MIN = 10;               // the best round pays 10 minutes of the school's income
 const BOOST = [0, 0, 5, 10];      // minutes of «Вдохновение» per stars
 const BOOST_CAP_MIN = 60;         // same cap as gifts (BOOST_MAX_MIN in game.js)
@@ -115,6 +115,8 @@ function snd(name, arg) {
 
 // ======================= board logic (pure; also used by tools/mg_sim.mjs) =======================
 let uid = 1;
+export const LV_VAL = [0, 1, 2.5, 6];   // points weight of a tile by tier (also how many recipe units it gives: 1, 2, 3)
+export const LV_RECIPE = [0, 1, 2, 3];
 export function newTile(t, sp = null) { return { t, sp, id: uid++, x: 0, y: 0, vy: 0, die: 0, born: 0 }; }
 export function makeBoard(rng = Math.random) {
   const g = [];
@@ -181,7 +183,7 @@ function blast(g, r, c, tile, target) {
 // one resolve step: returns {clear:[[r,c]..], make:[{r,c,t,sp}], fired:n} or null when nothing matches.
 // swap = [a,b] of the move that started it (special combos and where new specials appear)
 export function resolveStep(g, swap) {
-  const clear = new Map(), make = [], queue = [], fx = []; let combo = null;   // fx: what to draw (beams, rings, lightning); combo: name of a special+special swap
+  const clear = new Map(), make = [], queue = [], fx = []; let combo = null, ess = 0;   // fx: what to draw (beams, rings, lightning); combo: name of a special+special swap
   const add = (r, c, why) => { const k = r * N + c; if (clear.has(k) || !g[r][c]) return; clear.set(k, why); if (g[r][c].sp || g[r][c].t === RAINBOW) queue.push([r, c]); };
   if (swap && isSpecialSwap(g, swap[0], swap[1])) {
     const [a, b] = swap, x = g[a[0]][a[1]], y = g[b[0]][b[1]];
@@ -210,6 +212,14 @@ export function resolveStep(g, swap) {
         spot = [Math.floor(k / N), k % N];
         make.push({ r: spot[0], c: spot[1], t: gr.make === 'r' ? RAINBOW : g[spot[0]][spot[1]].t, sp: gr.make === 'r' ? null : gr.make });
       }
+      else if (swap && gr.keys.size === 3) {   // a plain 3 made by the player's swap: the next tier appears on the swap cell
+        const pick = [swap[1], swap[0]].find(([r, c]) => gr.keys.has(r * N + c));
+        if (pick) {
+          const lv = Math.max(...[...gr.keys].map((k) => g[Math.floor(k / N)][k % N].lv || 1));
+          if (lv < 3) make.push({ r: pick[0], c: pick[1], t: g[pick[0]][pick[1]].t, sp: null, lv: lv + 1 });
+          else ess++;   // three with a tier-3 ingredient: «Эссенция»
+        }
+      }
       for (const k of gr.keys) add(Math.floor(k / N), k % N, 'm');
     }
   }
@@ -217,9 +227,10 @@ export function resolveStep(g, swap) {
   while (queue.length) { const [r, c] = queue.shift(); const tile = g[r][c]; if (!tile) continue; fired++; const cells = blast(g, r, c, tile); fx.push({ k: tile.t === RAINBOW ? 'r' : tile.sp, r, c, cells }); for (const [rr, cc] of cells) add(rr, cc, 's'); }
   // a new special appears on its spot only if that spot was not blown by another special in the same step
   const made = make.filter((m) => clear.get(m.r * N + m.c) === 'm');
-  return { clear: [...clear.keys()].map((k) => [Math.floor(k / N), k % N]), make: made, fired, fx, combo };
+  const keys = [...clear.keys()], value = keys.reduce((a, k) => { const t = g[Math.floor(k / N)][k % N]; return a + (t ? LV_VAL[t.lv || 1] : 1); }, 0);
+  return { clear: keys.map((k) => [Math.floor(k / N), k % N]), make: made, fired, fx, combo, value, ess, up: made.filter((m) => m.lv).map((m) => m.lv) };
 }
-export function points(nTiles, chain, nMade, fired) { return Math.round(nTiles * 10 * (1 + 0.5 * chain) + nMade * 30 + fired * 20); }
+export function points(value, chain, nMade, fired, ess = 0) { return Math.round(value * 10 * (1 + 0.5 * chain) + nMade * 30 + fired * 20 + ess * 150); }   // value = tiles weighted by tier
 
 // ======================= the round =======================
 let R = null;   // current round
@@ -228,6 +239,7 @@ function loadArt() {
   imgs = ING.map((ing, i) => { const im = new Image(); im.src = `assets/minigame/ing_${i}.webp?v=${ART_V}`; im.onerror = () => { im.bad = true; }; return im; });
   imgs.caul = new Image(); imgs.caul.src = `assets/minigame/cauldron.webp?v=${ART_V}`; imgs.caul.onerror = () => { imgs.caul.bad = true; };
   imgs.rb = new Image(); imgs.rb.src = `assets/minigame/rainbow.webp?v=${ART_V}`; imgs.rb.onerror = () => { imgs.rb.bad = true; };
+  for (const lv of [2, 3]) imgs['t' + lv] = ING.map((_, i) => { const im = new Image(); im.src = tierSrc(i, lv); im.onerror = () => { im.bad = true; }; return im; });   // tiers: own pictures (her «нужны буквально другие ингредиенты»)
 }
 const artOk = (im) => im && !im.bad && im.complete && im.naturalWidth;
 
@@ -321,6 +333,10 @@ function css() {
 #mg .fl-w small { font: 600 9.5px ui-rounded, "Nunito", sans-serif; color: #8a7ea0; line-height: 1.1; margin-top: 2px; }
 #mg .fl-box { flex: 1; width: 100%; max-width: 520px; margin-top: 8px; border-radius: 20px; overflow: hidden; min-height: 0; }
 #mg .fl-cv { display: block; touch-action: none; }
+#mg .mg-ready { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #fbf6ffaa; border-radius: 20px; z-index: 2; }
+#mg .mg-ready-in { padding: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+#mg .mg-ready-in b { font-size: 19px; } #mg .mg-ready-in span { color: #8a7ea0; font-size: 13px; }
+#mg .mg-ready-in .btn { font-size: 20px; padding: 14px 34px; box-shadow: 0 4px 0 var(--violet-d), 0 10px 26px #7b5cd655; }
 @keyframes mgbob { 50% { transform: translateY(-4px) rotate(-1.5deg); } }
 @keyframes mgpuff { 30% { transform: scale(1.18); filter: brightness(1.3); } }
 @keyframes mgpulse { 50% { transform: scale(1.07); } }
@@ -373,6 +389,7 @@ function onClick(e) {
     if (fsel.has(b.id)) fsel.delete(b.id); else if ((st().coins || 0) < fTotal() + boostCost(b)) { A.toast('🪙 Не хватает монет на этот бонус'); return; } else fsel.add(b.id);
     showFlightStart(); return; }
   if (d.mgplay !== undefined) { start(); return; }
+  if (d.mggo !== undefined) { if (R && !R.go) { R.go = true; R.idleT = 0; const o = root.querySelector('.mg-ready'); if (o) o.remove(); snd('tick'); } return; }   // her «нужна кнопка старт перед началом игры»: the clock waits for it
   if (d.mgagain !== undefined) { showStart(); return; }   // «Ещё раз» goes through the start screen: boosters can be chosen again
   if (d.mgb !== undefined) { const b = BOOSTS[+d.mgb]; if (!b) return; if (charges() <= 0) { A.toast('Бонусы — только для игры с наградой'); return; }
     if (bsel.has(b.id)) bsel.delete(b.id); else if ((st().coins || 0) < bTotal() + boostCost(b)) { A.toast('🪙 Не хватает монет на этот бонус'); return; } else bsel.add(b.id);
@@ -387,6 +404,7 @@ function showStart() {
     <p>Меняй соседние ингредиенты местами и собирай <b>3 в ряд</b>. Собери ингредиенты рецепта — и сваришь зелье!</p>
     <div class="mg-ings">${ING.map((_, t) => ingImg(t)).join('')}</div>
     <p class="muted">4 в ряд — волшебная полоска, уголок — взрыв, 5 в ряд — ${ingImg(RAINBOW)} звёздочка: поменяй её с любым ингредиентом. Поменяй местами две особые фишки — будет сильное сочетание!</p>
+    <p class="muted">Собери своим ходом ровно 3 — на месте хода появится предмет следующего уровня: мята → букетик → цветок мяты, гриб → семейка грибов → гриб-фонарик и так далее. Он даёт больше очков и больше для рецепта, а три с предметом 3-го уровня дают Эссенцию!</p>
     <p>Раунд — ${ROUND} секунд. Награда: монеты (до ${MAX_MIN} минут дохода школы), за 2–3 ⭐ ещё ✨ Вдохновение.</p>
     <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
     <p class="muted">Рекорд недели: ${num(best)}${m.best ? ` · за всё время: ${num(m.best)}` : ''}</p>
@@ -424,7 +442,7 @@ function start() {
   if (boost.star) { const r = 2 + Math.floor(Math.random() * 3), c = 1 + Math.floor(Math.random() * 5), t = newTile(RAINBOW); t.x = c; t.y = r; t.born = 0.001; R.g[r][c] = t; }   // a ready star in the middle of the board
   root.innerHTML = A.emojiHtml(`<div class="mg-top"><button class="mg-x" data-mgx aria-label="Закончить">✕</button><div class="mg-chip time">⏱️ <span class="mg-t"></span></div><div class="mg-chip score">✨ <span class="mg-s">0</span></div></div>
     <div class="mg-rec"></div>
-    <div class="mg-board-wrap"><canvas></canvas></div>
+    <div class="mg-board-wrap"><canvas></canvas><div class="mg-ready"><div class="mg-ready-in"><button class="btn" data-mggo>▶️ Старт!</button></div></div></div>
     <div class="mg-hint">Проведи пальцем по ингредиенту в сторону соседа</div>
     <div class="mg-caul"><div class="mg-caul-in">🫕</div><div class="mg-bubs"><i></i><i></i><i></i><i></i><i></i></div></div>`);
   { const c = root.querySelector('.mg-caul-in'), im = imgs.caul, put = () => { if (c.isConnected && artOk(im)) { c.innerHTML = ''; c.appendChild(im); } };
@@ -450,7 +468,7 @@ function hud() {
 // ---- input ----
 let ptr = null;
 function cellAt(e) { const b = cv.getBoundingClientRect(); const c = Math.floor((e.clientX - b.left) / R.cell), r = Math.floor((e.clientY - b.top) / R.cell); return r >= 0 && r < N && c >= 0 && c < N ? [r, c] : null; }
-function pDown(e) { if (!R || R.state !== 'idle' || R.left <= 0) return; const p = cellAt(e); if (!p) return; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); ptr = { p, x: e.clientX, y: e.clientY, moved: false }; R.idleT = 0; }
+function pDown(e) { if (!R || !R.go || R.state !== 'idle' || R.left <= 0) return; const p = cellAt(e); if (!p) return; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); ptr = { p, x: e.clientX, y: e.clientY, moved: false }; R.idleT = 0; }
 function pMove(e) {
   if (!ptr || ptr.moved) return;
   const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y;
@@ -492,12 +510,12 @@ function doResolve() {
   const res = resolveStep(R.g, R.chain === 0 ? R.swap : null);
   if (!res) { R.chain = 0; R.swap = null; afterIdle(); return; }
   const nT = res.clear.length;
-  const pts = points(nT, R.chain, res.make.length, res.fired);
+  const pts = points(res.value, R.chain, res.make.length, res.fired, res.ess);
   R.score += pts;
   let cxs = 0, cys = 0;
   for (const [r, c] of res.clear) {
     const t = R.g[r][c]; cxs += c; cys += r;
-    if (t.t >= 0) for (const x of R.rec.need) if (x.t === t.t) x.got++;
+    if (t.t >= 0) for (const x of R.rec.need) if (x.t === t.t) x.got += LV_RECIPE[t.lv || 1];
     for (let k = 0, n = nT > 14 ? 2 : 4; k < n; k++) R.fx.push({ x: c + 0.5, y: r + 0.5, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.8) * 4, life: 0.6, t: 0, col: t.t >= 0 ? ING[t.t].col : '#f2c03a' });
     t.die = 0.001;
   }
@@ -506,7 +524,9 @@ function doResolve() {
   const big = res.combo || res.fx.some((f) => f.k === 'b' || f.k === 'r');
   if (big) R.shake = Math.max(R.shake, res.combo ? 0.35 : 0.2);
   const word = COMBO_WORD[res.combo] || (R.chain >= 4 ? 'Невероятно!' : R.chain === 3 ? 'Волшебно!' : R.chain === 2 ? 'Отлично!' : nT >= 10 ? 'Здорово!' : '');
-  if (word) praise(word, res.combo ? '#ff6fa5' : R.chain >= 3 ? '#7b5cd6' : '#e0a400');
+  if (res.ess) { praise('Эссенция!', '#e0a400'); R.shake = Math.max(R.shake, 0.25); }
+  else if (res.up && res.up.includes(3)) praise('Сияющий ингредиент!', '#e0a400');
+  if (!res.ess && !(res.up && res.up.includes(3)) && word) praise(word, res.combo ? '#ff6fa5' : R.chain >= 3 ? '#7b5cd6' : '#e0a400');
   flyToCauldron(res.clear);
   snd(res.combo ? 'boom' : res.fired || res.make.length ? 'special' : 'pop', Math.min(9, R.chain * 2 + Math.floor(Math.random() * 2)));
   R.pending = res; R.state = 'clear'; R.anim = 0; R.chain++;
@@ -536,7 +556,7 @@ function flyToCauldron(cells) {   // cleared recipe ingredients fly into the cau
   const tx = kb.left + kb.width / 2, ty = kb.top + kb.height * 0.3, sz = R.cell * 0.7;
   list.forEach(([r, c], k) => {
     const t = R.g[r][c].t, x0 = cb.left + (c + 0.5) * R.cell, y0 = cb.top + (r + 0.5) * R.cell;
-    const im = document.createElement('img'); im.className = 'mg-fly'; im.src = `assets/minigame/ing_${t}.webp?v=${ART_V}`;
+    const im = document.createElement('img'); im.className = 'mg-fly'; im.src = tierSrc(t, R.g[r][c].lv || 1); im.style.objectFit = 'contain';
     im.style.cssText = `left:${x0 - sz / 2}px;top:${y0 - sz / 2}px;width:${sz}px;height:${sz}px`;
     root.appendChild(im);
     const dx = tx - x0, dy = ty - y0, up = -60 - Math.random() * 50;
@@ -548,7 +568,7 @@ function flyToCauldron(cells) {   // cleared recipe ingredients fly into the cau
 function afterClear() {
   const { clear, make } = R.pending; R.pending = null;
   for (const [r, c] of clear) R.g[r][c] = null;
-  for (const m of make) { const t = newTile(m.t, m.sp); t.x = m.c; t.y = m.r; t.born = 0.001; R.g[m.r][m.c] = t; }
+  for (const m of make) { const t = newTile(m.t, m.sp); if (m.lv) t.lv = m.lv; t.x = m.c; t.y = m.r; t.born = 0.001; R.g[m.r][m.c] = t; }
   // gravity
   for (let c = 0; c < N; c++) {
     let w = N - 1;
@@ -571,7 +591,7 @@ function shuffle() {
 function loop(now) {
   if (!R || !cv) return;
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (!document.hidden && R.live) {
+  if (!document.hidden && R.live && R.go) {
     R.left = Math.max(0, R.left - dt);
     if (R.left <= 5 && R.left > 0 && Math.ceil(R.left) !== R.lastTick) { R.lastTick = Math.ceil(R.left); snd('tick'); }
   }
@@ -587,7 +607,7 @@ function loop(now) {
   else if (R.state === 'fall') { if (settle(dt)) doResolve(); }
   else if (R.state === 'idle') {
     R.idleT += dt;
-    if (R.idleT > 5 && !R.hint && R.left > 0) R.hint = findMove(R.g);
+    if (R.go && R.idleT > 5 && !R.hint && R.left > 0) R.hint = findMove(R.g);
     if (R.left <= 0 && R.live && !R.offer) { if (!R.noCont && (R.cont || 0) < CONT_PRICE.length) { R.offer = true; snd('end'); contCard('p', R.cont || 0); } else finish(false); }
   }
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const t = R.g[r] && R.g[r][c]; if (t && t.born) { t.born += dt / 0.25; if (t.born >= 1) t.born = 0; } }
@@ -601,9 +621,10 @@ function loop(now) {
 
 // ---- draw ----
 function rr(x, y, w, h, r) { cx.beginPath(); cx.roundRect(x, y, w, h, r); }
-function drawIng(t, x, y, s) {
-  const im = t === RAINBOW ? imgs.rb : imgs[t];
-  if (artOk(im)) { const k = s * 0.9; cx.drawImage(im, x - k / 2, y - k / 2, k, k); return; }
+const tierSrc = (t, lv) => (lv > 1 ? `assets/minigame/t${lv}_${t}.webp?v=${ART_V}` : `assets/minigame/ing_${t}.webp?v=${ART_V}`);
+function drawIng(t, x, y, s, lv = 1) {
+  const im = t === RAINBOW ? imgs.rb : lv > 1 && imgs['t' + lv] && artOk(imgs['t' + lv][t]) ? imgs['t' + lv][t] : imgs[t];
+  if (artOk(im)) { const k = s * 0.9, r = im.naturalHeight / im.naturalWidth, w = r > 1 ? k / r : k, h = r > 1 ? k : k * r; cx.drawImage(im, x - w / 2, y - h / 2, w, h); return; }   // tier pictures keep their own proportions
   const e = A.emojiImage(ingImg(t));
   if (e) { cx.drawImage(e, x - s * 0.42, y - s * 0.42, s * 0.84, s * 0.84); return; }
   cx.font = `${Math.round(s * 0.7)}px system-ui`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(ingImg(t), x, y);
@@ -626,7 +647,13 @@ function draw(time) {
       const g = cx.createRadialGradient(x, y, s * 0.1, x, y, s * 0.62); g.addColorStop(0, t.t === RAINBOW ? '#fff6b0' : '#ffffffee'); g.addColorStop(1, '#ffffff00');
       cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, s * 0.62, 0, 7); cx.fill();
     }
-    drawIng(t.t, x, y, s);
+    if (t.lv > 1 && !t.sp) {   // tier aura: silver for tier 2, gold with rays for tier 3
+      const g3 = t.lv === 3, pulse = 1 + 0.05 * Math.sin(time * 4 + t.id);
+      const g = cx.createRadialGradient(x, y, s * 0.15, x, y, s * 0.66 * pulse); g.addColorStop(0, g3 ? '#fff3b0bb' : '#ffffffaa'); g.addColorStop(0.7, g3 ? '#ffd76a55' : '#e6dcff44'); g.addColorStop(1, '#ffffff00');
+      cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, s * 0.66 * pulse, 0, 7); cx.fill();
+      s *= t.lv === 3 ? 1.06 : 1.03;
+    }
+    drawIng(t.t, x, y, s, t.sp ? 1 : t.lv || 1);
     if (t.sp === 'h' || t.sp === 'v') {
       cx.save(); cx.translate(x, y); if (t.sp === 'v') cx.rotate(Math.PI / 2);
       const w = s * 0.46, ph = (time * 2) % 1;

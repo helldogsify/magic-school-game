@@ -24,4 +24,9 @@ let ok = 0, bad = 0; const chk = (name, cond) => { (cond ? ok++ : bad++); consol
 { const g = B(base, { '3,2': 'b', '3,3': 'h' }); const res = resolveStep(g, [[3, 2], [3, 3]]); chk('bomb+line = 3-wide cross (>=33), combo x3', res.combo === 'x3' && res.clear.length >= 33); }
 { const g = B(base, { '3,2': 'b', '3,3': 'b' }); const res = resolveStep(g, [[3, 2], [3, 3]]); chk('bomb+bomb = 5x5 (25), combo b5', res.combo === 'b5' && res.clear.length >= 25); }
 { const g = B(['1112345', ...base.slice(1)], { '0,0': 'h' }); const res = resolveStep(g, null); chk('fired line gives an fx beam', res.fx.some((f) => f.k === 'h' && f.r === 0)); }
+// tiers (tester wish): a swap-made plain 3 leaves the next tier on the swap cell; a 3 with tier 3 = essence
+{ const g = B(['0002345', '1213451', ...base.slice(2)]); const res = resolveStep(g, [[1, 2], [0, 2]]); chk('swap 3 makes tier 2 on the swap cell', res.make.length === 1 && res.make[0].lv === 2 && res.make[0].r === 0 && res.make[0].c === 2); }
+{ const g = B(['0002345', '1213451', ...base.slice(2)]); g[0][0].lv = 2; const res = resolveStep(g, [[1, 2], [0, 2]]); chk('tier 2 in the 3 makes tier 3', res.make[0] && res.make[0].lv === 3); }
+{ const g = B(['0002345', '1213451', ...base.slice(2)]); g[0][1].lv = 3; const res = resolveStep(g, [[1, 2], [0, 2]]); chk('tier 3 in the 3 = essence, no tile', res.ess === 1 && res.make.length === 0); }
+{ const g = B(['0002345', '1213451', ...base.slice(2)]); const res = resolveStep(g, null); chk('cascade 3 makes no tier', res.make.length === 0); }
 console.log(ok + ' ok, ' + bad + ' failed');

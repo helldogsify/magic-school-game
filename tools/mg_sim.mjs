@@ -17,11 +17,11 @@ function play(skill, think) {
     let chain = 0, steps = 0;
     for (;;) {
       const res = resolveStep(g, chain === 0 ? mv : null); if (!res) break;
-      score += points(res.clear.length, chain, res.make.length, res.fired);
-      for (const [r, c] of res.clear) { const x = g[r][c]; if (x.t >= 0) for (const q of rec) if (q.t === x.t) q.got++; }
+      score += points(res.value, chain, res.make.length, res.fired, res.ess);
+      for (const [r, c] of res.clear) { const x = g[r][c]; if (x.t >= 0) for (const q of rec) if (q.t === x.t) q.got += [0, 1, 2, 3][x.lv || 1]; }
       if (rec.every((q) => q.got >= q.n)) { score += 300 + 150 * brewed; brewed++; rec = newRec(brewed); }
       for (const [r, c] of res.clear) g[r][c] = null;
-      for (const m of res.make) g[m.r][m.c] = newTile(m.t, m.sp);
+      for (const m of res.make) { g[m.r][m.c] = newTile(m.t, m.sp); if (m.lv) g[m.r][m.c].lv = m.lv; }
       for (let c = 0; c < N; c++) { let w = N - 1; for (let r = N - 1; r >= 0; r--) if (g[r][c]) { const x = g[r][c]; g[r][c] = null; g[w][c] = x; w--; } for (let r = w; r >= 0; r--) g[r][c] = newTile(Math.floor(Math.random() * T)); }
       chain++; steps++;
     }
