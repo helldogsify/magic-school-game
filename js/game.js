@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=444';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=444';
-import { initMinigame } from './minigame.js?v=444';
-import { initChests } from './chests.js?v=444';
-import { initLore } from './lore.js?v=444';
-import { initAvatar } from './avatar.js?v=444';
+} from './data.js?v=445';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=445';
+import { initMinigame } from './minigame.js?v=445';
+import { initChests } from './chests.js?v=445';
+import { initLore } from './lore.js?v=445';
+import { initAvatar } from './avatar.js?v=445';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 444;   // keep equal to the ?v= number in index.html
+const BUILD = 445;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3585,7 +3585,7 @@ const ROOM_ART = {
     const sr = stageOf(lv('ribbons')); if (sr) { const spots = [...HERBS_WINS.values()].filter((wv) => wv.s0 === me).sort((a, b) => (a.side === b.side ? a.tm - b.tm : a.side === 'x0' ? -1 : 1)).map((wv) => [wv.side, wv.tm]).slice(0, sr);
       for (const [sd, t] of spots) onWall(sd, t, TALL_H() * 0.93, () => { const im = itemIm('ch_ribbons'); if (!im) return; const w = 62, h = w * im.naturalHeight / im.naturalWidth; ctx.rotate(Math.sin(T * 1.3 + t) * 0.04); ctx.drawImage(im, -w / 2, -h / 2, w, h); const tw = Math.pow(Math.max(0, Math.sin(T * 0.9 + t * 2)), 10); if (tw > 0.05) fxStar(0, h * 0.25, 3 * tw, tw, '255,230,150'); }); }
     // a crystal chandelier over the rug
-    { const ox = s.x0 + W * 0.5, oy = s.y0 + (s.y1 - s.y0) * 0.55; add(ox + 0.8, oy + 0.8, () => { const p = P(ox, oy), lift = 56; ctx.strokeStyle = 'rgba(190,150,80,0.9)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(p.x, p.y - lift - 90); ctx.lineTo(p.x, p.y - lift - 24); ctx.stroke(); const r = itemDraw('ch_chandelier', ox, oy, 34, { lift }); if (!r) return; for (let m = 0; m < 3; m++) { const tw = Math.pow(Math.max(0, Math.sin(T * 1.7 + m * 2.2)), 6); if (tw > 0.05) fxStar(r.x + (m - 1) * r.w * 0.28, r.top + r.h * 0.55, 3 * tw, tw, '255,255,240'); } ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = dnDark ? 0.6 : 0.25; ctx.drawImage(glowSprite('255,225,170'), r.x - 26, r.top + r.h * 0.3 - 16, 52, 36); ctx.restore(); if (dnDark) frameLamps.push({ x: r.x, y: r.top + r.h * 0.5, r: 10 }); }); }
+    { const ox = s.x0 + W * 0.6, oy = s.y0 + (s.y1 - s.y0) * 0.52; add(ox + 0.8, oy + 0.8, () => { const p = P(ox, oy), lift = 72; ctx.strokeStyle = 'rgba(190,150,80,0.9)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(p.x, p.y - lift - 90); ctx.lineTo(p.x, p.y - lift - 24); ctx.stroke(); ctx.save(); ctx.shadowColor = 'rgba(90,40,80,0.55)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 3; const r = itemDraw('ch_chandelier', ox, oy, 78, { lift }); ctx.restore(); if (!r) return; for (let m = 0; m < 3; m++) { const tw = Math.pow(Math.max(0, Math.sin(T * 1.7 + m * 2.2)), 6); if (tw > 0.05) fxStar(r.x + (m - 1) * r.w * 0.28, r.top + r.h * 0.55, 3 * tw, tw, '255,255,240'); } ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = dnDark ? 0.6 : 0.25; ctx.drawImage(glowSprite('255,225,170'), r.x - 44, r.top + r.h * 0.3 - 26, 88, 60); ctx.restore(); if (dnDark) frameLamps.push({ x: r.x, y: r.top + r.h * 0.5, r: 10 }); }); }
   },
   stars(i, s, st, add) {
     const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000, W = s.x1 - s.x0, me = s.x0 + ',' + s.y0;
