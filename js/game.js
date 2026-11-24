@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=436';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=436';
-import { initMinigame } from './minigame.js?v=436';
-import { initChests } from './chests.js?v=436';
-import { initLore } from './lore.js?v=436';
-import { initAvatar } from './avatar.js?v=436';
+} from './data.js?v=437';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=437';
+import { initMinigame } from './minigame.js?v=437';
+import { initChests } from './chests.js?v=437';
+import { initLore } from './lore.js?v=437';
+import { initAvatar } from './avatar.js?v=437';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 436;   // keep equal to the ?v= number in index.html
+const BUILD = 437;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2954,7 +2954,7 @@ const ST_SHOP = [
 const FOUNT_COL = {   // magic water of the court fountain: glow, drops, jet, the floating orbs
   aqua: { name: 'Бирюзовая', glow: '140,240,230', drop: '#d6fbff', jet: '#e6fdff', orb: '200,250,255', price: 0 },
   rose: { name: 'Розовая', hue: 330, glow: '255,160,215', drop: '#ffe0f2', jet: '#fff0f8', orb: '255,210,238', price: 30 },
-  rainbow: { name: 'Радужная', rainbow: true, price: 50 },   // replaced the gold (her «как моча выглядит»)
+  rainbow: { name: 'Радужная', rainbow: true, price: 150 },   // replaced the gold (her «как моча выглядит»)
   moon: { name: 'Лунная', hue: 248, glow: '165,165,255', drop: '#e2deff', jet: '#f1efff', orb: '212,206,255', price: 40 },
 };
 const hslRgb = (h, s, l) => { const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))); return [f(0), f(8), f(4)]; };
@@ -2962,7 +2962,7 @@ const hexOf = (c) => '#' + c.map((v) => v.toString(16).padStart(2, '0')).join(''
 function fountCol() {
   let k = (stMeta().stones || {}).fnt; if (k === 'gold') k = 'rainbow';
   const f = FOUNT_COL[k] || FOUNT_COL.aqua; if (!f.rainbow) return f;
-  const hue = Math.round(((performance.now() / 1000) * 15) % 360 / 30) * 30 % 360;   // 12 steps, a full circle in 24 s
+  const hue = ((performance.now() / 1000) * 15) % 360;   // smooth: a full circle in 24 s (the picture cross-fades between cached tints)
   return { name: f.name, price: f.price, rainbow: true, hue, glow: hslRgb(hue, 0.85, 0.72).join(','), drop: hexOf(hslRgb(hue, 0.9, 0.92)), jet: hexOf(hslRgb(hue, 0.9, 0.95)), orb: hslRgb(hue, 0.85, 0.85).join(',') };
 }
 const fountTintC = new Map();
@@ -3055,8 +3055,12 @@ function drawOut(o) {
   const p = P(o.x, o.y), h = (OUT_H[o.n] || 28) * (o.s || 1), w = h * im.naturalWidth / im.naturalHeight;
   { const dh = h * scale * dpr, lv = o.depth > 0.6 ? 1 : o.depth > 0.25 ? 0 : -1, t = lv >= 0 && outTint[o.n];   // nearest smaller copy (big downscales every frame are slow); deep trees use the tinted copies
     if (outLo[o.n] && dh < 230) im = t ? t.lo[lv] : outLo[o.n]; else if (outMid[o.n] && (dh < 430 || t)) im = t ? t.mid[lv] : outMid[o.n]; }
-  if (o.n === 'fountain' && fountCol().hue != null) im = fountTint(im, fountCol().hue);   // the painted water takes the bought colour
+  let im2 = null, mix = 0;
+  if (o.n === 'fountain' && fountCol().hue != null) { const F = fountCol();   // the painted water takes the bought colour
+    if (F.rainbow) { const st = 15, k = Math.floor(F.hue / st); mix = F.hue / st - k; im2 = fountTint(im, ((k + 1) * st) % 360); im = fountTint(im, (k * st) % 360); }   // rainbow: cross-fade of the two nearest of 24 tints
+    else im = fountTint(im, F.hue); }
   if (!drawTreeGrounded(o, im, p, w, h)) ctx.drawImage(o.flip ? flipped(im) : im, p.x - w / 2, p.y + h * 0.05 - h, w, h);
+  if (im2 && mix > 0.01) { ctx.save(); ctx.globalAlpha = mix; ctx.drawImage(o.flip ? flipped(im2) : im2, p.x - w / 2, p.y + h * 0.05 - h, w, h); ctx.restore(); }
   if (o.n === 'moontree') drawMoonTree(o, p, w, h);
   if (zoom >= 1.3 || o.n === 'fountain') outFx(o, p, h);   // the fountain's water shows at every zoom (it grows with its upgrades)   // zoomed out the life is too small to see: save the iPhone's work
 }
