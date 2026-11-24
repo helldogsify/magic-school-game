@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=453';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=453';
-import { initMinigame } from './minigame.js?v=453';
-import { initChests } from './chests.js?v=453';
-import { initLore } from './lore.js?v=453';
-import { initAvatar } from './avatar.js?v=453';
+} from './data.js?v=454';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=454';
+import { initMinigame } from './minigame.js?v=454';
+import { initChests } from './chests.js?v=454';
+import { initLore } from './lore.js?v=454';
+import { initAvatar } from './avatar.js?v=454';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 453;   // keep equal to the ?v= number in index.html
+const BUILD = 454;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5290,7 +5290,7 @@ function claimMission(key) {
 
 // missions live behind a round button on the map (bottom right); a red badge shows how many can be claimed
 function renderMission() {
-  const list = missionList(), ready = list.filter((m) => m.ok).length, el = $('#quest');
+  qTick(); const ready = qReadyAll(), el = $('#quest');
   const key = 'b' + ready;
   if (el.dataset.key === key) return;
   el.dataset.key = key;
@@ -5334,14 +5334,230 @@ function openWorld(w) {
   toast('✨ Новый мир открыт!'); openPanel(worldsPanel);
 }
 
-function missionsPanel() {
-  const list = missionList();
-  const tk = WORLD === 1;   // world 1: the quests come from Chronicler Tikhon (build 251, her pick)
-  return `<div class="sh-head">${tk ? tikhonPic(56) : '<span class="remoji big">📋</span>'}<div><h2>${tk ? 'Задания от Тихона' : 'Задания'}</h2><div class="muted">${tk ? '«Летопись школы пишется твоими делами, директор»' : 'Выполняй и забирай награды. Новые появляются сразу'}</div></div><button class="x" data-close>✕</button></div>
-    <div class="qbar">${list.map((m) => `<div class="q ${m.ok ? 'ok' : ''}"><span class="qi">${m.ok ? '🎁' : '📋'}</span>
-      <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}${tk && MISSION_LORE[m.lk || m.type] ? `<span class="muted" style="display:block;font-style:italic;font-size:12px">${MISSION_LORE[m.lk || m.type]}</span>` : ''}</span>
-      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo">${m.need > 0 ? `<span class="qneed" style="display:block;font-size:12px;font-weight:800;color:${S.coins >= m.need ? '#2f9e5a' : '#d0304e'}">нужно 🪙${fmt(m.need)}</span>` : ''}<span class="qr">🪙${fmt(m.reward)}</span>${m.go ? `<button class="btn small go" data-mgo="${m.key}">Выполнить ➜</button>` : ''}</span>`}</div>`).join('')}</div>`;
+// ======================= quest tabs (build 454, Maria 2026-11-24: «разложить задания по вкладкам, как в хороших онлайн-играх»; her «Да!»
+// to the plan): 📖 story (Tikhon's chain) · 📅 daily (4 simple tasks, reset at local midnight, all 4 -> moonstones) · 🌟 by level (the
+// generated missions that follow the school level and what it can afford + the level milestones) · 🤝 alliance (3 shared weekly goals,
+// every member's share travels in his top entry: aw week, ag/am/ap graduates/mini-game rounds/gifts of that week) · 🎁 special (one-time:
+// Telegram channel, avatar, alliance, invite a friend by code: her «какой-то код выдавать и вводить»). Red counters on tabs with a reward.
+const Q_TG = 'https://t.me/begemoti4ka';   // her channel («Мой тгк пока»)
+const QF_ON = true;   // top fields aw/ag/am/ap/rf: Firestore rules allow them (her «да» 2026-11-24)
+const DQ_STONES = 2, DQ_MIN = 5, AQ_STONES = 3, REF_LV = 5, REF_IN_STONES = 3;
+const SP_LIST = [
+  { id: 'tg', icon: '📣', t: 'Подпишись на Telegram-канал игры', s: 'там новости и подсказки', n: 5 },
+  { id: 'ava', icon: '🖼️', t: 'Поставь аватарку', s: 'засчитается, когда её одобрят', n: 3 },
+  { id: 'ally', icon: '🤝', t: 'Вступи в альянс или создай свой', s: '', n: 3 },
+  { id: 'ref', icon: '💌', t: 'Пригласи друга', s: `друг вводит твой код и доводит школу до ${REF_LV}-го уровня`, n: 10 },
+];
+let qTab = '';
+const qDay = (t = new Date()) => `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;   // the same local day as the chests
+const mgRounds = () => ((S.mg && S.mg.n) || 0) + ((S.mg && S.mg.f && S.mg.f.n) || 0);   // potion + flight rounds ever played
+const qMeta = () => { const m = stMeta(); return m.q || {}; };
+function qMetaSet(fn) { const m = stMeta(); m.q ||= {}; fn(m.q); try { localStorage.setItem('magicschool.meta', JSON.stringify(m)); } catch (e) { /* full storage */ } dirtyPanel = true; }
+const stGot = (key) => !!((stMeta().stones || {}).got || {})[key];
+const qPerMin = () => Math.max(1, (steadyRate() || S.ema || 0) * 60);
+// ---- 📅 daily
+const DQ = [
+  { id: 'mg', on: () => true, n: () => 1, text: () => 'Сыграй в мини-игру 🧪', now: mgRounds, go: () => ['@mg', null] },
+  { id: 'grad', on: () => true, n: () => lvN(20, 10), text: (n) => `Выпусти ${n} учеников 🎓`, now: () => S.stats.graduated, go: () => missionGo({ type: 'grad' }) },
+  { id: 'chest', on: () => true, n: () => 1, text: () => 'Открой сундучок дня 🎁', done: () => { const c = S.chest; return !!c && c.day === qDay() && (c.k > 0 || c.done || c.dead); }, go: () => ['@chest', null] },
+  { id: 'moon', on: () => WORLD === 1, n: () => 1, text: () => 'Собери плоды Лунного древа 🌙', now: () => S.stats.moon || 0, go: () => ['@moon', null] },
+  { id: 'gift', on: () => !!myAl(), n: () => 1, text: () => 'Подари подарок другу из альянса 🎁', now: () => S.stats.gifts || 0, go: () => ['@ally', null] },
+  { id: 'read', on: () => (S.stats.read || 0) > 0, n: () => lvN(10, 5), text: (n) => `Пусть ${n} учеников позанимаются в библиотеке 📚`, now: () => S.stats.read || 0, go: () => ['LIB', '[data-act="libseats"]'] },
+  { id: 'earn', on: () => true, n: () => Math.max(500, nice(qPerMin() * 10)), text: (n) => `Заработай ${fmt(n)} монет 🪙`, now: () => S.stats.earned || 0, go: () => null },
+];
+function dqSt() {   // today's 4 tasks: the mini-game and graduates always, two more picked by the date (the same all day)
+  const day = qDay();
+  if (S.dq && S.dq.day === day) return S.dq;
+  let h = WORLD * 7; for (const ch of day) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const rest = DQ.filter((t) => t.id !== 'mg' && t.id !== 'grad' && t.on());
+  for (let k = rest.length - 1; k > 0; k--) { h = (h * 1103515245 + 12345) >>> 0; const j = h % (k + 1); [rest[k], rest[j]] = [rest[j], rest[k]]; }
+  const ids = ['mg', 'grad', ...rest.slice(0, 2).map((t) => t.id)], b = {}, n = {};
+  for (const id of ids) { const t = DQ.find((x) => x.id === id); n[id] = t.n(); if (t.now) b[id] = t.now(); }
+  S.dq = { day, ids, b, n, r: Math.max(50, nice(qPerMin() * DQ_MIN)), c: {} };
+  save(); return S.dq;
 }
+function dqList() {
+  const d = dqSt();
+  return d.ids.map((id) => { const t = DQ.find((x) => x.id === id); if (!t) return null;
+    const have = t.done ? (t.done() ? d.n[id] : 0) : Math.max(0, t.now() - (d.b[id] || 0)), ok = have >= d.n[id];
+    return { id, text: t.text(d.n[id]), have: Math.min(have, d.n[id]), need: d.n[id], ok, got: !!d.c[id], go: t.go() };
+  }).filter(Boolean);
+}
+const dqAllKey = () => 'dq_' + qDay();   // one moonstone prize a day for both worlds
+const dqAllReady = () => { const L = dqList(); return L.length > 0 && L.every((x) => x.got) && !stGot(dqAllKey()) && !S.dq.all; };
+// ---- 🤝 alliance (week = the mini-game week, Monday 00:00 UTC)
+function aqSt() { const wk = MG.weekKey(); if (!S.aq || S.aq.wk !== wk) S.aq = { wk, g0: S.stats.graduated, m0: mgRounds(), p0: S.stats.gifts || 0 }; return S.aq; }
+const aqMine = () => { const a = aqSt(); return { ag: Math.max(0, S.stats.graduated - a.g0), am: Math.max(0, mgRounds() - a.m0), ap: Math.max(0, (S.stats.gifts || 0) - a.p0) }; };
+function aqGoals() {
+  if (!myAl()) return null;
+  const wk = aqSt().wk, me = anonUid() + '_w' + WORLD, mine = aqMine();
+  const rows = allyMembers(myAl()).filter((x) => x.id !== me && x.aw === wk).map((x) => ({ ...x, g0: Math.max(0, x.g - x.ag) }));
+  rows.push({ ...mine, g0: aqSt().g0 });
+  const n = Math.max(2, rows.length), sum = (k) => rows.reduce((a, x) => a + (x[k] || 0), 0);
+  return { wk, n: rows.length, goals: [
+    { id: 'g', text: 'Выпустите вместе учеников 🎓', have: sum('ag'), need: nice(Math.max(100 * n, 0.1 * sum('g0'))), mine: mine.ag },
+    { id: 'm', text: 'Сыграйте вместе в мини-игры 🧪', have: sum('am'), need: 8 * n, mine: mine.am },
+    { id: 'p', text: 'Подарите друг другу подарки 🎁', have: sum('ap'), need: 5 * n, mine: mine.ap },
+  ].map((g) => ({ ...g, ok: g.have >= g.need, key: `al_${wk}_${g.id}_w${WORLD}` })) };
+}
+const qTopFields = (I) => { if (!QF_ON) return {}; const a = aqMine(), q = qMeta(); return { aw: I(aqSt().wk), ag: I(a.ag), am: I(a.am), ap: I(a.ap), ...(q.rf ? { rf: { stringValue: q.rf } } : {}) }; };
+const qTopKey = () => { if (!QF_ON) return ''; const a = aqMine(); return [aqSt().wk, a.ag, a.am, a.ap, qMeta().rf || ''].join(','); };
+// ---- 🎁 special
+const REF_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function myRefCode() { let c = qMeta().my; if (!c) { c = Array.from({ length: 6 }, () => REF_ABC[Math.floor(Math.random() * REF_ABC.length)]).join(''); qMetaSet((q) => { q.my ||= c; }); c = qMeta().my || c; } return c; }
+const refCanEnter = () => !qMeta().rf && WORLD === 1 && schoolLevel() <= REF_LV && !(stMeta().unlocked || []).includes(2);
+const refFriends = () => (topList || []).filter((x) => x.rf && x.rf === qMeta().my && !x.id.startsWith(anonUid() + '_'));
+function spOk(id) {
+  switch (id) {
+    case 'tg': return !!qMeta().tg;
+    case 'ava': return !!AV.img(anonUid());
+    case 'ally': return !!myAl();
+    case 'ref': return refFriends().some((x) => x.lv >= REF_LV);
+  }
+  return false;
+}
+const spReady = (s) => spOk(s.id) && !stGot('sp_' + s.id);
+function refEnter(raw) {
+  const c = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!refCanEnter()) { toast(qMeta().rf ? 'Код друга уже введён' : `Код друга вводят только новички (до ${REF_LV}-го уровня школы)`); return false; }
+  if (!/^[A-Z2-9]{6}$/.test(c)) { toast('Код — это 6 букв и цифр, например ABC234'); return false; }
+  if (c === myRefCode()) { toast('Это твой собственный код 🙂'); return false; }
+  qMetaSet((q) => { q.rf = c; });
+  if (stonesAdd(REF_IN_STONES, 'sp_refin')) toast(`💌 Код друга принят! ${ST_ICON} +${REF_IN_STONES} лунных камня`);
+  save(); topPush(true); return true;
+}
+try { const r = new URLSearchParams(location.search).get('ref'); if (r) localStorage.setItem('magicschool.refin', r); } catch (e) { /* no storage */ }
+let qTickT = 0;
+function qTick() {   // from renderMission: a code that came with the invite link is applied once the school is loaded
+  if (!S || Date.now() - qTickT < 3000) return; qTickT = Date.now();
+  const r = localStorage.getItem('magicschool.refin'); if (!r) return;
+  localStorage.removeItem('magicschool.refin');
+  if (refCanEnter() && r.toUpperCase() !== qMeta().my) refEnter(r);
+}
+async function refShare() {
+  const code = myRefCode(), url = `${location.origin}${location.pathname}?ref=${code}`;
+  const text = `Заходи в мою «Школу магии»! 🪄 Мой код друга: ${code} — введи его в «Заданиях» → «Особые» и получишь лунные камни.`;
+  try { if (navigator.share) { await navigator.share({ text, url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(`${text}\n${url}`); toast('Приглашение скопировано — отправь его другу'); } catch (e) { window.prompt('Скопируй и отправь другу:', `${text}\n${url}`); }
+}
+// ---- counters
+function qCounts() {
+  const list = missionList(), d = dqList(), A = aqGoals();
+  return {
+    story: list.filter((m) => m.key === 'f' && m.ok).length,
+    day: d.filter((x) => x.ok && !x.got).length + (dqAllReady() ? 1 : 0),
+    lvl: list.filter((m) => m.key !== 'f' && m.ok).length,
+    ally: A ? A.goals.filter((g) => g.ok && !stGot(g.key)).length : 0,
+    sp: SP_LIST.filter(spReady).length,
+  };
+}
+const qReadyAll = () => { try { const c = qCounts(); return c.story + c.day + c.lvl + c.ally + c.sp; } catch (e) { return missionList().filter((m) => m.ok).length; } };
+// ---- the window
+const Q_TABS = [['story', '📖', 'Сюжет'], ['day', '📅', 'Ежедневные'], ['lvl', '🌟', 'По уровню'], ['ally', '🤝', 'Альянс'], ['sp', '🎁', 'Особые']];
+function qStyle() {
+  if (document.getElementById('qtabs-style')) return;
+  const st = document.createElement('style'); st.id = 'qtabs-style';
+  st.textContent = `.qtabs{display:flex;gap:4px;margin:2px 0 8px;overflow-x:auto;scrollbar-width:none}.qtabs::-webkit-scrollbar{display:none}
+.qtab{position:relative;flex:1 0 auto;min-width:58px;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 4px 4px;border:0;border-radius:12px;background:#f1eafd;color:#6b5a99;font:800 11px ui-rounded,"Nunito","Segoe UI",sans-serif;cursor:pointer}
+.qtab .remoji,.qtab img{font-size:19px;height:19px}.qtab.on{background:#7b5cd6;color:#fff;box-shadow:0 2px 6px #7b5cd655}
+.qtab .qb{position:absolute;top:-3px;right:-2px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#e5364b;color:#fff;font:800 11px/17px ui-rounded,"Nunito","Segoe UI",sans-serif;box-shadow:0 0 0 2px #fff}
+.qnote{font-size:12.5px;color:#7a6c99;margin:2px 2px 6px;line-height:1.3}.qsub{display:block;font-size:12px;color:#8a7cab;font-weight:600}
+.qbig{background:#fff4c2;border-radius:14px;padding:8px 10px;margin-top:6px;display:flex;align-items:center;gap:8px;font-weight:800;font-size:13.5px}
+.qcode{font:900 22px ui-monospace,Consolas,monospace;letter-spacing:3px;color:#5a3fb8;background:#f1eafd;border-radius:10px;padding:4px 10px;display:inline-block;margin:4px 0}`;
+  document.head.appendChild(st);
+}
+const qBtnGo = (go, attr) => (go ? `<button class="btn small go" ${attr}>Выполнить ➜</button>` : '');
+function qRow(m) {   // a story / level mission, the same look as before
+  const tk = WORLD === 1;
+  return `<div class="q ${m.ok ? 'ok' : ''}"><span class="qi">${m.ok ? '🎁' : '📋'}</span>
+      <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}${tk && MISSION_LORE[m.lk || m.type] ? `<span class="muted" style="display:block;font-style:italic;font-size:12px">${MISSION_LORE[m.lk || m.type]}</span>` : ''}</span>
+      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo">${m.need > 0 ? `<span class="qneed" style="display:block;font-size:12px;font-weight:800;color:${S.coins >= m.need ? '#2f9e5a' : '#d0304e'}">нужно 🪙${fmt(m.need)}</span>` : ''}<span class="qr">🪙${fmt(m.reward)}</span>${qBtnGo(m.go, `data-mgo="${m.key}"`)}</span>`}</div>`;
+}
+function qStoryTab(list) {
+  const m = list.find((x) => x.key === 'f'), done = MISSIONS.filter((x) => S.story && S.story[x.id]).length;
+  return `<div class="qnote">История школы идёт по порядку: следующее задание откроется, когда заберёшь награду. Пройдено ${done} из ${MISSIONS.length}.</div>
+    <div class="qbar">${m ? qRow(m) : '<div class="q ok"><span class="qi">🏆</span><span class="qt">Вся история этого мира пройдена! Новые главы появятся с обновлениями.</span></div>'}</div>`;
+}
+function qDayTab() {
+  const L = dqList(), d = S.dq, all = L.every((x) => x.got), gotAll = stGot(dqAllKey()) || d.all;
+  const mid = new Date(); mid.setHours(24, 0, 0, 0); const left = Math.max(0, mid - Date.now()), hh = Math.floor(left / 3600000), mm = Math.floor((left % 3600000) / 60000);
+  const rows = L.map((x) => `<div class="q ${x.ok && !x.got ? 'ok' : ''}"><span class="qi">${x.got ? '✅' : x.ok ? '🎁' : '📅'}</span>
+      <span class="qt">${x.text}${!x.ok && x.need > 1 ? ` <span class="qp">${fmt(x.have)}/${fmt(x.need)}</span>` : ''}</span>
+      ${x.got ? '<span class="done">готово</span>' : x.ok ? `<button class="btn hot small" data-dqc="${x.id}">Забрать 🪙${fmt(d.r)}</button>` : `<span class="qgo"><span class="qr">🪙${fmt(d.r)}</span>${qBtnGo(x.go, `data-dqgo="${x.id}"`)}</span>`}</div>`).join('');
+  const prize = gotAll ? `<div class="qbig">✅ Все дела дня сделаны, лунные камни получены. Новые дела через ${hh} ч ${mm} мин</div>`
+    : `<div class="qbig ${all ? 'ok' : ''}">${ST_IMG(24)}<span style="flex:1">Сделай все ${L.length} дела — получишь ${DQ_STONES} лунных камня</span>${all ? `<button class="btn hot small" data-dqall>Забрать ${ST_IMG(16)} ${DQ_STONES}</button>` : `<span class="qp">${L.filter((x) => x.got).length}/${L.length}</span>`}</div>`;
+  return `<div class="qnote">Новые дела каждый день в полночь (через ${hh} ч ${mm} мин). За каждое — монеты.</div><div class="qbar">${rows}</div>${prize}`;
+}
+function qLvlTab(list) {
+  const L = list.filter((m) => m.key !== 'f'), lv = schoolLevel(), next = [];
+  for (let l = Math.ceil((lv + 1) / 5) * 5; next.length < 3; l += 5) next.push(l);
+  const ms = next.map((l) => `<span class="qp" style="margin-right:10px">ур. ${l} → ${ST_IMG(14)} ${3 + Math.floor(l / 10)}</span>`).join('');
+  return `<div class="qnote">Задания подстраиваются под уровень школы 🌟${lv} и под то, на что хватает монет. Сделал одно — сразу появится новое.</div>
+    <div class="qbar">${L.map(qRow).join('')}</div>
+    <div class="qbig" style="background:#f1eafd;font-weight:700;flex-wrap:wrap">🌟 Лунные камни за уровни школы (приходят сами): ${ms}</div>`;
+}
+function qAllyTab() {
+  if (!myAl()) return `<div class="qnote">Общие цели на неделю есть у каждого альянса: выполняете вместе — награду получает каждый участник.</div>
+    <div class="qbar"><div class="q"><span class="qi">🤝</span><span class="qt">Сначала вступи в альянс или создай свой</span><button class="btn small go" data-qgo="@ally">Альянсы ➜</button></div></div>`;
+  const A = aqGoals(), wkEnd = (A.wk + 1) * 7 * 86400000 - 3 * 86400000, left = Math.max(0, wkEnd - Date.now()), dd = Math.floor(left / 86400000), hh = Math.floor((left % 86400000) / 3600000);
+  const rows = A.goals.map((g) => { const got = stGot(g.key);
+    return `<div class="q ${g.ok && !got ? 'ok' : ''}"><span class="qi">${got ? '✅' : g.ok ? '🎁' : '🤝'}</span>
+      <span class="qt">${g.text} <span class="qp">${fmt(Math.min(g.have, g.need))}/${fmt(g.need)}</span><span class="qsub">твой вклад: ${fmt(g.mine)}</span></span>
+      ${got ? '<span class="done">получено</span>' : g.ok ? `<button class="btn hot small" data-alq="${g.id}">Забрать ${ST_IMG(16)} ${AQ_STONES}</button>` : `<span class="qr">${ST_IMG(16)} ${AQ_STONES}</span>`}</div>`; }).join('');
+  const lag = topList ? '' : '<div class="qnote">Загружаю вклад участников…</div>';
+  return `<div class="qnote">Цели всего альянса на эту неделю (до конца ${dd} д ${hh} ч). За каждую — ${AQ_STONES} лунных камня каждому участнику. Участников, игравших на этой неделе: ${A.n}. Вклад друзей обновляется раз в минуту.</div>${lag}<div class="qbar">${rows}</div>`;
+}
+function qSpTab() {
+  const rows = SP_LIST.map((s) => { const got = stGot('sp_' + s.id), ok = spOk(s.id);
+    let act = '';
+    if (got) act = '<span class="done">получено</span>';
+    else if (ok) act = `<button class="btn hot small" data-spc="${s.id}">Забрать ${ST_IMG(16)} ${s.n}</button>`;
+    else if (s.id === 'tg') act = `<button class="btn small go" data-sp="tg">Открыть ➜</button>`;
+    else if (s.id === 'ava') act = `<button class="btn small go" data-qgo="@top">Выполнить ➜</button>`;
+    else if (s.id === 'ally') act = `<button class="btn small go" data-qgo="@ally">Выполнить ➜</button>`;
+    else act = `<span class="qr">${ST_IMG(16)} ${s.n}</span>`;
+    return `<div class="q ${ok && !got ? 'ok' : ''}"><span class="qi">${got ? '✅' : s.icon}</span><span class="qt">${s.t} · ${ST_IMG(14)} ${s.n}${s.s ? `<span class="qsub">${s.s}</span>` : ''}</span>${act}</div>`; }).join('');
+  const fr = refFriends(), q = qMeta();
+  const inv = `<div class="qbig" style="background:#f6f0ff;flex-direction:column;align-items:stretch;font-weight:700">
+      <div>💌 Твой код друга: <span class="qcode">${myRefCode()}</span></div>
+      <div class="qsub">Друг вводит его у себя в «Заданиях» → «Особые» (или просто открывает игру по твоей ссылке) и получает ${REF_IN_STONES} лунных камня. Когда его школа дойдёт до ${REF_LV}-го уровня, ты получишь ${SP_LIST[3].n}. Чтобы друг был виден, ему нужно дать школе имя в «Топе».</div>
+      ${fr.length ? `<div class="qsub">Пришли по твоему коду: ${fr.map((x) => `${escTxt(x.name)} (🌟${x.lv})`).join(', ')}</div>` : ''}
+      <button class="btn wide" data-refshare style="margin-top:6px">📤 Поделиться приглашением</button>
+      ${refCanEnter() ? `<button class="btn ghost wide" data-refin style="margin-top:4px">🔑 Меня пригласил друг — ввести его код (${ST_IMG(14)} ${REF_IN_STONES})</button>` : q.rf ? `<div class="qsub" style="margin-top:4px">Ты пришёл по коду друга ${escTxt(q.rf)} ✓</div>` : ''}
+    </div>`;
+  return `<div class="qnote">Разовые задания: каждое можно выполнить один раз, награда — лунные камни.</div><div class="qbar">${rows}</div>${inv}`;
+}
+function missionsPanel() {
+  qStyle();
+  const list = missionList(), c = qCounts(), tk = WORLD === 1;   // world 1: the quests come from Chronicler Tikhon (build 251, her pick)
+  if (!qTab) qTab = (Q_TABS.find(([k]) => c[k] > 0) || Q_TABS[0])[0];
+  if (qTab === 'ally' && myAl() && (!topList || Date.now() - topLoadedAt > 60000) && !missionsPanel.loading) { missionsPanel.loading = true; topPush(true).finally(() => topLoad().finally(() => { missionsPanel.loading = false; if (panel === missionsPanel) refreshPanel(); })); }
+  if (qTab === 'sp' && (!topList || Date.now() - topLoadedAt > 120000) && !missionsPanel.loading) { missionsPanel.loading = true; Promise.all([topLoad(), AV.load()]).finally(() => { missionsPanel.loading = false; if (panel === missionsPanel) refreshPanel(); }); }
+  const tabs = Q_TABS.map(([k, ic, nm]) => `<button class="qtab ${qTab === k ? 'on' : ''}" data-qtab="${k}"><span class="remoji">${ic}</span>${nm}${c[k] ? `<span class="qb">${c[k]}</span>` : ''}</button>`).join('');
+  const body = qTab === 'story' ? qStoryTab(list) : qTab === 'day' ? qDayTab() : qTab === 'lvl' ? qLvlTab(list) : qTab === 'ally' ? qAllyTab() : qSpTab();
+  return `<div class="sh-head">${tk ? tikhonPic(56) : '<span class="remoji big">📋</span>'}<div><h2>${tk ? 'Задания от Тихона' : 'Задания'}</h2><div class="muted">${tk ? '«Летопись школы пишется твоими делами, директор»' : 'Выполняй и забирай награды'}</div></div><button class="x" data-close>✕</button></div>
+    <div class="qtabs">${tabs}</div>${body}`;
+}
+function qGo(go) {
+  if (!go) return;
+  if (go[0] === '@chest') { closePanel(); if (window.__chests) window.__chests.open(); return; }
+  if (go[0] === '@moon') { closePanel(); if (WORLD === 1) setTimeout(() => focusTile(MOON_AT.x, MOON_AT.y), 60); toast('🌙 Плоды созревают ночью — нажми на Лунное древо, чтобы собрать'); return; }
+  goTarget(go);
+}
+function qClick(d) {   // true when the button was ours
+  if (d.qtab !== undefined) { qTab = d.qtab; refreshPanel(); const sh = $('#sheet'); if (sh) sh.scrollTop = 0; return true; }
+  if (d.qgo !== undefined) { qGo([d.qgo, null]); return true; }
+  if (d.dqgo !== undefined) { const x = dqList().find((t) => t.id === d.dqgo); if (x) qGo(x.go); return true; }
+  if (d.dqc !== undefined) { const x = dqList().find((t) => t.id === d.dqc); if (x && x.ok && !x.got) { S.dq.c[x.id] = 1; S.coins += S.dq.r; toast(`🎁 Награда 🪙${fmt(S.dq.r)}`); updateHud(); save(); } refreshPanel(); return true; }
+  if (d.dqall !== undefined) { if (dqAllReady()) { S.dq.all = 1; if (stonesAdd(DQ_STONES, dqAllKey())) toast(`📅 Все дела дня! ${ST_ICON} +${DQ_STONES} лунных камня`); save(); } refreshPanel(); return true; }
+  if (d.alq !== undefined) { const A = aqGoals(), g = A && A.goals.find((x) => x.id === d.alq); if (g && g.ok && stonesAdd(AQ_STONES, g.key)) { toast(`🤝 Цель альянса! ${ST_ICON} +${AQ_STONES} лунных камня`); save(); } refreshPanel(); return true; }
+  if (d.sp !== undefined) { if (d.sp === 'tg') { window.open(Q_TG, '_blank'); setTimeout(() => qMetaSet((q) => { q.tg = Date.now(); }), 1500); } return true; }
+  if (d.spc !== undefined) { const s = SP_LIST.find((x) => x.id === d.spc); if (s && spReady(s) && stonesAdd(s.n, 'sp_' + s.id)) { toast(`${s.icon} ${ST_ICON} +${s.n} лунных камней`); save(); } refreshPanel(); return true; }
+  if (d.refshare !== undefined) { refShare(); return true; }
+  if (d.refin !== undefined) { const v = window.prompt('Код друга (6 букв и цифр):', ''); if (v) { refEnter(v); refreshPanel(); } return true; }
+  return false;
+}
+window.__q = { S: () => S, counts: () => qCounts(), dq: () => dqList(), aq: () => aqGoals(), ref: (c) => refEnter(c), code: () => myRefCode(), tab: (k) => { qTab = k; } };   // test hook
 function lvBar() {   // «🏫 Уровень 64» and the experience bar across the purple plate under the coins row
   const top = $('#top'); if (!top || !S) return; let el = $('#lvbar');
   if (!$('#topslim')) { const st = document.createElement('style'); st.id = 'topslim';   // her «великовата»: everything a bit lower
@@ -5477,6 +5693,7 @@ document.addEventListener('click', (e) => {
   if (menuOpen && t.closest('#menugrid')) setMenu(false);   // a tile closes the menu, then opens its panel below as before
   if (d.close !== undefined) { closePanel(); return; }
   if (AV.click(d)) return;   // avatar buttons
+  if (qClick(d)) return;
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.people !== undefined) { openPanel(peoplePanel); return; }
@@ -5654,13 +5871,13 @@ let topSentAt = 0, topSentKey = '';
 const TOP_TEST = !/[?&]top=1/.test(location.search) && (!!navigator.webdriver || /^(localhost|127\.|0\.0\.0\.0|192\.168\.|10\.|\[::1\])/.test(location.hostname));
 async function topPush(force) {   // our line in the table (only with a school name); quietly does nothing offline
   if (TOP_TEST || !S || !schoolName() || !(S.rating || S.stats.graduated)) return;
-  const R = rating(), key = [schoolName(), playerNick(), myAl(), R.v.toFixed(2), R.n, schoolLevel(), S.stats.graduated, MG.weekBest(), MG.prevBest(), MG.flightBest(), MG.flightPrev()].join('|');
+  const R = rating(), key = [schoolName(), playerNick(), myAl(), R.v.toFixed(2), R.n, schoolLevel(), S.stats.graduated, MG.weekBest(), MG.prevBest(), MG.flightBest(), MG.flightPrev(), qTopKey()].join('|');
   if (!force && (key === topSentKey || Date.now() - topSentAt < TOP_EVERY * 1000)) return;
   topSentAt = Date.now();
   try {
     const A = await anonToken();
     const I = (v) => ({ integerValue: String(Math.round(v || 0)) });
-    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), ...(myAl() ? { al: { stringValue: myAl() } } : {}), w: I(WORLD), lv: I(Math.max(1, Math.min(1000, schoolLevel()))), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), mg: I(MG.weekBest()), mw: I(MG.weekKey()), ...(MG.prevBest() ? { pm: I(MG.prevBest()), pw: I(MG.weekKey() - 1) } : {}), fl: I(MG.flightBest()), flw: I(MG.weekKey()), ...(MG.flightPrev() ? { fpm: I(MG.flightPrev()), fpw: I(MG.weekKey() - 1) } : {}), build: I(BUILD), updated: I(Date.now()) } };   // mg/mw: «Зельеварка» best of this week
+    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), ...(myAl() ? { al: { stringValue: myAl() } } : {}), w: I(WORLD), lv: I(Math.max(1, Math.min(1000, schoolLevel()))), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), ...qTopFields(I), mg: I(MG.weekBest()), mw: I(MG.weekKey()), ...(MG.prevBest() ? { pm: I(MG.prevBest()), pw: I(MG.weekKey() - 1) } : {}), fl: I(MG.flightBest()), flw: I(MG.weekKey()), ...(MG.flightPrev() ? { fpm: I(MG.flightPrev()), fpw: I(MG.weekKey() - 1) } : {}), build: I(BUILD), updated: I(Date.now()) } };   // mg/mw: «Зельеварка» best of this week
     const r = await fetch(`${TOP_URL}/${A.uid}_w${WORLD}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify(body) });
     if (r.ok) topSentKey = key;
   } catch (e) { /* offline: next time */ }
@@ -5670,7 +5887,7 @@ async function topLoad() {
   try {
     const r = await fetch(TOP_URL + '?pageSize=300', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
     const d = await r.json(), num = (f) => (f ? +(f.integerValue ?? f.doubleValue ?? 0) : 0);
-    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', al: (x.fields.al || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), lv: num(x.fields.lv), g: num(x.fields.g), gold: num(x.fields.gold), mg: num(x.fields.mg), mw: num(x.fields.mw), pm: num(x.fields.pm), pw: num(x.fields.pw), fl: num(x.fields.fl), flw: num(x.fields.flw), fpm: num(x.fields.fpm), fpw: num(x.fields.fpw) }));
+    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', al: (x.fields.al || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), lv: num(x.fields.lv), rf: (x.fields.rf || {}).stringValue || '', aw: num(x.fields.aw), ag: num(x.fields.ag), am: num(x.fields.am), ap: num(x.fields.ap), g: num(x.fields.g), gold: num(x.fields.gold), mg: num(x.fields.mg), mw: num(x.fields.mw), pm: num(x.fields.pm), pw: num(x.fields.pw), fl: num(x.fields.fl), flw: num(x.fields.flw), fpm: num(x.fields.fpm), fpw: num(x.fields.fpw) }));
     topErr = ''; topLoadedAt = Date.now(); mgPrizeCheck();
   } catch (e) { topErr = 'Не получилось загрузить топ — проверь интернет'; }
   await AV.load();   // approved avatars (every 5 min at most)
