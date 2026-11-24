@@ -1,15 +1,15 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=481';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=482';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=481';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=481';
-import { initMinigame } from './minigame.js?v=481';
-import { initChests } from './chests.js?v=481';
-import { initLore } from './lore.js?v=481';
-import { initAvatar } from './avatar.js?v=481';
+} from './data.js?v=482';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=482';
+import { initMinigame } from './minigame.js?v=482';
+import { initChests } from './chests.js?v=482';
+import { initLore } from './lore.js?v=482';
+import { initAvatar } from './avatar.js?v=482';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -32,7 +32,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 481;   // keep equal to the ?v= number in index.html
+const BUILD = 482;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2186,8 +2186,10 @@ function renderInsp() {
   const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
   // build 304 (her «Много кнопок на экране ... меню-раскладку»): top, alliance and people live in the ✨ menu; build 306 (her «Миры повторяются,
   // не нужно их в раскладке, зельеварка тоже, звезды тоже. Рейтинг верни ... вверху, а альбом ... внизу»): rating, mini-game, stars, worlds, album stay on screen
-  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button>` + MG.pill() + `<button class="ipill" data-stones aria-label="Лунные камни">${ST_IMG(16)} ${stones()}</button>` + html + res + warn;   // build 306 (her «Рейтинг верни на прежнее место вверху»)
-  if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }   // in-place update: icons are never re-created (they blinked)
+  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button>` + MG.pill() + html + res + warn;   // build 306 (her «Рейтинг верни на прежнее место вверху»)
+  if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }
+  { let sh = document.getElementById('stones-hud'); if (!sh) { sh = document.createElement('div'); sh.id = 'stones-hud'; el.parentElement.appendChild(sh); }   // moonstones alone at the top right, shimmering (tester №73po7zf1, 2026-11-24)
+    const sp = `<button class="ipill stones" data-stones aria-label="Лунные камни">${ST_IMG(20)}<b>${stones()}</b></button>`; if (sh.dataset.h !== sp) { sh.dataset.h = sp; sh.innerHTML = sp; } }   // in-place update: icons are never re-created (they blinked)
   renderMenu();
 }
 // ======================= main-screen menu (build 304) =======================
@@ -2205,7 +2207,6 @@ function menuItems() {
     { attr: 'data-top', icon: '🏆', label: 'Топ школ' },
     { attr: 'data-ally', icon: '🤝', label: 'Альянс', sub: ally, badge: allyGifts.length + ownReqs.length },
     { attr: 'data-people', icon: '👥', label: 'Ученики', sub: String(inSchool().length) },
-    { attr: 'data-stones', icon: ST_IMG(34), label: 'Лунные камни', sub: String(stones()) },   // the premium currency (Maria 2026-11-24)
     { attr: 'data-mg', icon: '🧪', label: 'Мини-игры', sub: (() => { const n = MG.charges(); return n ? `попыток: ${n}` : ''; })() },   // also in the menu (tester №73po7zf1, Maria's pick «И там, и там»: the 🧪 pill stays)
   ];
   for (const it of menuExtra) base.push({ attr: it.attr, icon: it.icon, label: it.label, sub: it.sub ? it.sub() : '', badge: it.badge ? it.badge() : 0, glow: it.glow ? it.glow() : false });
@@ -7087,5 +7088,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=481').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=482').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }

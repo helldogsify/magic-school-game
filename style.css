@@ -285,3 +285,13 @@ button.res { border: 0; font: inherit; color: inherit; cursor: pointer; text-ali
 .mtile small { font-weight: 700; color: #8a7aa8; font-size: 12px; white-space: nowrap; }
 .mtile.glow { border-color: #ffd23f; background: #fffbe8; }
 .mtile .badge { position: absolute; top: -7px; right: -5px; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; background: #ff4d6d; color: #fff; font: 800 12px/22px ui-rounded, "Nunito", sans-serif; border: 2px solid #fff; }
+/* moonstones: alone at the top right, bright and shimmering - the premium currency (tester №73po7zf1, 2026-11-24) */
+#insp { max-width: calc(100vw - 112px); }
+#stones-hud { position: absolute; right: 10px; top: 10px; z-index: 4; }
+.ipill.stones { display: flex; align-items: center; gap: 5px; padding: 4px 12px 4px 7px; color: #fff; font-size: 14px; border: 2px solid #c4b5fd;
+  background: linear-gradient(110deg, #3b37c9 0%, #6d3fe0 30%, #b98cff 46%, #e9dcff 50%, #b98cff 54%, #6d3fe0 70%, #2f5fe0 100%); background-size: 260% 100%;
+  box-shadow: 0 3px 0 #2e2386, 0 0 12px #8b6cff88; text-shadow: 0 1px 1px #1d145a; animation: stShine 3.6s linear infinite; }
+.ipill.stones img { animation: stGlow 2.6s ease-in-out infinite; }
+@keyframes stShine { 0% { background-position: 110% 0; } 100% { background-position: -160% 0; } }
+@keyframes stGlow { 0%, 100% { filter: saturate(2.6) hue-rotate(-12deg) brightness(1.05) drop-shadow(0 0 2px #a78bfa); transform: scale(1) rotate(0deg); }
+  50% { filter: saturate(3.2) hue-rotate(38deg) brightness(1.25) drop-shadow(0 0 7px #7dd3fc); transform: scale(1.14) rotate(-7deg); } }
