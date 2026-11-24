@@ -1,14 +1,14 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
-import './edit_guard.js?v=457';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=458';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=457';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=457';
-import { initMinigame } from './minigame.js?v=457';
-import { initChests } from './chests.js?v=457';
-import { initLore } from './lore.js?v=457';
-import { initAvatar } from './avatar.js?v=457';
+} from './data.js?v=458';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=458';
+import { initMinigame } from './minigame.js?v=458';
+import { initChests } from './chests.js?v=458';
+import { initLore } from './lore.js?v=458';
+import { initAvatar } from './avatar.js?v=458';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -31,7 +31,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 457;   // keep equal to the ?v= number in index.html
+const BUILD = 458;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3585,7 +3585,7 @@ let RLAY = { v: 1, rooms: {} }, LAY_VER = 0;
 const LAY_ENT = [], LAY_WALLS = {}, LAY_SEEN = {}, LAY_IMS = {}, texCache = new Map();
 let layCur = null, layHangN = {};
 function setLayout(L) { RLAY = L && L.rooms ? L : { v: 1, rooms: {} }; LAY_VER++; texCache.clear(); }
-if (!EDIT) fetch('layouts/layouts.json?v=457').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.rooms && Object.keys(j.rooms).length) setLayout(j); }).catch(() => {});
+if (!EDIT) fetch('layouts/layouts.json?v=458').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.rooms && Object.keys(j.rooms).length) setLayout(j); }).catch(() => {});
 const layIm = (src) => { let im = LAY_IMS[src]; if (!im) { im = LAY_IMS[src] = new Image(); im.src = `assets/parts/${src}.webp?v=e1`; } return im.complete && im.naturalWidth ? im : null; };
 function texPart(th, n) {   // the wall / floor texture of a room, recoloured or swapped by the layout
   const base = part(th, n), o = RLAY.rooms[th] && RLAY.rooms[th][n]; if (!o || (!o.tex && !o.col)) return base;
@@ -6819,5 +6819,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart,
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=457').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=458').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
