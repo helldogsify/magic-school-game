@@ -32,7 +32,7 @@ export function runFlight(box, o) {
   fit();
   const P = o.power || {}, B = o.boost || {};
   const st = { t: 0, started: false, over: false, hold: false, x: 0, y: 0.45, vy: 0, speed: SPEED0, score: 0, rings: 0, sparks: 0, streak: 0, shield: !!(P.shield || B.shield),
-    magnet: Math.max(P.magnet || 0, B.magnet ? 0.24 : 0), wind: { t: 11 + Math.random() * 5, dur: 0, dir: 0, warned: false }, rainbows: 0,
+    magnet: Math.max(P.magnet || 0, B.magnet ? 0.45 : 0),   // reach in W (was 0.24: her «не работает это притяжение») wind: { t: 11 + Math.random() * 5, dur: 0, dir: 0, warned: false }, rainbows: 0,
     gates: [], items: [], fx: [], texts: [], bg: [], lastGap: 0.45, gateN: 0, deadT: 0, shake: 0 };
   // background clouds (parallax)
   for (let k = 0; k < 6; k++) st.bg.push({ x: Math.random() * 1.6, y: 0.05 + Math.random() * 0.6, s: 0.25 + Math.random() * 0.3, k: Math.random() < 0.6 ? 'cloud1' : 'cloud2', p: 0.25 + Math.random() * 0.25 });
@@ -105,7 +105,7 @@ export function runFlight(box, o) {
     }
     for (const it of st.items) {
       if (it.got) continue;
-      if (st.magnet && it.k === 'spark') { const mx = it.x - st.x, my = (it.y - st.y) * H / W; if (mx > -0.05 && Math.hypot(mx, my) < st.magnet) { const k = Math.min(1, 7 * dt); it.x -= mx * k; it.y -= (it.y - st.y) * k; } }   // magnet pulls sparkles in
+      if (st.magnet && it.k === 'spark') { const mx = it.x - st.x, my = (it.y - st.y) * H / W, d = Math.hypot(mx, my); if (mx > -0.05 && d < st.magnet && d > 1e-4) { const k = Math.min(1, 9 * dt + 1.6 * dt / d); it.x -= mx * k; it.y -= (it.y - st.y) * k; it.mag = 1; } }   // magnet pulls sparkles in
       const dx = it.x - st.x, dy = (it.y - st.y) * H / W;
       if (Math.hypot(dx, dy) < R() * 0.95) {
         it.got = true;

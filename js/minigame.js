@@ -12,7 +12,7 @@ const STAR = [2000, 3500, 5500];  // score for 1/2/3 stars (calibrated with tool
 const MAX_MIN = 10;               // the best round pays 10 minutes of the school's income
 const BOOST = [0, 0, 5, 10];      // minutes of «Вдохновение» per stars
 const BOOST_CAP_MIN = 60;         // same cap as gifts (BOOST_MAX_MIN in game.js)
-import { runFlight, loadFlightArt } from './flight.js?v=3';   // bump when flight.js changes
+import { runFlight, loadFlightArt } from './flight.js?v=4';   // bump when flight.js changes
 const ART_V = 2;   // 2: pink crystal (her «два значка синего цвета, путаешь их»)
 
 export const ING = [   // ingredient tiles; art: assets/minigame/ing_<i>.png (falls back to the emoji until the art exists)
@@ -676,8 +676,8 @@ let FL = null;   // { live, rewarded, h (runFlight handle) }
 // powers of the looks (her pick «У каждого летуна своя сила»): higher ranks and Masters fly better, a reason to collect the album
 function powerOf(k) {
   const [, rk, el] = String(k || '').split(':');
-  if (+rk === 5) return [{ shield: true, spark: 1, txt: 'огненный щит и искорки +1' }, { magnet: 0.3, txt: 'большой магнит для искорок' }, { shield: true, slim: true, txt: 'щит и реже задевает тучки' }, { windImmune: true, magnet: 0.14, txt: 'ветер не страшен и магнит' }][+el] || { shield: true, txt: 'защита пера' };
-  return [{ txt: 'обычный полёт' }, { spark: 1, txt: 'искорки +1 очко' }, { magnet: 0.14, txt: 'маленький магнит для искорок' }, { featherK: 2, txt: 'золотые перья вдвое чаще' }, { shield: true, txt: 'начинает с защитой пера' }][+rk] || { txt: 'обычный полёт' };
+  if (+rk === 5) return [{ shield: true, spark: 1, txt: 'огненный щит и искорки +1' }, { magnet: 0.55, txt: 'большой магнит для искорок' }, { shield: true, slim: true, txt: 'щит и реже задевает тучки' }, { windImmune: true, magnet: 0.14, txt: 'ветер не страшен и магнит' }][+el] || { shield: true, txt: 'защита пера' };
+  return [{ txt: 'обычный полёт' }, { spark: 1, txt: 'искорки +1 очко' }, { magnet: 0.3, txt: 'магнит для искорок' }, { featherK: 2, txt: 'золотые перья вдвое чаще' }, { shield: true, txt: 'начинает с защитой пера' }][+rk] || { txt: 'обычный полёт' };
 }
 // boosters before a flight (her pick «Бонусы перед полётом»), same prices as in «Зельеварка»
 const FBOOSTS = [
