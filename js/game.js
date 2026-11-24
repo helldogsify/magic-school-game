@@ -1,15 +1,15 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=479';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=480';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=479';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=479';
-import { initMinigame } from './minigame.js?v=479';
-import { initChests } from './chests.js?v=479';
-import { initLore } from './lore.js?v=479';
-import { initAvatar } from './avatar.js?v=479';
+} from './data.js?v=480';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=480';
+import { initMinigame } from './minigame.js?v=480';
+import { initChests } from './chests.js?v=480';
+import { initLore } from './lore.js?v=480';
+import { initAvatar } from './avatar.js?v=480';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -32,7 +32,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 479;   // keep equal to the ?v= number in index.html
+const BUILD = 480;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3658,7 +3658,7 @@ function drawWallDecor(c, id) {
 // furniture of a themed class: corners at the back, a bookcase by the left wall, small things in the free strip in front
 // ---- redesigned rooms: built-in, staged furnishing items (stage 0 = not bought, 1 = lvl 1-9, 2 = 10-24, 3 = 25-39, 4 = 40)
 const ITEM_IMS = {};
-function itemIm(n) { if (layCur && !layCur.n) layCur.n = n; let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=${n === 'pot_hearth' || n === 'fl_hoop' || n === 'fl_basket' || n === 'fl_bell' ? 3 : 2}`; } return im.complete && im.naturalWidth ? im : null; }
+function itemIm(n) { if (layCur && !layCur.n) layCur.n = n; let im = ITEM_IMS[n]; if (!im) { im = ITEM_IMS[n] = new Image(); im.src = `assets/parts/items/${n}.webp?v=${n === 'pot_hearth' || n === 'fl_hoop' || n === 'fl_basket' || n === 'fl_bell' ? 3 : n === 'ex_bell' ? 4 : 2}`; } return im.complete && im.naturalWidth ? im : null; }
 const stageOf = (lv) => (!lv ? 0 : lv < 10 ? 1 : lv < 25 ? 2 : lv < 40 ? 3 : 4);
 function itemDraw(n, x, y, h, o = {}) {   // a sprite standing on tile (x, y): bottom-centre on the floor point, lift = px above the floor
   const im = itemIm(n); if (!im) return null; const p = P(x, y), w = h * im.naturalWidth / im.naturalHeight, top = p.y + (o.down || 0) - (o.lift || 0) - h;
@@ -3795,14 +3795,11 @@ const ROOM_ART = {
         if (cyc < 2.6) { const u = cyc / 2.6; ctx.globalAlpha = Math.min(1, (1 - u) * 2); emoji('🤫', p.x + 6 + u * 4, by - h - 4 - u * 14, 8); ctx.globalAlpha = 1; } } }
       const ss = stageOf(lv('seal')); if (ss) { const p = P(tx + 0.04, ty + 0.3), h = 28 * K[ss], im = itemIm('ex_seal'); if (im) { const w = h * im.naturalWidth / im.naturalHeight, by = p.y - TH * 0.6, gl = 0.35 + 0.2 * Math.sin(T * 1.7) + (pass < 1500 ? 0.5 * (1 - pass / 1500) : 0); ctx.drawImage(im, p.x - w / 2, by - h, w, h);
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, gl); ctx.drawImage(glowSprite('200,120,255'), p.x - 16, by - h * 0.55, 32, 18); ctx.restore(); if (dnDark) frameLamps.push({ pot: 1, x: p.x, y: by - h * 0.3, r: 5, liq: '190,120,255', ly: by - h * 0.5 }); } } });
-    /* the big hourglass in the front-left corner; the Owl turns it before every question (canon): it turns over every 12 s */
-    const sh = stageOf(lv('hourglass')); if (sh) { const hx = s.x0 + 0.62, hy = s.y1 - 0.62; add(hx, hy, () => { const im = itemIm('ex_hourglass'); if (!im) return; const p = P(hx, hy), h = 58 * K[sh], w = h * im.naturalWidth / im.naturalHeight, top = p.y - h, cut = 0.573, iw = im.naturalWidth, ih = im.naturalHeight;
-      if (zoom >= 1.2) ctx.drawImage(propShadow(), p.x - w * 0.4, p.y - w * 0.12, w * 0.8, w * 0.24);
-      ctx.drawImage(im, 0, ih * cut, iw, ih * (1 - cut), p.x - w / 2, top + h * cut, w, h * (1 - cut));
-      const ph = T % 12, turn = ph > 11.2 ? (ph - 11.2) / 0.8 : 0, n = Math.floor(T / 12), up2 = n % 2 === 1, ang = (up2 ? Math.PI : 0) + Math.PI * (0.5 - 0.5 * Math.cos(turn * Math.PI)), gh = h * cut, cy = top + gh * 0.5;
-      ctx.save(); ctx.translate(p.x, cy); ctx.rotate(ang); ctx.drawImage(im, 0, 0, iw, ih * cut, -w / 2, -gh / 2, w, gh); ctx.restore();
-      if (!turn) { const u = (T * 1.5) % 1; ctx.fillStyle = 'rgba(255,215,110,0.9)'; ctx.fillRect(p.x - 0.5, cy - 1, 1, gh * 0.18); ctx.globalAlpha = 1 - u; ctx.fillRect(p.x - 0.6, cy + u * gh * 0.2, 1.2, 1.2); ctx.globalAlpha = 1; }
-      if (sh >= 4) { const tw = Math.pow(Math.max(0, Math.sin(T * 1.3)), 8); if (tw > 0.05) fxStar(p.x + w * 0.2, cy - gh * 0.25, 3 * tw, tw, '255,230,150'); } }); }
+    /* the big hourglass in the front-left corner (canon: the Owl turns it before every question): sand keeps running and a golden shimmer starts each new question every 12 s; the whole-sprite turn looked clumsy (her IMG_9849) */
+    const sh = stageOf(lv('hourglass')); if (sh) { const hx = s.x0 + 0.62, hy = s.y1 - 0.62; add(hx, hy, () => { const r = itemDraw('ex_hourglass', hx, hy, 58 * K[sh], { shadow: 1 }); if (!r) return; const cx = r.x, cy = r.top + r.h * 0.3, gh = r.h * 0.5;
+      ctx.fillStyle = 'rgba(255,215,110,0.85)'; ctx.fillRect(cx - 0.45, cy - 1, 0.9, gh * 0.16); for (let m = 0; m < 3; m++) { const u = (T * 1.3 + m / 3) % 1; ctx.globalAlpha = 1 - u; ctx.fillRect(cx - 0.6, cy + u * gh * 0.22, 1.2, 1.2); } ctx.globalAlpha = 1;
+      const ph = T % 12; if (ph < 1.4) { const u = ph / 1.4; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 * Math.sin(u * Math.PI); ctx.drawImage(glowSprite('255,215,120'), cx - r.w * 0.45, cy - gh * 0.45, r.w * 0.9, gh * 0.9); ctx.restore(); fxStar(cx + r.w * 0.18, cy - gh * 0.3 + u * gh * 0.5, 3 * Math.sin(u * Math.PI), Math.sin(u * Math.PI), '255,235,170'); }
+      if (sh >= 4) { const tw = Math.pow(Math.max(0, Math.sin(T * 1.3)), 8); if (tw > 0.05) fxStar(cx - r.w * 0.2, cy - gh * 0.2, 3 * tw, tw, '255,230,150'); } }); }
     /* candles of concentration float along the back wall between the bays */
     const sc = stageOf(lv('candles')); if (sc) { const xs = [4.8, 9.6, 2.4, 12, 7.2, 14.4].slice(0, [0, 2, 3, 4, 6][sc]);
       for (const dx of xs) { const cx = s.x0 + dx, cy = s.y0 + 0.3; add(cx, cy, () => { const im = itemIm('ex_candle'); if (!im) return; const p = P(cx, cy), h = 20, w = h * im.naturalWidth / im.naturalHeight, y = p.y - TALL_H() * 0.42 + Math.sin(T * 1.1 + dx) * 2.5 - h; ctx.drawImage(im, p.x - w / 2, y, w, h);
@@ -7090,5 +7087,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=479').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=480').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
