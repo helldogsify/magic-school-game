@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=441';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=441';
-import { initMinigame } from './minigame.js?v=441';
-import { initChests } from './chests.js?v=441';
-import { initLore } from './lore.js?v=441';
-import { initAvatar } from './avatar.js?v=441';
+} from './data.js?v=442';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=442';
+import { initMinigame } from './minigame.js?v=442';
+import { initChests } from './chests.js?v=442';
+import { initLore } from './lore.js?v=442';
+import { initAvatar } from './avatar.js?v=442';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 441;   // keep equal to the ?v= number in index.html
+const BUILD = 442;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3030,12 +3030,12 @@ function gainXp(a) {
   const before = schoolLevel(); S.xp = schoolXp() + XP_RANK[Math.min(5, a.rk || 0)];
   const now = schoolLevel(); if (now <= before) return;
   S.lvTop = Math.max(S.lvTop || before, now);
-  for (let l = before + 1; l <= now; l++) if (l % 5 === 0) { const n = 3 + Math.floor(l / 10); if (stonesAdd(n, `w${WORLD}_lv${l}`) && !ffwd) setTimeout(() => toast(`🏫 Уровень школы ${l}! ${ST_ICON} +${n} лунных камня`), 600); }
-  if (!ffwd) { toast(`🏫 Уровень школы ${now}!`); updateHud(); }
+  for (let l = before + 1; l <= now; l++) if (l % 5 === 0) { const n = 3 + Math.floor(l / 10); if (stonesAdd(n, `w${WORLD}_lv${l}`) && !ffwd) setTimeout(() => toast(`🌟 Уровень школы ${l}! ${ST_ICON} +${n} лунных камня`), 600); }
+  if (!ffwd) { toast(`🌟 Уровень школы ${now}!`); updateHud(); }
 }
 function levelPanel() {
   const n = schoolLevel(), x = schoolXp(), a = lvNeed(n), b = lvNeed(n + 1), pct = Math.max(0, Math.min(100, Math.round((x - a) / (b - a) * 100)));
-  return `<div class="sh-head"><span class="remoji big">🏫</span><div><h2>Уровень школы ${n}</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'}</div></div><button class="x" data-close>✕</button></div>
+  return `<div class="sh-head"><span class="remoji big">🌟</span><div><h2>Уровень школы ${n}</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'}</div></div><button class="x" data-close>✕</button></div>
     <div class="card"><div class="grow"><b>Опыт: ${fmt(x - a)} из ${fmt(b - a)}</b><div style="height:12px;border-radius:6px;background:#efe6ff;margin-top:6px"><div style="height:12px;border-radius:6px;background:#a98bf0;width:${pct}%"></div></div></div></div>
     <p>Школа получает опыт за каждого выпускника. Чем выше его звание, тем больше опыта: новичок — ${XP_RANK[0]}, ${RANKS[3].toLowerCase()} — ${XP_RANK[3]}, ${RANKS[5].toLowerCase()} — ${XP_RANK[5]}.</p>
     <p>Каждые 5 уровней школа получает ${ST_IMG()} лунные камни. Уровень видно в топе школ, а задания подбираются по силам школы.</p>`;
@@ -5311,9 +5311,9 @@ function lvBar() {   // «🏫 Уровень 64» and the experience bar across
     document.head.appendChild(st); }
   if (!el) { top.style.flexWrap = 'wrap'; el = document.createElement('button'); el.id = 'lvbar'; el.dataset.level = ''; el.setAttribute('aria-label', 'Уровень школы');
     el.style.cssText = 'flex:1 0 100%;display:flex;align-items:center;gap:8px;background:none;border:0;padding:4px 6px 0;color:#fff;font:800 13px ui-rounded,"Nunito",sans-serif;text-shadow:0 1px 2px #3a2a7a66'; top.appendChild(el); }
-  const n = schoolLevel(), x = schoolXp(), a = lvNeed(n), b = lvNeed(n + 1), pct = Math.max(0, Math.min(100, Math.floor((x - a) / (b - a) * 100))), h = `🏫 Уровень ${n}|${pct}`;
+  const n = schoolLevel(), x = schoolXp(), a = lvNeed(n), b = lvNeed(n + 1), pct = Math.max(0, Math.min(100, Math.floor((x - a) / (b - a) * 100))), h = `🌟 Уровень ${n}|${pct}`;
   if (el.dataset.h === h) return; el.dataset.h = h;
-  el.innerHTML = emojiHtml(`🏫 <span>Уровень ${n}</span>`) + `<span style="flex:1;height:8px;border-radius:4px;background:#ffffff40;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:linear-gradient(90deg,#ffe08a,#ffc24d);border-radius:4px"></span></span><span style="font-size:11px;opacity:.9">${pct}%</span>`;
+  el.innerHTML = emojiHtml(`🌟 <span>Уровень ${n}</span>`) + `<span style="flex:1;height:8px;border-radius:4px;background:#ffffff40;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:linear-gradient(90deg,#ffe08a,#ffc24d);border-radius:4px"></span></span><span style="font-size:11px;opacity:.9">${pct}%</span>`;
 }
 function updateHud() {
   lvBar();
@@ -5900,7 +5900,7 @@ function openTop() { topPush(true).finally(() => Promise.all([topLoad(), allyLoa
 function lvTopHtml(all, mine) {   // schools by level (all named schools of this world, no review minimum); older builds sent no level
   const l = all.filter((x) => x.lv > 0).sort((a, b) => b.lv - a.lv || b.g - a.g);
   if (!l.length) return '<p class="muted">Уровни появятся в топе, когда школы обновят игру.</p>';
-  return '<h3>Самые развитые школы</h3><p class="muted">Уровень школы растёт с каждым выпускником: чем выше звание, тем больше опыта.</p>' + l.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span>${AV.img(x.id)}<div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${mine(x) ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🎓 ${fmt(x.g)} выпускников · 🏅 ${r2(x.r)}</div></div><b>🏫 ${x.lv}</b></div>`).join('');
+  return '<h3>Самые развитые школы</h3><p class="muted">Уровень школы растёт с каждым выпускником: чем выше звание, тем больше опыта.</p>' + l.slice(0, 50).map((x, k) => `<div class="card up"${mine(x) ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}><span class="remoji">${['🥇', '🥈', '🥉'][k] || ''}</span>${AV.img(x.id)}<div class="grow"><b>${k + 1}. ${escTxt(x.name)}</b>${mine(x) ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🎓 ${fmt(x.g)} выпускников · 🏅 ${r2(x.r)}</div></div><b>🌟 ${x.lv}</b></div>`).join('');
 }
 function topPanel() {
   let me = ''; try { me = (JSON.parse(localStorage.getItem(ANON_KEY)) || {}).uid || ''; } catch (e) { /* none */ }
@@ -5913,7 +5913,7 @@ function topPanel() {
   return `<div class="sh-head"><span class="remoji big">🏆</span><div><h2>Топ школ</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'} · по рейтингу 🏅</div></div><button class="x" data-close>✕</button></div>
     ${schoolName() ? `<p>Твоя школа «<b>${escTxt(schoolName())}</b>»${playerNick() ? ` (👤 ${escTxt(playerNick())})` : ''}: рейтинг 🏅 ${ratingTxt()}${myPlace >= 0 ? `, <b>${myPlace + 1}-е место</b>` : rating().n < TOP_MIN ? ` — в топ попадёт после ${TOP_MIN} отзывов (сейчас ${fmt(rating().n)})` : ''}.</p>` : '<p><b>Придумай название школы</b> и впиши своё имя, чтобы школа появилась в топе. Их увидят все игроки.</p>'}
     ${nameBox}${AV.myBox()}${AV.modBox()}
-    <div style="display:flex;gap:6px;margin:10px 0"><button class="btn ${topTab === 's' ? '' : 'ghost'}" data-toptab="s">🏫 Школы</button><button class="btn ${topTab === 'l' ? '' : 'ghost'}" data-toptab="l">🏫 Уровень</button><button class="btn ${topTab === 'a' ? '' : 'ghost'}" data-toptab="a">🤝 Альянсы</button><button class="btn ${topTab === 'm' ? '' : 'ghost'}" data-toptab="m">🎮 Игры</button></div>
+    <div style="display:flex;gap:6px;margin:10px 0"><button class="btn ${topTab === 's' ? '' : 'ghost'}" data-toptab="s">🏫 Школы</button><button class="btn ${topTab === 'l' ? '' : 'ghost'}" data-toptab="l">🌟 Уровень</button><button class="btn ${topTab === 'a' ? '' : 'ghost'}" data-toptab="a">🤝 Альянсы</button><button class="btn ${topTab === 'm' ? '' : 'ghost'}" data-toptab="m">🎮 Игры</button></div>
     ${topTab === 'l' ? lvTopHtml(all, mine) : topTab === 'm' ? mgTopHtml(mine) : topTab === 'a' ? '<h3>Лучшие альянсы</h3><p class="muted">Место альянса — по силе 💪: это сумма рейтингов всех его школ. Каждая школа добавляет альянсу силы.</p>' + allyTopRows() : topErr ? `<p class="muted">${topErr}</p>` : !topList ? '<p class="muted">Загружаю топ…</p>' : rows ? '<h3>Лучшие школы</h3>' + rows : '<p class="muted">Пока в топе никого нет — стань первой школой!</p>'}
     ${topTab === 'm' || topTab === 'l' ? '' : wait.length ? `<p class="muted">Ещё набирают отзывы: ${wait.length} ${wait.length === 1 ? 'школа' : 'школ'}.</p>` : ''}
     ${topTab === 'm' || topTab === 'l' ? '' : `<p class="muted">Места — по рейтингу 🏅 с точностью до сотых; при равном рейтинге выше та школа, у которой больше золотых отзывов. В топ попадают школы, у которых не меньше ${TOP_MIN} отзывов. Рейтинг обновляется раз в минуту, пока игра открыта.</p>`}`;
