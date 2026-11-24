@@ -1,21 +1,21 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=494';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=495';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=494';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=494';
-import { initMinigame } from './minigame.js?v=494';
-import { initChests } from './chests.js?v=494';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=494';
-import { initLore } from './lore.js?v=494';
-import { initAvatar } from './avatar.js?v=494';
+} from './data.js?v=495';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=495';
+import { initMinigame } from './minigame.js?v=495';
+import { initChests } from './chests.js?v=495';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=495';
+import { initLore } from './lore.js?v=495';
+import { initAvatar } from './avatar.js?v=495';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
   onOpen: () => { if (S.inc && Object.keys(S.inc).length) { S.inc = {}; dirtyPanel = true; } },   // a running incident is fixed quietly: the class cannot be tapped from the mini-game
-  onFinish: () => { topPush(true); },   // a new weekly best goes to the top at once
+  onFinish: (sc, stars) => { if (sc > 0) warAdd('mg', 5 + 5 * (stars || 0)); topPush(true); },   // ⚔️ battle points per round   // a new weekly best goes to the top at once
   flyers: () => FORM_KEYS.filter((k) => S.forms && S.forms[k] && S.forms[k].seen).map((k) => ({ k, src: formImg(k), name: formTitle(k), faceLeft: !!FACES_LEFT[k.split(':')[0]] })),   // who may fly in «Полёт через кольца»: every look opened in the album
   onClose: () => { incT = Math.max(incT, 30); renderInsp(); updateHud(); } });   // no incident the very second the player comes back
 // daily chests (js/chests.js, Maria 2026-11-23 «Ежедневные сундучки надо»): a tile in the ✨ menu, own overlay, state S.chest per world
@@ -33,7 +33,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 494;   // keep equal to the ?v= number in index.html
+const BUILD = 495;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5789,8 +5789,9 @@ function aqGoals() {
     ...(allyMates() === 0 ? [] : [{ id: 'p', text: 'Подарите друг другу подарки 🎁', have: sum('ap'), need: 5 * n, mine: mine.ap }]),   // build audit 2026-11-24: no gift goal for an alliance of one
   ].map((g) => ({ ...g, ok: g.have >= g.need, key: `al_${wk}_${g.id}_w${WORLD}` })) };
 }
-const qTopFields = (I) => { if (!QF_ON) return {}; const a = aqMine(), q = qMeta(); return { aw: I(aqSt().wk), ag: I(a.ag), am: I(a.am), ap: I(a.ap), ...(q.rf ? { rf: { stringValue: q.rf } } : {}) }; };
-const qTopKey = () => { if (!QF_ON) return ''; const a = aqMine(); return [aqSt().wk, a.ag, a.am, a.ap, qMeta().rf || ''].join(','); };
+const qTopFields = (I) => { if (!QF_ON) return {}; const a = aqMine(), q = qMeta(); return { aw: I(aqSt().wk), ag: I(a.ag), am: I(a.am), ap: I(a.ap), ...(q.rf ? { rf: { stringValue: q.rf } } : {}), ...(WAR_ON && S.war ? { wp: I(S.war.pts), ...(S.war.pwk ? { wpp: I(S.war.ppts), wpw: I(S.war.pwk) } : {}) } : {}) }; };
+const WAR_ON = true;   // top fields wp/wpp/wpw (Firestore rules)
+const qTopKey = () => { if (!QF_ON) return ''; const a = aqMine(); return [aqSt().wk, a.ag, a.am, a.ap, qMeta().rf || '', S.war ? S.war.pts : 0].join(','); };
 // ---- 🎁 special
 const REF_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function myRefCode() { let c = qMeta().my; if (!c) { c = Array.from({ length: 6 }, () => REF_ABC[Math.floor(Math.random() * REF_ABC.length)]).join(''); qMetaSet((q) => { q.my ||= c; }); c = qMeta().my || c; } return c; }
@@ -5818,7 +5819,7 @@ function refEnter(raw) {
 try { const r = new URLSearchParams(location.search).get('ref'); if (r) localStorage.setItem('magicschool.refin', r); } catch (e) { /* no storage */ }
 let qTickT = 0;
 function qTick() {   // from renderMission: a code that came with the invite link is applied once the school is loaded
-  if (!S || Date.now() - qTickT < 3000) return; qTickT = Date.now();
+  if (!S || Date.now() - qTickT < 3000) return; qTickT = Date.now(); try { warTick(); } catch (e) { /* the battle never stops the game */ }
   const r = localStorage.getItem('magicschool.refin'); if (!r) return;
   localStorage.removeItem('magicschool.refin');
   if (refCanEnter() && r.toUpperCase() !== qMeta().my) refEnter(r);
@@ -5894,7 +5895,7 @@ function qAllyTab() {
       <span class="qt">${g.text} <span class="qp">${fmt(Math.min(g.have, g.need))}/${fmt(g.need)}</span><span class="qsub">твой вклад: ${fmt(g.mine)}</span></span>
       ${got ? '<span class="done">получено</span>' : g.ok ? `<button class="btn hot small" data-alq="${g.id}">Забрать ${ST_IMG(16)} ${AQ_STONES}</button>` : `<span class="qr">${ST_IMG(16)} ${AQ_STONES}</span>`}</div>`; }).join('');
   const lag = topList ? '' : '<div class="qnote">Загружаю вклад участников…</div>';
-  return `<div class="qnote">Цели всего альянса на эту неделю (до конца ${dd} д ${hh} ч). За каждую — ${AQ_STONES} лунных камня каждому участнику. Участников, игравших на этой неделе: ${A.n}. Вклад друзей обновляется раз в минуту.</div>${lag}<div class="qbar">${rows}</div>`;
+  return `<div class="qnote">Цели всего альянса на эту неделю (до конца ${dd} д ${hh} ч). За каждую — ${AQ_STONES} лунных камня каждому участнику. Участников, игравших на этой неделе: ${A.n}. Вклад друзей обновляется раз в минуту.</div>${lag}<div class="qbar">${rows}</div><button class="btn wide" data-war style="margin-top:8px">⚔️ Битва альянсов</button>`;
 }
 function qSpTab() {
   const rows = SP_LIST.map((s) => { const got = stGot('sp_' + s.id), ok = spOk(s.id);
@@ -5937,7 +5938,7 @@ function qClick(d) {   // true when the button was ours
   if (d.qtab !== undefined) { qTab = d.qtab; refreshPanel(); const sh = $('#sheet'); if (sh) sh.scrollTop = 0; return true; }
   if (d.qgo !== undefined) { qGo([d.qgo, null]); return true; }
   if (d.dqgo !== undefined) { const x = dqList().find((t) => t.id === d.dqgo); if (x) qGo(x.go); return true; }
-  if (d.dqc !== undefined) { const x = dqList().find((t) => t.id === d.dqc); if (x && x.ok && !x.got) { S.dq.c[x.id] = 1; S.coins += S.dq.r; toast(`🎁 Награда 🪙${fmt(S.dq.r)}`); updateHud(); save(); } refreshPanel(); return true; }
+  if (d.dqc !== undefined) { const x = dqList().find((t) => t.id === d.dqc); if (x && x.ok && !x.got) { S.dq.c[x.id] = 1; S.coins += S.dq.r; warAdd('dq', WAR_PTS.dq); toast(`🎁 Награда 🪙${fmt(S.dq.r)}`); updateHud(); save(); } refreshPanel(); return true; }
   if (d.dqall !== undefined) { if (dqAllReady()) { S.dq.all = 1; if (stonesAdd(DQ_STONES, dqAllKey())) toast(`📅 Все дела дня! ${ST_ICON} +${DQ_STONES} лунных камня`); save(); } refreshPanel(); return true; }
   if (d.mswap !== undefined) {   // build audit 2026-11-24: a stuck level mission can be swapped, once a day
     const k = +String(d.mswap).slice(1), m = S.dynList && S.dynList[k];
@@ -6089,6 +6090,7 @@ document.addEventListener('click', (e) => {
   if (menuOpen && t.closest('#menugrid')) setMenu(false);   // a tile closes the menu, then opens its panel below as before
   if (d.close !== undefined) { closePanel(); return; }
   if (AV.click(d)) return;   // avatar buttons
+  if (d.war !== undefined) { openWar(); return; }
   if (qClick(d)) return;
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
@@ -6286,7 +6288,7 @@ async function topLoad() {
   try {
     const r = await fetch(TOP_URL + '?pageSize=300', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
     const d = await r.json(), num = (f) => (f ? +(f.integerValue ?? f.doubleValue ?? 0) : 0);
-    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', al: (x.fields.al || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), lv: num(x.fields.lv), rf: (x.fields.rf || {}).stringValue || '', aw: num(x.fields.aw), ag: num(x.fields.ag), am: num(x.fields.am), ap: num(x.fields.ap), g: num(x.fields.g), gold: num(x.fields.gold), mg: num(x.fields.mg), mw: num(x.fields.mw), pm: num(x.fields.pm), pw: num(x.fields.pw), fl: num(x.fields.fl), flw: num(x.fields.flw), fpm: num(x.fields.fpm), fpw: num(x.fields.fpw) }));
+    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', al: (x.fields.al || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), lv: num(x.fields.lv), rf: (x.fields.rf || {}).stringValue || '', aw: num(x.fields.aw), ag: num(x.fields.ag), am: num(x.fields.am), ap: num(x.fields.ap), wp: num(x.fields.wp), wpp: num(x.fields.wpp), wpw: num(x.fields.wpw), g: num(x.fields.g), gold: num(x.fields.gold), mg: num(x.fields.mg), mw: num(x.fields.mw), pm: num(x.fields.pm), pw: num(x.fields.pw), fl: num(x.fields.fl), flw: num(x.fields.flw), fpm: num(x.fields.fpm), fpw: num(x.fields.fpw) }));
     topErr = ''; topLoadedAt = Date.now(); mgPrizeCheck();
   } catch (e) { topErr = 'Не получилось загрузить топ — проверь интернет'; }
   await AV.load();   // approved avatars (every 5 min at most)
@@ -6366,7 +6368,7 @@ async function allySend(toUid, kind) {
     const r = await fetch(ALLY_URL + '/gifts', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok },
       body: JSON.stringify({ fields: { from: { stringValue: A.uid }, fname: { stringValue: schoolName().slice(0, 24) }, to: { stringValue: toUid }, w: { integerValue: String(WORLD) }, kind: { stringValue: kind }, t: { integerValue: String(Date.now()) } } }) });
     if (!r.ok) throw new Error(r.status);
-    L[k][toUid] = (L[k][toUid] || 0) + 1; S.stats.gifts = (S.stats.gifts || 0) + 1; save();   // gifts: counted for the missions
+    L[k][toUid] = (L[k][toUid] || 0) + 1; S.stats.gifts = (S.stats.gifts || 0) + 1; warAdd('gift', WAR_PTS.gift); save();   // gifts: counted for the missions
     toast(kind === 'boost' ? '✨ Вдохновение отправлено!' : '🎁 Подарок отправлен!');
   } catch (e) { toast('Не получилось отправить — проверь интернет'); }
   refreshAlly();
@@ -6502,6 +6504,72 @@ async function allyToggleOpen() {
 }
 function refreshAlly() { if (panel !== allyPanel) return; const keep = {}; ['ally-name', 'ally-code', 'ally-ename', 'ally-motto'].forEach((k) => { const e = document.getElementById(k); if (e) keep[k] = e.value; }); const ck = document.getElementById('ally-open')?.checked; refreshPanel(); for (const [k, v] of Object.entries(keep)) { const e = document.getElementById(k); if (e) e.value = v; } const c = document.getElementById('ally-open'); if (c && ck !== undefined) c.checked = ck; }
 function openAlly() { openPanel(allyPanel); Promise.all([allyLoad(), topLoad(), allyPoll()]).finally(() => { const a = allyOf(myAl()); if (a) allyEmo = a.emo; refreshAlly(); }); }
+// ======================= ⚔️ Битва альянсов (Maria 2026-11-25: «начать разрабатывать эти все клановые движухи», the weekly format «Да»):
+// every alliance of the world in one weekly table (week = MG.weekKey(), Monday 00:00 UTC); points come from ACTIVITY, not school size:
+// a daily task +10 (4 a day), a mini-game round +5 +5 per star (10 rounds a day), a gift to an ally +3, a school level +20.
+// Every member's points travel in his top entry: wp (this week, week = aw), wpp / wpw (last week's total and its week) so the last
+// week can be ranked after members already started the new one. Places 1-3 pay 15 / 10 / 5 moonstones to every member (key
+// war_<wk>_wN, from 15 min after the week ends); the winner wears «🏆 Чемпион недели» in the alliance top for the next week.
+const WAR_PRIZE = [15, 10, 5], WAR_CAP = { dq: 4, mg: 10 }, WAR_PTS = { dq: 10, gift: 3, lv: 20 };
+function warSt() {
+  const wk = MG.weekKey(), day = qDay();
+  if (!S.war) S.war = { wk, pts: 0, lv: schoolLevel() };
+  if (S.war.wk !== wk) S.war = { wk, pts: 0, lv: S.war.lv ?? schoolLevel(), pwk: S.war.wk, ppts: S.war.pts || 0, pal: S.war.al || '' };
+  if (S.war.day !== day) { S.war.day = day; S.war.c = { dq: 0, mg: 0 }; }
+  S.war.al = myAl();
+  return S.war;
+}
+function warAdd(kind, n) {   // points for the alliance (only while in one); daily caps per kind
+  if (!S || !myAl()) return; const w = warSt();
+  if (WAR_CAP[kind] != null) { if ((w.c[kind] || 0) >= WAR_CAP[kind]) return; w.c[kind] = (w.c[kind] || 0) + 1; }
+  w.pts += n; dirtyPanel = true;
+}
+let warPrizeT = 0, warLoadAsked = 0;
+function warTick() {   // from qTick (every 3 s): school levels -> points; last week's prize once the table is known
+  const w = warSt(), L = schoolLevel();
+  if (L > (w.lv || 0)) { if (myAl()) w.pts += WAR_PTS.lv * (L - (w.lv || L)); w.lv = L; }
+  if (w.pwk !== w.wk - 1 || !w.pal || stGot(`war_${w.pwk}_w${WORLD}`)) return;
+  const start = ((w.wk * 7) - 3) * 86400000; if (Date.now() - start < 15 * 60000) return;   // members push their last points first
+  if (!topList || Date.now() - topLoadedAt > 600000) { if (Date.now() - warLoadAsked > 120000) { warLoadAsked = Date.now(); topLoad(); } return; }
+  if (Date.now() - warPrizeT < 30000) return; warPrizeT = Date.now();
+  const place = warTable(w.pwk).findIndex((a) => a.id === w.pal);
+  if (place >= 0 && place < WAR_PRIZE.length && stonesAdd(WAR_PRIZE[place], `war_${w.pwk}_w${WORLD}`)) {
+    toast(`⚔️ Битва альянсов: ${place + 1}-е место! ${ST_ICON} +${WAR_PRIZE[place]} лунных камней`); save();
+  }
+}
+function warTable(wk) {   // [{id, a, pts, m:[{id, name, pts}]}] of a week, best first; my own line from the save (fresher than the top)
+  const me = anonUid() + '_w' + WORLD, w = S.war || {}, groups = {};
+  const ptsOf = (x) => (x.aw === wk ? x.wp || 0 : x.wpw === wk ? x.wpp || 0 : 0);
+  for (const x of (topList || []).filter((t) => t.w === WORLD && t.id !== me)) {
+    const p = ptsOf(x); if (!x.al) continue; (groups[x.al] ||= []).push({ id: x.id, name: x.name, pts: p });
+  }
+  const myPts = wk === w.wk ? w.pts || 0 : wk === w.pwk ? w.ppts || 0 : 0, myAlW = wk === w.wk ? myAl() : wk === w.pwk ? w.pal : '';
+  if (myAlW) (groups[myAlW] ||= []).push({ id: me, name: schoolName() || 'Моя школа', pts: myPts });
+  return Object.entries(groups).map(([id, m0]) => { const a = allyOf(id), k = (a && a.kick) || [], m = m0.filter((x) => !k.includes(x.id.replace(/_w\d+$/, '')));
+    return { id, a, m: m.sort((p, q) => q.pts - p.pts), pts: m.reduce((n, x) => n + x.pts, 0) }; })
+    .filter((x) => x.a && x.a.w === WORLD && x.pts > 0).sort((p, q) => q.pts - p.pts);
+}
+const warChamp = () => { if (!S || !topList) return ''; const t = warTable(MG.weekKey() - 1); return t.length ? t[0].id : ''; };
+function warPanel() {
+  const w = warSt(), wk = w.wk, T = warTable(wk), mine = T.findIndex((x) => x.id === myAl());
+  const left = Math.max(0, ((wk + 1) * 7 - 3) * 86400000 - Date.now()), dd = Math.floor(left / 86400000), hh = Math.floor((left % 86400000) / 3600000);
+  const champ = warChamp(), ca = champ && allyOf(champ);
+  const head = `<div class="sh-head"><span class="remoji big">⚔️</span><div><h2>Битва альянсов</h2><div class="muted">Неделя битвы: до конца ${dd} д ${hh} ч</div></div><button class="x" data-close>✕</button></div>`;
+  const prize = `<div class="qbig" style="flex-wrap:wrap;font-weight:700">🏆 Награда каждому участнику: 1-е место ${ST_IMG(16)} ${WAR_PRIZE[0]} · 2-е ${ST_IMG(16)} ${WAR_PRIZE[1]} · 3-е ${ST_IMG(16)} ${WAR_PRIZE[2]}</div>`;
+  const how = `<h3>Как заработать очки</h3><div class="muted" style="line-height:1.5">📅 дело из «Ежедневных» — +${WAR_PTS.dq} (до 4 в день)<br>🧪 раунд мини-игры — +5 и ещё +5 за каждую звезду (до 10 в день)<br>🎁 подарок союзнику — +${WAR_PTS.gift}<br>🌟 новый уровень школы — +${WAR_PTS.lv}<br>Очки считаются, только пока ты в альянсе.</div>`;
+  const last = ca ? `<p class="muted">🏆 Чемпион прошлой недели: <b>${ca.emo} ${escTxt(ca.name)}</b></p>` : '';
+  const rows = T.length ? T.slice(0, 20).map((x, k) => `<div class="card up" style="padding:7px 10px${x.id === myAl() ? ';border:2px solid #e8b923;background:#fff8dc' : ''}"><span style="font-weight:900;min-width:26px">${k < 3 ? ['🥇', '🥈', '🥉'][k] : k + 1 + '.'}</span><span class="remoji">${x.a.emo}</span><div class="grow"><b>${escTxt(x.a.name)}</b>${x.id === myAl() ? ' <span class="muted">(твой)</span>' : ''}<div class="muted">школ: ${x.m.length}</div></div><b>${fmt(x.pts)}</b></div>`).join('')
+    : '<p class="muted">На этой неделе очков пока нет ни у кого — начни первым!</p>';
+  let my = '';
+  if (myAl()) {
+    const me = T[mine], mem = me ? me.m : [{ id: anonUid() + '_w' + WORLD, name: schoolName(), pts: w.pts }];
+    my = `<h3>Твой альянс${me ? `: ${mine + 1}-е место, ${fmt(me.pts)} очков` : ''}</h3>` + mem.map((x) => `<div class="card" style="padding:5px 10px;margin:3px 0">${AV.img(x.id, 28)}<span class="grow">${escTxt(x.name)}${x.id === anonUid() + '_w' + WORLD ? ' <span class="muted">(ты)</span>' : ''}</span><b>${fmt(x.pts)}</b></div>`).join('');
+  } else my = `<div class="q"><span class="qi">🤝</span><span class="qt">Вступи в альянс, чтобы сражаться вместе с ним</span><button class="btn small go" data-qgo="@ally">Альянсы ➜</button></div>`;
+  const wait = topList ? '' : '<p class="muted">Загружаю таблицу…</p>';
+  return head + prize + wait + `<h3>Таблица недели</h3>` + rows + my + last + how;
+}
+function openWar() { openPanel(warPanel); topPush(true).finally(() => Promise.all([topLoad(), allyLoad()]).finally(() => { if (panel === warPanel) refreshPanel(); })); }
+window.__war = { st: () => warSt(), add: (k, n) => warAdd(k, n), table: (wk) => warTable(wk ?? MG.weekKey()), tick: () => { warPrizeT = 0; warTick(); }, champ: () => warChamp() };   // test hook
 function allyPanel() {
   const head = `<div class="sh-head"><span class="remoji big">🤝</span><div><h2>Альянс</h2><div class="muted">Союз школ: подарки друг другу и общий рейтинг</div></div><button class="x" data-close>✕</button></div>`;
   if (!schoolName()) return head + '<p>Чтобы вступить в альянс, сначала придумай название своей школы.</p><button class="btn wide" data-top>🏆 Придумать название</button>';
@@ -6514,7 +6582,7 @@ function allyPanel() {
     const a = allyOf(code), mem = allyMembers(code).sort((x, y) => y.r - x.r), L = giftLog();
     const avg = mem.length ? mem.reduce((n, x) => n + x.r, 0) / mem.length : 0;
     h += `<div class="card up"><span class="remoji big">${a ? a.emo : '🤝'}</span><div class="grow"><b>${a ? escTxt(a.name) : 'Альянс'}</b>${a && a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}${a && a.owner === anonUid() ? ' <span class="muted">👑 ты глава</span>' : ''}<div class="muted">код ${code} · ${a && a.open ? '🔓 вход свободный, без заявок' : '🔒 по заявкам'} · школ ${mem.length}/${ALLY_MAX} · сила 💪 ${avg ? r2(avg * mem.length) : '—'} · средний 🏅 ${avg ? r2(avg) : '—'}</div></div><button class="btn small" data-allycopy>Код</button></div>`;
-    h += '<h3>Школы альянса</h3>' + (mem.length ? mem.map((x) => {
+    h += '<button class="btn wide" data-war>⚔️ Битва альянсов</button><h3>Школы альянса</h3>' + (mem.length ? mem.map((x) => {
       const uid = x.id.replace(/_w\d$/, ''), gi = L.g[uid] || 0, bo = L.b[uid] || 0;
       return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}>${AV.img(x.id)}<div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${r2(x.r)} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY ? 'disabled' : ''}>🎁 ${GIFT_DAY - gi}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY ? 'disabled' : ''}>✨ ${BOOST_DAY - bo}</button>${a && a.owner === anonUid() ? `<button class="btn small ghost" data-allylead="${uid}" title="Сделать главой">👑</button><button class="btn small ghost" data-allykick="${uid}" title="Выгнать">🚪</button>` : ''}`}</div>`;
     }).join('') : '<p class="muted">Загружаю…</p>');
@@ -6555,7 +6623,8 @@ function allyTopRows() {   // the top of alliances by strength = the SUM of its 
   const rows = Object.entries(groups).map(([id, m0]) => { const a = allyOf(id), k = (a && a.kick) || [], m = m0.filter((x) => !k.includes(x.id.replace(/_w\d+$/, ''))), sum = m.reduce((n, x) => n + x.r, 0);
     return { id, a, m, s: sum, r: m.length ? sum / m.length : 0, g: m.reduce((n, x) => n + x.g, 0) }; }).filter((x) => x.a && x.m.length).sort((p, q) => Math.round(q.s * 100) - Math.round(p.s * 100) || q.g - p.g);
   if (!rows.length) return '<p class="muted">Пока ни одного альянса — создай свой в окне 🤝!</p>';
-  return '<p class="muted">Нажми на альянс, чтобы увидеть его школы.</p>' + rows.slice(0, 30).map((x, k) => `<button class="card up" data-allyshow="${x.id}" style="width:100%;text-align:left;font:inherit;cursor:pointer${x.id === myAl() ? ';border:2px solid #e8b923;background:#fff8dc' : ''}"><span class="remoji">${x.a.emo}</span><div class="grow"><b>${k + 1}. ${escTxt(x.a.name)}</b>${x.id === myAl() ? ' <span class="muted">(твой)</span>' : ''}<div class="muted">💪 сила ${r2(x.s)} · средний 🏅 ${r2(x.r)} · школ ${x.m.length} · 🎓 ${fmt(x.g)} выпускников</div></div><span class="muted">${allyShown === x.id ? '▲' : '▼'}</span></button>${allyShown === x.id ? allyMembersHtml(x) : ''}`).join('');
+  const champ = warChamp();
+  return '<p class="muted">Нажми на альянс, чтобы увидеть его школы.</p>' + rows.slice(0, 30).map((x, k) => `<button class="card up" data-allyshow="${x.id}" style="width:100%;text-align:left;font:inherit;cursor:pointer${x.id === myAl() ? ';border:2px solid #e8b923;background:#fff8dc' : ''}"><span class="remoji">${x.a.emo}</span><div class="grow"><b>${k + 1}. ${escTxt(x.a.name)}</b>${x.id === champ ? ' <span style="color:#c58a00;font-weight:800">🏆 Чемпион недели</span>' : ''}${x.id === myAl() ? ' <span class="muted">(твой)</span>' : ''}<div class="muted">💪 сила ${r2(x.s)} · средний 🏅 ${r2(x.r)} · школ ${x.m.length} · 🎓 ${fmt(x.g)} выпускников</div></div><span class="muted">${allyShown === x.id ? '▲' : '▼'}</span></button>${allyShown === x.id ? allyMembersHtml(x) : ''}`).join('');
 }
 let topTab = 's';
 function openTop() { topPush(true).finally(() => Promise.all([topLoad(), allyLoad()]).finally(() => { if (panel === topPanel) refreshPanel(); })); openPanel(topPanel); }
@@ -7166,5 +7235,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=494').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=495').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }

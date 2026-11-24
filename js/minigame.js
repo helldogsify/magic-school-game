@@ -779,7 +779,7 @@ function flEnd(res, silent) {
   if (FL.rewarded && score <= 0) addCharges(1);   // quit at once: the try comes back
   if (score > 0) f.n = (f.n || 0) + 1;   // only real flights count (daily task, alliance goal)
   A.save();
-  A.onFinish && A.onFinish(score);
+  A.onFinish && A.onFinish(score, stars);
   if (silent) return;
   snd('end');
   const n = charges();
@@ -845,7 +845,7 @@ function finish(silent) {
   if (R.rewarded && score <= 0) addCharges(1);   // quit at once: the try comes back
   if (score > 0) m.n = (m.n || 0) + 1;   // only real rounds count (daily task, alliance goal)
   A.save();
-  A.onFinish && A.onFinish(score);
+  A.onFinish && A.onFinish(score, stars);
   if (silent) return;
   snd('end');
   const n = charges();
