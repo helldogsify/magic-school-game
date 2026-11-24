@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=434';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=434';
-import { initMinigame } from './minigame.js?v=434';
-import { initChests } from './chests.js?v=434';
-import { initLore } from './lore.js?v=434';
-import { initAvatar } from './avatar.js?v=434';
+} from './data.js?v=435';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=435';
+import { initMinigame } from './minigame.js?v=435';
+import { initChests } from './chests.js?v=435';
+import { initLore } from './lore.js?v=435';
+import { initAvatar } from './avatar.js?v=435';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 434;   // keep equal to the ?v= number in index.html
+const BUILD = 435;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1471,7 +1471,7 @@ function goGraduate(a) {
   if (a.retake) { retakeHome(a); return; }   // an elder from the tower after his retake: not a new graduate
   const tx = WORLD === 1 ? g.x0 + 3 + (Math.random() - 0.5) * 0.4 : WORLD === 2 ? g.x0 + 3.55 + (Math.random() - 0.5) * 0.3 : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 3 + (Math.random() - 0.5) * 0.4 : WORLD === 2 ? g.y0 + 4.3 + (Math.random() - 0.5) * 0.2 : g.y0 + 1 + Math.random() * 4;   // world 2: in front of the great crystal of the hall of glory   // into the gazebo (her wish: they vanish there, like through a magic fireplace)
   walk(a, tx, ty, () => {
-    S.stats.graduated++; reviewGraduate(a); w2Seeker();
+    S.stats.graduated++; reviewGraduate(a); w2Seeker(); gainXp(a);
     if (helperAdmit(a)) return;                       // mages and elder mages stay as teachers' helpers (elders replace mages)
     if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower                       // mages stay as teachers' helpers (two per class, different kinds)
     popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
@@ -2101,7 +2101,7 @@ function renderInsp() {
   const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
   // build 304 (her «Много кнопок на экране ... меню-раскладку»): top, alliance and people live in the ✨ menu; build 306 (her «Миры повторяются,
   // не нужно их в раскладке, зельеварка тоже, звезды тоже. Рейтинг верни ... вверху, а альбом ... внизу»): rating, mini-game, stars, worlds, album stay on screen
-  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button>` + MG.pill() + `<button class="ipill" data-stones aria-label="Лунные камни">${ST_IMG(16)} ${stones()}</button>` + html + res + warn;   // build 306 (her «Рейтинг верни на прежнее место вверху»)
+  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button><button class="ipill" data-level aria-label="Уровень школы">🏫 ${schoolLevel()}</button>` + MG.pill() + `<button class="ipill" data-stones aria-label="Лунные камни">${ST_IMG(16)} ${stones()}</button>` + html + res + warn;   // build 306 (her «Рейтинг верни на прежнее место вверху»)
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }   // in-place update: icons are never re-created (they blinked)
   renderMenu();
 }
@@ -3012,6 +3012,32 @@ function stonesBuy(k) {
   const it = ST_SHOP.find((x) => x.k === k); if (!it) return;
   if (!it.can()) { toast(it.why()); return; } if (stones() < it.price) { toast(`Нужно ${ST_ICON} ${it.price}`); return; }
   it.buy(); stonesAdd(-it.price); save(); toast(`${it.icon} ${it.name}!`); dirtyPanel = true;
+}
+// ======================= «Уровень школы» (Maria 2026-11-24: «Может быть нужно в игре ввести какие-то уровни? ... в топах соревноваться
+// ими ... понимать кто насколько развит, и что он может позволить себе») =======================
+// Experience per graduate grows with his rank (novice 1 ... master 30); old saves start from their history (graduates + ranks reached).
+// Level n needs LV_K * n^LV_P experience in total (guess: ~level 50 for a nearly finished world 1; tune with the pacing sims).
+// Every 5 levels: moonstones. One level per world (each world has its own top).
+const XP_RANK = [1, 2, 4, 8, 15, 30], LV_K = 10, LV_P = 2.5;
+function schoolXp() {
+  if (S.xp == null) { const r = S.stats.ranks || []; let x = S.stats.graduated || 0; for (let k = 1; k < 6; k++) x += (r[k] || 0) * (XP_RANK[k] - 1); S.xp = x; }
+  return S.xp;
+}
+const lvNeed = (n) => Math.round(LV_K * Math.pow(n, LV_P));   // total experience for level n
+function schoolLevel() { const x = schoolXp(); let n = Math.max(1, Math.floor(Math.pow(x / LV_K, 1 / LV_P))); while (lvNeed(n + 1) <= x) n++; while (n > 1 && lvNeed(n) > x) n--; return n; }
+function gainXp(a) {
+  const before = schoolLevel(); S.xp = schoolXp() + XP_RANK[Math.min(5, a.rk || 0)];
+  const now = schoolLevel(); if (now <= before) return;
+  S.lvTop = Math.max(S.lvTop || before, now);
+  for (let l = before + 1; l <= now; l++) if (l % 5 === 0) { const n = 3 + Math.floor(l / 10); if (stonesAdd(n, `w${WORLD}_lv${l}`) && !ffwd) setTimeout(() => toast(`🏫 Уровень школы ${l}! ${ST_ICON} +${n} лунных камня`), 600); }
+  if (!ffwd) { toast(`🏫 Уровень школы ${now}!`); updateHud(); }
+}
+function levelPanel() {
+  const n = schoolLevel(), x = schoolXp(), a = lvNeed(n), b = lvNeed(n + 1), pct = Math.max(0, Math.min(100, Math.round((x - a) / (b - a) * 100)));
+  return `<div class="sh-head"><span class="remoji big">🏫</span><div><h2>Уровень школы ${n}</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'}</div></div><button class="x" data-close>✕</button></div>
+    <div class="card"><div class="grow"><b>Опыт: ${fmt(x - a)} из ${fmt(b - a)}</b><div style="height:12px;border-radius:6px;background:#efe6ff;margin-top:6px"><div style="height:12px;border-radius:6px;background:#a98bf0;width:${pct}%"></div></div></div></div>
+    <p>Школа получает опыт за каждого выпускника. Чем выше его звание, тем больше опыта: новичок — ${XP_RANK[0]}, ${RANKS[3].toLowerCase()} — ${XP_RANK[3]}, ${RANKS[5].toLowerCase()} — ${XP_RANK[5]}.</p>
+    <p>Каждые 5 уровней школа получает ${ST_IMG()} лунные камни. Уровень видно в топе школ, а задания подбираются по силам школы.</p>`;
 }
 function drawTreeGrounded(o, im, p, w, h) {   // false = not a grounded tree (draw as usual)
   const g = WORLD === 1 && TREE_GROUND[o.n], soil = SOIL[(Math.round(o.x * 7 + o.y * 13) & 1)];
@@ -4967,7 +4993,7 @@ function rewardFor(m) {
   const minutes = rate > 0.001 ? Math.min(15, Math.max(0.5, (m.n || 0) / (rate * 60))) : 3;
   return Math.max(50, nice(perMin * minutes * TIME_SHARE));
 }
-function makeMission(onlyNew) {   // onlyNew: draw from the new kinds only (the one-time refresh of old lists)
+function makeMission(onlyNew, tries = 0) {   // onlyNew: draw from the new kinds only (the one-time refresh of old lists)
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i));
   const kinds = [], wts = [], add = (f, w = 1) => { kinds.push(f); wts.push(w); };
   add(() => { const n = rint(3, 8) * 10; return { type: 'grad', target: S.stats.graduated + n, text: `Выпусти ещё ${n} учеников 🎓` }; });
@@ -4994,6 +5020,14 @@ function makeMission(onlyNew) {   // onlyNew: draw from the new kinds only (the 
   if (onlyNew && wts.some((w) => w >= 1.5)) for (let j = 0; j < wts.length; j++) if (wts[j] < 1.5) wts[j] = 0;
   let r = Math.random() * wts.reduce((a, b) => a + b, 0), pick = 0; while (pick < kinds.length - 1 && (r -= wts[pick]) > 0) pick++;
   const m = kinds[pick]();
+  if (['item', 'teacher', 'rec', 'up', 'desk', 'time', 'beds', 'lib', 'build'].includes(m.type) && tries < 30) {   // within reach (her «не накидывали то на что тяжело накопить»)
+    const budget = Math.max(S.coins || 0, (steadyRate() || S.ema || 0) * 60 * 25), lo = m.type === 'up' && upOf(m) ? upOf(m).lvl() + 1 : null;
+    const cur = { item: () => S.classes[m.i].items[m.k] + 1, teacher: () => S.classes[m.i].teacher + 1, rec: () => S.reception.level + 1 }[m.type];
+    const floor = cur ? cur() : lo;
+    while (floor != null && m.target > floor && missionNeed(m) > budget) m.target--;
+    if (missionNeed(m) > budget) return makeMission(onlyNew, tries + 1);
+    if (m.text) m.text = m.text.replace(/ур\. \d+/, 'ур. ' + (m.type === 'up' && upOf(m) && upOf(m).show ? upOf(m).show(m.target) : m.target));
+  }
   if (m.type === 'rec') m.text = `Улучши секретаря в приёмной до ур. ${m.target}`;
   const statNow = { grad: S.stats.graduated, enroll: S.stats.enrolled, earn: S.stats.earned || 0, read: S.stats.read || 0, exams: S.stats.passed }[m.type];
   if (statNow !== undefined) m.n = m.target - statNow;
@@ -5388,6 +5422,7 @@ document.addEventListener('click', (e) => {
   if (d.toptab !== undefined) { topTab = d.toptab; const v = document.getElementById('school-name')?.value, vn = document.getElementById('school-nick')?.value; refreshPanel(); const e = document.getElementById('school-name'), en = document.getElementById('school-nick'); if (e && v != null) e.value = v; if (en && vn != null) en.value = vn; return; }
   if (d.ally !== undefined) { openAlly(); return; }
   if (d.stones !== undefined) { openPanel(stonesPanel); return; }
+  if (d.level !== undefined) { openPanel(levelPanel); return; }
   if (d.stbuy !== undefined) { stonesBuy(d.stbuy); return; }
   if (d.stfnt !== undefined) { stonesFount(d.stfnt); return; }
   if (d.mg !== undefined) { MG.open(); return; }
