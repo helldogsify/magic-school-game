@@ -1,16 +1,16 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=487';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=488';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=487';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=487';
-import { initMinigame } from './minigame.js?v=487';
-import { initChests } from './chests.js?v=487';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=487';
-import { initLore } from './lore.js?v=487';
-import { initAvatar } from './avatar.js?v=487';
+} from './data.js?v=488';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=488';
+import { initMinigame } from './minigame.js?v=488';
+import { initChests } from './chests.js?v=488';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=488';
+import { initLore } from './lore.js?v=488';
+import { initAvatar } from './avatar.js?v=488';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -33,7 +33,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 487;   // keep equal to the ?v= number in index.html
+const BUILD = 488;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2977,6 +2977,29 @@ function drawPukh() {   // secret «Совёнок Пух»: the owlet crosses t
   ctx.save(); ctx.translate(x, y); if (pukh.dir < 0) ctx.scale(-1, 1); ctx.drawImage(im, -sz / 2, -h / 2, sz, h); ctx.restore();
   pukhHit = window.__pukhPos = { x, y, r: sz * 0.75 };
 }
+let sfall = null, sfNext = performance.now() + (180 + Math.random() * 240) * 1000, sfHits = [], sfBursts = [];   /* secret «Звездопад» */
+const sfNight = () => { const d = new Date(), h = window.__hour ?? d.getHours() + d.getMinutes() / 60; return h >= 22 || h < 5; };
+function drawStarfall() {   /* secret «Звездопад»: shooting stars over the school at night, a tap catches one */
+  sfHits = []; if (WORLD !== 1 || !LORE) return; const now = performance.now();
+  if (document.hidden || !sfNight()) { sfNext = Math.max(sfNext, now + 60000); if (!sfall) return; }
+  const vw = VIEW.x1 - VIEW.x0, vh = VIEW.y1 - VIEW.y0, k = 1 / scale;
+  if (!sfall && now >= sfNext && !window.__sfOff) { const dir = Math.random() < 0.5 ? 1 : -1; sfall = { t0: now, stars: Array.from({ length: 6 }, (_, j) => ({ d: j * 1100 + Math.random() * 500, dur: 1700 + Math.random() * 700, x: 0.1 + Math.random() * 0.8, y: 0.04 + Math.random() * 0.3, dir, len: 0.22 + Math.random() * 0.1 })) }; }
+  if (sfall) {
+    let alive = false;
+    for (const st of sfall.stars) {
+      const u = (now - sfall.t0 - st.d) / st.dur; if (st.caught || u >= 1) continue; alive = true; if (u < 0) continue;
+      const dx = st.dir * vw * st.len, dy = vh * st.len * 0.55, x = VIEW.x0 + vw * st.x + dx * u, y = VIEW.y0 + vh * st.y + dy * u, al = Math.min(1, u * 5, (1 - u) * 4);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = al * 0.85; const g = ctx.createLinearGradient(x, y, x - dx * 0.55, y - dy * 0.55); g.addColorStop(0, 'rgba(255,246,205,0.95)'); g.addColorStop(1, 'rgba(180,200,255,0)');
+      ctx.strokeStyle = g; ctx.lineWidth = 3.2 * k; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - dx * 0.55, y - dy * 0.55); ctx.stroke();
+      ctx.globalAlpha = al; ctx.drawImage(glowSprite('255,240,190'), x - 20 * k, y - 20 * k, 40 * k, 40 * k); ctx.restore(); fxStar(x, y, 4.2 * k, al);
+      sfHits.push({ st, x, y, r: 34 * k });
+    }
+    if (!alive) { sfall = null; sfNext = now + (180 + Math.random() * 240) * 1000; }
+  }
+  sfBursts = sfBursts.filter((b) => now - b.t < 900);
+  for (const b of sfBursts) { const u = (now - b.t) / 900; for (let m = 0; m < 8; m++) { const an = m * Math.PI / 4 + b.r; fxStar(b.x + Math.cos(an) * u * 26 * k, b.y + Math.sin(an) * u * 26 * k, 2.4 * k * (1 - u), 1 - u); } }
+  window.__sfPos = sfHits.length ? { x: sfHits[0].x, y: sfHits[0].y } : null;
+}
 function drawDewFx() {   // secret «Роса»: dawn dew in the graduates' garden, bright over the morning tint
   if (WORLD !== 1 || !SLOTS.GARDEN || !LORE.dew()) { window.__dewHit = null; return; }
   const g = SLOTS.GARDEN, T = performance.now() / 1000, pts = DEW_AT.map(([dx, dy]) => { const m = P(g.x0 + dx, g.y0 + dy); return [m.x, m.y - 4]; });
@@ -4910,6 +4933,7 @@ function render() {
   if (WORLD === 1) drawDayNight(); else if (WORLD === 2) drawHallDark();
   drawDewFx();   // secret «Роса» (lore stage 4): dawn dew in the graduates' garden
   drawPukh();   // secret «Совёнок Пух»: the owlet flies over now and then
+  drawStarfall();   /* secret «Звездопад» */
   drawMoonFx();   // the Moon Tree glow and fruits stay bright at night   // day and night (signs stay bright: drawn after)
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
@@ -5972,6 +5996,7 @@ scroller.addEventListener('click', (e) => {
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
   const mr = mailRect; if (mr && performance.now() - mr.t < 600 && wx >= mr.x0 && wx <= mr.x1 && wy >= mr.y0 && wy <= mr.y1) { openPanel(mailPanel); return; }   // the envelope over the office opens the letter (build 311)
+  { const h = sfHits.find((q) => Math.hypot(wx - q.x, wy - q.y) < q.r); if (h) { h.st.caught = 1; sfBursts.push({ x: h.x, y: h.y, t: performance.now(), r: Math.random() }); S.stardust = (S.stardust || 0) + 1; popup('+1 ✨', h.x, h.y, '#f4d35e', 26); save(); LORE.event('star'); return; } }   /* secret «Звездопад»: a caught star */
   if (pukh && !pukh.caught && pukhHit && Math.hypot(wx - pukhHit.x, wy - pukhHit.y) < pukhHit.r) { pukh.caught = performance.now(); pukh.cx = pukhHit.x; pukh.cy = pukhHit.y; LORE.event('pukh'); return; }   // secret «Совёнок Пух»
   const dw = window.__dewHit; if (dw && performance.now() - dw.t < 600 && dw.pts.some(([x, y]) => Math.hypot(wx - x, wy - (y - 10)) < 28) && LORE.event('dew')) return;   // secret «Роса»
   const mh = window.__moonHit; if (mh && performance.now() - mh.t < 600 && Math.hypot(wx - mh.x, wy - mh.y) < mh.r) { LORE.event('moon'); return; }   // the director's riddle, line 1
@@ -7083,7 +7108,7 @@ window.__sim = {
   stars: () => schoolStars(),
   inSchool: () => inSchool().length,
 };
-window.__pukh = () => { pukhNext = 0; };   // test hook: send Pukh now
+window.__pukh = () => { pukhNext = 0; }; window.__starfall = () => { sfNext = 0; };   // test hook: send Pukh now
 window.__test = { P, SLOTS, focusTile, fps: () => ({ ...fpsStat, dpr }), edges: (x0, y0, x1, y1) => EDGES.filter((e) => e.x >= x0 && e.x <= x1 && e.y >= y0 && e.y <= y1).map((e) => `${e.x},${e.y},${e.side},${e.id},${e.tall ? 'T' : 'k'}${e.hallWall ? 'H' : ''}`), vanishDemo: (t) => { const g = SLOTS.GARDEN, src = agents.find((a) => SPECIES.includes(a.sp)); if (!src) return 0; agents.push({ ...src, id: S.nextId++, x: g.x0 + (WORLD === 1 ? 3 : 4.85), y: g.y0 + (WORLD === 1 ? 3 : 1.35), path: [], state: 'vanish', t: t || 0, goal: { t: 'g' }, c: -1, desk: -1 }); return 1; }, reg: (x, y) => regAt(x, y), world: () => ({ WW, WH, GW, GH, MARGIN, SW, SH, HW, HH, GATE: GATE_TILE, GATE_Y, BUILDING }), get renderMs() { return renderMs; }, get staticN() { return staticN; }, get roomBuilds() { return roomBuilds; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outShN: () => Object.keys(outSh).length + '/' + Object.keys(outLo).length, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P((SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
@@ -7104,5 +7129,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=487').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=488').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
