@@ -2,12 +2,12 @@
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=452';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=452';
-import { initMinigame } from './minigame.js?v=452';
-import { initChests } from './chests.js?v=452';
-import { initLore } from './lore.js?v=452';
-import { initAvatar } from './avatar.js?v=452';
+} from './data.js?v=453';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=453';
+import { initMinigame } from './minigame.js?v=453';
+import { initChests } from './chests.js?v=453';
+import { initLore } from './lore.js?v=453';
+import { initAvatar } from './avatar.js?v=453';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => earn(n), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -30,7 +30,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 452;   // keep equal to the ?v= number in index.html
+const BUILD = 453;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -413,8 +413,8 @@ const THEMES = {
     decor: ['chwin', 'chportrait'], back: ['', ''], side: ['', 'table'], front: [], rug: 'rug',
     stations: ['lectb_lilac', 'lectb_pink', 'lectb_mint'], teacherProp: 'big_book', h: { table: 26, bookcase: 36 }, facing: 'front' },   // her idea: students face us, the teacher stands at the front
   // Flight (her choice 2026-11-21: students sit on little clouds)
-  flight: { dir: 'assets/parts/flight/', wallTiles: 4, floorTiles: 3, board: 'wing_poster', isoOnly: true, iso: true,
-    decor: ['window', 'shelf', 'birds', 'painting', 'round_window'], back: ['tree', 'table'], side: ['bookcase', 'table'], front: [], rug: 'rug',
+  flight: { dir: 'assets/parts/flight/', wallTiles: 4, floorTiles: 3, board: 'flopen', isoOnly: true, iso: true,
+    decor: ['flwin', 'chportrait', 'wing_poster', 'chportrait'], back: ['', ''], side: ['', 'table'], front: [], rug: 'rug',
     stations: ['cloud_white', 'cloud_pink', 'cloud_lilac'], teacherProp: 'perch', h: { table: 24, bookcase: 36 }, sitOn: true },
   // Elements (her choice 2026-11-21: a pedestal with a crystal of one of the four elements per student)
   elements: { dir: 'assets/parts/elements/', wallTiles: 4, floorTiles: 3, board: 'el_poster', isoOnly: true, iso: true,
@@ -481,6 +481,7 @@ let partsVer = 0;   // bumped on every part load: themeReady() answers from its 
 for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
   if (!n) continue; const im = new Image(); im.onload = () => { partsVer++; }; im.src = `${t.dir}${n}.webp?v=2202`; parts[k + '/' + n] = im;
 }
+for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/fl_${n}.webp?v=1`; if (WORLD === 1) parts['flight/' + n] = im; }   // Flight redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/ch_${n}.webp?v=1`; if (WORLD === 1) parts['charms/' + n] = im; }   // Charms redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/st_${n}.webp?v=1`; if (WORLD === 1) parts['stars/' + n] = im; }   // Stargazing redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/pot_${n}.webp?v=1`; if (WORLD === 1) parts['potions/' + n] = im; }   // Potions redesign
@@ -3499,6 +3500,7 @@ DECOR.bigwin = { w: 1.25, lo: 0.3, deep: 0.6 }; ISO_W.bigwin = 1.45;   // window
 DECOR.potwin = { w: 1.15, lo: 0.3, deep: 0.6 }; ISO_W.potwin = 1.3;
 DECOR.stwin = { w: 1.2, lo: 0.3, deep: 0.6 }; ISO_W.stwin = 1.2;
 DECOR.chwin = { w: 1.3, lo: 0.22, deep: 0.6 }; ISO_W.chwin = 1.4;   // Charms: arched windows with lilac curtains
+DECOR.flwin = { w: 1.1, lo: 0.3, deep: 0.6 }; ISO_W.flwin = 1.0; DECOR.flopen = { w: 1.5, lo: 0.12, deep: 0.6 }; ISO_W.flopen = 1.6;   // Flight: brass portholes and one big open arched window (her «суперское открытое окно»)
 DECOR.chportrait = { w: 1.05, lo: 0.3, deep: 0.6 }; const CH_SLOTS = new Map();   // free wall places between the windows: the portrait takes the first one, ribbons the rest   // Stargazing: round porthole windows   // Potions: tall gothic windows with stained glass
 const HERBS_WINS = new Map();   // where the big windows were hung (world px), for the night glass drawn every frame
 function hangIso(c, th, n, s, side, t0, lo) {
@@ -3509,7 +3511,7 @@ function hangIso(c, th, n, s, side, t0, lo) {
   c.save(); c.translate(m.x, m.y); if (side === 'y0') c.scale(-1, 1);
   c.shadowColor = 'rgba(55,35,80,0.35)'; c.shadowBlur = 3 * k; c.shadowOffsetX = (side === 'y0' ? -1.2 : 1.2) * k; c.shadowOffsetY = 1.8 * k;
   c.drawImage(im, -sw / 2, -sh / 2, sw, sh); c.restore();
-  if (n === 'bigwin' || n === 'potwin' || n === 'stwin' || n === 'chwin') HERBS_WINS.set(Math.round(m.x) + ',' + Math.round(m.y), { x: m.x, y: m.y, sw, sh, flip: side === 'y0', side, tm, s0: s.x0 + ',' + s.y0, night: n === 'potwin' ? 'pot_window_night' : n === 'stwin' ? 'st_window_night' : n === 'chwin' ? 'ch_window_night' : 'herbs_window_night', w: DECOR[n].w });
+  if (n === 'bigwin' || n === 'potwin' || n === 'stwin' || n === 'chwin' || n === 'flwin' || n === 'flopen') HERBS_WINS.set(Math.round(m.x) + ',' + Math.round(m.y), { x: m.x, y: m.y, sw, sh, flip: side === 'y0', side, tm, s0: s.x0 + ',' + s.y0, night: n === 'potwin' ? 'pot_window_night' : n === 'stwin' ? 'st_window_night' : n === 'chwin' ? 'ch_window_night' : n === 'flwin' ? 'fl_window_night' : n === 'flopen' ? 'fl_openwin_night' : 'herbs_window_night', w: DECOR[n].w });
   return true;
 }
 function hang(c, th, n, s, side, t0, lo) {
@@ -3570,6 +3572,31 @@ function itemDraw(n, x, y, h, o = {}) {   // a sprite standing on tile (x, y): b
 }
 const daylight = () => { const h = window.__hour ?? (new Date().getHours() + new Date().getMinutes() / 60); return h >= 7 && h < 18.5 ? Math.min(1, (h - 7) / 1.5, (18.5 - h) / 1.5) : 0; };
 const ROOM_ART = {
+  flight(i, s, st, add) {
+    const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000, W = s.x1 - s.x0, depth = s.y1 - s.y0, me = s.x0 + ',' + s.y0;
+    const D = dayTint(), tt = D.sun.map((v, j) => (v + D.shade[j]) / 2), nt = Math.min(1, Math.max(0, (1 - (tt[0] + tt[1] + tt[2]) / 765) * 2.2));
+    add(s.x0 + 0.05, s.y0 + 0.05, () => { for (const wv of HERBS_WINS.values()) { if (wv.s0 !== me) continue; const im = nt > 0.03 && itemIm(wv.night); if (im) { ctx.save(); ctx.globalAlpha = nt; ctx.translate(wv.x, wv.y); if (wv.flip) ctx.scale(-1, 1); ctx.drawImage(im, -wv.sw / 2, -wv.sh / 2, wv.sw, wv.sh); ctx.restore(); } } });
+    const slots = [...CH_SLOTS.values()].filter((q) => q.s0 === me).sort((a, b) => (a.side === b.side ? a.t - b.t : a.side === 'x0' ? -1 : 1));
+    const onWall = (sd, t, hgt, draw) => add(sd === 'x0' ? s.x0 + 0.1 : t, sd === 'x0' ? t : s.y0 + 0.1, () => { const b = up(sd === 'x0' ? P(s.x0, t) : P(t, s.y0), hgt); ctx.save(); ctx.translate(b.x, b.y); ctx.transform(1, (sd === 'x0' ? -1 : 1) * HH / HW, 0, 1, 0, 0); draw(b); ctx.restore(); });
+    const rafter = TALL_H() * 0.97;   // the rafters' height: ropes and the bell hang from there
+    // a wooden propeller on the back wall (decor)
+    { const q = slots.find((z) => z.side === 'y0'); if (q) onWall('y0', q.t, TALL_H() * 0.5, () => { const im = itemIm('fl_prop'); if (!im) return; const w = 40, h = w * im.naturalHeight / im.naturalWidth; ctx.rotate(Math.sin(T * 0.4) * 0.06); ctx.drawImage(im, -w / 2, -h / 2, w, h); }); }
+    // kites -> paper kites on the walls in the free places, tails flutter
+    const sk = stageOf(lv('kites')); if (sk) { const ks = slots.filter((q) => !(q.side === 'y0' && q === slots.find((z) => z.side === 'y0'))).slice(0, [0, 1, 2, 3, 3][sk]);
+      ks.forEach((q, m) => onWall(q.side, q.t, TALL_H() * 0.62, () => { const im = itemIm('fl_kite'); if (!im) return; const h = sk >= 4 ? 64 : 56, w = h * im.naturalWidth / im.naturalHeight; ctx.rotate(-0.12 + Math.sin(T * 1.7 + m * 2) * 0.05); ctx.drawImage(im, -w / 2, -h / 2, w, h); })); }
+    // hoops -> golden rings on ropes from the rafters over the room, swaying
+    const sh = stageOf(lv('hoops')); if (sh) { const spots = [[0.3, 0.42], [0.62, 0.3], [0.45, 0.6], [0.75, 0.55]].slice(0, sh);
+      spots.forEach(([fx, fy], m) => { const hx = s.x0 + W * fx, hy = s.y0 + depth * fy; add(hx + 0.6, hy + 0.6, () => { const im = itemIm('fl_hoop'); if (!im) return; const p = P(hx, hy), top = p.y - rafter - 40, len = 64 + m * 10, h = len, w = h * im.naturalWidth / im.naturalHeight, sw = Math.sin(T * 1.1 + m * 1.7) * 0.07;
+        ctx.save(); ctx.translate(p.x, top); ctx.rotate(sw); ctx.drawImage(im, -w / 2, 0, w, h); ctx.restore(); }); }); }
+    // feathers -> the wicker basket of feather cushions in the back-left corner
+    const sf = stageOf(lv('feathers')); if (sf) { const k = [0, 0.7, 0.85, 1, 1.08][sf], fx = s.x0 + 0.75, fy = s.y0 + 0.75; add(fx, fy, () => { const r = itemDraw('fl_basket', fx, fy, 50 * k, { shadow: 1 }); if (!r) return;
+      if (sf >= 4) { const u = (T * 0.15) % 1; emoji('🪶', r.x + Math.sin(T * 1.3) * 14, r.top - 20 + u * 40, 9); } }); }   // at 40 a feather floats down
+    // windbell -> the brass wind bell hanging from the rafter by the first window, crystals swing and glint
+    const sb = stageOf(lv('windbell')); if (sb) { const w0 = [...HERBS_WINS.values()].filter((wv) => wv.s0 === me && wv.side === 'y0').sort((a, b) => b.tm - a.tm)[0], bx = w0 ? w0.tm - 1.05 : s.x1 - 1.5, k = [0, 0.75, 0.88, 1, 1.05][sb];
+      add(bx, s.y0 + 0.15, () => { const im = itemIm('fl_bell'); if (!im) return; const b = up(P(bx, s.y0 + 0.15), rafter), h = 62 * k, w = h * im.naturalWidth / im.naturalHeight; ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.sin(T * 2.1) * 0.06); ctx.drawImage(im, -w / 2, 0, w, h); ctx.restore(); const tw = Math.pow(Math.max(0, Math.sin(T * 1.6)), 6); if (tw > 0.05) fxStar(b.x + 3, b.y + h * 0.8, 3 * tw, tw, '220,240,255'); }); }
+    // now and then a gust of air with leaves blows in through a window
+    { const gu = (T % 11) / 11, w1 = [...HERBS_WINS.values()].find((wv) => wv.s0 === me); if (w1 && gu < 0.35) add(s.x1, s.y1, () => { const u = gu / 0.35; for (let m = 0; m < 3; m++) { const v = u - m * 0.08; if (v <= 0 || v >= 1) continue; ctx.globalAlpha = Math.sin(v * Math.PI) * 0.9; emoji(m % 2 ? '🌸' : '🌿', w1.x + (w1.flip ? -1 : 1) * v * 120, w1.y + v * 70 + Math.sin(v * 12 + m) * 8, 8); } ctx.globalAlpha = 1; }); }
+  },
   charms(i, s, st, add) {
     const lv = (id) => st.items[CLASSES[i].items.findIndex((x) => x.id === id)] || 0, T = performance.now() / 1000, W = s.x1 - s.x0, me = s.x0 + ',' + s.y0, tp = teacherPos(i);
     const D = dayTint(), tt = D.sun.map((v, j) => (v + D.shade[j]) / 2), nt = Math.min(1, Math.max(0, (1 - (tt[0] + tt[1] + tt[2]) / 765) * 2.2));
