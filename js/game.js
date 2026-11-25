@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=532';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=533';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=532';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=532';
-import { initMinigame } from './minigame.js?v=532';
-import { initChests } from './chests.js?v=532';
-import { initValley } from './valley.js?v=532';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=532';
-import { initLore } from './lore.js?v=532';
-import { initAvatar } from './avatar.js?v=532';
+} from './data.js?v=533';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=533';
+import { initMinigame } from './minigame.js?v=533';
+import { initChests } from './chests.js?v=533';
+import { initValley } from './valley.js?v=533';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=533';
+import { initLore } from './lore.js?v=533';
+import { initAvatar } from './avatar.js?v=533';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 532;   // keep equal to the ?v= number in index.html
+const BUILD = 533;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -700,7 +700,12 @@ function genLayoutCourt() {
   GH = Math.max(Yf + 16, colEnd + 4); GW = XR + 14;
   if (NEWD) { const OX = 15, sh = (r) => { r.x0 += OX; r.x1 += OX; };   /* room on the left for Спальня 2: the whole map moves right */
     for (const sl of Object.values(SLOTS)) { sh(sl); for (const d of [sl.door, ...sl.extra]) for (const q of d) q[0] += OX; }
-    [...HALLS, ...PATHS, ...LAWNS, COURT, BUILDING].forEach(sh); GATE_TILE.x += OX; GW += OX; galLayout(); }
+    [...HALLS, ...PATHS, ...LAWNS, COURT, BUILDING].forEach(sh); GATE_TILE.x += OX; GW += OX; galLayout();
+    try { for (const [k, bx, by] of [['DORM', SLOTS.DORM.x0 + 0.65, SLOTS.DORM.y0 + 0.75], ['DORM2', SLOTS.DORM2.x1 - 0.75, SLOTS.DORM2.y0 + 2.3]]) {   /* a path to each sister */
+      const o = concOff(k), sx = bx + o.dx, sy = by + o.dy; if (!o.dx && !o.dy) continue; let best = null, bd = 1e9;
+      for (const r of [...PATHS, ...HALLS]) { const nx = Math.max(r.x0 + 0.5, Math.min(r.x1 - 0.5, sx)), ny = Math.max(r.y0 + 0.5, Math.min(r.y1 - 0.5, sy)), d = Math.hypot(nx - sx, ny - sy); if (d < bd) { bd = d; best = [nx, ny]; } }
+      if (!best) continue; let x0 = Math.floor(Math.min(sx, best[0])), x1 = Math.floor(Math.max(sx, best[0])) + 1, y0 = Math.floor(Math.min(sy, best[1])), y1 = Math.floor(Math.max(sy, best[1])) + 1;
+      if (x1 - x0 < 2) x1 = x0 + 2; if (y1 - y0 < 2) y1 = y0 + 2; PATHS.push({ x0, y0, x1, y1, paved: 1 }, { x0: Math.floor(sx) - 1, y0: Math.floor(sy) - 1, x1: Math.floor(sx) + 2, y1: Math.floor(sy) + 2, paved: 1 }); } } catch (e) { /* the layout is not loaded yet at the first build */ } }
 }
 function genLayout() {
   for (const k of Object.keys(SLOTS)) delete SLOTS[k];
@@ -3757,7 +3762,8 @@ const EDIT = window.__EDIT || null;
 let RLAY = { v: 1, rooms: {} }, LAY_VER = 0;
 const LAY_ENT = [], LAY_WALLS = {}, LAY_SEEN = {}, LAY_IMS = {}, texCache = new Map();
 let layCur = null, layHangN = {};
-function setLayout(L) { RLAY = L && L.rooms ? L : { v: 1, rooms: {} }; LAY_VER++; texCache.clear(); }
+function setLayout(L) { RLAY = L && L.rooms ? L : { v: 1, rooms: {} }; LAY_VER++; texCache.clear();
+  if (WORLD === 1 && window.__EDIT) { clearTimeout(setLayout.t); setLayout.t = setTimeout(() => { const k = JSON.stringify([concOff('DORM'), concOff('DORM2')]); if (k !== setLayout.k) { const first = setLayout.k === undefined; setLayout.k = k; if (!first || k !== '[{"dx":0,"dy":0},{"dx":0,"dy":0}]') relayout(); } }, 600); } }   /* a sister moved: rebuild the paths */
 if (!EDIT) fetch('layouts/layouts.json?v=458').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.rooms && Object.keys(j.rooms).length) setLayout(j); }).catch(() => {});
 const layIm = (src) => { let im = LAY_IMS[src]; if (!im) { im = LAY_IMS[src] = new Image(); im.src = `assets/parts/${src}.webp?v=${src === 'reception/rc_umbrellas' ? 'e2' : 'e1'}`; } return im.complete && im.naturalWidth ? im : null; };
 function texPart(th, n) {   // the wall / floor texture of a room, recoloured or swapped by the layout
@@ -5032,7 +5038,9 @@ function render() {
   if (NEWDORM && SLOTS.DORM) { concPlace(); const o1 = concOff('DORM'), co = conciergePos(), th = themeOf('DORM'), aD = layAdd('DORM', SLOTS.DORM, add), bx = CONCIERGE.x - o1.dx, by = CONCIERGE.y - o1.dy;   /* Баю-Бая with her desk: one item, drawn at her unmoved place (the editor layer moves it) */
     aD(bx, by + 0.75, () => { const im = sprites['con_' + co.pose]?.naturalWidth ? (co.pose === 'walk' ? sprites['staff_concierge'] : sprites['con_' + co.pose]) : sprites['staff_concierge']; if (im && im.naturalWidth) { drawPose(im, co.x - o1.dx, co.y - o1.dy, 62, co.flip, co.moving); if (checkin) { const q = P(co.x - o1.dx, co.y - o1.dy); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } } const d = th && part(th, 'conc_desk'); if (d) drawProp({ n: 'conc_desk', x: bx - 0.05, y: by + 0.75, th }); }, 0, 'conc');
     if (dorm2Built() && SLOTS.DORM2) { const o2 = concOff('DORM2'), aD2 = layAdd('DORM2', SLOTS.DORM2, add), cx = CON2.x - o2.dx, cy = CON2.y - o2.dy;   /* Ляля-Люля with her desk */
-      aD2(cx, cy + 0.75, () => { if (LYALYA.complete && LYALYA.naturalWidth) { drawPose(LYALYA, cx, cy, 62, false, false); if (CON2.cur) { const q = P(cx, cy); ring(q.x - 24, q.y - 62, Math.min(1, CON2.t / checkinTime()), '#4f86c6'); } } const d = th && part(th, 'conc_desk'); if (d) drawProp({ n: 'conc_desk', x: cx - 0.05, y: cy + 0.75, th }); }, 0, 'conc'); } }
+      aD2(cx, cy + 0.75, () => { if (LYALYA.complete && LYALYA.naturalWidth) { const q = P(cx, cy), T = performance.now() / 1000, nod = (T % 9) > 7.6 ? Math.sin(((T % 9) - 7.6) / 1.4 * Math.PI) : 0, br = Math.sin(T * 2.2);   /* Ляля-Люля breathes, sways and nods off now and then */
+        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(Math.sin(T * 0.9) * 0.025 + nod * 0.06); ctx.scale(1 + br * 0.012, 1 - br * 0.012 - nod * 0.03); ctx.translate(-q.x, -q.y); drawPose(LYALYA, cx, cy, 62, false, false); ctx.restore();
+        { const f = 0.75 + 0.25 * Math.sin(T * 7) * Math.sin(T * 2.3); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45 * f; ctx.drawImage(glowSprite('170,200,255'), q.x - 30, q.y - 50, 26, 26); ctx.restore(); } if (CON2.cur) { const q = P(cx, cy); ring(q.x - 24, q.y - 62, Math.min(1, CON2.t / checkinTime()), '#4f86c6'); } } const d = th && part(th, 'conc_desk'); if (d) drawProp({ n: 'conc_desk', x: cx - 0.05, y: cy + 0.75, th }); }, 0, 'conc'); } }
   else if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR', 'SHOP', 'TOWER', 'CANT']) {
     const th = themeOf(rid); if (!th || !SLOTS[rid] || (rid === 'CANT' && !cantOpen()) || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt()) || (rid === 'SHOP' && !shopOpen()) || (rid === 'TOWER' && !towerOpen())) continue;
@@ -7452,5 +7460,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=532').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=533').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
