@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=545';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=546';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=545';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=545';
-import { initMinigame } from './minigame.js?v=545';
-import { initChests } from './chests.js?v=545';
-import { initValley } from './valley.js?v=545';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=545';
-import { initLore } from './lore.js?v=545';
-import { initAvatar } from './avatar.js?v=545';
+} from './data.js?v=546';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=546';
+import { initMinigame } from './minigame.js?v=546';
+import { initChests } from './chests.js?v=546';
+import { initValley } from './valley.js?v=546';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=546';
+import { initLore } from './lore.js?v=546';
+import { initAvatar } from './avatar.js?v=546';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 545;   // keep equal to the ?v= number in index.html
+const BUILD = 546;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4699,11 +4699,12 @@ function animPilot(a, sp0, cpose, walking) {
   const A = (walking && ANIM_SHEETS.walk) || ANIM_SHEETS.idle; return A.im.complete && A.im.naturalWidth ? A : null;
 }
 // ---- lesson effects (?anim=fx pilot): body motion + a floating wand with star sparkles, drawn by the game
-const LESSON_FX = ANIM_MODE === 'fx' ? { charms: 1 } : null;
+const LESSON_FX = { charms: 1 };   // build 543: casting in Charms is live for every player (Maria 2026-11-25 «Да»); was the ?anim=fx pilot
 const TAIL_TIPS = { fernhorn: [0.9, 0.565], fernhorn_t1: [0.88, 0.6], fernhorn_t2: [0.88, 0.6] };   // fernhorn casts with the dandelion on its tail (share of width, height)
 const CAST_POSES = { mothfox: [0.1, 0.183], mothfox_t1: [0.767, 0.067], mothfox_t2: [0.747, 0.194], petalear: [0.812, 0.167], petalear_t1: [0.792, 0.222], petalear_t2: [0.201, 0.178], starwhisker: [0.783, 0.228], starwhisker_t1: [0.802, 0.233], starwhisker_t2: [0.794, 0.222] };   // looks that have a «cast» picture: where the wand tip is (share of width, height)
 for (const k of Object.keys(CAST_POSES)) { const im = new Image(); im.src = `assets/creatures/${k}_cast.png?v=2`; sprites[k + '_cast'] = im; }
-function lessonSparks(F, a, s, z, h, w, fl) {   // star sparkles from the wand tip while the paw is up
+function lessonSparks(F, a, s, z, h, w, fl) { ctx.save(); try { lessonSparks0(F, a, s, z, h, w, fl); } finally { ctx.restore(); } }   // build 543: keeps the caller's alpha (the x-ray ghosts turned opaque)
+function lessonSparks0(F, a, s, z, h, w, fl) {   // star sparkles from the wand tip while the paw is up
   const now = F.T; a._fx ||= []; const P = a._fx;
   if (window.__fxProbe) { const m = ctx.getTransform(); window.__fxProbe[a.id] = [m.a * s.x + m.c * (s.y - z) + m.e, m.b * s.x + m.d * (s.y - z) + m.f, m.a * h]; }   // test hook: the feet on the canvas
   if ((F.castIm || F.tailOn) && F.tip) {
@@ -4782,7 +4783,7 @@ function drawCreature(a, x, y, h, extra) {
   else if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; const sm = sized(im, h * scale * dpr); ctx.drawImage(fl ? flipped(sm) : sm, s.x - w * sx / 2, s.y - bob - z - h * sy, w * sx, h * sy); 
     if (sp0 === 'mossmole' && !a._tierImg) { const lg = glowSprite('255,240,170'), r = h * 0.32; ctx.globalAlpha = 0.75; for (const fx of [0.1, 0.9]) ctx.drawImage(lg, s.x - w / 2 + w * (a.flip ? 1 - fx : fx) - r / 2, s.y - bob - z - h * 0.985 - r / 2, r, r); ctx.globalAlpha = 1; } }   // the lanterns on its antennae glow   // no save/restore per creature, a small copy of the sprite (build 207)
   else { ctx.fillStyle = '#ffd6e8'; ctx.beginPath(); ctx.ellipse(s.x, s.y - bob - z - h / 2, h / 2.6, h / 2.2, 0, 0, Math.PI * 2); ctx.fill(); }
-  if (FXL) { ctx.restore(); lessonSparks(FXL, a0, s, z, h, FXL.w || h, fl); }   // the student casts by itself (no floating wand)
+  if (FXL) { ctx.restore(); if (!a0._ghost) lessonSparks(FXL, a0, s, z, h, FXL.w || h, fl); }   // build 543: not again in the x-ray pass   // the student casts by itself (no floating wand)
   if (rk === 5) {   // twinkling sparks of the element orbit a master: rarity you can see from afar
     const T = performance.now() / 1000 + (a.ph || 0), c = ELEMS[a.el || 0].col;
     for (let k = 0; k < 3; k++) {
@@ -7659,5 +7660,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=545').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=546').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
