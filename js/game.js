@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=539';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=540';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=539';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=539';
-import { initMinigame } from './minigame.js?v=539';
-import { initChests } from './chests.js?v=539';
-import { initValley } from './valley.js?v=539';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=539';
-import { initLore } from './lore.js?v=539';
-import { initAvatar } from './avatar.js?v=539';
+} from './data.js?v=540';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=540';
+import { initMinigame } from './minigame.js?v=540';
+import { initChests } from './chests.js?v=540';
+import { initValley } from './valley.js?v=540';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=540';
+import { initLore } from './lore.js?v=540';
+import { initAvatar } from './avatar.js?v=540';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 539;   // keep equal to the ?v= number in index.html
+const BUILD = 540;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1001,7 +1001,14 @@ const bedExists = (b) => (b < DORM_STRIDE ? b < beds1() : b - DORM_STRIDE < beds
 const checkinTime = () => 2 * Math.pow(0.85, dormUp().conc - 1);
 const bedsCost = () => paced(150 * Math.pow(1.6, dormUp().beds - 1), dormUp().beds);
 const concCost = () => paced(100 * Math.pow(1.5, dormUp().conc - 1), dormUp().conc);
-const dormLineSpot = (k) => (WORLD === 1 && (true) ? { x: CONCIERGE.x - 0.05, y: Math.min(DS.y1 - 0.4, CONCIERGE.y + 3.55 + k * 0.5) } : { x: DS.x0 - 1.5, y: DS.y0 + 1.5 + k * 0.6 });   /* world 1: the line waits inside, along the wall past the door */   // the check-in line waits in the reception, by the dorm door
+function lineFrom(cx, cy, k) {   /* the k-th place of a check-in line that starts in front of a sister's desk */
+  const ok = (x, y) => { const r = regAt(Math.floor(x), Math.floor(y)); return r === 'path' || r === 'hall'; }; let x = cx + 0.1, y = cy + 1.35;
+  if (!ok(x, y)) for (const [dx, dy] of [[0.6, 0.6], [-0.6, 0.6], [0.6, 0], [-0.6, 0]]) if (ok(cx + dx, cy + dy)) { x = cx + dx; y = cy + dy; break; }
+  let px = 0, py = 0;
+  for (let i = 0; i < k; i++) { let moved = false; for (const [dx, dy] of [[px, py], [0, 0.5], [0.5, 0], [-0.5, 0], [0, -0.5]]) { if (!dx && !dy) continue; if (dx === -px && dy === -py && (px || py)) continue; if (ok(x + dx, y + dy) && Math.hypot(x + dx - cx, y + dy - cy) > 0.9) { x += dx; y += dy; px = dx; py = dy; moved = true; break; } } if (!moved) break; }
+  return { x, y };
+}
+const dormLineSpot = (k) => (WORLD === 1 && (true) ? lineFrom(CONCIERGE.x, CONCIERGE.y, k) : { x: DS.x0 - 1.5, y: DS.y0 + 1.5 + k * 0.6 });   /* world 1: the line waits inside, along the wall past the door */   // the check-in line waits in the reception, by the dorm door
 let dormLine = [], checkin = null, checkinT = 0;
 const NEWDORM = WORLD === 1;   /* the tree dorms with two concierges: editor only until her OK */
 const concOff = (rid) => { const R = NEWDORM && RLAY.rooms[rid], o = R && R.items && R.items['conc#1']; return { dx: (o && o.dx) || 0, dy: (o && o.dy) || 0 }; };   /* moved in the editor */
@@ -1011,7 +1018,7 @@ const LY_POSE = Object.fromEntries(['write', 'key', 'yawn', 'walk'].map((k) => {
 function lyalyaIm() { const T = performance.now() / 1000, k = T - CON2.keyAt < 2.5 ? 'key' : CON2.cur ? 'write' : (T % 9) < 2.6 ? 'yawn' : 'write', im = LY_POSE[k]; return im.complete && im.naturalWidth ? im : LYALYA; }   /* like Баю-Бая */
 function concPlace() { if (!NEWDORM) return; const o1 = concOff('DORM'), o2 = concOff('DORM2'); CONCIERGE = { x: DS.x0 + 0.65 + o1.dx, y: DS.y0 + 0.75 + o1.dy }; CON2.x = DS2.x1 - 0.75 + o2.dx; CON2.y = DS2.y0 + 2.3 + o2.dy; }
 const toTwin = (a) => NEWDORM && dorm2Built() && a.bed >= DORM_STRIDE;
-const line2Spot = (k) => ({ x: CON2.x + 0.15, y: Math.min(DS2.y1 - 0.4, CON2.y + 3.9 + k * 0.5) });
+const line2Spot = (k) => lineFrom(CON2.x, CON2.y, k);
 function goLine2(a) { const p = line2Spot(CON2.line.indexOf(a)); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'dline'; }); }
 function stepConcierge2(dt) {   /* Ляля-Люля checks in the guests of Спальня 2 */
   if (!CON2.cur && CON2.line.length && CON2.line[0].state === 'dline') { CON2.cur = CON2.line[0]; CON2.t = 0; CON2.cur.state = 'checkin'; }
@@ -7462,5 +7469,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=539').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=540').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
