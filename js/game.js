@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=543';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=544';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=543';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=543';
-import { initMinigame } from './minigame.js?v=543';
-import { initChests } from './chests.js?v=543';
-import { initValley } from './valley.js?v=543';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=543';
-import { initLore } from './lore.js?v=543';
-import { initAvatar } from './avatar.js?v=543';
+} from './data.js?v=544';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=544';
+import { initMinigame } from './minigame.js?v=544';
+import { initChests } from './chests.js?v=544';
+import { initValley } from './valley.js?v=544';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=544';
+import { initLore } from './lore.js?v=544';
+import { initAvatar } from './avatar.js?v=544';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 543;   // keep equal to the ?v= number in index.html
+const BUILD = 544;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1343,15 +1343,16 @@ function stepRumble(dt, live) {
   T.rt = (T.rt || 0) + dt; if (T.rt >= 60) { const r = (T.pc || 0) / T.rt; T.rate = T.rate ? T.rate * 0.7 + r * 0.3 : r; T.rt = 0; T.pc = 0; }   // build audit 2026-11-24: live guard-hall pass rate
   if (!T.cur) {
     T.t -= dt;
-    if (T.t <= RUMBLE_WARN && !T.warned) { T.warned = 1; toast('🌑 Из глубин доносится гул! Скоро тени полезут наверх'); hintOnce('rumble', '🌑', 'Гул из глубин', `Через ${RUMBLE_WARN} секунд из глубины горы полезут тени. Пока длится защита, каждый сданный урок в Зале стражей 🛡️ отбивает одну тень. Отбьёте сколько нужно — получите сундук с монетами и самоцветами. Не успеете — обвал закроет один зал, его надо будет расчистить нажатием.`); }
+    if (T.t <= RUMBLE_WARN && !T.warned) { T.warned = 1; toast('🌑 Из глубин доносится гул! Скоро тени полезут наверх'); hintOnce('rumble', '🌑', 'Гул из глубин', `Через ${RUMBLE_WARN} секунд из глубины горы полезут тени — прямо в Зал стражей 🛡️. Жми на каждую тень, чтобы отбить её; каждый сданный урок в Зале стражей тоже отбивает одну. Отбьёте сколько нужно — получите сундук с монетами и самоцветами. Не успеете — обвал закроет один зал, его надо будет расчистить нажатием.`); }
     if (T.t <= 0) { T.cur = { left: rumbleLen(), need: rumbleNeed(), got: 0 }; T.warned = 0; if (S.inc) delete S.inc[guardsIdx()];   // the guards rally: their hall is cleared at once
-      toast(`🌑 Тени лезут из глубин! Отбейте ${T.cur.need} в Зале стражей 🛡️`); sfx('stars'); }
+      toast(`🌑 Тени лезут в Зал стражей! Жми на них — отбей ${T.cur.need}`); sfx('stars'); shadeT = 0; }
     return;
   }
   T.cur.left -= dt;
-  if (T.cur.got >= T.cur.need) { const { c, g } = rumbleChest(); bonus(c); W2().gems += g; T.heat = Math.min(12, rumbleHeat() + 1); T.won++; S.stats.rumbleWon = (S.stats.rumbleWon || 0) + 1; toast(`🎁 Тени отбиты! Сундук: 🪙 +${fmt(c)} и 💎 +${g}`); T.cur = null; T.t = RUMBLE_MIN + Math.random() * (RUMBLE_MAX - RUMBLE_MIN); dirtyPanel = true; return; }
+  { shadeT -= dt; const alive = shades.filter((h) => !h.die).length; if (shadeT <= 0 && alive < Math.min(SHADE_MAX, T.cur.need - T.cur.got)) { shadeSpawn(); shadeT = SHADE_EVERY; } }
+  if (T.cur.got >= T.cur.need) { const { c, g } = rumbleChest(); bonus(c); W2().gems += g; T.heat = Math.min(12, rumbleHeat() + 1); T.won++; S.stats.rumbleWon = (S.stats.rumbleWon || 0) + 1; toast(`🎁 Тени отбиты! Сундук: 🪙 +${fmt(c)} и 💎 +${g}`); T.cur = null; shadesGone(); T.t = RUMBLE_MIN + Math.random() * (RUMBLE_MAX - RUMBLE_MIN); dirtyPanel = true; return; }
   if (T.cur.left <= 0) {
-    T.lost++; T.heat = Math.max(0, rumbleHeat() - 3); T.cur = null; T.t = RUMBLE_MIN + Math.random() * (RUMBLE_MAX - RUMBLE_MIN);
+    shadesGone(); T.lost++; T.heat = Math.max(0, rumbleHeat() - 3); T.cur = null; T.t = RUMBLE_MIN + Math.random() * (RUMBLE_MAX - RUMBLE_MIN);
     const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !(S.inc && S.inc[i]) && i !== guardsIdx());
     if (open.length && Object.keys(S.inc || {}).length < INC_MAXN) { const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'r', t: Math.max(0, INC_AUTO_AT(dirLvl('keeper')) - CAVE_LEN) }; toast(`🪨 Тени прорвались: обвал в зале «${CLASSES[i].name}»! Нажми на зал, чтобы расчистить (сам расчистится через 3 минуты)`); }   // build audit 2026-11-24: starts near the end of the auto-clear time; no third blocked hall
     else toast('🌑 Тени прорвались, но залы устояли');
@@ -1362,7 +1363,33 @@ function rumbleLesson(i, p) {   // a passed lesson in the guard hall during the 
   const T = WORLD === 2 && S.w2 && S.w2.throne; if (!T || CLASSES[i].id !== THRONE_NEED) return;
   if (!ffwd && rumbleOn()) T.pc = (T.pc || 0) + 1;   // build audit 2026-11-24: counted for the adaptive need
   if (!T.cur) return;
-  T.cur.got++; if (!ffwd) popup(`🛡️ ${T.cur.got}/${T.cur.need}`, p.x, p.y - 0.4, '#3b6fd6', 54);
+  T.cur.got++; if (!ffwd) { popup(`🛡️ ${T.cur.got}/${T.cur.need}`, p.x, p.y - 0.4, '#3b6fd6', 54); const h = shades.find((q) => !q.die); if (h) h.die = performance.now(); }
+}
+// the shadows themselves (build 542): live only while the game is open, not saved; they stand on the guard hall's floor and sway
+let shades = [], shadeT = 0, shadeId = 0, shadeRects = [];
+const SHADE_EVERY = 1.2, SHADE_MAX = 4;   // always up to 4 on the floor while shadows remain: a new one rises 1.2 s after one is beaten
+function shadeSpawn() { const s = slotOf(guardsIdx()); if (!s) return; shades.push({ id: shadeId++, x: s.x0 + 1 + Math.random() * Math.max(0.5, s.x1 - s.x0 - 2), y: s.y0 + 1 + Math.random() * Math.max(0.5, s.y1 - s.y0 - 2), born: performance.now(), die: 0 }); }
+function shadesGone() { const n = performance.now(); for (const h of shades) h.die ||= n; }
+function tapShade(h) {   // a tap beats one shadow
+  const T = WORLD === 2 && S.w2 && S.w2.throne; if (!T || !T.cur || h.die) return false;
+  h.die = performance.now(); T.cur.got++; popup(`💨 ${T.cur.got}/${T.cur.need}`, h.x, h.y, '#6a3fd0', 50); sfx('fixed'); dirtyPanel = true; renderInsp(); return true;
+}
+function drawShades() {
+  const T = WORLD === 2 && S.w2 && S.w2.throne; shadeRects = []; const now = performance.now();
+  shades = shades.filter((h) => !h.die || now - h.die < 500);
+  for (const h of shades) {
+    const age = (now - h.born) / 1000, rise = Math.min(1, age / 0.6), dk = h.die ? (now - h.die) / 500 : 0;
+    const p = P(h.x + 0.35 * Math.sin(age * 0.8 + h.id * 1.7), h.y + 0.25 * Math.cos(age * 0.6 + h.id)), w = 30 * (1 + dk * 0.6), hh = 40 * rise * (1 + dk * 0.6), top = p.y - hh - 3 * Math.sin(age * 3 + h.id);
+    ctx.save(); ctx.globalAlpha = 0.95 * (1 - dk);
+    ctx.fillStyle = '#0006'; ctx.beginPath(); ctx.ellipse(p.x, p.y, w * 0.55, w * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowColor = '#9a6cff'; ctx.shadowBlur = 14; const gr = ctx.createLinearGradient(0, top, 0, p.y); gr.addColorStop(0, '#3c2668'); gr.addColorStop(1, '#140c24'); ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.moveTo(p.x - w / 2, p.y - w * 0.1); ctx.lineTo(p.x - w / 2, top + w / 2); ctx.arc(p.x, top + w / 2, w / 2, Math.PI, 0); ctx.lineTo(p.x + w / 2, p.y - w * 0.1);
+    for (let i = 3; i > 0; i--) { const x1 = p.x - w / 2 + (w / 3) * i, wv = 4 * Math.sin(age * 5 + i); ctx.quadraticCurveTo(x1 - w / 6, p.y + 4 + wv, x1 - w / 3, p.y - w * 0.1); }
+    ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
+    if (rise >= 1) { ctx.fillStyle = '#ffe27a'; const ey = top + w * 0.5; for (const dx of [-5, 5]) { ctx.beginPath(); ctx.ellipse(p.x + dx, ey, 2.6, 3.6 * (Math.sin(age * 2 + h.id) > 0.97 ? 0.2 : 1), 0, 0, Math.PI * 2); ctx.fill(); } }
+    ctx.restore();
+    if (!h.die) shadeRects.push({ h, x0: p.x - w / 2 - 10, y0: top - 10, x1: p.x + w / 2 + 10, y1: p.y + 8 });
+  }
 }
 function throneBuildPanel() {
   const gi = guardsIdx(), ok = gi >= 0 && isOpen(gi);
@@ -1374,7 +1401,7 @@ function thronePanel() {
   const T = throne(), c = T.cur;
   let h = `<div class="sh-head"><span class="remoji big">👑</span><div><h2>Трон старейшины</h2><div class="muted">${c ? `🌑 Тени лезут! Осталось ${mmss(c.left)}` : calm() ? 'Спокойный режим: гула нет' : `Следующий гул примерно через ${mmss(T.t)}`}</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🛡️</span><b>${c ? `${c.got}/${c.need}` : rumbleNeed()}</b><i>${c ? 'отбито' : 'нужно отбить'}</i></div><div><span>🎁</span><b>${T.won}</b><i>побед</i></div><div><span>🪨</span><b>${T.lost}</b><i>обвалов</i></div></div>
-    <p class="muted">Пока идёт защита, каждый сданный урок в Зале стражей отбивает одну тень. Больше парт и сильнее учитель в Зале стражей — быстрее защита. С каждой победой теней становится больше, после прорыва — меньше. Больше, чем успевает Зал стражей, их не бывает.</p>`;
+    <p class="muted">Когда начнётся гул, через 40 секунд тени полезут в Зал стражей 🛡️: жми на каждую тень, чтобы отбить её. Каждый сданный урок в Зале стражей тоже отбивает одну тень. Больше парт и сильнее учитель в Зале стражей — быстрее защита. С каждой победой теней становится больше, после прорыва — меньше. Больше, чем успевает Зал стражей, их не бывает.</p>`;
   for (const [k, u] of Object.entries(THRONE_UP)) {
     const l = T[k] || 0;
     h += `<div class="card up"><span class="remoji">${u.emo}</span><div class="grow"><b>${u.name}</b> <span class="muted">ур. ${l}/${THRONE_MAX}</span><div class="muted">сейчас: ${u.desc(l)}${l < THRONE_MAX ? `<br>станет: ${u.desc(l + 1)}` : ''}</div></div>
@@ -2240,10 +2267,13 @@ function renderInsp() {
     : calm() ? `<button class="ipill" data-insp>😌 ⭐ ${schoolStars()}</button>`
     : `<button class="ipill" data-insp>⭐ ${schoolStars()}</button>`;   // the warning itself is the banner below (iwarn)   // the warning names what will be checked (her report 2026-11-21)
   const warn = !c && !calm() && I.next ? `<button class="iwarn" data-insp>🧐 Через ${mmss(I.t)} придёт инспектор<br><b>Проверит: ${inspNextText(I.next)}</b></button>` : '';   // full text of what will be checked, 40 s ahead (her wish 2026-11-21)
+  const R = WORLD === 2 && S.w2 && S.w2.throne, rc = R && R.cur, rumSt = 'style="background:#2e2340;color:#fff;border-color:#9a6cff;box-shadow:0 3px 0 #9a6cff55"';   // the throne's warning and defence (build 542)
+  const rum = rc ? `<button class="iwarn" data-rumble ${rumSt}>🌑 Тени лезут в Зал стражей · ${mmss(rc.left)}<br><b>Отбито ${rc.got} из ${rc.need} — жми на тени!</b></button>`
+    : R && rumbleOn() && !calm() && R.t <= RUMBLE_WARN ? `<button class="iwarn" data-rumble ${rumSt}>🌑 Гул из глубин! Через ${mmss(R.t)} полезут тени<br><b>Нажми, чтобы перейти к Залу стражей</b></button>` : '';
   const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
   // build 304 (her «Много кнопок на экране ... меню-раскладку»): top, alliance and people live in the ✨ menu; build 306 (her «Миры повторяются,
   // не нужно их в раскладке, зельеварка тоже, звезды тоже. Рейтинг верни ... вверху, а альбом ... внизу»): rating, mini-game, stars, worlds, album stay on screen
-  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button>` + MG.pill() + html + res + warn;   // build 306 (her «Рейтинг верни на прежнее место вверху»)
+  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button>` + MG.pill() + html + res + rum + warn;   // build 306 (her «Рейтинг верни на прежнее место вверху»)
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }
   { let sh = document.getElementById('stones-hud'); if (!sh) { sh = document.createElement('div'); sh.id = 'stones-hud'; el.parentElement.appendChild(sh); }   // moonstones alone at the top right, shimmering (tester №73po7zf1, 2026-11-24)
     const sp = `<button class="ipill stones" data-stones aria-label="Лунные камни">${ST_IMG(20)}<b>${stones()}</b></button>`; if (sh.dataset.h !== sp) { sh.dataset.h = sp; sh.innerHTML = sp; } }   // in-place update: icons are never re-created (they blinked)
@@ -5175,6 +5205,7 @@ function render() {
     signRects.push({ id: 'FOUNT', x0: q.x - pl.tw / 2, y0: q.y - pl.hh, x1: q.x + pl.tw / 2, y1: q.y + pl.hh });
   }
   drawIncidents();
+  if (WORLD === 2) drawShades();
   drawMail();
   if (tourStep >= 0 && tourList[tourStep] && tourAt(tourList[tourStep])) { const ta = tourAt(tourList[tourStep]), f = P(ta[0], ta[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
   for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
@@ -6274,6 +6305,7 @@ scroller.addEventListener('click', (e) => {
   const cr = window.__crownRect; if (cr && performance.now() - cr.t < 600 && wx >= cr.x0 && wx <= cr.x1 && wy >= cr.y0 && wy <= cr.y1 && LORE.event('crown')) return;   // line 5
   { const m = moonRect; if (WORLD === 1 && m && performance.now() - m.t < 600 && wx >= m.x0 && wx <= m.x1 && wy >= m.y0 && wy <= m.y1) { tapMoon(); return; } }   // the Moon Tree
   const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { if (TK.on && LORE.event('tikhon')) return; openPanel(tikhonPanel); return; }   // walking Tikhon at dusk talks (line 3)   // Tikhon (or his scroll) opens his own report window, wherever he walks
+  { const sh = shadeRects.find((r) => wx >= r.x0 && wx <= r.x1 && wy >= r.y0 && wy <= r.y1); if (sh && tapShade(sh.h)) return; }   // the throne's shadows (build 542)
   const sign = signRects.find((r) => wx >= r.x0 - 6 && wx <= r.x1 + 6 && wy >= r.y0 - 6 && wy <= r.y1 + 6);   // a sign always opens its room
   if (sign) { if (sign.id === 'FOUNT') openPanel(fountainPanel); else openRoom(sign.id); return; }
   if (WORLD === 1 && COURT) for (const lift of [0, 20, 40, 60]) {   // build 279: a tap on the fountain opens the court's upgrades
@@ -6328,6 +6360,7 @@ document.addEventListener('click', (e) => {
   if (qClick(d)) return;
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
+  if (d.rumble !== undefined) { const s = slotOf(guardsIdx()); if (panel) closePanel(); if (s) focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2); return; }
   if (d.people !== undefined) { openPanel(peoplePanel); return; }
   if (d.rating !== undefined) { openPanel(ratingPanel); return; }
   if (d.cash !== undefined) { openPanel(cashPanel); return; }
@@ -7478,5 +7511,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=543').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=544').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
