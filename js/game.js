@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=553';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=554';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=553';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=553';
-import { initMinigame } from './minigame.js?v=553';
-import { initChests } from './chests.js?v=553';
-import { initValley } from './valley.js?v=553';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=553';
-import { initLore } from './lore.js?v=553';
-import { initAvatar } from './avatar.js?v=553';
+} from './data.js?v=554';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=554';
+import { initMinigame } from './minigame.js?v=554';
+import { initChests } from './chests.js?v=554';
+import { initValley } from './valley.js?v=554';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=554';
+import { initLore } from './lore.js?v=554';
+import { initAvatar } from './avatar.js?v=554';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 553;   // keep equal to the ?v= number in index.html
+const BUILD = 554;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2406,12 +2406,60 @@ for (const f of SEC_POSES) { const im = new Image(); im.src = `assets/staff/${SP
 // Moving staff (her choice 2026-11-22, variants 1+2): a frozen mid-step picture slid along the floor looked like flying with
 // a leg up, so a moving figure now WADDLES (rocks side to side with a little hop in step) or HOVERS on its wings
 // (lifted, slow sway, smaller shadow, a few sparkles under the feet).
+/* build 547: lines of the world-1 characters on a tap (Maria 2026-11-25: «при нажатии на учителя и остальных персонажей были реплики
+   какие нибудь, по их лору»). Texts follow lore/canon.md (approved lore); favourite phrases are the approved ones. 'n' = night only extras. */
+const TALK = {
+  moss: { name: 'Профессор Мох', d: ['Корни глубже, чем кажутся. У всех.', 'Не торопись… Растения не любят спешки. И я тоже.', 'Ушастики сегодня опять слышали, как растёт папоротник. Я горжусь.', 'Тебя бы полить… Шучу. Или нет.', 'Борода сегодня подросла. Значит, день хороший.', 'Тихо… Мандрагора вот-вот скажет первое слово.', 'Когда-то я сам был деревом. Иногда скучаю.'] },
+  bubble: { name: 'Мадам Пузырь', d: ['Если не бахнуло — значит, не старались!', 'Щепоточку чего-нибудь интересного? Ну конечно!', 'Кваклин, не пей из колбы! Ты уже однажды был зельем.', 'Понюхай сначала. Всегда сначала нюхай.', 'Рецепт? Ах, рецепт… Он где-то был.', 'Взрыв — это просто фейерверк, который поспешил.', 'Ушастики, сядьте подальше. Сейчас будет громко!'] },
+  lun: { name: 'Звездочёт Лун', d: ['Смотри вверх. Там всё уже написано.', 'Я не сплю на уроке. Я сплю в шляпе. Это разные вещи.', 'В моей книге неба сегодня новая строчка.', 'Пижама? Где? А, это… Зато карта при мне.', 'Первую звезду я помню ещё на небе. Красивая была.'], n: ['Ночь — моё время. Тсс, звёзды говорят.', 'Видишь ту, мигающую? Она подмигивает Тихону.'] },
+  spark: { name: 'Мастер Искра', d: ['Магия без красоты — просто фокус.', 'Как тебе моя причёска? Наколдовала сегодня утром.', 'Ярче, мои хорошие! Но не так ярко, чтобы ослепить соседа.', 'Однажды я оживила портрет. Больше не оживляю.', 'Взмах — и изящнее, изящнее!', 'Лисички-мотыльки снова колдуют слишком громко. Обожаю.'] },
+  breeze: { name: 'Капитан Ветерок', d: ['Эх, вот в наше время крылья были крепче!', 'Однажды я поймал в воздухе целый класс! Да-да, целиком!', 'На земле мне что-то не по себе. В небо бы…', 'Крылоушки не летают — они танцуют в воздухе!', 'Шарф? Он всегда развевается. Характер у него такой.', 'Пух, штурман мой, где ты опять летаешь?'] },
+  storm: { name: 'Госпожа Буря', d: ['Стихии не слушаются. С ними договариваются.', 'Рогатики опять спорят с огнём. Упрямые… Хорошо.', 'Видишь тучку над моей головой? Лучше не видь.', 'Пахнет дождём и цветами? Значит, я довольна.', 'Строго, но справедливо. Только так.', 'Мои волосы сегодня рыжие. Не к добру.'] },
+  owl: { name: 'Экзаменатор Сова', d: ['Экзамен — это урок, который пришёл проверить сам себя.', 'Я помню каждого выпускника по имени. Каждого.', 'Тот вежливый мальчик, что теперь директор… хорошо отвечал.', 'Песочные часы? Я на них не смотрю. Но переворачиваю.', 'Хороший ответ… Ох, борода дрожит.', 'Перо скрипит — значит, оценка честная.'] },
+  sec: { name: 'Бумажкина', d: ['Так… имя… угу-м… раса… ага… Добро пожаловать!', 'Самолётик полетел к Тихону. Надеюсь, не в лоб.', 'Я помню день рождения каждого ученика. Не спрашивай как.', 'Выбросить бумажку? Никогда! Вдруг пригодится через сто лет.', 'Очередь? Сейчас всех запишу, никого не забуду.'] },
+  conc: { name: 'Баю-Бая', d: ['Тише-тише… ТИШЕ, ГОВОРЮ!', 'Кто там храпит у окна? Я знаю, кто.', 'Ой… я задремала? Нет-нет, я на посту.', 'Охраняю сон правого крыла. Строго, но с колыбельной.', 'Свечу не гасим, одеяла поправляем.'], n: ['Ба-а-аю… бай… ой, спят уже все.', 'Даже Звездочёт засыпает под мою колыбельную. Иногда.'] },
+  lyalya: { name: 'Ляля-Люля', d: ['А дальше… дальше было… хр-р-р', 'Я младше сестры на одну колыбельную.', 'Фонарик не гаси, пожалуйста. Просто так. Не потому что темно.', 'Расскажу сказку? Она недлинная… почти.', 'Нас путают все, кроме Тихона.'], n: ['Тс-с… левое крыло спит. И мышка на колпаке тоже.'] },
+  lib: { name: 'Закладкин', d: ['А? Простите… я увлёкся… Что вы сказали?', 'Эту книгу я читал три раза. Хочешь, в четвёртый — вслух?', 'Кто-то не вернул книгу… Я подожду. Молча. Долго.', 'Пожар! …Это я так шепчу, не пугайся.', 'Закладка? Возьми с моих иголок, их много.'] },
+  cook: { name: 'Уголёк', d: ['Сытый маг — счастливый маг!', 'Суп подогрею сам, печь мне не нужна. Фух!', 'Я знаю любимое блюдо каждого ученика.', 'Попробую ещё ложечку… ну и ещё одну…', 'Только бы не чихнуть… а то будет жаркое.'] },
+  fox: { name: 'Господин Хитрован', d: ['Сладкое — лучшее заклинание от грусти!', 'В долг? Можно. Но я всё записываю.', 'Прилавок блестит, конфеты ждут.', 'Грустный ученик? Держи, бесплатно. Только тсс.', 'Пришёл с тележкой, а остался навсегда. Сладкая история.'] },
+  dir: { name: 'Арсений Львович', d: ['Ну что ж… за работу!', 'ТИХОН! Вы там опять пишете обо мне?..', 'Когда-то я сам сидел за этими партами.', 'Школа растёт. Я… я очень рад.', 'Каждый выпускник — лучшая награда школы.'] },
+};
+let WHO = null, whoRects = [], talk = null;   // WHO: who the next drawPose() is (its picture rect is kept for taps)
+function talkTo(k) {
+  const T = WORLD === 1 && TALK[k]; if (!T) return false;
+  const pool = dnDark && T.n ? T.n.concat(T.n, T.d) : T.d;   // at night the night lines come more often
+  let line = rnd(pool); for (let g = 0; g < 6 && talk && talk.k === k && line === talk.s; g++) line = rnd(pool);
+  talk = { k, s: line, name: T.name, t: performance.now() };
+  return true;
+}
+function drawTalk() {   // the speech bubble over the character (world px; text kept at a constant size on screen)
+  if (!talk) return; const age = (performance.now() - talk.t) / 1000, life = 2.6 + talk.s.length * 0.055; if (age > life) { talk = null; return; }
+  const r = whoRects.find((o) => o.k === talk.k); if (!r) return;
+  const k = 1 / scale, fs = 12.5 * k, nf = 10 * k, pad = 7 * k, maxW = 168 * k, lh = fs * 1.22;
+  ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, age * 6, (life - age) * 3));
+  ctx.font = `700 ${fs}px ui-rounded, "Nunito", sans-serif`;
+  const lines = []; let cur = ''; for (const w of talk.s.split(' ')) { const t = cur ? cur + ' ' + w : w; if (cur && ctx.measureText(t).width > maxW) { lines.push(cur); cur = w; } else cur = t; } lines.push(cur);
+  let bw = Math.max(...lines.map((l) => ctx.measureText(l).width)); ctx.font = `800 ${nf}px ui-rounded, "Nunito", sans-serif`; bw = Math.max(bw, ctx.measureText(talk.name).width) + pad * 2;
+  const bh = pad * 2 + nf * 1.25 + lines.length * lh, tail = 7 * k, cx = (r.x0 + r.x1) / 2;
+  const x = Math.max(VIEW.x0 + 4 * k, Math.min(VIEW.x1 - bw - 4 * k, cx - bw / 2)), y = Math.max(VIEW.y0 + 60 * k, r.y0 - 4 * k - tail - bh);
+  ctx.fillStyle = '#fffdf6'; ctx.strokeStyle = '#8a6bd6'; ctx.lineWidth = 1.6 * k;
+  ctx.beginPath(); ctx.roundRect(x, y, bw, bh, 9 * k); ctx.fill(); ctx.stroke();
+  const tx = Math.max(x + 10 * k, Math.min(x + bw - 10 * k, cx));
+  ctx.beginPath(); ctx.moveTo(tx - 6 * k, y + bh - 0.8 * k); ctx.lineTo(tx, y + bh + tail); ctx.lineTo(tx + 6 * k, y + bh - 0.8 * k); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(tx - 6 * k, y + bh); ctx.lineTo(tx, y + bh + tail); ctx.lineTo(tx + 6 * k, y + bh); ctx.stroke();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#7b5cd6'; ctx.fillText(talk.name, x + pad, y + pad);
+  ctx.font = `700 ${fs}px ui-rounded, "Nunito", sans-serif`; ctx.fillStyle = '#3b2a52';
+  lines.forEach((l, i) => ctx.fillText(l, x + pad, y + pad + nf * 1.25 + i * lh));
+  ctx.restore();
+}
 function drawPose(im, x, y, H, flip, moving, style = 'waddle') {
   const q = P(x, y), w = H * im.naturalWidth / im.naturalHeight, t = performance.now() / 1000, hover = moving && style === 'hover';
   const step = moving && style === 'step';   // real walking frames: only a small bob in time with the steps, no rocking
   const lift = hover ? 9 + Math.sin(t * 3) * 2 : step ? Math.abs(Math.sin(t * Math.PI / 0.36)) * 1.2 : moving ? Math.abs(Math.sin(t * 6.5)) * 2.6 : 0;
   const tilt = hover ? Math.sin(t * 2.2) * 0.035 : step ? 0 : moving ? Math.sin(t * 6.5) * 0.075 : 0;
   const sh = hover ? 0.7 : 1;
+  if (WHO) { whoRects.push({ k: WHO, x0: q.x - w * 0.42, x1: q.x + w * 0.42, y0: q.y - lift - H, y1: q.y + 4 }); WHO = null; }   // build 547: tap -> a line
   ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(q.x, q.y, H * 0.28 * sh, H * 0.11 * sh, 0, 0, Math.PI * 2); ctx.fill();
   ctx.save(); ctx.translate(q.x, q.y - lift); ctx.rotate(tilt); if (flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -H, w, H); ctx.restore();
   if (hover) for (let k = 0; k < 3; k++) {   // sparkles drifting down from the feet
@@ -2842,6 +2890,7 @@ function drawSecretary(so) {
   const bob = so.moving && so.pose !== 'carry' ? Math.abs(Math.sin(performance.now() / 260)) * 1.2 : 0;   // no shaking with the stack of papers (her report 2026-11-21); a slow gentle step otherwise
   ctx.fillStyle = '#00000026'; ctx.beginPath(); ctx.ellipse(q.x, q.y, H * 0.3, H * 0.12, 0, 0, Math.PI * 2); ctx.fill();
   ctx.drawImage(im, q.x - w / 2, q.y - lift - h - bob + (so.hit || 0), w, h);
+  whoRects.push({ k: 'sec', x0: q.x - w * 0.42, x1: q.x + w * 0.42, y0: q.y - lift - h, y1: q.y + 4 });   // build 547: tap -> a line
   // no extra emoji: the pose pictures already show the pencil and the pin (her report 2026-11-21)
 }
 for (const f of STAFF_OTHER) { const im = new Image(); im.src = `assets/staff/${SP2}${f}.png?v=1`; sprites['staff_' + f] = im; }
@@ -5202,7 +5251,7 @@ function render() {
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr);
 
   const list = [];
-  agentById = new Map(agents.map((a) => [a.id, a])); fxTop = []; frameLamps.length = 0; LAY_ENT.length = 0; fxCometDone = new Set();
+  agentById = new Map(agents.map((a) => [a.id, a])); fxTop = []; whoRects = []; frameLamps.length = 0; LAY_ENT.length = 0; fxCometDone = new Set();
   const zone = (x, y) => { const id = regAt(Math.floor(x), Math.floor(y)); if (id && id !== 'hall' && SLOTS[id]) { const s = SLOTS[id]; return (s.x0 + s.x1 + s.y0 + s.y1) / 2; } return x + y; };
   const add = (x, y, draw, bias = 0) => { const m = P(x, y); if (onScreen(m.x, m.y)) list.push({ k1: zone(x, y), k2: x + y + bias, draw }); };   // off-screen things are skipped
   VIEW = { x0: scroller.scrollLeft / scale, y0: scroller.scrollTop / scale, x1: (scroller.scrollLeft + scroller.clientWidth) / scale, y1: (scroller.scrollTop + scroller.clientHeight) / scale };
@@ -5243,7 +5292,7 @@ function render() {
     const tp = teacherWalk(i);   // the teacher strolls along the front of the class as if explaining (her wish 2026-11-21)
     { const own = staffOf(CLASSES[i].id) && sprites['staff_' + CLASSES[i].id];
       const pim = teacherPose(i, tp);
-      if (pim) { const hh = (STAFF_H[staffOf(CLASSES[i].id)] || 58) * 1.05; add(tp.x, tp.y, () => { teacherGlow(tp, hh, STAFF_GLOW[staffOf(CLASSES[i].id)] || STAFF_GLOW_ALL); drawPose(pim, tp.x, tp.y, hh, tp.moving && tp.left && TEACHER_FLY[staffOf(CLASSES[i].id)] && FLY_LEFT[staffOf(CLASSES[i].id)] ? !tp.left : tp.left, tp.moving, WALK_POSE[staffOf(CLASSES[i].id)] ? 'step' : tp.left ? 'hover' : 'waddle'); }); }
+      if (pim) { const hh = (STAFF_H[staffOf(CLASSES[i].id)] || 58) * 1.05; add(tp.x, tp.y, () => { WHO = staffOf(CLASSES[i].id); teacherGlow(tp, hh, STAFF_GLOW[staffOf(CLASSES[i].id)] || STAFF_GLOW_ALL); drawPose(pim, tp.x, tp.y, hh, tp.moving && tp.left && TEACHER_FLY[staffOf(CLASSES[i].id)] && FLY_LEFT[staffOf(CLASSES[i].id)] ? !tp.left : tp.left, tp.moving, WALK_POSE[staffOf(CLASSES[i].id)] ? 'step' : tp.left ? 'hover' : 'waddle'); }); }
       else if (own && own.complete && own.naturalWidth) { const t1 = { sp: 'staff_' + CLASSES[i].id, ph: performance.now() / 1000 + i, flip: tp.left, path: tp.moving ? [1] : [] }; add(tp.x, tp.y, () => { const hh = STAFF_H[staffOf(CLASSES[i].id)] || 58;
         { const q = P(tp.x, tp.y), g = ctx.createRadialGradient(q.x, q.y - hh * 0.5, 2, q.x, q.y - hh * 0.5, hh * 0.75); g.addColorStop(0, STAFF_GLOW[staffOf(CLASSES[i].id)] || STAFF_GLOW_ALL); g.addColorStop(1, 'rgba(255,240,200,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.x, q.y - hh * 0.5, hh * 0.75, 0, Math.PI * 2); ctx.fill(); }   // a soft glow so a dark professor stands out in a dark room
         drawCreature(t1, tp.x, tp.y, hh); }); }   // own drawn professor (her approval, one at a time)
@@ -5263,14 +5312,14 @@ function render() {
     });
   }
   // library (themed): an armchair at every open reading place and a few things around
-  if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = dirSpr(dp.pose === 'walk' && WORLD === 1 && !(S.lore && S.lore.prize) ? 'proud' : dp.pose); if (WORLD <= 2 && im && im.naturalWidth) add(dp.x, dp.y, () => { teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, WORLD === 2 ? 58 : S.lore && S.lore.prize ? 84 : 64, dp.flip, dp.moving, WORLD === 2 ? 'step' : 'hover'); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
+  if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = dirSpr(dp.pose === 'walk' && WORLD === 1 && !(S.lore && S.lore.prize) ? 'proud' : dp.pose); if (WORLD <= 2 && im && im.naturalWidth) add(dp.x, dp.y, () => { WHO = 'dir'; teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, WORLD === 2 ? 58 : S.lore && S.lore.prize ? 84 : 64, dp.flip, dp.moving, WORLD === 2 ? 'step' : 'hover'); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
   if (tikhonOn()) { const tp = tikhonPos(), im = sprites['tikhon_' + tp.pose]; if (im && im.naturalWidth) add(tp.x, tp.y, () => { teacherGlow(tp, 60); drawPose(im, tp.x, tp.y, 60, !!tp.flip, !!tp.moving, tp.moving ? 'waddle' : 'hover'); drawTikhonBadge(tp); }); }   // Tikhon, the advisor (build 251)
   if (WORLD === 1 && SLOTS.DIR) { const s = SLOTS.DIR; add(s.x0 + 3.3, s.y0 + 2.4, drawCrown); }
   if (NEWDORM && SLOTS.DORM) { concPlace(); const o1 = concOff('DORM'), co = conciergePos(), th = themeOf('DORM'), aD = layAdd('DORM', SLOTS.DORM, add), bx = CONCIERGE.x - o1.dx, by = CONCIERGE.y - o1.dy;   /* Баю-Бая with her desk: one item, drawn at her unmoved place (the editor layer moves it) */
-    aD(bx, by + 0.75, () => { const im = sprites['con_' + co.pose]?.naturalWidth ? (co.pose === 'walk' ? sprites['staff_concierge'] : sprites['con_' + co.pose]) : sprites['staff_concierge']; if (im && im.naturalWidth) { drawPose(im, co.x - o1.dx, co.y - o1.dy, 62, co.flip, co.moving); if (checkin) { const q = P(co.x - o1.dx, co.y - o1.dy); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } } const d = th && part(th, 'conc_desk'); if (d) drawProp({ n: 'conc_desk', x: bx - 0.05, y: by + 0.75, th }); }, 0, 'conc');
+    aD(bx, by + 0.75, () => { const im = sprites['con_' + co.pose]?.naturalWidth ? (co.pose === 'walk' ? sprites['staff_concierge'] : sprites['con_' + co.pose]) : sprites['staff_concierge']; if (im && im.naturalWidth) { WHO = 'conc'; drawPose(im, co.x - o1.dx, co.y - o1.dy, 62, co.flip, co.moving); if (checkin) { const q = P(co.x - o1.dx, co.y - o1.dy); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } } const d = th && part(th, 'conc_desk'); if (d) drawProp({ n: 'conc_desk', x: bx - 0.05, y: by + 0.75, th }); }, 0, 'conc');
     if (dorm2Built() && SLOTS.DORM2) { const o2 = concOff('DORM2'), aD2 = layAdd('DORM2', SLOTS.DORM2, add), cx = CON2.x - o2.dx, cy = CON2.y - o2.dy;   /* Ляля-Люля with her desk */
       aD2(cx, cy + 0.75, () => { if (LYALYA.complete && LYALYA.naturalWidth) { const q = P(cx, cy), T = performance.now() / 1000, nod = (T % 9) > 7.6 ? Math.sin(((T % 9) - 7.6) / 1.4 * Math.PI) : 0, br = Math.sin(T * 2.2);   /* Ляля-Люля breathes, sways and nods off now and then */
-        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(Math.sin(T * 0.9) * 0.025 + nod * 0.06); ctx.scale(1 + br * 0.012, 1 - br * 0.012 - nod * 0.03); ctx.translate(-q.x, -q.y); drawPose(lyalyaIm(), cx, cy, 62, false, false); ctx.restore();
+        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(Math.sin(T * 0.9) * 0.025 + nod * 0.06); ctx.scale(1 + br * 0.012, 1 - br * 0.012 - nod * 0.03); ctx.translate(-q.x, -q.y); WHO = 'lyalya'; drawPose(lyalyaIm(), cx, cy, 62, false, false); ctx.restore();
         { const f = 0.75 + 0.25 * Math.sin(T * 7) * Math.sin(T * 2.3); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45 * f; ctx.drawImage(glowSprite('170,200,255'), q.x - 30, q.y - 50, 26, 26); ctx.restore(); } if (CON2.cur) { const q = P(cx, cy); ring(q.x - 24, q.y - 62, Math.min(1, CON2.t / checkinTime()), '#4f86c6'); } } const d = th && part(th, 'conc_desk'); if (d) drawProp({ n: 'conc_desk', x: cx - 0.05, y: cy + 0.75, th }); }, 0, 'conc'); } }
   else if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR', 'SHOP', 'TOWER', 'CANT']) {
@@ -5288,7 +5337,7 @@ function render() {
       add(x + 0.4, y + 0.4, () => { const p = P(x, y), h = 46 + Math.sin(v * Math.PI) * 22, w = 13; ctx.save(); ctx.globalAlpha = Math.min(1, v * 6, (1 - v) * 6); ctx.translate(p.x, p.y - h); ctx.rotate(-0.35 + Math.sin(v * 9) * 0.08); ctx.drawImage(pl, -w / 2, -w * 0.35, w, w * 0.7); ctx.restore(); }); } }
   }
   // reception desk + officer
-  if (WORLD <= 2 && SLOTS.LIB) { const lo = librarianPos(), im = sprites['lib_' + lo.pose]; if (im && im.naturalWidth) add(lo.x, lo.y, () => { teacherGlow(lo, 56, 'rgba(255,244,200,0.85)'); drawPose(im, lo.x, lo.y, 56, lo.flip, lo.moving); }); }   // glow: he blended into the dark green room (her report)
+  if (WORLD <= 2 && SLOTS.LIB) { const lo = librarianPos(), im = sprites['lib_' + lo.pose]; if (im && im.naturalWidth) add(lo.x, lo.y, () => { WHO = 'lib'; teacherGlow(lo, 56, 'rgba(255,244,200,0.85)'); drawPose(im, lo.x, lo.y, 56, lo.flip, lo.moving); }); }   // glow: he blended into the dark green room (her report)
   if (WORLD <= 2) for (const [ci, list] of Object.entries(helpersAll())) {   // helper mages stroll between their class and the corridor
     const i = +ci; if (!slotOf(i) || !isOpen(i)) continue;
     list.forEach((h, k) => { if (h.away || h.mc) return; const p = helperPos(i, k); add(p.x, p.y, () => drawCreature({ sp: h.sp, rk: h.rk || 3, el: h.el || 0, back: p.back, flip: p.flip, path: p.moving ? [1] : [], ph: k + i + performance.now() / 1000 }, p.x, p.y, 30)); });
@@ -5310,12 +5359,12 @@ function render() {
       const themed = !!part(themeOf('CANT') || 'CANT', 'counter');
       if (!themed) [3.6, 4.7].forEach((dx, k) => { const q = { x: s.x0 + dx, y: s.y0 + 1.35 }; add(q.x, q.y, () => { drawCounter(q); const m = P(q.x, q.y); emoji(k ? '🍲' : '🥧', m.x, m.y - 14, 13); }); });
       const cim = sprites['cook_' + cookPose()];
-      if (cim && cim.naturalWidth) add(ck.x, ck.y, () => { teacherGlow(ck, 52, 'rgba(255,225,190,0.75)'); drawPose(cim, ck.x, ck.y, 52, false, false); });
+      if (cim && cim.naturalWidth) add(ck.x, ck.y, () => { WHO = 'cook'; teacherGlow(ck, 52, 'rgba(255,225,190,0.75)'); drawPose(cim, ck.x, ck.y, 52, false, false); });
       else add(ck.x, ck.y, () => { const m = P(ck.x, ck.y), hop = busy ? Math.abs(Math.sin(now * 5)) * 3 : 0; teacherGlow(ck, 40, 'rgba(255,225,190,0.75)'); emoji('🐲', m.x, m.y - 18 - hop, 30); if (busy) emoji('🔥', m.x + 14, m.y - 4, 10); });
       if (!themed) CANT_TABLES(s).slice(0, cantTables()).forEach((t) => add(t.x, t.y, () => drawCounter(t, '#e9c79a', '#c99a68', 0.45)));
     }
   }
-  if (shopOpen() && SLOTS.SHOP) { const fo = foxPos(), im = sprites['fox_' + fo.pose]; if (im && im.naturalWidth) add(fo.x, fo.y, () => { teacherGlow(fo, 56, 'rgba(255,240,200,0.7)'); drawPose(im, fo.x, fo.y, 56, fo.flip, fo.moving); }); }
+  if (shopOpen() && SLOTS.SHOP) { const fo = foxPos(), im = sprites['fox_' + fo.pose]; if (im && im.naturalWidth) add(fo.x, fo.y, () => { WHO = 'fox'; teacherGlow(fo, 56, 'rgba(255,240,200,0.7)'); drawPose(im, fo.x, fo.y, 56, fo.flip, fo.moving); }); }
   const co = conciergePos();
   if (NEWDORM) { /* drawn with her desk above */ }
   else if (staffSprite('concierge') && sprites['con_' + co.pose]?.naturalWidth) add(co.x, co.y, () => { drawPose(co.pose === 'walk' ? sprites['staff_concierge'] : sprites['con_' + co.pose], co.x, co.y, 62, co.flip, co.moving); if (checkin) { const q = P(co.x, co.y); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } });
@@ -5393,6 +5442,7 @@ function render() {
   drawMail();
   if (tourStep >= 0 && tourList[tourStep] && tourAt(tourList[tourStep])) { const ta = tourAt(tourList[tourStep]), f = P(ta[0], ta[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
   for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
+  drawTalk();   // build 547
 }
 
 // ======================= UI =======================
@@ -6488,6 +6538,7 @@ scroller.addEventListener('click', (e) => {
   const mh = window.__moonHit; if (mh && performance.now() - mh.t < 600 && Math.hypot(wx - mh.x, wy - mh.y) < mh.r) { LORE.event('moon'); return; }   // the director's riddle, line 1
   const cr = window.__crownRect; if (cr && performance.now() - cr.t < 600 && wx >= cr.x0 && wx <= cr.x1 && wy >= cr.y0 && wy <= cr.y1 && LORE.event('crown')) return;   // line 5
   { const m = moonRect; if (WORLD === 1 && m && performance.now() - m.t < 600 && wx >= m.x0 && wx <= m.x1 && wy >= m.y0 && wy <= m.y1) { tapMoon(); return; } }   // the Moon Tree
+  { const hit = whoRects.filter((o) => wx >= o.x0 && wx <= o.x1 && wy >= o.y0 && wy <= o.y1).pop(); if (hit && talkTo(hit.k)) return; }   // build 547: a tap right on a character -> a line by its lore
   const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { if (TK.on && LORE.event('tikhon')) return; tkOpen(); return; }   // walking Tikhon at dusk talks (line 3)   // Tikhon (or his scroll) opens his own report window, wherever he walks
   { const sh = shadeRects.find((r) => wx >= r.x0 && wx <= r.x1 && wy >= r.y0 && wy <= r.y1); if (sh && tapShade(sh.h)) return; }   // the throne's shadows (build 542)
   const sign = signRects.find((r) => wx >= r.x0 - 6 && wx <= r.x1 + 6 && wy >= r.y0 - 6 && wy <= r.y1 + 6);   // a sign always opens its room
@@ -7700,5 +7751,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=553').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=554').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
