@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=507';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=508';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=507';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=507';
-import { initMinigame } from './minigame.js?v=507';
-import { initChests } from './chests.js?v=507';
-import { initValley } from './valley.js?v=507';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=507';
-import { initLore } from './lore.js?v=507';
-import { initAvatar } from './avatar.js?v=507';
+} from './data.js?v=508';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=508';
+import { initMinigame } from './minigame.js?v=508';
+import { initChests } from './chests.js?v=508';
+import { initValley } from './valley.js?v=508';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=508';
+import { initLore } from './lore.js?v=508';
+import { initAvatar } from './avatar.js?v=508';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 507;   // keep equal to the ?v= number in index.html
+const BUILD = 508;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4195,6 +4195,7 @@ function buildRoom(id) {
 const cachedRoom = (id) => { if (!themeOf(id) || (id === 'DIR' && !dirBuilt()) || (id === 'SHOP' && !shopOpen()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantOpen())) return false; const ci = CLASS_SLOT.indexOf(id); return ci < 0 || S.classes[ci].built; };
 let VIEW = { x0: -1e9, y0: -1e9, x1: 1e9, y1: 1e9 };
 const onScreen = (x, y, mx = 140, my = 200) => x > VIEW.x0 - mx && x < VIEW.x1 + mx && y > VIEW.y0 - my && y < VIEW.y1 + my;
+const bBusy = (id) => { const o = id === 'CANT' ? cantUp() : bObj(id); return !!(o && o.built && Date.now() < (o.end || 0)); };   // under construction: the plot keeps only fence and props
 function drawSlot(c, id) {
   const s = SLOTS[id], ci = CLASS_SLOT.indexOf(id);
   const L = P(s.x0, s.y1), B = P(s.x0, s.y0), R = P(s.x1, s.y0), F = P(s.x1, s.y1);
@@ -4221,26 +4222,26 @@ function drawSlot(c, id) {
   if (ci >= 0 && !S.classes[ci].built) { drawPlot(c, s, ci, L, B, R, F, center); return; }
   if (id === 'SHOP' && !shopOpen()) {
     siteGround(c, L, B, R, F, center);
-    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 56, center.y - 26, 112, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    if (bBusy(id)) return; c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 56, center.y - 26, 112, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
     text(WORLD === 2 ? 'Самоцветная лавка' : '🛍️ Лавка', center.x, center.y - 11, 10, '#5d4a6e', c); text('🪙 ' + fmt(SHOP_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
   if (id === 'CANT' && !cantBuilt()) {
     siteGround(c, L, B, R, F, center);
-    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 56, center.y - 26, 112, 48, 10); c.fill(); c.strokeStyle = '#e08a3d'; c.lineWidth = 2.5; c.stroke();
+    if (bBusy(id)) return; c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 56, center.y - 26, 112, 48, 10); c.fill(); c.strokeStyle = '#e08a3d'; c.lineWidth = 2.5; c.stroke();
     text(WORLD === 2 ? 'Пиршественный зал' : '🍽️ Столовая', center.x, center.y - 11, 10, '#5d4a6e', c);
     if (isOpen(CANT_NEED)) text('🪙 ' + fmt(CANT_COST), center.x, center.y + 8, 12, '#7b5cd6', c); else text('🔒 ' + CLASSES[CANT_NEED].name, center.x, center.y + 8, 10, '#8a7a99', c);
     return;
   }
   if (id === 'TOWER' && !towerOpen()) {
     siteGround(c, L, B, R, F, center);
-    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 62, center.y - 26, 124, 48, 10); c.fill(); c.strokeStyle = '#8f6ef0'; c.lineWidth = 2.5; c.stroke();
+    if (bBusy(id)) return; c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 62, center.y - 26, 124, 48, 10); c.fill(); c.strokeStyle = '#8f6ef0'; c.lineWidth = 2.5; c.stroke();
     text(WORLD === 2 ? 'Чертог Хранителей' : '🏰 Башня мастеров', center.x, center.y - 11, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(towerCost()), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
   if (id === 'DIR' && !dirBuilt()) {
     siteGround(c, L, B, R, F, center);
-    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 62, center.y - 30, 124, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    if (bBusy(id)) return; c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 62, center.y - 30, 124, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
     if (WORLD === 2) { text('👑 Трон старейшины', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(THRONE_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('нужен Зал стражей', center.x, center.y + 19, 8.5, '#8a7a9a', c); }
     else { text('👑 Кабинет директора', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(DIR_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('⭐ ' + DIR_STARS, center.x, center.y + 19, 11, '#c98a00', c); }
     return;
@@ -4249,7 +4250,7 @@ function drawSlot(c, id) {
     const fl = expedOpen() && isOpat(c);
     if (fl) { poly(c, [L, B, R, F]); c.fillStyle = fl; c.fill(); return; }
     poly(c, [L, B, R, F], '#5d5a58'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffaa'); c.setLineDash([]);
-    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 60, center.y - 30, 120, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    if (bBusy(id)) return; c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 60, center.y - 30, 120, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
     text('Врата глубин', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(EXPED_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('нужна Гранильня', center.x, center.y + 19, 8.5, '#8a7a9a', c);
     return;
   }
@@ -4257,13 +4258,13 @@ function drawSlot(c, id) {
     const fl = tradeOpen() && pat(c, 'corridor', 't_floor');
     if (fl) { const T0 = part('corridor', 't_floor').naturalWidth / 3, o = P(0, 0); fl.setTransform(new DOMMatrix([HW / T0, HH / T0, -HW / T0, HH / T0, o.x, o.y])); poly(c, [L, B, R, F]); c.fillStyle = fl; c.fill(); return; }
     poly(c, [L, B, R, F], '#6d6a66'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffaa'); c.setLineDash([]);
-    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 60, center.y - 26, 120, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    if (bBusy(id)) return; c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 60, center.y - 26, 120, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
     text('🐐 Торговый двор', center.x, center.y - 11, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(TRADE_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
   if (id === 'DORM2' && !dorm2Built()) {
     siteGround(c, L, B, R, F, center);
-    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 58, center.y - 26, 116, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    if (bBusy(id)) return; c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 58, center.y - 26, 116, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
     text('🛏️ Вторая спальня', center.x, center.y - 11, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(DORM2_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
@@ -4958,7 +4959,7 @@ function render() {
   }
   for (const id of ['SHOP', 'TRADE', 'EXPED', 'DIR', 'TOWER', 'DORM2']) { const o = bObj(id), s = SLOTS[id]; if (!s || !o || !o.built || Date.now() >= (o.end || 0)) continue;
     const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2, c = P(cx, cy), left = Math.ceil((o.end - Date.now()) / 1000);
-    add(cx, cy, () => buildFx(id, s, Math.max(0, left), 0)); }
+    add(cx, cy, () => buildFx(id, s, Math.max(0, left), BTIME[id] || 0)); }
   if (cantBuilt() && SLOTS.CANT) {   // canteen: counter with pots, tables; the cook stands behind the counter (dragon art comes later)
     const s = SLOTS.CANT;
     if (!cantOpen()) { const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2, c = P(cx, cy), left = Math.max(0, Math.ceil((S.cant.end - Date.now()) / 1000));
@@ -7330,5 +7331,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=507').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=508').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
