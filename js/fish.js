@@ -35,8 +35,8 @@ export function runFish(box, o) {
     e.preventDefault(); if (st.over) return;
     if (!st.started) { st.started = true; o.onStart && o.onStart(); cast(); return; }
     if (st.phase === 'idle') return cast();
-    if (st.phase === 'wait') { say(st.calm ? 'Рано! Спокойствие пропало' : 'Рано! Рыба испугалась', '#ffb0b0'); st.calm = 0; st.phase = 'idle'; st.shown = null; return; }
-    if (st.phase === 'bite') { st.calm = Math.min(4, (st.calm || 0) + 1); st.fish = st.fish || pick(); st.phase = 'reel'; st.tension = 0.5; st.vel = 0; st.zc = 0.5; st.zg = 0.5; st.zt = 0.8; st.top = 0; st.prog = 0.25; st.low = 0; st.hold = true; say('Подсекла! Тяни!', '#ffe08a'); o.snd && o.snd('pop', 3); return; }
+    if (st.phase === 'wait') { say(st.calm ? 'Рано! Терпение пропало' : 'Рано! Рыба испугалась', '#ffb0b0'); st.calm = 0; st.phase = 'idle'; st.shown = null; return; }
+    if (st.phase === 'bite' || st.phase === 'late') { st.calm = Math.min(4, (st.calm || 0) + 1); st.fish = st.fish || pick(); st.phase = 'reel'; st.tension = 0.5; st.vel = 0; st.zc = 0.5; st.zg = 0.5; st.zt = 0.8; st.top = 0; st.prog = 0.25; st.low = 0; st.hold = true; say('Подсекла! Тяни!', '#ffe08a'); o.snd && o.snd('pop', 3); return; }
     if (st.phase === 'reel') st.hold = true;
   };
   const onUp = () => { st.hold = false; };
@@ -58,18 +58,19 @@ export function runFish(box, o) {
     if (!st.started) return;
     st.left -= dt; if (st.left <= 0) { st.left = 0; st.over = true; st.deadT = 0; say('Время вышло!', '#ffe08a'); o.snd && o.snd('end'); return; }
     if (st.phase === 'wait') { st.fakeT -= dt; if (st.fakeT <= 0) { st.fakeT = 0.6 + Math.random() * 1.2; st.twitch = 0.25; st.fakes = (st.fakes || 0) + 1; } st.twitch = Math.max(0, (st.twitch || 0) - dt);
-      st.wait -= dt; if (st.wait <= 0) { st.phase = 'bite'; st.fish = pick(); st.bite = st.fish.pts >= 40 ? 0.45 : st.fish.pts >= 20 ? 0.58 : 0.7; o.snd && o.snd('tick'); } }
-    else if (st.phase === 'bite') { st.bite -= dt; if (st.bite <= 0) lose('Сорвалась… Нажимай, когда поплавок нырнёт!'); }
+      st.wait -= dt; if (st.wait <= 0) { st.phase = 'bite'; st.fish = pick(); st.bite = st.fish.pts >= 40 ? 0.7 : st.fish.pts >= 20 ? 0.85 : 1.0; o.snd && o.snd('tick'); } }
+    else if (st.phase === 'bite') { st.bite -= dt; if (st.bite <= 0) { st.phase = 'late'; st.lateT = 0.2; } }   // «Клюёт!» is gone, but a tap in the next 0.2 s still hooks (touch latency)
+    else if (st.phase === 'late') { st.lateT -= dt; if (st.lateT <= 0) lose('Сорвалась! Жми сразу'); }
     else if (st.phase === 'reel') {
       const f = st.fish, zh = Math.max(0.18, 0.46 - f.pull * 0.22);   // the green zone: narrower for stronger fish
       st.zt -= dt; if (st.zt <= 0) { st.zt = 0.7 + Math.random() * (1.6 - f.pull * 0.5); st.zg = zh / 2 + Math.random() * (1 - zh); }   // the fish darts: a new place for the zone
       st.zc += (st.zg - st.zc) * Math.min(1, dt * (0.9 + f.pull * 1.7));
       st.vel += (st.hold ? 1.4 : -1.2) * dt; st.vel *= Math.pow(0.2, dt); st.tension += st.vel * dt;   // the marker has inertia
       if (st.tension < 0) { st.tension = 0; st.vel = Math.max(0, st.vel); }
-      if (st.tension >= 1) { st.tension = 1; st.vel = Math.min(0, st.vel); st.top += dt; if (st.top > 0.5) { st.shake = 0.3; return lose('Леска лопнула! Не тяни так сильно'); } } else st.top = 0;
+      if (st.tension >= 1) { st.tension = 1; st.vel = Math.min(0, st.vel); st.top += dt; if (st.top > 0.5) { st.shake = 0.3; return lose('Леска лопнула!'); } } else st.top = 0;
       st.inZ = Math.abs(st.tension - st.zc) < zh / 2; st.zh = zh;
       st.prog += (st.inZ ? 0.3 - f.pull * 0.08 : -0.14) * dt;
-      if (st.prog <= 0) return lose('Рыба ушла… держи метку в зелёной зоне');
+      if (st.prog <= 0) return lose('Рыба ушла!');
       if (st.prog >= 1) catchIt();
     }
   }
@@ -104,7 +105,9 @@ export function runFish(box, o) {
     const tt = `⏱ ${Math.ceil(st.left)}`; cx.strokeText(tt, Wp * 0.12, Hp * 0.04); cx.fillText(tt, Wp * 0.12, Hp * 0.04);
     { const pv = patience(); cx.font = `800 ${Math.round(13 * dpr)}px ui-rounded, "Nunito", sans-serif`; cx.textAlign = 'right'; cx.fillStyle = '#ffffff'; cx.strokeText('Терпение', Wp * 0.7, Hp * 0.04); cx.fillText('Терпение', Wp * 0.7, Hp * 0.04); cx.textAlign = 'center';
       for (let k = 0; k < 6; k++) { cx.beginPath(); cx.arc(Wp * 0.74 + k * 12 * dpr, Hp * 0.04, 4.5 * dpr, 0, 7); cx.fillStyle = k < pv ? (k >= 4 ? '#ffd76a' : '#c9a7ff') : 'rgba(255,255,255,0.3)'; cx.fill(); } }   // patience: more dots = rarer fish
-    for (const p of st.texts) { cx.globalAlpha = Math.min(1, (1.3 - p.t) * 3); cx.font = `900 ${Math.round(17 * dpr)}px ui-rounded, "Nunito", sans-serif`; const y = (p.y - p.t * 0.03) * Hp; cx.lineWidth = 5 * dpr; cx.strokeStyle = '#2b4a5a'; cx.strokeText(p.s, p.x * Wp, y); cx.fillStyle = p.col; cx.fillText(p.s, p.x * Wp, y); }
+    for (const p of st.texts) { cx.globalAlpha = Math.min(1, (1.3 - p.t) * 3); cx.font = `900 ${Math.round(17 * dpr)}px ui-rounded, "Nunito", sans-serif`; const y = (p.y - p.t * 0.03) * Hp; cx.lineWidth = 5 * dpr; cx.strokeStyle = '#2b4a5a'; cx.fillStyle = p.col;
+      const words = p.s.split(' '), lines = []; let cur = ''; for (const w of words) { const t = cur ? cur + ' ' + w : w; if (cx.measureText(t).width > Wp * 0.86 && cur) { lines.push(cur); cur = w; } else cur = t; } lines.push(cur);   // wrap to fit the screen
+      lines.forEach((l, k) => { const ly = y + (k - (lines.length - 1) / 2) * 21 * dpr; cx.strokeText(l, Wp / 2, ly); cx.fillText(l, Wp / 2, ly); }); }
     cx.globalAlpha = 1;
     if (!st.started || st.phase === 'idle') { cx.font = `800 ${Math.round(16 * dpr)}px ui-rounded, "Nunito", sans-serif`; cx.lineWidth = 5 * dpr; cx.strokeStyle = '#2b4a5a'; cx.fillStyle = '#ffe9a8';
       const lines = st.started ? [['Нажми — закинуть удочку', 0.62]] : [['Нажми — закинешь удочку.', 0.55], ['Поплавок нырнул — сразу нажми!', 0.6], ['Потом держи палец и тяни,', 0.65], ['но не порви леску.', 0.7]];
