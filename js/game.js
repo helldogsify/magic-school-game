@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=551';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=552';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=551';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=551';
-import { initMinigame } from './minigame.js?v=551';
-import { initChests } from './chests.js?v=551';
-import { initValley } from './valley.js?v=551';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=551';
-import { initLore } from './lore.js?v=551';
-import { initAvatar } from './avatar.js?v=551';
+} from './data.js?v=552';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=552';
+import { initMinigame } from './minigame.js?v=552';
+import { initChests } from './chests.js?v=552';
+import { initValley } from './valley.js?v=552';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=552';
+import { initLore } from './lore.js?v=552';
+import { initAvatar } from './avatar.js?v=552';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 551;   // keep equal to the ?v= number in index.html
+const BUILD = 552;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2694,15 +2694,18 @@ function tkWiseOf(d, i) {   // before a purchase: one of the 3 best upgrades now
     const rank = tkRank(), mine = rank.find((x) => x.o.act === d.act && (x.o.i === undefined || x.o.i === ii) && String(x.o.k) === String(k));
     const w0 = tkWhy(op), tips = tkTips(), hintOf = (t) => !!(t && S.tkHint && S.tkHint[t.key]);
     const tip = w0 && tips.find((t) => t.fam === w0[0] && ((t.place !== null && t.place !== undefined && t.place === ii && tkCapOf(op)) || (mine && (mine.r >= t.r * TK_OK || TK_ROOM[t.fam]))));
-    if (tip) return { share: hintOf(tip) ? TK_WISE_HINT : TK_WISE_SHARE };
-    if (mine && rank.indexOf(mine) < 3) { const t = w0 && tips.find((x) => x.fam === w0[0]); return { share: hintOf(t) ? TK_WISE_HINT : TK_WISE_SHARE }; }
-    return null;
+    if (tip) return { share: hintOf(tip) ? TK_WISE_HINT : TK_WISE_SHARE, title: tip.title };
+    const near = w0 && tips.find((x) => x.fam === w0[0]);
+    if (mine && rank.indexOf(mine) < 3) return { share: hintOf(near) ? TK_WISE_HINT : TK_WISE_SHARE, title: near ? near.title : '' };
+    return near ? { miss: near.title } : null;   // the riddle's kind, but not a good answer: Tikhon says so
   } catch (e) { return null; }
 }
-function tkWisePay(paid, share = TK_WISE_SHARE) {
+function tkWisePay(paid, share = TK_WISE_SHARE, title = '') {
   const bonus = Math.max(1, nice(paid * share)); S.coins += bonus; S.stats.wise = (S.stats.wise || 0) + 1;
-  toast(`🦉 Мудрое решение, директор! Тихон доплатил 🪙${fmt(bonus)}`); updateHud();
+  S.tkLast = { title, bonus, t: Date.now() };
+  toast(`🦉 ${title ? `Загадка «${title}» разгадана!` : 'Мудрое решение, директор!'} Тихон доплатил 🪙${fmt(bonus)}`); updateHud();
 }
+function tkMiss(title) { toast(`🦉 «${title}»: польза есть, но можно выгоднее. Сравни цены — или открой подсказку`); }
 function tkTips() {   // [{key, emo, title, text, g, mins, go}] best first; cached 3 s
   if (tkTipCache && performance.now() - tkTipAt < 3000) return tkTipCache;
   const out = [];
@@ -2732,7 +2735,8 @@ function tkBadge() {   // tips not seen yet + Tikhon's urgent reports
 function tkTipsBlock() {
   const tips = tkTips(); tips.forEach((t) => { tkSeen()[t.key] = 1; });
   if (!tips.length) return '';
-  return `<h3>🔎 Загадки Тихона</h3><p class="muted">Найди сам, что улучшить. Угадаешь одно из самых выгодных улучшений — я доплачу 🦉 (с подсказкой — чуть меньше)${S.stats.wise ? ` · мудрых решений: ${S.stats.wise}` : ''}</p>` + tips.map((t) => { const open = !!(S.tkHint && S.tkHint[t.key]);
+  const L = S.tkLast && Date.now() - S.tkLast.t < 30 * 60000 ? S.tkLast : null;   // the last solved riddle stays on show for 30 min
+  return `<h3>🔎 Загадки Тихона</h3>${L ? `<div class="tknote">✅ <span>${L.title ? `Загадка «${L.title}» разгадана` : 'Мудрое решение'} — я доплатил 🪙${fmt(L.bonus)}. Вот новые загадки:</span></div>` : ''}<p class="muted">Найди сам, что улучшить. Угадаешь одно из самых выгодных улучшений — я доплачу 🦉 (с подсказкой — чуть меньше)${S.stats.wise ? ` · мудрых решений: ${S.stats.wise}` : ''}</p>` + tips.map((t) => { const open = !!(S.tkHint && S.tkHint[t.key]);
     return `<div class="card up tktip"><span class="remoji">${t.emo}</span><div class="grow"><b>${t.title}</b><div class="muted">${t.text}</div>${t.hint && open ? `<div class="tkhint">💡 ${t.hint}</div>` : ''}</div>${t.hint && !open ? `<button class="btn small ghost" data-tkhint="${t.key}">Подсказка</button>` : ''}</div>`; }).join('');
 }
 function tkStyle() {
@@ -2769,8 +2773,11 @@ function advisorBlock(own = false) {   // top of the director's panel (own: insi
     ${items}${tips}${own ? `<div class="tknote">📋 <span>${TK_TASK_NOTE}</span></div>` : ''}
     <button class="btn ghost wide" data-missions>📋 Задания от Тихона</button>`;
 }
-function tikhonPanel() {   // his own window (tester «По Тихону открывается весь кабинет директора а должен открываться только меню Тихона Тихон отдельное личность»): a tap on him opens only his report and quests
-  return `<div class="sh-head">${tikhonPic(56)}<div><h2>${ADV_NAME}</h2><div class="muted">советник директора и летописец школы</div></div><button class="x" data-close>✕</button></div>` + advisorBlock(true);
+let tkFrozen = null;   // his window's html, kept while it stays open
+const tkOpen = () => { tkFrozen = null; openPanel(tikhonPanel); };
+function tikhonPanel() {   // built once per opening (no jumping text);  his own window (tester «По Тихону открывается весь кабинет директора а должен открываться только меню Тихона Тихон отдельное личность»): a tap on him opens only his report and quests
+  if (tkFrozen) return tkFrozen;
+  return tkFrozen = `<div class="sh-head">${tikhonPic(56)}<div><h2>${ADV_NAME}</h2><div class="muted">советник директора и летописец школы</div></div><button class="x" data-close>✕</button></div>` + advisorBlock(true);
 }
 function advGo(k) {
   const g = advTargets[+k]; if (!g) return;
@@ -6479,7 +6486,7 @@ scroller.addEventListener('click', (e) => {
   const mh = window.__moonHit; if (mh && performance.now() - mh.t < 600 && Math.hypot(wx - mh.x, wy - mh.y) < mh.r) { LORE.event('moon'); return; }   // the director's riddle, line 1
   const cr = window.__crownRect; if (cr && performance.now() - cr.t < 600 && wx >= cr.x0 && wx <= cr.x1 && wy >= cr.y0 && wy <= cr.y1 && LORE.event('crown')) return;   // line 5
   { const m = moonRect; if (WORLD === 1 && m && performance.now() - m.t < 600 && wx >= m.x0 && wx <= m.x1 && wy >= m.y0 && wy <= m.y1) { tapMoon(); return; } }   // the Moon Tree
-  const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { if (TK.on && LORE.event('tikhon')) return; openPanel(tikhonPanel); return; }   // walking Tikhon at dusk talks (line 3)   // Tikhon (or his scroll) opens his own report window, wherever he walks
+  const tk = tikhonRect; if (tk && performance.now() - tk.t < 600 && wx >= tk.x0 && wx <= tk.x1 && wy >= tk.y0 && wy <= tk.y1) { if (TK.on && LORE.event('tikhon')) return; tkOpen(); return; }   // walking Tikhon at dusk talks (line 3)   // Tikhon (or his scroll) opens his own report window, wherever he walks
   { const sh = shadeRects.find((r) => wx >= r.x0 && wx <= r.x1 && wy >= r.y0 && wy <= r.y1); if (sh && tapShade(sh.h)) return; }   // the throne's shadows (build 542)
   const sign = signRects.find((r) => wx >= r.x0 - 6 && wx <= r.x1 + 6 && wy >= r.y0 - 6 && wy <= r.y1 + 6);   // a sign always opens its room
   if (sign) { if (sign.id === 'FOUNT') openPanel(fountainPanel); else openRoom(sign.id); return; }
@@ -6533,8 +6540,8 @@ document.addEventListener('click', (e) => {
   if (AV.click(d)) return;   // avatar buttons
   if (d.war !== undefined) { openWar(); return; }
   if (qClick(d)) return;
-  if (d.tikhon !== undefined) { openPanel(tikhonPanel); renderTkBtn(); return; }
-  if (d.tkhint !== undefined) { (S.tkHint ||= {})[d.tkhint] = 1; save(); refreshPanel(); return; }
+  if (d.tikhon !== undefined) { tkOpen(); renderTkBtn(); return; }
+  if (d.tkhint !== undefined) { (S.tkHint ||= {})[d.tkhint] = 1; save(); tkFrozen = null; refreshPanel(); return; }
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.rumble !== undefined) { const s = slotOf(guardsIdx()); if (panel) closePanel(); if (s) focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2); return; }
@@ -6650,7 +6657,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'conc') { if (dormUp().conc < MAX_CONC && spend(concCost())) dormUp().conc++; }
   else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= buildCost(i) && spendStars(starsNeed(i)) && spend(buildCost(i))) { st.built = true; st.buildEnd = Date.now() + buildTime(i) * 1000; panel = classPanel(i); } }
   else return;
-  if (tkW && S.coins < tkC0) tkWisePay(tkC0 - S.coins, tkW.share);
+  if (tkW && S.coins < tkC0) { if (tkW.miss) tkMiss(tkW.miss); else tkWisePay(tkC0 - S.coins, tkW.share, tkW.title); tkFrozen = null; }
   refreshPanel(); save();
 });
 $('#sheet-bg').addEventListener('click', closePanel);
@@ -7691,5 +7698,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=551').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=552').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
