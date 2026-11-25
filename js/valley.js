@@ -53,6 +53,9 @@ function hexPath(cx, x, y, s) { cx.beginPath(); for (let k = 0; k < 6; k++) { co
 const shade = (hex, k) => { const v = parseInt(hex.slice(1, 7), 16), f = (c) => Math.max(0, Math.min(255, Math.round(k < 0 ? c * (1 + k) : c + (255 - c) * k))); return `rgb(${f(v >> 16)},${f((v >> 8) & 255)},${f(v & 255)})`; };
 const mix = (h1, h2, k) => { const a = parseInt(h1.slice(1, 7), 16), b = parseInt(h2.slice(1, 7), 16), m = (x, y) => Math.round(x + (y - x) * k); return '#' + [m(a >> 16, b >> 16), m((a >> 8) & 255, (b >> 8) & 255), m(a & 255, b & 255)].map((v) => v.toString(16).padStart(2, '0')).join(''); };
 let march = null, burst = null, tut = -1, raf = 0, lastDraw = 0;
+const TILE = {};   // painted tiles (art/valley/tiles_v1.jpg, SYNTX banana2, Maria's «Да» 2026-11-25); the code drawing stays as the fallback
+for (const k of ['plain', 'forest', 'mountain', 'lake', 'mine', 'ruins', 'tower', 'castle', 'path']) { const im = new Image(); im.src = `assets/valley/${k}.webp?v=1`; TILE[k] = im; }
+const tileImg = (c) => { const k = c.t === 'plain' && ((c.q * 7 + c.r * 13) & 3) === 0 ? 'path' : c.t, im = TILE[k]; return im && im.complete && im.naturalWidth ? im : null; };
 const VAL = { mine: 3, castle: 4, ruins: 2.5, tower: 2 };
 function tipOf() {   // the best move now: a cheap valuable neighbour; or what else to do
   if (!st || !st.me) return null;
@@ -74,10 +77,13 @@ function draw() {
     const { x, y } = px(c.q, c.r), T = TINFO[c.t], al = alOf(c.o), lake = c.t === 'lake';
     const base = al ? mix(T.col, al.color, 0.38) : T.col, top = lake ? y + ext * 0.5 : y;
     if (!lake) { hexPath(cx, x, y + ext, s * 0.98); cx.fillStyle = shade(base, -0.38); cx.fill(); }   // the side of the raised tile
-    hexPath(cx, x, top, s * 0.98); const g = cx.createRadialGradient(x - s * 0.35, top - s * 0.45, s * 0.05, x, top, s * 1.15); g.addColorStop(0, shade(base, lake ? 0.45 : 0.32)); g.addColorStop(1, base); cx.fillStyle = g; cx.fill();
+    const im = tileImg(c); hexPath(cx, x, top, s * 0.98);
+    if (im) { cx.save(); cx.clip(); const z = s * 2.2; cx.drawImage(im, x - z / 2, top - z / 2, z, z); if (al) { cx.fillStyle = al.color + '38'; cx.fillRect(x - z / 2, top - z / 2, z, z); } if (c.t === 'castle' && !c.o) { cx.fillStyle = 'rgba(255,255,255,0.45)'; cx.fillRect(x - z / 2, top - z / 2, z, z); } cx.restore(); hexPath(cx, x, top, s * 0.98); }
+    else { const g = cx.createRadialGradient(x - s * 0.35, top - s * 0.45, s * 0.05, x, top, s * 1.15); g.addColorStop(0, shade(base, lake ? 0.45 : 0.32)); g.addColorStop(1, base); cx.fillStyle = g; cx.fill(); }
     cx.lineWidth = 1.2; cx.strokeStyle = 'rgba(255,255,255,0.55)'; cx.stroke();
     if (al) { hexPath(cx, x, top, s * 0.88); cx.lineWidth = Math.max(2.5, s * 0.13); cx.strokeStyle = al.color; cx.stroke(); }
-    if (lake) { cx.strokeStyle = 'rgba(255,255,255,0.75)'; cx.lineWidth = Math.max(1.2, s * 0.06); for (const [dy, ph] of [[-0.22, 0], [0.18, 1.7]]) { const sh = Math.sin(T0 * 1.6 + ph + c.q) * s * 0.08; cx.beginPath(); cx.moveTo(x - s * 0.42 + sh, top + s * dy); cx.quadraticCurveTo(x - s * 0.2 + sh, top + s * (dy - 0.12), x + sh, top + s * dy); cx.quadraticCurveTo(x + s * 0.2 + sh, top + s * (dy + 0.12), x + s * 0.42 + sh, top + s * dy); cx.stroke(); } }
+    if (im) { /* the painting already shows it */ }
+    else if (lake) { cx.strokeStyle = 'rgba(255,255,255,0.75)'; cx.lineWidth = Math.max(1.2, s * 0.06); for (const [dy, ph] of [[-0.22, 0], [0.18, 1.7]]) { const sh = Math.sin(T0 * 1.6 + ph + c.q) * s * 0.08; cx.beginPath(); cx.moveTo(x - s * 0.42 + sh, top + s * dy); cx.quadraticCurveTo(x - s * 0.2 + sh, top + s * (dy - 0.12), x + sh, top + s * dy); cx.quadraticCurveTo(x + s * 0.2 + sh, top + s * (dy + 0.12), x + s * 0.42 + sh, top + s * dy); cx.stroke(); } }
     else if (c.t === 'forest') { ico('🌲', x - s * 0.3, top - s * 0.12, s * 0.62); ico('🌲', x + s * 0.3, top - s * 0.16, s * 0.62); ico('🌲', x, top - s * 0.36, s * 0.66); }
     else if (c.t === 'mountain') { ico('⛰️', x - s * 0.18, top - s * 0.22, s * 0.78); ico('⛰️', x + s * 0.28, top - s * 0.06, s * 0.55); }
     else if (T.ico) { if (c.t === 'castle' && !c.o) cx.globalAlpha = 0.45; ico(T.ico, x, top - s * 0.16, s * (c.t === 'castle' ? 1.12 : 0.82)); cx.globalAlpha = 1; }   // a free castle is pale: a new alliance will move in
