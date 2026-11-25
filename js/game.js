@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=523';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=524';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=523';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=523';
-import { initMinigame } from './minigame.js?v=523';
-import { initChests } from './chests.js?v=523';
-import { initValley } from './valley.js?v=523';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=523';
-import { initLore } from './lore.js?v=523';
-import { initAvatar } from './avatar.js?v=523';
+} from './data.js?v=524';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=524';
+import { initMinigame } from './minigame.js?v=524';
+import { initChests } from './chests.js?v=524';
+import { initValley } from './valley.js?v=524';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=524';
+import { initLore } from './lore.js?v=524';
+import { initAvatar } from './avatar.js?v=524';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 523;   // keep equal to the ?v= number in index.html
+const BUILD = 524;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -995,15 +995,28 @@ const bedExists = (b) => (b < DORM_STRIDE ? b < beds1() : b - DORM_STRIDE < beds
 const checkinTime = () => 2 * Math.pow(0.85, dormUp().conc - 1);
 const bedsCost = () => paced(150 * Math.pow(1.6, dormUp().beds - 1), dormUp().beds);
 const concCost = () => paced(100 * Math.pow(1.5, dormUp().conc - 1), dormUp().conc);
-const dormLineSpot = (k) => (WORLD === 1 && (window.__EDIT) ? { x: DS.x0 + 0.6, y: Math.min(DS.y1 - 0.4, DS.y0 + 4.3 + k * 0.5) } : { x: DS.x0 - 1.5, y: DS.y0 + 1.5 + k * 0.6 });   /* world 1: the line waits inside, along the wall past the door */   // the check-in line waits in the reception, by the dorm door
+const dormLineSpot = (k) => (WORLD === 1 && (window.__EDIT) ? { x: CONCIERGE.x - 0.05, y: Math.min(DS.y1 - 0.4, CONCIERGE.y + 3.55 + k * 0.5) } : { x: DS.x0 - 1.5, y: DS.y0 + 1.5 + k * 0.6 });   /* world 1: the line waits inside, along the wall past the door */   // the check-in line waits in the reception, by the dorm door
 let dormLine = [], checkin = null, checkinT = 0;
+const NEWDORM = WORLD === 1 && !!window.__EDIT;   /* the tree dorms with two concierges: editor only until her OK */
+const concOff = (rid) => { const R = NEWDORM && RLAY.rooms[rid], o = R && R.items && R.items['conc#1']; return { dx: (o && o.dx) || 0, dy: (o && o.dy) || 0 }; };   /* moved in the editor */
+const CON2 = { line: [], cur: null, t: 0, keyAt: -1e9, x: 0, y: 0 };   /* Ляля-Люля, Спальня 2 */
+const LYALYA = (() => { const im = new Image(); im.src = 'assets/staff/concierge2.webp?v=1'; return im; })();
+function concPlace() { if (!NEWDORM) return; const o1 = concOff('DORM'), o2 = concOff('DORM2'); CONCIERGE = { x: DS.x0 + 0.65 + o1.dx, y: DS.y0 + 0.75 + o1.dy }; CON2.x = DS2.x1 - 0.75 + o2.dx; CON2.y = DS2.y0 + 2.3 + o2.dy; }
+const toTwin = (a) => NEWDORM && dorm2Built() && a.bed >= DORM_STRIDE;
+const line2Spot = (k) => ({ x: CON2.x + 0.15, y: Math.min(DS2.y1 - 0.4, CON2.y + 3.9 + k * 0.5) });
+function goLine2(a) { const p = line2Spot(CON2.line.indexOf(a)); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'dline'; }); }
+function stepConcierge2(dt) {   /* Ляля-Люля checks in the guests of Спальня 2 */
+  if (!CON2.cur && CON2.line.length && CON2.line[0].state === 'dline') { CON2.cur = CON2.line[0]; CON2.t = 0; CON2.cur.state = 'checkin'; }
+  if (!CON2.cur) return; CON2.t += dt; if (CON2.t < checkinTime()) return;
+  const a = CON2.cur; CON2.cur = null; CON2.line.shift(); CON2.line.forEach(goLine2); popup('📝', a.x, a.y, '#4f86c6', 44); CON2.keyAt = performance.now() / 1000; toBed(a);
+}
 const DORM_CAP = DORM_SPOTS.length;
 const dorm = Array(DORM_CAP).fill(null);           // agent per bed (only the first bedCount() beds exist)
 const freeBed = () => { for (let b = 0; b < DORM_CAP; b++) if (bedExists(b) && !dorm[b]) return b; return -1; };
 const dormFree = () => freeBed() >= 0;
 function goDorm(a, i, bed = freeBed()) {   // bed is reserved now, the student queues at the concierge first
   dorm[bed] = a; a.bed = bed; a.goal = { t: 'd', i }; a.c = -1; a.since = Date.now();
-  dormLine.push(a); goDormLine(a);
+  if (toTwin(a)) { CON2.line.push(a); goLine2(a); } else { dormLine.push(a); goDormLine(a); }
 }
 function goDormLine(a) { const p = dormLineSpot(dormLine.indexOf(a)); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'dline'; }); }
 function toBed(a) { const p = DORM_SPOTS[a.bed]; a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'sleep'; }); }
@@ -1053,10 +1066,11 @@ function wakeSleepers() {   // the one who has waited longest goes back first
     if (a.state !== 'sleep') {   // not checked in yet (or walking to the bed): leave the concierge line
       const k = dormLine.indexOf(a); if (k >= 0) { dormLine.splice(k, 1); moved = true; }
       if (checkin === a) { checkin = null; checkinT = 0; }
+      { const k2 = CON2.line.indexOf(a); if (k2 >= 0) { CON2.line.splice(k2, 1); moved = true; } if (CON2.cur === a) { CON2.cur = null; CON2.t = 0; } }
     }
     dorm[a.bed] = null; a.bed = -1; a.woke = true; popup('😊', a.x, a.y, '#2f9e7a', 44); goClass(a, i);
   }
-  if (moved) dormLine.forEach((w) => { if (w.state === 'dline' || w.state === 'walk') goDormLine(w); });   // the line moves up
+  if (moved) { dormLine.forEach((w) => { if (w.state === 'dline' || w.state === 'walk') goDormLine(w); }); CON2.line.forEach((w) => { if (w.state === 'dline' || w.state === 'walk') goLine2(w); }); }   // the line moves up
 }
 function nextClass(i) { for (let k = i + 1; k < CLASSES.length; k++) if (isOpen(k)) return k; return -1; }
 // ======================= dorm roles (agreed plan, her pick «2 и 3», 2026-11-23) =======================
@@ -2266,7 +2280,7 @@ function stepWorld(dt, live = false) {
   if (arrivalT <= 0) { arrivalT = arrivalInterval(); gateArrive(); } if (gatePend() && gateLet(queue.length < queueCap(), !(WORLD === 2 ? schoolFull() : freeBeds() <= 4))) spawn();   // world 1 too: nobody new comes while the court and the dorm are (almost) full   // world 2: nobody new comes while every line and every bed is taken
   startNextProcess(live);
   if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime()) finishProcess(); }
-  stepConcierge(dt);
+  concPlace(); stepConcierge(dt); if (NEWDORM) stepConcierge2(dt);
   wakeSleepers();
   if (cantBuilt() && S.cant.end && Date.now() >= S.cant.end) { S.cant.end = 0; toast(WORLD === 2 ? '🍖 Пиршественный зал открыт!' : '🍽️ Столовая открыта!'); dirtyPanel = true; staticKey = ''; }
   S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; staticKey = ''; } });
@@ -5012,7 +5026,11 @@ function render() {
   if (SLOTS.DIR && dirBuilt()) { const dp = directorPos(), im = dirSpr(dp.pose === 'walk' && WORLD === 1 && !(S.lore && S.lore.prize) ? 'proud' : dp.pose); if (WORLD <= 2 && im && im.naturalWidth) add(dp.x, dp.y, () => { teacherGlow(dp, 64); drawPose(im, dp.x, dp.y, WORLD === 2 ? 58 : S.lore && S.lore.prize ? 84 : 64, dp.flip, dp.moving, WORLD === 2 ? 'step' : 'hover'); }); else { const s = SLOTS.DIR, dx = s.x0 + 2.0, dy = s.y0 + 1.75; add(dx, dy, () => drawCreature(director, dx, dy, 36, (x, y) => drawHat(x, y - 34, '#e0a100'))); } }
   if (tikhonOn()) { const tp = tikhonPos(), im = sprites['tikhon_' + tp.pose]; if (im && im.naturalWidth) add(tp.x, tp.y, () => { teacherGlow(tp, 60); drawPose(im, tp.x, tp.y, 60, !!tp.flip, !!tp.moving, tp.moving ? 'waddle' : 'hover'); drawTikhonBadge(tp); }); }   // Tikhon, the advisor (build 251)
   if (WORLD === 1 && SLOTS.DIR) { const s = SLOTS.DIR; add(s.x0 + 3.3, s.y0 + 2.4, drawCrown); }
-  if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
+  if (NEWDORM && SLOTS.DORM) { concPlace(); const o1 = concOff('DORM'), co = conciergePos(), th = themeOf('DORM'), aD = layAdd('DORM', SLOTS.DORM, add), bx = CONCIERGE.x - o1.dx, by = CONCIERGE.y - o1.dy;   /* Баю-Бая with her desk: one item, drawn at her unmoved place (the editor layer moves it) */
+    aD(bx, by + 0.75, () => { const im = sprites['con_' + co.pose]?.naturalWidth ? (co.pose === 'walk' ? sprites['staff_concierge'] : sprites['con_' + co.pose]) : sprites['staff_concierge']; if (im && im.naturalWidth) { drawPose(im, co.x - o1.dx, co.y - o1.dy, 62, co.flip, co.moving); if (checkin) { const q = P(co.x - o1.dx, co.y - o1.dy); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } } const d = th && part(th, 'conc_desk'); if (d) drawProp({ n: 'conc_desk', x: bx - 0.05, y: by + 0.75, th }); }, 0, 'conc');
+    if (dorm2Built() && SLOTS.DORM2) { const o2 = concOff('DORM2'), aD2 = layAdd('DORM2', SLOTS.DORM2, add), cx = CON2.x - o2.dx, cy = CON2.y - o2.dy;   /* Ляля-Люля with her desk */
+      aD2(cx, cy + 0.75, () => { if (LYALYA.complete && LYALYA.naturalWidth) { drawPose(LYALYA, cx, cy, 62, false, false); if (CON2.cur) { const q = P(cx, cy); ring(q.x - 24, q.y - 62, Math.min(1, CON2.t / checkinTime()), '#4f86c6'); } } const d = th && part(th, 'conc_desk'); if (d) drawProp({ n: 'conc_desk', x: cx - 0.05, y: cy + 0.75, th }); }, 0, 'conc'); } }
+  else if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR', 'SHOP', 'TOWER', 'CANT']) {
     const th = themeOf(rid); if (!th || !SLOTS[rid] || (rid === 'CANT' && !cantOpen()) || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt()) || (rid === 'SHOP' && !shopOpen()) || (rid === 'TOWER' && !towerOpen())) continue;
     const T = THEMES[th], s = SLOTS[rid];
@@ -5057,7 +5075,8 @@ function render() {
   }
   if (shopOpen() && SLOTS.SHOP) { const fo = foxPos(), im = sprites['fox_' + fo.pose]; if (im && im.naturalWidth) add(fo.x, fo.y, () => { teacherGlow(fo, 56, 'rgba(255,240,200,0.7)'); drawPose(im, fo.x, fo.y, 56, fo.flip, fo.moving); }); }
   const co = conciergePos();
-  if (staffSprite('concierge') && sprites['con_' + co.pose]?.naturalWidth) add(co.x, co.y, () => { drawPose(co.pose === 'walk' ? sprites['staff_concierge'] : sprites['con_' + co.pose], co.x, co.y, 62, co.flip, co.moving); if (checkin) { const q = P(co.x, co.y); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } });
+  if (NEWDORM) { /* drawn with her desk above */ }
+  else if (staffSprite('concierge') && sprites['con_' + co.pose]?.naturalWidth) add(co.x, co.y, () => { drawPose(co.pose === 'walk' ? sprites['staff_concierge'] : sprites['con_' + co.pose], co.x, co.y, 62, co.flip, co.moving); if (checkin) { const q = P(co.x, co.y); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } });
   else add(CONCIERGE.x, CONCIERGE.y, () => drawCreature(staffSprite('concierge') ? { ...concierge, sp: 'staff_concierge', flip: false } : concierge, CONCIERGE.x, CONCIERGE.y, staffSprite('concierge') ? 62 : 34, (x, y) => {
     if (!staffSprite('concierge')) drawHat(x, y - 32, '#2f9e7a');
     if (checkin) ring(x + 18, y - 30, Math.min(1, checkinT / checkinTime()), '#2f9e7a');
@@ -7078,7 +7097,7 @@ function relayout() {   // rebuild the map (a class was expanded): creatures kee
   LS = SLOTS.LIB; libSpots();
   computeBounds(); staticKey = ''; resize();
   if (snap) {
-    agents = []; queue = []; processing = null; dormLine = []; checkin = null; shopLine.length = 0; cantLine.length = 0; cantSeats.fill(null);
+    agents = []; queue = []; processing = null; dormLine = []; checkin = null; CON2.line = []; CON2.cur = null; shopLine.length = 0; cantLine.length = 0; cantSeats.fill(null);
     deskOcc.forEach((a) => a.fill(null)); waitList.forEach((l) => (l.length = 0)); dorm.fill(null); lib.fill(null); courtList.length = 0;
     S.world = snap; restoreWorld(true);
   }
@@ -7430,5 +7449,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=523').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=524').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
