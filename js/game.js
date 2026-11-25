@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=506';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=507';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=506';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=506';
-import { initMinigame } from './minigame.js?v=506';
-import { initChests } from './chests.js?v=506';
-import { initValley } from './valley.js?v=506';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=506';
-import { initLore } from './lore.js?v=506';
-import { initAvatar } from './avatar.js?v=506';
+} from './data.js?v=507';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=507';
+import { initMinigame } from './minigame.js?v=507';
+import { initChests } from './chests.js?v=507';
+import { initValley } from './valley.js?v=507';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=507';
+import { initLore } from './lore.js?v=507';
+import { initAvatar } from './avatar.js?v=507';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 506;   // keep equal to the ?v= number in index.html
+const BUILD = 507;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4220,27 +4220,27 @@ function drawSlot(c, id) {
   }
   if (ci >= 0 && !S.classes[ci].built) { drawPlot(c, s, ci, L, B, R, F, center); return; }
   if (id === 'SHOP' && !shopOpen()) {
-    poly(c, [L, B, R, F], '#ecd2a8'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
-    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 56, center.y - 26, 112, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    siteGround(c, L, B, R, F, center);
+    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 56, center.y - 26, 112, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
     text(WORLD === 2 ? 'Самоцветная лавка' : '🛍️ Лавка', center.x, center.y - 11, 10, '#5d4a6e', c); text('🪙 ' + fmt(SHOP_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
   if (id === 'CANT' && !cantBuilt()) {
-    poly(c, [L, B, R, F], '#ecd2a8'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
-    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 56, center.y - 26, 112, 48, 10); c.fill(); c.strokeStyle = '#e08a3d'; c.lineWidth = 2.5; c.stroke();
+    siteGround(c, L, B, R, F, center);
+    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 56, center.y - 26, 112, 48, 10); c.fill(); c.strokeStyle = '#e08a3d'; c.lineWidth = 2.5; c.stroke();
     text(WORLD === 2 ? 'Пиршественный зал' : '🍽️ Столовая', center.x, center.y - 11, 10, '#5d4a6e', c);
     if (isOpen(CANT_NEED)) text('🪙 ' + fmt(CANT_COST), center.x, center.y + 8, 12, '#7b5cd6', c); else text('🔒 ' + CLASSES[CANT_NEED].name, center.x, center.y + 8, 10, '#8a7a99', c);
     return;
   }
   if (id === 'TOWER' && !towerOpen()) {
-    poly(c, [L, B, R, F], '#d9d2ec'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
-    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 62, center.y - 26, 124, 48, 10); c.fill(); c.strokeStyle = '#8f6ef0'; c.lineWidth = 2.5; c.stroke();
+    siteGround(c, L, B, R, F, center);
+    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 62, center.y - 26, 124, 48, 10); c.fill(); c.strokeStyle = '#8f6ef0'; c.lineWidth = 2.5; c.stroke();
     text(WORLD === 2 ? 'Чертог Хранителей' : '🏰 Башня мастеров', center.x, center.y - 11, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(towerCost()), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
   if (id === 'DIR' && !dirBuilt()) {
-    poly(c, [L, B, R, F], '#ecd2a8'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
-    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 62, center.y - 30, 124, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    siteGround(c, L, B, R, F, center);
+    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 62, center.y - 30, 124, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
     if (WORLD === 2) { text('👑 Трон старейшины', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(THRONE_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('нужен Зал стражей', center.x, center.y + 19, 8.5, '#8a7a9a', c); }
     else { text('👑 Кабинет директора', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(DIR_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('⭐ ' + DIR_STARS, center.x, center.y + 19, 11, '#c98a00', c); }
     return;
@@ -4249,7 +4249,7 @@ function drawSlot(c, id) {
     const fl = expedOpen() && isOpat(c);
     if (fl) { poly(c, [L, B, R, F]); c.fillStyle = fl; c.fill(); return; }
     poly(c, [L, B, R, F], '#5d5a58'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffaa'); c.setLineDash([]);
-    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 60, center.y - 30, 120, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 60, center.y - 30, 120, 58, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
     text('Врата глубин', center.x, center.y - 15, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(EXPED_COST), center.x, center.y + 3, 12, '#7b5cd6', c); text('нужна Гранильня', center.x, center.y + 19, 8.5, '#8a7a9a', c);
     return;
   }
@@ -4257,13 +4257,13 @@ function drawSlot(c, id) {
     const fl = tradeOpen() && pat(c, 'corridor', 't_floor');
     if (fl) { const T0 = part('corridor', 't_floor').naturalWidth / 3, o = P(0, 0); fl.setTransform(new DOMMatrix([HW / T0, HH / T0, -HW / T0, HH / T0, o.x, o.y])); poly(c, [L, B, R, F]); c.fillStyle = fl; c.fill(); return; }
     poly(c, [L, B, R, F], '#6d6a66'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffaa'); c.setLineDash([]);
-    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 60, center.y - 26, 120, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 60, center.y - 26, 120, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
     text('🐐 Торговый двор', center.x, center.y - 11, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(TRADE_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
   if (id === 'DORM2' && !dorm2Built()) {
-    poly(c, [L, B, R, F], '#ecd2a8'); c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
-    c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 58, center.y - 26, 116, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
+    siteGround(c, L, B, R, F, center);
+    c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 58, center.y - 26, 116, 48, 10); c.fill(); c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
     text('🛏️ Вторая спальня', center.x, center.y - 11, 9.5, '#5d4a6e', c); text('🪙 ' + fmt(DORM2_COST), center.x, center.y + 8, 12, '#7b5cd6', c);
     return;
   }
@@ -4384,13 +4384,66 @@ function drawSign(c, id) {
 }
 const SIGN_BG = { EXPED: '#c9c3e6', TRADE: '#e8d4b0', CANT: '#f9d3a5', REC: '#d9c4f7', DORM: '#c2d8f7', LIB: '#f0cf9f', DIR: '#f5d77a', SHOP: '#f7c1d9', TOWER: '#cdbdf2' };
 let signRects = [];   // tappable room signs of the last frame, world coords
+// ---- building sites (art/build/props_v1.jpg, SYNTX): plots with a fence and a sign board; magic construction with progress ----
+const BLD = {};
+for (const n of ['fence', 'sign', 'planks', 'bricks', 'scaffold', 'crane', 'barrow', 'hammer', 'saw']) { const im = new Image(); im.onload = () => { staticKey = ''; }; im.src = `assets/build/${n}.webp?v=1`; BLD[n] = im; }
+const bImg = (n) => { const im = BLD[n]; return im && im.complete && im.naturalWidth ? im : null; };
+function bDraw(c, n, x, y, h, flip = false, a = 1) {   // bottom-centre anchored
+  const im = bImg(n); if (!im) return false; const w = h * im.naturalWidth / im.naturalHeight;
+  c.save(); c.globalAlpha = a; c.translate(x, y); if (flip) c.scale(-1, 1); c.drawImage(im, -w / 2, -h, w, h); c.restore(); return true;
+}
+function fenceEdge(c, a, b) {   // pickets along one edge of the plot; the picture runs «/», mirrored for «\»
+  const im = bImg('fence'); if (!im) return; const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy), n = Math.max(1, Math.round(len / 46));
+  for (let k = 0; k < n; k++) { const p0 = { x: a.x + dx * k / n, y: a.y + dy * k / n }, p1 = { x: a.x + dx * (k + 1) / n, y: a.y + dy * (k + 1) / n };
+    const w = Math.abs(p1.x - p0.x) * 1.04, h = w * im.naturalHeight / im.naturalWidth, rise = p1.y < p0.y === p1.x > p0.x;   // «/» when going right means going up
+    const lx = Math.min(p0.x, p1.x), by = Math.max(p0.y, p1.y) + 2;
+    c.save(); if (rise) c.drawImage(im, lx, by - h, w, h); else { c.translate(lx + w, 0); c.scale(-1, 1); c.drawImage(im, 0, by - h, w, h); } c.restore(); }
+}
+function siteGround(c, L, B, R, F, center) {
+  poly(c, [L, B, R, F], '#ecd2a8');
+  { let h = 7; c.fillStyle = '#d9b98a'; for (let k = 0; k < 26; k++) { h = (h * 9301 + 49297) % 233280; const u = h / 233280; h = (h * 9301 + 49297) % 233280; const v = h / 233280;
+    const x = L.x + (R.x - L.x) * (0.15 + 0.7 * u), y = B.y + (F.y - B.y) * (0.2 + 0.6 * v); c.beginPath(); c.ellipse(x, y, 3, 1.5, 0, 0, 7); c.fill(); } }   // pebbles
+  if (!bImg('fence')) { c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]); return; }
+  fenceEdge(c, L, B); fenceEdge(c, B, R);
+  const lerp = (p, q, k) => ({ x: p.x + (q.x - p.x) * k, y: p.y + (q.y - p.y) * k });
+  const pl = lerp(center, L, 0.55), br = lerp(center, R, 0.5); bDraw(c, 'planks', pl.x, pl.y + 10, 26); bDraw(c, 'bricks', br.x, br.y + 12, 30);
+  c.fillStyle = '#8a5f38'; c.fillRect(center.x - 3, center.y + 14, 6, 26);   // the post of the sign board
+  fenceEdge(c, L, F); fenceEdge(c, F, R);
+}
+const BUILD_T0 = {};   // other buildings: the time left when first seen gives the bar its length
+function buildFx(key, s, left, total) {
+  const now = performance.now() / 1000, cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2;
+  if (!total) { BUILD_T0[key] = Math.max(BUILD_T0[key] || 0, left); total = BUILD_T0[key]; }
+  const prog = Math.max(0, Math.min(1, 1 - left / Math.max(1, total)));
+  const at = (x, y) => P(x, y);
+  { const p = at(s.x0 + 1.0, s.y0 + 0.7); bDraw(ctx, 'scaffold', p.x, p.y, 62); }
+  { const p = at(s.x1 - 0.7, s.y0 + 1.3); bDraw(ctx, 'scaffold', p.x, p.y, 58, true); }
+  { const p = at(s.x0 + 0.7, s.y1 - 1.4); bDraw(ctx, 'crane', p.x, p.y, 92); }
+  const pile = at(cx - 1.7, cy + 0.3); bDraw(ctx, 'bricks', pile.x, pile.y, 30);
+  { const p = at(cx + 1.3, cy + 0.6); bDraw(ctx, 'planks', p.x, p.y, 24); }
+  { const p = at(cx + 0.4, s.y1 - 0.9); bDraw(ctx, 'barrow', p.x, p.y, 26); }
+  // bricks fly by magic from the stack to the back walls, one after another
+  for (let k = 0; k < 3; k++) { const u = ((now * 0.55 + k / 3) % 1), tgt = at(s.x0 + 1.4 + k * 1.3, s.y0 + 0.3), x = pile.x + (tgt.x - pile.x) * u, y = pile.y - 22 + (tgt.y - 30 - (pile.y - 22)) * u - Math.sin(u * Math.PI) * 46;
+    ctx.globalAlpha = u > 0.9 ? (1 - u) * 10 : 1; ctx.fillStyle = '#c8644a'; ctx.strokeStyle = '#7a3a2a'; ctx.lineWidth = 1; ctx.save(); ctx.translate(x, y); ctx.rotate(u * 6); ctx.fillRect(-5, -3, 10, 6); ctx.strokeRect(-5, -3, 10, 6); ctx.restore();
+    ctx.fillStyle = '#ffe9a0'; ctx.beginPath(); ctx.arc(x - 6, y + 3, 1.6, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
+  { const p = at(s.x0 + 0.9, cy - 0.3), hit = Math.max(0, Math.sin(now * 7)); ctx.save(); ctx.translate(p.x, p.y - 48); ctx.rotate(-0.9 + hit * 0.9); bDraw(ctx, 'hammer', 0, 12, 26); ctx.restore();
+    if (hit > 0.97) for (let k = 0; k < 3; k++) { ctx.fillStyle = '#ffd76a'; ctx.beginPath(); ctx.arc(p.x + 8 + k * 4, p.y - 44 - k * 3, 2, 0, 7); ctx.fill(); } }
+  { const p = at(cx + 0.6, s.y0 + 0.8), sw = Math.sin(now * 5) * 7; bDraw(ctx, 'saw', p.x + sw, p.y - 30 + Math.abs(sw) * 0.3, 24); }
+  for (let k = 0; k < 6; k++) { const u = (now * 0.4 + k * 0.17) % 1, p = at(s.x0 + 0.8 + ((k * 1.7) % (s.x1 - s.x0 - 1.6)), s.y0 + 0.8 + ((k * 2.3) % (s.y1 - s.y0 - 1.6)));
+    ctx.globalAlpha = Math.sin(u * Math.PI); ctx.fillStyle = k % 2 ? '#c9a7ff' : '#ffe08a'; ctx.beginPath(); ctx.arc(p.x, p.y - 10 - u * 40, 2.2, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
+  // the board: «Строится» + progress bar + time left
+  const c = at(cx, cy); ctx.fillStyle = '#8a5f38'; ctx.fillRect(c.x - 2.5, c.y - 4, 5, 20);
+  ctx.fillStyle = '#f3dcb2'; rr(c.x - 46, c.y - 34, 92, 34, 7); ctx.fill(); ctx.strokeStyle = '#a5744a'; ctx.lineWidth = 2; ctx.stroke();
+  text(`Строится · ${Math.round(prog * 100)}%`, c.x, c.y - 25, 9, '#5d4a3a');
+  ctx.fillStyle = '#e2c79c'; rr(c.x - 38, c.y - 18, 76, 7, 3.5); ctx.fill(); ctx.fillStyle = '#7b5cd6'; rr(c.x - 38, c.y - 18, Math.max(7, 76 * prog), 7, 3.5); ctx.fill();
+  text(left >= 3600 ? `${Math.floor(left / 3600)} ч ${Math.floor((left % 3600) / 60)} мин` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, c.x, c.y - 5, 9.5, '#5a3fb0');
+}
 function drawPlot(c, s, ci, L, B, R, F, center) {
   const next = S.classes.findIndex((q) => !q.built) === ci;
-  poly(c, [L, B, R, F], '#ecd2a8');
-  c.setLineDash([6, 5]); c.lineWidth = 2; poly(c, [L, B, R, F], null, '#ffffffcc'); c.setLineDash([]);
-  if (!next) { emoji('🔒', center.x, center.y, 18, c); return; }
+  siteGround(c, L, B, R, F, center);
+  if (!next) { c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 16, center.y - 2, 32, 22, 6); c.fill(); c.strokeStyle = '#a5744a'; c.lineWidth = 2; c.stroke(); emoji('🔒', center.x, center.y + 9, 14, c); return; }
   const C = CLASSES[ci];
-  c.fillStyle = '#fffaf0'; c.beginPath(); c.roundRect(center.x - 54, center.y - 26, 108, 48, 10); c.fill();
+  c.fillStyle = '#f3dcb2'; c.beginPath(); c.roundRect(center.x - 54, center.y - 26, 108, 48, 10); c.fill();
   c.strokeStyle = '#b98457'; c.lineWidth = 2.5; c.stroke();
   text(C.emoji + ' ' + C.name, center.x, center.y - 11, 9.5, '#5d4a6e', c);
   text('🪙 ' + fmt(buildCost(ci)), center.x, center.y + 8, 12, '#7b5cd6', c);
@@ -4850,7 +4903,7 @@ function render() {
     const s = slotOf(i);
     if (!isOpen(i)) {
       const c = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), left = Math.max(0, Math.ceil((st.buildEnd - Date.now()) / 1000));
-      add((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, () => { emoji('🏗️', c.x, c.y - 14, 30); ctx.fillStyle = '#fffaf2ee'; rr(c.x - 40, c.y + 8, 80, 18, 9); ctx.fill(); text(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, c.x, c.y + 17, 11, '#5a3fb0'); });
+      add((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, () => buildFx('c' + i, s, left, buildTime(i)));   // magic construction (her «Да» 2026-11-25)
       continue;
     }
     const tp = teacherWalk(i);   // the teacher strolls along the front of the class as if explaining (her wish 2026-11-21)
@@ -4905,11 +4958,11 @@ function render() {
   }
   for (const id of ['SHOP', 'TRADE', 'EXPED', 'DIR', 'TOWER', 'DORM2']) { const o = bObj(id), s = SLOTS[id]; if (!s || !o || !o.built || Date.now() >= (o.end || 0)) continue;
     const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2, c = P(cx, cy), left = Math.ceil((o.end - Date.now()) / 1000);
-    add(cx, cy, () => { emoji('🏗️', c.x, c.y - 14, 30); ctx.fillStyle = '#fffaf2ee'; rr(c.x - 40, c.y + 8, 80, 18, 9); ctx.fill(); text(mmss(left), c.x, c.y + 17, 11, '#5a3fb0'); }); }
+    add(cx, cy, () => buildFx(id, s, Math.max(0, left), 0)); }
   if (cantBuilt() && SLOTS.CANT) {   // canteen: counter with pots, tables; the cook stands behind the counter (dragon art comes later)
     const s = SLOTS.CANT;
     if (!cantOpen()) { const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2, c = P(cx, cy), left = Math.max(0, Math.ceil((S.cant.end - Date.now()) / 1000));
-      add(cx, cy, () => { emoji('🏗️', c.x, c.y - 14, 30); ctx.fillStyle = '#fffaf2ee'; rr(c.x - 40, c.y + 8, 80, 18, 9); ctx.fill(); text(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, c.x, c.y + 17, 11, '#5a3fb0'); }); }
+      add(cx, cy, () => buildFx('CANT', s, left, CANT_TIME)); }
     else {
       const ck = CANT_COOK(s), now = performance.now() / 1000, busy = cantLine.some((a) => a.state === 'cantbuy');
       const themed = !!part(themeOf('CANT') || 'CANT', 'counter');
@@ -7277,5 +7330,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=506').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=507').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
