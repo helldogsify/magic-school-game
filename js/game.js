@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=544';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=545';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=544';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=544';
-import { initMinigame } from './minigame.js?v=544';
-import { initChests } from './chests.js?v=544';
-import { initValley } from './valley.js?v=544';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=544';
-import { initLore } from './lore.js?v=544';
-import { initAvatar } from './avatar.js?v=544';
+} from './data.js?v=545';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=545';
+import { initMinigame } from './minigame.js?v=545';
+import { initChests } from './chests.js?v=545';
+import { initValley } from './valley.js?v=545';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=545';
+import { initLore } from './lore.js?v=545';
+import { initAvatar } from './avatar.js?v=545';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 544;   // keep equal to the ?v= number in index.html
+const BUILD = 545;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2502,6 +2502,54 @@ const prestigeOn = () => !!(S.boss && S.boss.plan === 'prestige');
 const bedsLeft = () => bedCount() < maxBeds();
 const pupils = (n) => (n % 10 === 1 && n % 100 !== 11 ? 'ученик' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'ученика' : 'учеников');
 const advLeft = () => (advLog.length > 1 ? advLog[advLog.length - 1] - advLog[0] : 0);
+// ---- Tikhon's sense of value (Maria 2026-11-25: «вручную более умная прокачка была действительно выгоднее» than clicking through
+// the tasks, and Tikhon explains why). The school is a conveyor: every student takes every open class in turn and pays each lesson,
+// so income ~ F x (sum of the tuitions), F = students per second through the SLOWEST stage (the intake or a class: desks x exam
+// success / lesson time). tkGain(op) = extra coins per minute an upgrade brings now: the model's relative change applied to the
+// measured steady income. Capacity bought outside the slowest stage gives nothing today; that is the lesson Tikhon teaches.
+const TK_WALK = 3;   // seconds of walking in and out around a lesson
+const tkCap = (i) => { const st = S.classes[i]; return st.desks * Math.max(0.05, Math.min(0.95, success(i) + 0.05)) / (lessonTime(i) + TK_WALK); };
+const tkIntake = () => Math.min(1 / arrivalInterval(), 1 / procTime());
+const TK_P = 4;   // soft minimum: queues form before a stage is the very slowest, so the stages close to it share the gain
+function tkSnap() {   // { f: flow (soft minimum of all stages), b: slowest stage (-1 = the intake), m: its flow, ts: sum of tuitions }
+  const p = window.__tkP || TK_P; let m = tkIntake(), b = -1, ts = 0, sum = Math.pow(m, -p);
+  for (let i = 0; i < CLASSES.length; i++) if (isOpen(i)) { const c = tkCap(i); ts += tuition(i); sum += Math.pow(c, -p); if (c < m) { m = c; b = i; } }
+  const f = Math.pow(sum, -1 / p);
+  // the shop and the canteen: a share of the students drops in after a lesson, as many as the seller / the cook and the tables manage
+  const sh = shopOpen() ? Math.min(f * shopChance(), 1 / shopTime()) * shopPrice() : 0;
+  const ca = cantOpen() ? Math.min(f * cantChance(), 1 / cantServe(), cantTables() * 2 / CANT_EAT) * cantPrice() : 0;
+  return { f, b, m, ts, v: f * ts + sh + ca };   // v: coins per second the model expects
+}
+function tkTry(set) { const undo = set(); try { return tkSnap(); } finally { undo(); } }   // the school with one change, state restored
+const tkInc = () => Math.max(1, rateNow() * 60);   // steady coins per minute
+function tkGain(op) {   // extra coins per minute; op = { act, i, k } as in the upgrade buttons; null = the model has no opinion
+  try {
+    const s0 = tkSnap(), R = tkInc(), rel = (s1) => (s0.v > 0 ? R * (s1.v / s0.v - 1) : 0);
+    const st = op.i !== undefined && op.i !== null ? S.classes[op.i] : null, inc = (o, key, d = 1) => () => { o[key] += d; return () => { o[key] -= d; }; };
+    switch (op.act) {
+      case 'item': return rel(tkTry(inc(st.items, op.k)));
+      case 'teacher': return rel(tkTry(inc(st, 'teacher')));
+      case 'desk': return rel(tkTry(inc(st, 'desks')));
+      case 'time': return rel(tkTry(inc(st, 'time')));
+      case 'expand': return 0.5 * rel(tkTry(inc(st, 'desks')));   // room for more desks: half the value of the desk it allows
+      case 'rec': return rel(tkTry(inc(S.reception, 'level')));
+      case 'ads': return adsFull() ? 0 : rel(tkTry(inc(S.reception, 'ads')));
+      case 'exlvl': case 'xpllvl': {   // a better rank exam: more students pay the higher rank's price in every later class
+        const r = RANK_AT(op.i); if (!r || !s0.ts) return 0;
+        let after = 0; for (let j = op.i + 1; j < CLASSES.length; j++) if (isOpen(j)) after += tuition(j);
+        const g = R * (RANK_STEP[r] || 0.01) * (RANK_MUL[r] / RANK_MUL[r - 1] - 1) * (after / s0.ts) * 3;
+        return op.act === 'xpllvl' ? g * 0.3 : g;
+      }
+      case 'shopup': return rel(tkTry(inc(shopUp(), op.k)));
+      case 'cantup': return rel(tkTry(inc(cantUp(), op.k)));
+      case 'beds': { const g = gate(); return g.b > 0.05 ? R * Math.min(0.3, g.b) * 0.05 : 0; }   // the dorm full: newcomers turned away at the gate
+      case 'dir': return op.k === 'refund' && WORLD === 1 ? (S.outEma || 0) * 60 * 0.1 / Math.max(0.1, refundRate()) : null;   // refunds to leavers: -10 points per level
+      case 'formlvl': { const n = Math.max(1, FORM_KEYS.filter((k) => formSt(k).seen).length); return R * 0.05 / (1 + 0.05 * (formSt(op.k).lvl - 1)) * 3 / n; }
+    }
+  } catch (e) { /* the model never breaks the game */ }
+  return null;
+}
+window.__tkm = { snap: tkSnap, gain: tkGain, cap: tkCap, intake: tkIntake };   // test hook
 let advCache = null, advCacheAt = 0;
 function advReport() {   // [{hot, emo, text, go}] — go: [room id, selector] | 'missions' | null
   if (advCache && performance.now() - advCacheAt < 2000) return advCache;
@@ -2586,13 +2634,109 @@ function drawTikhonBadge(p) {   // a scroll over his head while he has something
   ctx.fillStyle = '#fff3c4'; ctx.beginPath(); ctx.arc(c.x, y, 23 * k, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#e0a100'; ctx.lineWidth = 3; ctx.stroke();
   emoji('📜', c.x, y, 30 * k);
 }
+// ---- Tikhon's riddles (Maria 2026-11-25: «в чем будет отличие от ощущения кликера? ... Вместо того чтобы самостоятельно стратегически
+// подумать что улучшить»; her «Да» to: riddles about the problem instead of the button, no numbers on the buttons, a bonus for a wise
+// choice). He names WHAT is wrong in the school, never which button fixes it; the player finds the place and picks the upgrade.
+const TK_TIP_N = 3, TK_WISE_SHARE = 0.15;   // a wise purchase: Tikhon pays back 15% of its price (Maria: smaller, the game must not go much faster) (level quests pay 30%, but pick at random)
+let tkTipCache = null, tkTipAt = 0;
+function tkWhy(o, s0) {   // [family, emoji, title, riddle]
+  const slow = o.i !== undefined && o.i !== null && o.i === s0.b;
+  let top = -1, mx = 0; for (let j = 0; j < CLASSES.length; j++) if (isOpen(j) && tuition(j) > mx) { mx = tuition(j); top = j; }
+  const cap = () => (slow ? ['cap', '🚪', 'Где-то тесно', 'Ученики толпятся у дверей одного из классов и ждут свободного места. Найди этот класс и придумай, как учить там больше учеников.']
+    : ['cap', '⏳', 'Медленный класс', 'Один класс учит чуть медленнее остальных, и за ним копится очередь. Загляни в классы: где урок длинный или мало парт?']);
+  const pay = () => (o.i === top ? ['pay', '🪙', 'Самый дорогой урок', 'Один урок в школе стоит дороже всех. Если сделать его ещё дороже — заплатит каждый ученик.']
+    : ['pay', '🪙', 'Плата за урок', 'В одном из классов плату за урок сейчас выгодно поднять. Сравни, сколько платят в разных классах.']);
+  switch (o.act) {
+    case 'desk': case 'time': case 'expand': return cap();
+    case 'teacher': return slow ? cap() : pay();
+    case 'item': return CLASSES[o.i].items[o.k].kind === 'tuition' || overflow(o.i) > 0 ? pay() : cap();
+    case 'rec': return ['rec', '🛎️', 'Очередь у входа', 'Новички долго ждут, пока их запишут в школу. Кто у нас этим занимается?'];
+    case 'ads': return ['ads', '📣', 'Мало новичков', 'Школа могла бы учить больше учеников, но новички приходят редко. Как бы о нас узнали?'];
+    case 'beds': return ['beds', '🛏️', 'Негде подождать', 'Новичков разворачивают у ворот: в школе им негде подождать своей очереди.'];
+    case 'shopup': return ['shop', '🍭', 'Сладкоежки', 'После уроков ученики хотят потратить монетки, а в лавке не всё ладно.'];
+    case 'cantup': return ['cant', '🍲', 'Голодные ученики', 'После уроков ученики хотят есть. В столовой можно кое-что наладить.'];
+    case 'dir': return ['dir', '💸', 'Казна худеет', 'Ушедшим ученикам школа возвращает слишком много монет. Кто пишет правила?'];
+    case 'exlvl': case 'xpllvl': return ['rank', '🌟', 'Звания', 'Ученик со званием платит больше за каждый урок. В одном из классов можно помочь ученикам быстрее получать звания.'];
+    case 'formlvl': return ['form', '🎓', 'Альбом', 'В альбоме учеников есть карточка, которую уже выгодно улучшить.'];
+  }
+  return null;
+}
+function tkRank() {   // [{o, g, r}] the upgrades the model values, best gain per coin first (affordable within ~30 min of income)
+  const R = tkInc(), budget = (S.coins || 0) + R * 30, val = [];
+  for (const o of window.__sim.options()) { if ((o.stars && schoolStars() < o.stars) || o.act === 'build' || o.cost > budget) continue; const g = tkGain(o); if (g > 0) val.push({ o, g, r: g / o.cost }); }
+  return val.sort((a, b) => b.r - a.r);
+}
+function tkWiseOf(d, i) {   // before a purchase: is it one of the three best upgrades right now? (the player's own choice)
+  try {
+    if (WORLD !== 1 || !d.act || EDIT) return null;
+    const k = d.k === undefined ? undefined : /^\d+$/.test(d.k) ? +d.k : d.k, ii = Number.isFinite(i) ? i : undefined;
+    return tkRank().slice(0, 3).some((v) => v.o.act === d.act && (v.o.i === undefined || v.o.i === ii) && String(v.o.k) === String(k)) ? d.act : null;
+  } catch (e) { return null; }
+}
+function tkWisePay(paid) {
+  const bonus = Math.max(1, nice(paid * TK_WISE_SHARE)); S.coins += bonus; S.stats.wise = (S.stats.wise || 0) + 1;
+  toast(`🦉 Мудрое решение, директор! Тихон доплатил 🪙${fmt(bonus)}`); updateHud();
+}
+function tkTips() {   // [{key, emo, title, text, g, mins, go}] best first; cached 3 s
+  if (tkTipCache && performance.now() - tkTipAt < 3000) return tkTipCache;
+  const out = [];
+  try {
+    if (WORLD === 1) {
+      const s0 = tkSnap(), nb = window.__sim.options().some((o) => o.act === 'build' && o.cost <= S.coins && (!o.stars || schoolStars() >= o.stars));
+      if (nb) out.push({ key: 'build', emo: '🏗️', title: 'Пора строить', text: 'Монет уже хватает на что-то большое и новое! Новый урок — новые монеты с каждого ученика.' });
+      const used = new Set();
+      for (const v of tkRank()) {
+        const w = tkWhy(v.o, s0); if (!w || used.has(w[0])) continue; used.add(w[0]);
+        out.push({ key: w[0] + ':' + w[2], emo: w[1], title: w[2], text: w[3] });
+        if (out.length >= TK_TIP_N) break;
+      }
+    }
+  } catch (e) { /* tips never break the game */ }
+  tkTipCache = out; tkTipAt = performance.now(); return out;
+}
+const tkSeen = () => (S.tkSeen ||= {});
+function tkBadge() {   // tips not seen yet + Tikhon's urgent reports
+  if (WORLD !== 1) return 0;
+  let n = tkTips().filter((t) => !tkSeen()[t.key]).length;
+  try { n += advReport().filter((r) => r.hot && !(r.go && r.go[0] === 'DIR' && !bossOn())).length; } catch (e) { /* report needs the school */ }
+  return n;
+}
+function tkTipsBlock() {
+  const tips = tkTips(); tips.forEach((t) => { tkSeen()[t.key] = 1; });
+  if (!tips.length) return '';
+  return `<h3>🔎 Загадки Тихона</h3><p class="muted">Найди сам, что улучшить. Угадаешь одно из самых выгодных улучшений — я доплачу 🦉${S.stats.wise ? ` · мудрых решений: ${S.stats.wise}` : ''}</p>` + tips.map((t) => `<div class="card up tktip"><span class="remoji">${t.emo}</span><div class="grow"><b>${t.title}</b><div class="muted">${t.text}</div></div></div>`).join('');
+}
+function tkStyle() {
+  if (document.getElementById('tk-style')) return;
+  const st = document.createElement('style'); st.id = 'tk-style';
+  st.textContent = `#tkbtn{position:absolute;left:calc(50% + 43px);bottom:calc(var(--safe-b) + 14px);z-index:4;padding:0}
+#tkbtn img{width:56px;height:56px;border-radius:50%;object-fit:cover;display:block}
+.tktip{border:2px solid #f3d27a}
+.tknote{background:#fff7dd;border-radius:14px;padding:8px 10px;margin:0 0 8px;font-size:13px;display:flex;gap:8px;align-items:center}
+.tknote>img{height:44px;width:auto;flex:none}.tknote span img{height:1.15em;width:auto;vertical-align:-0.2em}.tknote .btn{display:block;margin:6px 0 0 auto}`;
+  document.head.appendChild(st);
+}
+let tkBtnT = 0;
+function renderTkBtn() {   // the round button with Tikhon's head (world 1), between ✨ and 📋; a red badge counts his new tips and urgent reports
+  if (WORLD !== 1 || EDIT) return;
+  if (performance.now() - tkBtnT < 2500 && document.getElementById('tkbtn')) return; tkBtnT = performance.now();
+  tkStyle();
+  let b = document.getElementById('tkbtn');
+  if (!b) { b = document.createElement('button'); b.id = 'tkbtn'; b.className = 'mbtn'; b.dataset.tikhon = ''; b.setAttribute('aria-label', 'Тихон'); const st = document.getElementById('stage'); if (!st) return; st.appendChild(b); }
+  const n = tkBadge(), key = 'k' + n;
+  if (b.dataset.key === key) return; b.dataset.key = key;
+  b.classList.toggle('ready', n > 0);
+  b.innerHTML = `<img src="assets/staff/tikhon_head.webp?v=1" alt="">${n ? `<span class="badge">${n}</span>` : ''}`;
+}
+const TK_TASK_NOTE = 'За задания я даю награду — это удобно. Но больше монет приносит то, что ты выберешь сам. Разгадай мои загадки: найдёшь самое выгодное улучшение — я доплачу.';
 let advTargets = [];
 function advisorBlock(own = false) {   // top of the director's panel (own: inside Tikhon's own window, no second name card)
-  const rep = advReport(); advTargets = rep.map((r) => r.go);
+  const rep = advReport().filter((r) => !(r.go && r.go[0] === 'DIR' && !bossOn())); advTargets = rep.map((r) => r.go);
+  const tips = own ? tkTipsBlock() : '';   // the tips' «Показать» buttons go on the end of advTargets
   const items = rep.map((r, k) => `<div class="card up"${r.hot ? ' style="border:2px solid #ffb4a8"' : ''}><span class="remoji">${r.emo}</span><div class="grow">${r.text}</div>${r.go ? `<button class="btn small go" data-advgo="${k}">${r.go === 'missions' ? 'Задания' : r.go === 'mail' ? 'Открыть' : 'Показать'}</button>` : ''}</div>`).join('');
   const quote = ADV_QUOTES[Math.floor(Date.now() / 60000) % ADV_QUOTES.length];
   return `<div class="card up" style="align-items:center">${own ? '' : tikhonPic(70)}<div class="grow">${own ? '' : `<b>${ADV_NAME}</b><div class="muted">советник директора и летописец школы</div>`}<div>«${rep.length ? 'Директор, вот что я заметил:' : 'В школе всё спокойно, директор. ' + quote}»</div></div></div>
-    ${items}
+    ${items}${tips}${own ? `<div class="tknote">📋 <span>${TK_TASK_NOTE}</span></div>` : ''}
     <button class="btn ghost wide" data-missions>📋 Задания от Тихона</button>`;
 }
 function tikhonPanel() {   // his own window (tester «По Тихону открывается весь кабинет директора а должен открываться только меню Тихона Тихон отдельное личность»): a tap on him opens only his report and quests
@@ -6147,7 +6291,7 @@ function qLvlTab(list) {
   const L = list.filter((m) => m.key !== 'f'), lv = schoolLevel(), next = [];
   for (let l = Math.ceil((lv + 1) / 5) * 5; next.length < 3; l += 5) next.push(l);
   const ms = next.map((l) => `<span class="qp" style="margin-right:10px">ур. ${l} → ${ST_IMG(14)} ${3 + Math.floor(l / 10)}</span>`).join('');
-  return `<div class="qnote">Задания подстраиваются под уровень школы 🌟${lv} и под то, на что хватает монет. Сделал одно — сразу появится новое. ${S.mswap !== qDay() ? 'Не нравится задание? 🔄 заменит одно в день.' : 'Замена задания сегодня уже использована.'}</div>
+  return `${WORLD === 1 ? `<div class="tknote">${tikhonPic(44)}<span>«${TK_TASK_NOTE}»<button class="btn small go" data-tikhon>Загадки Тихона ➜</button></span></div>` : ''}<div class="qnote">Задания подстраиваются под уровень школы 🌟${lv} и под то, на что хватает монет. Сделал одно — сразу появится новое. ${S.mswap !== qDay() ? 'Не нравится задание? 🔄 заменит одно в день.' : 'Замена задания сегодня уже использована.'}</div>
     <div class="qbar">${L.map(qRow).join('')}</div>
     <div class="qbig" style="background:#f1eafd;font-weight:700;flex-wrap:wrap">🌟 Лунные камни за уровни школы (приходят сами): ${ms}</div>`;
 }
@@ -6236,7 +6380,7 @@ function updateHud() {
   const net = ((S.ema || 0) - (S.outEma || 0)) * 60, rt = $('#rate');   // the real gain: income minus refunds and fines (build 275)
   rt.textContent = (net < 0 ? '−' : '') + fmt(Math.abs(net)) + '/м'; rt.style.color = net < 0 ? '#d0304e' : '';
   document.querySelectorAll('[data-cost]').forEach((el) => el.classList.toggle('poor', S.coins < +el.dataset.cost));
-  renderMission(); renderInsp();
+  renderMission(); renderInsp(); renderTkBtn();
   const sb = $('#spbtn'); if (sb) sb.classList.toggle('ready', FORM_KEYS.some((k) => formReady(k) && S.coins >= formCost(k)));   // glows when a card level can be bought (back on the screen, build 306)
 }
 function toast(t) { glog('toast', t, WORLD); const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
@@ -6358,6 +6502,7 @@ document.addEventListener('click', (e) => {
   if (AV.click(d)) return;   // avatar buttons
   if (d.war !== undefined) { openWar(); return; }
   if (qClick(d)) return;
+  if (d.tikhon !== undefined) { openPanel(tikhonPanel); renderTkBtn(); return; }
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.rumble !== undefined) { const s = slotOf(guardsIdx()); if (panel) closePanel(); if (s) focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2); return; }
@@ -6424,6 +6569,7 @@ document.addEventListener('click', (e) => {
   if (d.tourBack !== undefined) { showTour(tourStep - 1); return; }
   if (d.tourSkip !== undefined) { showTour(-1); return; }
   if (d.reset !== undefined) { if (confirm('Точно начать заново? Весь прогресс пропадёт.')) { localStorage.removeItem(SAVE_KEY); S = null; location.reload(); } return; }
+  const tkW = tkWiseOf(d, i), tkC0 = S.coins;   // Tikhon: a wise choice is paid for after the purchase
   const st = S.classes[i];
   if (d.act === 'teacher') { if (spend(teacherCost(i))) st.teacher++; }
   else if (d.act === 'desk') { if (st.desks < maxDesksOf(i) && spend(deskCost(i))) { st.desks++; pullWaiting(i); } }
@@ -6472,6 +6618,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'conc') { if (dormUp().conc < MAX_CONC && spend(concCost())) dormUp().conc++; }
   else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= buildCost(i) && spendStars(starsNeed(i)) && spend(buildCost(i))) { st.built = true; st.buildEnd = Date.now() + buildTime(i) * 1000; panel = classPanel(i); } }
   else return;
+  if (tkW && S.coins < tkC0) tkWisePay(tkC0 - S.coins);
   refreshPanel(); save();
 });
 $('#sheet-bg').addEventListener('click', closePanel);
@@ -7485,6 +7632,7 @@ window.__sim = {
   },
   buy(op) { const b = document.createElement('button'); b.dataset.act = op.act; if (op.i !== undefined) b.dataset.i = op.i; if (op.k !== undefined) b.dataset.k = op.k; b.style.display = 'none'; document.body.appendChild(b); b.click(); b.remove(); },
   stars: () => schoolStars(),
+  gain: (op) => tkGain(op), slotIdx: (id) => CLASS_SLOT.indexOf(id), missions: () => missionList(), claim: (k) => claimMission(k), storyId: () => (storyCur() || {}).id, skipStory: (id) => { S.story[id] = 1; },
   inSchool: () => inSchool().length,
 };
 window.__pukh = () => { pukhNext = 0; }; window.__starfall = () => { sfNext = 0; };   // test hook: send Pukh now
@@ -7511,5 +7659,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=544').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=545').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
