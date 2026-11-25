@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=563';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=564';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=563';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=563';
-import { initMinigame } from './minigame.js?v=563';
-import { initChests } from './chests.js?v=563';
-import { initValley } from './valley.js?v=563';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=563';
-import { initLore } from './lore.js?v=563';
-import { initAvatar } from './avatar.js?v=563';
+} from './data.js?v=564';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=564';
+import { initMinigame } from './minigame.js?v=564';
+import { initChests } from './chests.js?v=564';
+import { initValley } from './valley.js?v=564';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=564';
+import { initLore } from './lore.js?v=564';
+import { initAvatar } from './avatar.js?v=564';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 563;   // keep equal to the ?v= number in index.html
+const BUILD = 564;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -722,10 +722,12 @@ function pondLayout() {
   POND = null; if (WORLD !== 1 || !SLOTS.REC || !SLOTS.DIR) return;   // live for every player since build 562 (Maria: «Выкладывай»)
   const r = SLOTS.REC, x0 = r.x1, x1 = SLOTS.DIR.x0, y0 = r.y0, y1 = r.y1; if (x1 - x0 < 9) return;
   POND = { x0, x1, y0, y1, cx: (x0 + x1) / 2 + 0.7, cy: (y0 + y1) / 2 + 0.3, rx: (x1 - x0) / 2 - 2.2, ry: (y1 - y0) / 2 - 1.8 };
+  try { PATHS.push(...pondPathRects()); } catch (e) { /* the very first build runs before P() exists: setLayout rebuilds the map once */ }   // the walkable path to the pier (students go fishing)
 }
 const pondBox = () => ({ x0: POND.x0 - 5, y0: POND.y0 - 3, x1: POND.x1 + 3, y1: POND.y1 + 7 });   // where the editor lets her move the pond's things (wider than the plot)
+function pondOv() { try { return (((RLAY.rooms.POND || {}).items) || {})['pond_scene#1'] || {}; } catch (e) { return {}; } }   // the scene's editor entry ({} before the layout exists)
 function pondW() {   // the water where the editor put the scene: the same move / scale / flip as layAdd draws it with
-  const o = (((RLAY.rooms.POND || {}).items) || {})['pond_scene#1'] || {}, k = o.k || 1, f = o.flip ? -1 : 1, m0 = P(POND.cx, POND.cy), m1 = P(POND.cx + (o.dx || 0), POND.cy + (o.dy || 0)), qx = m0.x + (o.px || 0), qy = m0.y + (o.py || 0);
+  const o = pondOv(), k = o.k || 1, f = o.flip ? -1 : 1, m0 = P(POND.cx, POND.cy), m1 = P(POND.cx + (o.dx || 0), POND.cy + (o.dy || 0)), qx = m0.x + (o.px || 0), qy = m0.y + (o.py || 0);
   const X = m1.x - m0.x + qx + (m0.x - qx) * k * f, Y = m1.y - m0.y + qy + (m0.y - qy) * k - (o.lift || 0), a = (X - OX) / HW, b = (Y - OY) / HH;
   return { cx: (a + b) / 2, cy: (b - a) / 2, rx: POND.rx * k, ry: POND.ry * k };
 }
@@ -755,17 +757,27 @@ function drawPondFish() {   // the golden fish jumps over everything on the wate
       if (u > 0.1 && u < 0.92) pondFishRect = { x0: fx - w / 2 - 12, y0: fy - h / 2 - 12, x1: fx + w / 2 + 12, y1: fy + h / 2 + 12, t: now }; } }
 }
 function pondPt(u, v) {   // a point of the scene picture (u, v = shares of its width / height) in world px, where the editor put the scene
-  const W = pondW(), o = (((RLAY.rooms.POND || {}).items) || {})['pond_scene#1'] || {}, f = o.flip ? -1 : 1, w = 2 * Math.hypot(W.rx, W.ry) * HW / 0.677, h = w * 0.72, m = P(W.cx, W.cy);
+  const W = pondW(), o = pondOv(), f = o.flip ? -1 : 1, w = 2 * Math.hypot(W.rx, W.ry) * HW / 0.677, h = w * 0.72, m = P(W.cx, W.cy);
   return { x: m.x + f * (u - 0.489) * w, y: m.y + (v - 0.629) * h, k: w / (2 * Math.hypot(POND.rx, POND.ry) * HW / 0.677) };
 }
 const pondTile = (q) => { const a = (q.x - OX) / HW, b = (q.y - OY) / HH; return { x: (a + b) / 2, y: (b - a) / 2 }; };
-function drawPondPath() {   // flagstones from the entrance path (below the reception's front) across the lawn to the pier's land end
-  const pt = isoPat(ctx, 'path', 3); if (!pt) return; const r = SLOTS.REC, e = pondTile(pondPt(0.2, 0.43)), ex = Math.round(e.x), ey = Math.round(e.y), gx = Math.round(GATE_TILE.x + 2.5), yr = Math.max(r.y1 + 2, ey);   // a strip of grass between the wall and the path
-  if (ex <= gx) return; const R = [[gx, yr - 1, ex + 1, yr + 1]]; if (ey < yr - 1) R.push([ex - 1, ey, ex + 1, yr]);
-  const done = new Set(); ctx.save(); ctx.fillStyle = pt; ctx.beginPath();
-  for (const [a, b, c, d] of R) for (let x = a; x < c; x++) for (let y = b; y < d; y++) { const k = x + ',' + y, g = regAt(x, y); if (done.has(k) || (g && SLOTS[g])) continue; done.add(k);   // never on a room's floor
+function pondPathRects() {   // from the entrance path (below the reception's front) across the lawn to the pier's land end; a column up beside the pier
+  const r = SLOTS.REC, e = pondTile(pondPt(0.15, 0.5)), ex = Math.round(e.x), ey = Math.round(e.y), gx = Math.round(GATE_TILE.x + 2.5), yr = Math.max(r.y1 + 2, ey);   // a strip of grass between the reception's wall and the path
+  if (ex <= gx) return []; const R = [{ x0: gx, y0: yr - 1, x1: ex + 1, y1: yr + 1, pond: 1 }];
+  if (ey < yr - 1 && ex - 1 >= r.x1) R.push({ x0: ex - 1, y0: ey, x1: ex + 1, y1: yr - 1, pond: 1 });
+  return R;
+}
+function drawPondPath() {   // the path's flagstones up to the grass of the bank (whole tiles: a straight edge like every path), then three stepping stones to the pier
+  const pt = isoPat(ctx, 'path', 3); if (!pt) return; const done = new Set(), land = pondTile(pondPt(0.165, 0.5)); let near = null, nd = 1e9;
+  ctx.save(); ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -scroller.scrollLeft * dpr, -scroller.scrollTop * dpr); ctx.fillStyle = pt; ctx.beginPath();
+  for (const r of PATHS) if (r.pond) for (let x = r.x0; x < r.x1; x++) for (let y = r.y0; y < r.y1; y++) { const k = x + ',' + y, g = regAt(x, y); if (done.has(k) || g !== 'path' || pondD(x + 0.5, y + 0.5, 1.1) < 1) continue; done.add(k);
+    const d = Math.hypot(x + 0.5 - land.x, y + 0.5 - land.y); if (d < nd) { nd = d; near = { x: x + 0.5, y: y + 0.5 }; }
     const q = [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]; ctx.moveTo(q[0].x, q[0].y); for (let j = 1; j < 4; j++) ctx.lineTo(q[j].x, q[j].y); ctx.closePath(); }
-  ctx.fill(); ctx.restore();
+  ctx.fill();
+  const nS = near ? Math.max(2, Math.round(nd / 0.5)) : 0; for (let j = 1; j <= nS; j++) { const u = (j - 0.25) / nS, m = P(near.x + (land.x - near.x) * u, near.y + (land.y - near.y) * u), w = 6.5;   // stepping stones over the grass of the bank, spaced, like the rim's pale rocks
+    ctx.beginPath(); ctx.ellipse(m.x, m.y + 1.5, w, w * 0.5, 0, 0, Math.PI * 2); ctx.fillStyle = 'rgba(70,90,60,0.25)'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(m.x, m.y, w, w * 0.5, 0, 0, Math.PI * 2); ctx.fillStyle = '#efe6d4'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = '#a3967f'; ctx.stroke(); ctx.beginPath(); ctx.ellipse(m.x - w * 0.25, m.y - w * 0.12, w * 0.45, w * 0.16, 0, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fill(); }
+  ctx.restore();
 }
 const POND_LAMPS = [[0.297, 0.056], [0.304, 0.114], [0.369, 0.131], [0.47, 0.138], [0.256, 0.177], [0.492, 0.176], [0.327, 0.18], [0.354, 0.191], [0.417, 0.194], [0.437, 0.197], [0.245, 0.239], [0.4, 0.247], [0.476, 0.274], [0.434, 0.276], [0.273, 0.278], [0.231, 0.294], [0.322, 0.319], [0.209, 0.329]];   // the willow's paper lanterns (measured on pond.webp)
 const POND_FISH = [[0.51, 0.52, '255,205,110'], [0.575, 0.535, '255,205,110'], [0.625, 0.42, '200,160,255'], [0.655, 0.43, '170,220,255'], [0.405, 0.665, '255,205,110'], [0.445, 0.68, '200,160,255'], [0.525, 0.69, '255,190,120'], [0.47, 0.71, '170,210,255'], [0.585, 0.7, '170,230,255']];
@@ -782,7 +794,7 @@ function drawPondNight() {   // after the night tint: lanterns, the hut's window
 }
 function drawPondPic() {   // the painted scene (SYNTX, art/pond/pond_v2.jpg): its water spans 67.7% of the width, water centre at (48.9%, 62.9%); then the water fx on it
   const im = POND_IMG; if (im.naturalWidth) { const m0 = P(POND.cx, POND.cy), w = 2 * Math.hypot(POND.rx, POND.ry) * HW / 0.677, h = w * im.naturalHeight / im.naturalWidth; ctx.drawImage(sized(im, h * scale * dpr), m0.x - w * 0.489, m0.y - h * 0.629, w, h); }
-  drawPondFx();
+  drawPondPath(); drawPondFx();
 }
 function catchPondFish() { if (!pondFish || pondFish.got) return false; pondFish.got = true; const c = Math.max(50, Math.round(rateNow() * 30)); bonus(c, pondFish.x, pondFish.y - 1, '#d4a017', 50); popup('🐟✨', pondFish.x, pondFish.y - 1.5, '#d4a017', 80); toast(`🐟 Золотая рыбка! 🪙 +${fmt(c)}`); sfx('fixed'); S.stats.goldfish = (S.stats.goldfish || 0) + 1; return true; }
 const lakeD = (x, y, m = 0) => (LAKE ? Math.pow((x - LAKE.cx) / (LAKE.rx + m), 2) + Math.pow((y - LAKE.cy) / (LAKE.ry + m), 2) : 9);   // < 1 inside the lake grown by m tiles
@@ -1250,6 +1262,7 @@ function courtSpots() {   // fixed points per activity (a small fixed set keeps 
   v.swing.push({ x: Z.swing.x - 0.18, y: Z.swing.y + 0.18, seat: true });
   v.tea.push({ x: Z.picnic.x - 1.25, y: Z.picnic.y + 0.2, seat: true }, { x: Z.picnic.x + 0.25, y: Z.picnic.y + 1.25, seat: true }, { x: Z.picnic.x + 1.2, y: Z.picnic.y - 0.15, seat: true });
   for (const k of Object.keys(v)) v[k] = v[k].filter(ok);
+  v.fish = []; { const L = PATHS.filter((r) => r.pond), R = L[1] || L[0]; if (R) { const via = { x: R.x1 - 0.5, y: R.y0 + 0.5 }; if (regAt(Math.floor(via.x), Math.floor(via.y)) === 'path') { for (const [u, w] of [[0.28, 0.548]]) { const q = pondTile(pondPt(u, w)); v.fish.push({ x: q.x, y: q.y, seat: true, via }); } } } }   // one fisher on the pier's boards near the water (the path's end, then a step onto the boards): the pier holds one
   courtSpots.ver = bfsVer + ':' + courtUp().bench; courtSpots.v = v; return v;
 }
 function goCourt(a, i, brk = false) {
@@ -1261,6 +1274,9 @@ function goCourt(a, i, brk = false) {
 function leaveCourt(a) { const k = courtList.indexOf(a); if (k >= 0) courtList.splice(k, 1); a.act = null; }
 function courtAct(a) {   // pick the next activity and walk to its spot
   const v = courtSpots(), near = (q) => Math.hypot(q.x - a.x, q.y - a.y) < 7;
+  if (a.act !== 'fish' && Math.random() < 0.18) {   // now and then off to the fishing pond (build 564): through the reception and down the path to the pier
+    const f = (v.fish || []).filter((q) => !courtList.some((o) => o !== a && o.act === 'fish' && o.spot === q));
+    if (f.length) { const q = rnd(f), tg = q.via || q, pth = pathTo(a, tg.x, tg.y); if (pth.length) { if (q.via) pth.push({ x: q.x, y: q.y }); a.act = 'fish'; a.spot = q; a.laps = 0; a.state = 'walk'; a.path = pth; a.onArrive = () => courtArrive(a); return; } } }
   // build 273: the next activity is one with a spot close by (in her demo they spent most of the time crossing the court)
   const acts = inCourt(Math.floor(a.x), Math.floor(a.y)) ? COURT_ACTS.filter((k) => (v[k] || []).some(near)) : [];
   let act = rnd(acts.length ? acts : COURT_ACTS); if (!v[act] || !v[act].length) act = 'tag';
@@ -1276,7 +1292,8 @@ function courtArrive(a) {
   a.state = 'court'; a.t = 0;
   if (a.act === 'tag') { a.dur = 0.35; return; }   // a short stop, then on round the fountain
   a.dur = 4.5 + Math.random() * 4;   // build 273: longer in each pose (her demo: half the time they were walking between spots)
-  if (a.act === 'coin') { const c = courtC(); a.flip = (c.x - c.y) < (a.x - a.y); a.back = (c.x + c.y) < (a.x + a.y); }
+  if (a.act === 'fish') a.dur = 9 + Math.random() * 6;   // a long sit with the rod
+  if (a.act === 'coin' || a.act === 'fish') { const c = a.act === 'fish' ? ((w) => ({ x: w.cx, y: w.cy }))(pondW()) : courtC(); a.flip = (c.x - c.y) < (a.x - a.y); a.back = (c.x + c.y) < (a.x + a.y); }
   else if (a.spot && a.spot.look) { const c = a.spot.look; a.flip = (c.x - c.y) < (a.x - a.y); a.back = false; }   // the wand practice faces the target
   else if (a.act === 'tea') { const c = courtZones().picnic; a.flip = (c.x - c.y) < (a.x - a.y); a.back = false; }   // round the picnic, facing the tea
   else a.back = false;
@@ -1292,11 +1309,13 @@ function courtFx(a, x, y) {   // what each court activity shows (render only; ev
   else if (a.act === 'read' && !courtPose(a)) emoji('📖', x + (a.flip ? -11 : 11), y - 18, 11);
   else if (a.act === 'tea') { if (u < 0.45) emoji(['☕', '🧁', '💬', '😋'][Math.floor(T / 3 + a.id) % 4], x + (a.id % 2 ? 12 : -12), y - 30 - u * 10, 11); }
   else if (a.act === 'swing') { if (u < 0.35) emoji('😄', x - 12, y - 40, 10); }
+  else if (a.act === 'fish') { emoji('🎣', x + (a.flip ? -13 : 13), y - 26, 13); if (u > 0.6 && (Math.floor(T / 3) + a.id) % 3 === 0) emoji('🐟', x + (a.flip ? -28 : 28), y - 8 - (u - 0.6) * 30, 10); }
 }
 function stepCourt(a, dt) {
   a.t += dt; if (a.t < a.dur) return;
   if (a.act === 'tag' && a.laps-- > 0) { const v = courtSpots().tag, p = rnd(v); a.state = 'walk'; walk(a, p.x, p.y, () => courtArrive(a)); return; }
   if (a.act === 'coin') { const c = courtC(); popup(coinLuck() ? '🍀✨' : '🪙✨', c.x, c.y, '#d4a017', 50); if (coinLuck()) { a.luck = coinLuck(); LORE.event('coin'); } }   // «Монетка на счастье»: luck for the next exam
+  if (a.act === 'fish' && Math.random() < 0.4) popup('🐟', a.x, a.y - 0.3, '#3a9fd0', 46);   // a catch (let go again)
   if (a.goal.brk && (a.acts = (a.acts || 0) + 1) >= 2) { a.acts = 0; leaveCourt(a); route(a, a.goal.i); return; }   // a break = two activities, then on to the next class
   courtAct(a);
 }
@@ -2979,7 +2998,7 @@ const TIER_V = { owlbat: 2, mothfox: 2, petalear: 2, fernhorn: 2 };   // + build
 if (WORLD <= 2) for (const sp of SPECIES) for (let t = 1; t < 5; t++) for (const v of ['', '_back']) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${sp}_t${t}${v}.png?v=${TIER_V[sp] || 1}`; sprites[sp + '_t' + t + v] = im; }   // outfit stages (drawn later; missing ones fall back)
 for (const sp of SPECIES) for (const v of ['', '_back']) { const im = new Image(); im.src = `assets/creatures/${sp}${v}.png`; sprites[sp + v] = im; }   // front and back views
 // court poses (build 264, her pick «2»: real poses instead of icons; first test sheet: the moth fox without an outfit)
-const COURT_POSE = { bench: 'sit', tag: 'run', coin: 'coin', read: 'read', sparks: 'wand', birds: 'birds', swing: 'sit', tea: 'sit' };
+const COURT_POSE = { fish: 'sit', bench: 'sit', tag: 'run', coin: 'coin', read: 'read', sparks: 'wand', birds: 'birds', swing: 'sit', tea: 'sit' };
 const COURT_POSE_ART = SPECIES.flatMap((sp) => [sp, sp + '_t1', sp + '_t2', sp + '_t3', sp + '_t4']);   // every world-1 look (build 273, her «Делай»); a missing picture falls back to the standing sprite
 if (WORLD === 1) for (const k of COURT_POSE_ART) for (const p of Object.values(COURT_POSE)) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${k}_k_${p}.png?v=2`; sprites[k + '_k_' + p] = im; }
 const COURT_POSE_K = 1.2;   // plan item 6, her pick «1»: students busy in the court are drawn 1.2x bigger (small at the normal zoom)
@@ -4122,7 +4141,7 @@ let RLAY = { v: 1, rooms: {} }, LAY_VER = 0;
 const LAY_ENT = [], LAY_WALLS = {}, LAY_SEEN = {}, LAY_IMS = {}, texCache = new Map();
 let layCur = null, layHangN = {};
 function setLayout(L) { RLAY = L && L.rooms ? L : { v: 1, rooms: {} }; LAY_VER++; texCache.clear();
-  if (WORLD === 1) { clearTimeout(setLayout.t); setLayout.t = setTimeout(() => { const k = JSON.stringify([concOff('DORM'), concOff('DORM2')]); if (k !== setLayout.k) { const first = setLayout.k === undefined; setLayout.k = k; if (!first || k !== '[{"dx":0,"dy":0},{"dx":0,"dy":0}]') relayout(); } }, 600); } }   /* a sister moved: rebuild the paths */
+  if (WORLD === 1) { clearTimeout(setLayout.t); setLayout.t = setTimeout(() => { const po = pondOv(), k = JSON.stringify([concOff('DORM'), concOff('DORM2'), [po.dx || 0, po.dy || 0, po.k || 1, po.flip ? 1 : 0]]); if (k !== setLayout.k) { const first = setLayout.k === undefined; setLayout.k = k; if (!first || k !== '[{"dx":0,"dy":0},{"dx":0,"dy":0},[0,0,1,0]]' || (POND && !PATHS.some((r) => r.pond))) relayout(); } }, 600); } }   /* a sister moved: rebuild the paths */
 if (!EDIT) fetch('layouts/layouts.json?v=458').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.rooms && Object.keys(j.rooms).length) setLayout(j); }).catch(() => {});
 const layIm = (src) => { let im = LAY_IMS[src]; if (!im) { im = LAY_IMS[src] = new Image(); im.src = `assets/parts/${src}.webp?v=${src === 'reception/rc_umbrellas' ? 'e2' : 'e1'}`; } return im.complete && im.naturalWidth ? im : null; };
 function texPart(th, n) {   // the wall / floor texture of a room, recoloured or swapped by the layout
@@ -5286,7 +5305,7 @@ function statusOf0(a) {
   if (a.state === 'study') return `учится: ${cn(a.c)}, до экзамена ${Math.max(0, Math.ceil(a.dur - a.t))} с${a.rest > 0 ? ' · выспался, учится быстрее' : ''}${a.dream && CLASSES[a.c] && CLASSES[a.c].final ? ' · выспался перед экзаменом 🌙 +10%' : ''}`;
   if (a.state === 'wait' || a.state === 'walkwait') return `ждёт свободной парты: ${cn(a.c)}`;
   if (a.state === 'read' || g.t === 'l') return `готовится к пересдаче в библиотеке (${cn(g.i)})`;
-  if (g.t === 'k') return `${g.brk ? 'перемена во дворе, потом' : 'ждёт места во дворе:'} ${cn(g.i)} — ${{ bench: 'болтает на скамейке 💬', tag: 'играет в догонялки у фонтана 😆', coin: 'бросает монетку в фонтан 🪙', sparks: 'пробует искры из палочки ✨', birds: 'кормит птичек 🐦', read: 'читает под деревом 📖' }[a.act] || 'гуляет во дворе'}`;
+  if (g.t === 'k') return `${g.brk ? 'перемена во дворе, потом' : 'ждёт места во дворе:'} ${cn(g.i)} — ${{ bench: 'болтает на скамейке 💬', tag: 'играет в догонялки у фонтана 😆', coin: 'бросает монетку в фонтан 🪙', sparks: 'пробует искры из палочки ✨', birds: 'кормит птичек 🐦', read: 'читает под деревом 📖', fish: 'рыбачит у пруда 🎣' }[a.act] || 'гуляет во дворе'}`;
   if (g.t === 'n') return g.k === 'final' ? `${a.state === 'nap' ? 'высыпается' : 'идёт выспаться'} перед Финальным экзаменом 🌙 (+10% к шансу)` : `устал после уроков и ${a.state === 'nap' ? 'спит' : 'идёт спать'} 💤, потом будет учиться быстрее`;   // dorm roles
   if (a.state === 'sleep') return `спит в спальне, ждёт места: ${cn(g.i)}`;
   if (a.state === 'dline' || a.state === 'checkin' || g.t === 'd') return 'записывается в спальню у консьержки';
@@ -5339,7 +5358,6 @@ function render() {
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
   if (WORLD === 1 && POND) { const q = POND, la = layAdd('POND', pondBox(), add);   // the fishing pond: the editor's room «🎣 Пруд», every piece movable
-    list.push({ k1: -1e9, k2: 0, draw: drawPondPath });   // the path lies on the ground under everything
     la(q.cx, q.cy, drawPondPic, -(q.rx * 0.5 + q.ry * 0.7), 'pond_scene');
     for (const [n, dx, dy, sc] of [['bench_b', -1.6, q.ry + 1.3, 1.05], ['lantern_gold', q.x0 + 2.4 - q.cx, q.y0 + 1.6 - q.cy, 0.8], ['lantern_gold', -q.rx - 0.2, Math.floor(q.cy) + 2.4 - q.cy, 0.8]]) la(q.cx + dx, q.cy + dy, () => drawOut({ n, x: q.cx + dx, y: q.cy + dy, s: sc }), 0, n);
     layExtra('POND', pondBox(), add); }
@@ -5499,7 +5517,7 @@ function render() {
       }
     });
     if (a.state === 'vanish') { add(ax, ay, () => drawVanish(a, ax, ay), 0.3); continue; }
-    if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else if (a.state === 'court' && a.spot && (a.act === 'read' || (a.spot.seat && a.act === 'tea'))) add(ax + 0.6, ay + 0.6, draw); else add(ax, ay, draw);   // build 327: every court reader is drawn over the cushions (her «все еще сидят под текстурой подушек»); build 325 put this comment before «else add» and hid every other student (her «Все ученики стали прозрачными!»)   // her «Ученики должны быть выше подушек»: sitters on a cushion / the picnic blanket are drawn over it
+    if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else if (a.state === 'court' && a.act === 'fish') add(ax + 6, ay + 6, draw); else if (a.state === 'court' && a.spot && (a.act === 'read' || (a.spot.seat && a.act === 'tea'))) add(ax + 0.6, ay + 0.6, draw); else add(ax, ay, draw);   // build 327: every court reader is drawn over the cushions (her «все еще сидят под текстурой подушек»); build 325 put this comment before «else add» and hid every other student (her «Все ученики стали прозрачными!»)   // her «Ученики должны быть выше подушек»: sitters on a cushion / the picnic blanket are drawn over it
   }
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
   for (const f of fxTop) f();
@@ -7843,5 +7861,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => POND && pondBox(), entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=563').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=564').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
