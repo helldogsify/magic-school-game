@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=525';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=526';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=525';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=525';
-import { initMinigame } from './minigame.js?v=525';
-import { initChests } from './chests.js?v=525';
-import { initValley } from './valley.js?v=525';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=525';
-import { initLore } from './lore.js?v=525';
-import { initAvatar } from './avatar.js?v=525';
+} from './data.js?v=526';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=526';
+import { initMinigame } from './minigame.js?v=526';
+import { initChests } from './chests.js?v=526';
+import { initValley } from './valley.js?v=526';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=526';
+import { initLore } from './lore.js?v=526';
+import { initAvatar } from './avatar.js?v=526';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 525;   // keep equal to the ?v= number in index.html
+const BUILD = 526;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4502,8 +4502,8 @@ function animPilot(a, sp0, cpose, walking) {
 }
 // ---- lesson effects (?anim=fx pilot): body motion + a floating wand with star sparkles, drawn by the game
 const LESSON_FX = ANIM_MODE === 'fx' ? { charms: 1 } : null;
-const CAST_POSES = { mothfox: [21 / 209, 33 / 180] };   // looks that have a «cast» picture: where the wand tip is (share of width, height)
-for (const k of Object.keys(CAST_POSES)) { const im = new Image(); im.src = `assets/creatures/${k}_cast.png?v=1`; sprites[k + '_cast'] = im; }
+const CAST_POSES = { mothfox: [0.1, 0.183], mothfox_t1: [0.767, 0.067], mothfox_t2: [0.747, 0.194], fernhorn: [0.764, 0.3], fernhorn_t1: [0.131, 0.233], fernhorn_t2: [0.117, 0.278], petalear: [0.812, 0.167], petalear_t1: [0.792, 0.222], petalear_t2: [0.201, 0.178], starwhisker: [0.783, 0.228], starwhisker_t1: [0.802, 0.233], starwhisker_t2: [0.794, 0.222] };   // looks that have a «cast» picture: where the wand tip is (share of width, height)
+for (const k of Object.keys(CAST_POSES)) { const im = new Image(); im.src = `assets/creatures/${k}_cast.png?v=2`; sprites[k + '_cast'] = im; }
 function lessonSparks(F, a, s, z, h, w, fl) {   // star sparkles from the wand tip while the paw is up
   const now = F.T; a._fx ||= []; const P = a._fx;
   if (window.__fxProbe) { const m = ctx.getTransform(); window.__fxProbe[a.id] = [m.a * s.x + m.c * (s.y - z) + m.e, m.b * s.x + m.d * (s.y - z) + m.f, m.a * h]; }   // test hook: the feet on the canvas
@@ -7449,5 +7449,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=525').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=526').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
