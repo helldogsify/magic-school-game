@@ -16,7 +16,7 @@ import { runFlight, loadFlightArt } from './flight.js?v=5';   // bump when fligh
 import { runCart } from './cart.js?v=1';
 import { runGem, loadGemArt } from './gem.js?v=1';
 import { runTower, loadTowerArt } from './tower.js?v=2';
-import { runFish, loadFishArt } from './fish.js?v=2';   // world 1: «Рыбалка»   // world 2: «Башня из руды»   // world 2: «Огранка самоцветов»   // world 2: «Вагонетка в штольне» (bump when cart.js changes)
+import { runFish, loadFishArt } from './fish.js?v=3';   // world 1: «Рыбалка»   // world 2: «Башня из руды»   // world 2: «Огранка самоцветов»   // world 2: «Вагонетка в штольне» (bump when cart.js changes)
 const W2 = () => !!(A && A.world && A.world() === 2);
 // the flight's words in world 2 (the cart uses the same shell, records and weekly table)
 const cw = (t) => (W2() ? String(t).replace(/искорки \+1 очко/, 'руда +1 очко').replace(/искорки \+1/, 'руда +1').replace(/искорок/g, 'руды').replace(/золотые перья вдвое чаще/, 'каски вдвое чаще').replace(/защитой пера|защита пера/, 'с каской').replace(/огненный щит/, 'каска').replace(/щит и реже задевает тучки/, 'каска и реже задевает завалы').replace(/ветер не страшен/, 'видит в темноте').replace(/обычный полёт/, 'обычная поездка').replace(/Перо с собой/, 'Каска с собой').replace(/Магнит искорок/, 'Магнит руды') : t);

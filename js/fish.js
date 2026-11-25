@@ -27,14 +27,16 @@ export function runFish(box, o) {
   const st = { t: 0, left: ROUND, started: false, over: false, ended: false, score: 0, rings: 0, sparks: 0, phase: 'idle', bx: 0.5, wait: 0, bite: 0, fakeT: 0, fish: null, tension: 0.4, prog: 0, low: 0, hold: false, shown: null, texts: [], fx: [], deadT: 0, shake: 0, swim: [] };
   for (let k = 0; k < 5; k++) st.swim.push({ f: FISH[k % 4], x: Math.random(), y: SURF + 0.15 + Math.random() * 0.45, v: (Math.random() < 0.5 ? -1 : 1) * (0.04 + Math.random() * 0.05) });
   const say = (s, col = '#fff', y = 0.25) => st.texts.push({ x: 0.5, y, s, t: 0, col });
-  function pick() { const sum = FISH.reduce((a, f) => a + f.w, 0); let r = Math.random() * sum; for (const f of FISH) { r -= f.w; if (r <= 0) return f; } return FISH[0]; }
-  function cast() { st.phase = 'wait'; st.bx = 0.25 + Math.random() * 0.5; st.wait = 1.2 + Math.random() * 2.8; st.fakeT = 0.5 + Math.random(); o.snd && o.snd('tick'); }
+  const patience = () => Math.min(6, (st.fakes || 0) + (st.calm || 0));
+  const W8 = (f, p) => f.w * (f.k === 'f_magic' ? 1 + 0.55 * p : f.k === 'f_gold' ? 1 + 0.9 * p : f.k === 'f_carp' ? 1 + 0.15 * p : f.k === 'boot' ? Math.max(0.25, 1 - 0.15 * p) : Math.max(0.35, 1 - 0.12 * p));
+  function pick() { const p = patience(), sum = FISH.reduce((a, f) => a + W8(f, p), 0); let r = Math.random() * sum; for (const f of FISH) { r -= W8(f, p); if (r <= 0) return f; } return FISH[0]; }   // patience shifts the odds to rare fish
+  function cast() { st.phase = 'wait'; st.fakes = 0; st.bx = 0.25 + Math.random() * 0.5; st.wait = 1.5 + Math.random() * 4; st.fakeT = 0.5 + Math.random(); o.snd && o.snd('tick'); }
   const onDown = (e) => {
     e.preventDefault(); if (st.over) return;
     if (!st.started) { st.started = true; o.onStart && o.onStart(); cast(); return; }
     if (st.phase === 'idle') return cast();
-    if (st.phase === 'wait') { say('Рано! Рыба испугалась', '#ffb0b0'); st.phase = 'idle'; st.shown = null; return; }
-    if (st.phase === 'bite') { st.fish = st.fish || pick(); st.phase = 'reel'; st.tension = 0.5; st.vel = 0; st.zc = 0.5; st.zg = 0.5; st.zt = 0.8; st.top = 0; st.prog = 0.25; st.low = 0; st.hold = true; say('Подсекла! Тяни!', '#ffe08a'); o.snd && o.snd('pop', 3); return; }
+    if (st.phase === 'wait') { say(st.calm ? 'Рано! Спокойствие пропало' : 'Рано! Рыба испугалась', '#ffb0b0'); st.calm = 0; st.phase = 'idle'; st.shown = null; return; }
+    if (st.phase === 'bite') { st.calm = Math.min(4, (st.calm || 0) + 1); st.fish = st.fish || pick(); st.phase = 'reel'; st.tension = 0.5; st.vel = 0; st.zc = 0.5; st.zg = 0.5; st.zt = 0.8; st.top = 0; st.prog = 0.25; st.low = 0; st.hold = true; say('Подсекла! Тяни!', '#ffe08a'); o.snd && o.snd('pop', 3); return; }
     if (st.phase === 'reel') st.hold = true;
   };
   const onUp = () => { st.hold = false; };
@@ -55,18 +57,18 @@ export function runFish(box, o) {
     if (st.over) { st.deadT += dt; if (st.deadT > 1 && !st.ended) { st.ended = true; o.onEnd({ score: st.score, rings: st.rings, sparks: st.sparks }); } return; }
     if (!st.started) return;
     st.left -= dt; if (st.left <= 0) { st.left = 0; st.over = true; st.deadT = 0; say('Время вышло!', '#ffe08a'); o.snd && o.snd('end'); return; }
-    if (st.phase === 'wait') { st.fakeT -= dt; if (st.fakeT <= 0) { st.fakeT = 0.6 + Math.random() * 1.2; st.twitch = 0.25; } st.twitch = Math.max(0, (st.twitch || 0) - dt);
+    if (st.phase === 'wait') { st.fakeT -= dt; if (st.fakeT <= 0) { st.fakeT = 0.6 + Math.random() * 1.2; st.twitch = 0.25; st.fakes = (st.fakes || 0) + 1; } st.twitch = Math.max(0, (st.twitch || 0) - dt);
       st.wait -= dt; if (st.wait <= 0) { st.phase = 'bite'; st.fish = pick(); st.bite = st.fish.pts >= 40 ? 0.45 : st.fish.pts >= 20 ? 0.58 : 0.7; o.snd && o.snd('tick'); } }
     else if (st.phase === 'bite') { st.bite -= dt; if (st.bite <= 0) lose('Сорвалась… Нажимай, когда поплавок нырнёт!'); }
     else if (st.phase === 'reel') {
-      const f = st.fish, zh = Math.max(0.16, 0.42 - f.pull * 0.2);   // the green zone: narrower for stronger fish
-      st.zt -= dt; if (st.zt <= 0) { st.zt = 0.5 + Math.random() * (1.4 - f.pull * 0.6); st.zg = zh / 2 + Math.random() * (1 - zh); }   // the fish darts: a new place for the zone
-      st.zc += (st.zg - st.zc) * Math.min(1, dt * (1.2 + f.pull * 2.4));
-      st.vel += (st.hold ? 1.9 : -1.6) * dt; st.vel *= Math.pow(0.35, dt); st.tension += st.vel * dt;   // the marker has inertia
+      const f = st.fish, zh = Math.max(0.18, 0.46 - f.pull * 0.22);   // the green zone: narrower for stronger fish
+      st.zt -= dt; if (st.zt <= 0) { st.zt = 0.7 + Math.random() * (1.6 - f.pull * 0.5); st.zg = zh / 2 + Math.random() * (1 - zh); }   // the fish darts: a new place for the zone
+      st.zc += (st.zg - st.zc) * Math.min(1, dt * (0.9 + f.pull * 1.7));
+      st.vel += (st.hold ? 1.4 : -1.2) * dt; st.vel *= Math.pow(0.2, dt); st.tension += st.vel * dt;   // the marker has inertia
       if (st.tension < 0) { st.tension = 0; st.vel = Math.max(0, st.vel); }
       if (st.tension >= 1) { st.tension = 1; st.vel = Math.min(0, st.vel); st.top += dt; if (st.top > 0.5) { st.shake = 0.3; return lose('Леска лопнула! Не тяни так сильно'); } } else st.top = 0;
       st.inZ = Math.abs(st.tension - st.zc) < zh / 2; st.zh = zh;
-      st.prog += (st.inZ ? 0.3 - f.pull * 0.08 : -0.22) * dt;
+      st.prog += (st.inZ ? 0.3 - f.pull * 0.08 : -0.14) * dt;
       if (st.prog <= 0) return lose('Рыба ушла… держи метку в зелёной зоне');
       if (st.prog >= 1) catchIt();
     }
@@ -100,6 +102,8 @@ export function runFish(box, o) {
     cx.globalAlpha = 1; cx.textAlign = 'center'; cx.textBaseline = 'middle';
     cx.font = `900 ${Math.round(17 * dpr)}px ui-rounded, "Nunito", sans-serif`; cx.lineWidth = 4 * dpr; cx.strokeStyle = '#2b4a5a'; cx.fillStyle = st.left <= 10 ? '#ff9a9a' : '#ffffff';
     const tt = `⏱ ${Math.ceil(st.left)}`; cx.strokeText(tt, Wp * 0.12, Hp * 0.04); cx.fillText(tt, Wp * 0.12, Hp * 0.04);
+    { const pv = patience(); cx.font = `800 ${Math.round(13 * dpr)}px ui-rounded, "Nunito", sans-serif`; cx.textAlign = 'right'; cx.fillStyle = '#ffffff'; cx.strokeText('Терпение', Wp * 0.7, Hp * 0.04); cx.fillText('Терпение', Wp * 0.7, Hp * 0.04); cx.textAlign = 'center';
+      for (let k = 0; k < 6; k++) { cx.beginPath(); cx.arc(Wp * 0.74 + k * 12 * dpr, Hp * 0.04, 4.5 * dpr, 0, 7); cx.fillStyle = k < pv ? (k >= 4 ? '#ffd76a' : '#c9a7ff') : 'rgba(255,255,255,0.3)'; cx.fill(); } }   // patience: more dots = rarer fish
     for (const p of st.texts) { cx.globalAlpha = Math.min(1, (1.3 - p.t) * 3); cx.font = `900 ${Math.round(17 * dpr)}px ui-rounded, "Nunito", sans-serif`; const y = (p.y - p.t * 0.03) * Hp; cx.lineWidth = 5 * dpr; cx.strokeStyle = '#2b4a5a'; cx.strokeText(p.s, p.x * Wp, y); cx.fillStyle = p.col; cx.fillText(p.s, p.x * Wp, y); }
     cx.globalAlpha = 1;
     if (!st.started || st.phase === 'idle') { cx.font = `800 ${Math.round(16 * dpr)}px ui-rounded, "Nunito", sans-serif`; cx.lineWidth = 5 * dpr; cx.strokeStyle = '#2b4a5a'; cx.fillStyle = '#ffe9a8';
