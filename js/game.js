@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=513';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=514';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=513';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=513';
-import { initMinigame } from './minigame.js?v=513';
-import { initChests } from './chests.js?v=513';
-import { initValley } from './valley.js?v=513';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=513';
-import { initLore } from './lore.js?v=513';
-import { initAvatar } from './avatar.js?v=513';
+} from './data.js?v=514';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=514';
+import { initMinigame } from './minigame.js?v=514';
+import { initChests } from './chests.js?v=514';
+import { initValley } from './valley.js?v=514';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=514';
+import { initLore } from './lore.js?v=514';
+import { initAvatar } from './avatar.js?v=514';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 513;   // keep equal to the ?v= number in index.html
+const BUILD = 514;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4789,7 +4789,7 @@ const TOUR = WORLD === 2 ? TOUR_W2 : TOUR_W1;
 const INTRO_GAP = 60;
 const INTROS = [
   { key: 'court', when: () => WORLD === 1 && !!COURT && S.stats.graduated >= 3, steps: () => [TOUR_W1.find((t) => t.title.startsWith('Волшебный двор'))] },
-  { key: 'mg', when: () => S.stats.graduated >= 10, steps: () => [{ at: null, title: 'Зельеварка 🧪', text: 'Вверху есть кнопка 🧪 — мини-игра «Зельеварка». Меняй местами ингредиенты, собирай три в ряд и вари зелья по рецепту. За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждые 20 минут.' }] },
+  { key: 'mg', when: () => S.stats.graduated >= 10, steps: () => [WORLD === 2 ? { at: null, title: 'Мини-игры ✨', text: 'Вверху есть кнопка 🧪 — мини-игры этого мира: «Огранка самоцветов», «Башня из руды» и «Вагонетка в штольне». За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждый час.' } : { at: null, title: 'Зельеварка 🧪', text: 'Вверху есть кнопка 🧪 — мини-игра «Зельеварка». Меняй местами ингредиенты, собирай три в ряд и вари зелья по рецепту. За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждые 20 минут.' }] },
   { key: 'dir', when: () => WORLD === 1 && (dirBuilt() || isOpen(2)), steps: () => [
     { at: roomAt('DIR'), title: 'Кабинет директора 👑', text: dirBuilt() ? 'В кабинете директора ты выбираешь договор с учениками, запускаешь рекламные акции 📣, отвечаешь на письма родителей ✉️ и улучшаешь правила школы.' : `Здесь можно построить кабинет директора 👑 (🪙${fmt(DIR_COST)} и ⭐ ${DIR_STARS} звезды школы — их дают проверки инспектора). В нём выбирают договор с учениками, запускают рекламные акции и отвечают на письма родителей.` },
     { at: roomAt('DIR'), title: 'Летописец Тихон 🐢', text: 'В кабинете живёт летописец Тихон. Он иногда гуляет по школе — нажми на него, и он расскажет, что в школе не так и что улучшить. Задания 📋 тоже от него.' }] },
@@ -5455,7 +5455,8 @@ const CNTS = {
   masters: { g: 'rank', on: () => isOpen(NCLS - 1) && ((S.stats.ranks || [])[4] || 0) > 0, now: () => (S.stats.ranks || [])[5] || 0, n: () => rint(1, 3), text: (n) => `Пусть ещё ${n} ${nOf(n, 'ученик получит', 'ученика получат', 'учеников получат')} высшее звание «${RANKS[RANKS.length - 1]}» 🌟`, go: () => [slotOfId('final'), '[data-act="exlvl"]'] },
   camps: { g: 'dir', on: () => bossOn(), cost: () => Math.min(...Object.keys(CAMPS).map((k) => campCost(k))), back: 1, now: () => S.stats.camps || 0, n: () => 1, text: () => 'Проведи рекламную акцию в кабинете директора 📣', go: () => ['DIR', '[data-act="camp"]'] },
   mails: { g: 'dir', on: () => bossOn() && S.stats.graduated >= 20 && !calm(), now: () => S.stats.mails || 0, n: () => 1, text: () => 'Ответь на письмо родителей ✉️', go: () => ['DIR', '[data-mailopen]'] },   // build 313 moved the answers into their own window
-  pot: { g: 'mg', on: () => true, now: () => (S.mg && S.mg.pot) || 0, n: () => rint(2, 4), text: (n) => `Свари ещё ${n} ${nOf(n, 'зелье', 'зелья', 'зелий')} в Зельеварке 🧪`, go: () => ['@mg', null] },
+  games: { g: 'mg', on: () => WORLD === 2, now: () => mgRounds(), n: () => rint(2, 4), text: (n) => `Сыграй ещё ${n} ${nOf(n, 'раз', 'раза', 'раз')} в мини-игры ✨`, go: () => ['@mg', null] },   // world 2: Огранка, Башня, Вагонетка
+  pot: { g: 'mg', on: () => WORLD === 1, now: () => (S.mg && S.mg.pot) || 0, n: () => rint(2, 4), text: (n) => `Свари ещё ${n} ${nOf(n, 'зелье', 'зелья', 'зелий')} в Зельеварке 🧪`, go: () => ['@mg', null] },
   gifts: { g: 'gift', on: () => allyMates() > 0, keep: () => allyMates() !== 0, now: () => S.stats.gifts || 0, n: () => 1, text: () => 'Отправь подарок другу из альянса 🎁', go: () => ['@ally', null] },
   forms: { g: 'rank', on: () => FORM_KEYS.some(formReady), now: formSum, n: () => 1, text: () => 'Улучши карточку ученика в альбоме 🎓', go: () => ['@album', null],
     cost: () => Math.min(...FORM_KEYS.filter(formReady).map(formCost)) },
@@ -7373,5 +7374,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=513').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=514').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }

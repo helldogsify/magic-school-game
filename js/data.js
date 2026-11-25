@@ -121,7 +121,7 @@ export const MISSIONS = WORLD === 2 ? [
   { id: 'w_tab', text: 'Улучши «Каменные таблички» до ур. 3', reward: 40, check: (g) => g.item('runes', 'tablets') >= 3, prog: (g) => [g.item('runes', 'tablets'), 3], go: ['#runes', '[data-act="item"][data-k="0"]'] },
   { id: 'w_forge', text: 'Построй Кузню ⚒️', reward: 150, build: 'forge', check: (g) => g.built('forge'), go: ['#forge', '[data-act="build"]'] },
   { id: 'w_g10', text: 'Выпусти 10 учеников 🎓', reward: 200, check: (g) => g.S.stats.graduated >= 10, prog: (g) => [g.S.stats.graduated, 10], go: ['#final', '[data-act="desk"]'] },
-  { id: 'w_mg', text: 'Свари 3 зелья в Зельеварке 🧪', reward: 100, check: (g) => (g.mg().pot || 0) >= 3, prog: (g) => [g.mg().pot || 0, 3], go: ['@mg', null] },
+  { id: 'w_mg', text: 'Сыграй 3 раза в мини-игры ✨', reward: 100, check: (g) => ((g.mg().n || 0) + ((g.mg().f || {}).n || 0) + ((g.mg().g || {}).n || 0)) >= 3, prog: (g) => [Math.min(3, ((g.mg().n || 0) + ((g.mg().f || {}).n || 0) + ((g.mg().g || {}).n || 0))), 3], go: ['@mg', null] },   // world 2 has no «Зельеварка» since build 510
   { id: 'w_mine', text: 'Построй Штольню ⛏️', reward: 800, build: 'mine', check: (g) => g.built('mine'), go: ['#mine', '[data-act="build"]'] },
   { id: 'w_ore', text: 'Добудь 30 руды в Штольне ⛏️', reward: 1000, check: (g) => statOf(g, 'ore') >= 30, prog: (g) => [statOf(g, 'ore'), 30], go: ['#mine', '[data-act="desk"]'] },
   { id: 'w_forged', text: 'Выкуй 20 изделий в Кузне ⚒️', reward: 1000, check: (g) => statOf(g, 'forged') >= 20, prog: (g) => [statOf(g, 'forged'), 20], go: ['#forge', '[data-act="desk"]'] },
