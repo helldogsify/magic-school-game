@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=548';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=549';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=548';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=548';
-import { initMinigame } from './minigame.js?v=548';
-import { initChests } from './chests.js?v=548';
-import { initValley } from './valley.js?v=548';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=548';
-import { initLore } from './lore.js?v=548';
-import { initAvatar } from './avatar.js?v=548';
+} from './data.js?v=549';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=549';
+import { initMinigame } from './minigame.js?v=549';
+import { initChests } from './chests.js?v=549';
+import { initValley } from './valley.js?v=549';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=549';
+import { initLore } from './lore.js?v=549';
+import { initAvatar } from './avatar.js?v=549';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 548;   // keep equal to the ?v= number in index.html
+const BUILD = 549;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2650,7 +2650,7 @@ function drawTikhonBadge(p) {   // a scroll over his head while he has something
 // ---- Tikhon's riddles (Maria 2026-11-25: «в чем будет отличие от ощущения кликера? ... Вместо того чтобы самостоятельно стратегически
 // подумать что улучшить»; her «Да» to: riddles about the problem instead of the button, no numbers on the buttons, a bonus for a wise
 // choice). He names WHAT is wrong in the school, never which button fixes it; the player finds the place and picks the upgrade.
-const TK_TIP_N = 3, TK_WISE_SHARE = 0.15;   // a wise purchase: Tikhon pays back 15% of its price (Maria: smaller, the game must not go much faster) (level quests pay 30%, but pick at random)
+const TK_TIP_N = 3, TK_WISE_SHARE = 0.15, TK_WISE_HINT = 0.1;   // 10% when the riddle's «Подсказка» was opened (Maria 2026-11-25);   // a wise purchase: Tikhon pays back 15% of its price (Maria: smaller, the game must not go much faster) (level quests pay 30%, but pick at random)
 let tkTipCache = null, tkTipAt = 0;
 function tkWhy(o, s0) {   // [family, emoji, title, riddle with a clue where to look, hint = the place]
   const slow = o.i !== undefined && o.i !== null && o.i === s0.b, cn = o.i !== undefined && o.i !== null ? `Это класс «${CLASSES[o.i].name}».` : '';
@@ -2683,11 +2683,13 @@ function tkWiseOf(d, i) {   // before a purchase: is it one of the three best up
   try {
     if (WORLD !== 1 || !d.act || EDIT) return null;
     const k = d.k === undefined ? undefined : /^\d+$/.test(d.k) ? +d.k : d.k, ii = Number.isFinite(i) ? i : undefined;
-    return tkRank().slice(0, 3).some((v) => v.o.act === d.act && (v.o.i === undefined || v.o.i === ii) && String(v.o.k) === String(k)) ? d.act : null;
+    const v = tkRank().slice(0, 3).find((x) => x.o.act === d.act && (x.o.i === undefined || x.o.i === ii) && String(x.o.k) === String(k)); if (!v) return null;
+    const w = tkWhy(v.o, tkSnap()), hinted = !!(w && S.tkHint && S.tkHint[w[0] + ':' + w[4]]);   // the riddle about this very place had its hint opened
+    return { share: hinted ? TK_WISE_HINT : TK_WISE_SHARE };
   } catch (e) { return null; }
 }
-function tkWisePay(paid) {
-  const bonus = Math.max(1, nice(paid * TK_WISE_SHARE)); S.coins += bonus; S.stats.wise = (S.stats.wise || 0) + 1;
+function tkWisePay(paid, share = TK_WISE_SHARE) {
+  const bonus = Math.max(1, nice(paid * share)); S.coins += bonus; S.stats.wise = (S.stats.wise || 0) + 1;
   toast(`🦉 Мудрое решение, директор! Тихон доплатил 🪙${fmt(bonus)}`); updateHud();
 }
 function tkTips() {   // [{key, emo, title, text, g, mins, go}] best first; cached 3 s
@@ -2717,7 +2719,7 @@ function tkBadge() {   // tips not seen yet + Tikhon's urgent reports
 function tkTipsBlock() {
   const tips = tkTips(); tips.forEach((t) => { tkSeen()[t.key] = 1; });
   if (!tips.length) return '';
-  return `<h3>🔎 Загадки Тихона</h3><p class="muted">Найди сам, что улучшить. Угадаешь одно из самых выгодных улучшений — я доплачу 🦉${S.stats.wise ? ` · мудрых решений: ${S.stats.wise}` : ''}</p>` + tips.map((t) => { const open = !!(S.tkHint && S.tkHint[t.key]);
+  return `<h3>🔎 Загадки Тихона</h3><p class="muted">Найди сам, что улучшить. Угадаешь одно из самых выгодных улучшений — я доплачу 🦉 (с подсказкой — чуть меньше)${S.stats.wise ? ` · мудрых решений: ${S.stats.wise}` : ''}</p>` + tips.map((t) => { const open = !!(S.tkHint && S.tkHint[t.key]);
     return `<div class="card up tktip"><span class="remoji">${t.emo}</span><div class="grow"><b>${t.title}</b><div class="muted">${t.text}</div>${t.hint && open ? `<div class="tkhint">💡 ${t.hint}</div>` : ''}</div>${t.hint && !open ? `<button class="btn small ghost" data-tkhint="${t.key}">Подсказка</button>` : ''}</div>`; }).join('');
 }
 function tkStyle() {
@@ -6635,7 +6637,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'conc') { if (dormUp().conc < MAX_CONC && spend(concCost())) dormUp().conc++; }
   else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= buildCost(i) && spendStars(starsNeed(i)) && spend(buildCost(i))) { st.built = true; st.buildEnd = Date.now() + buildTime(i) * 1000; panel = classPanel(i); } }
   else return;
-  if (tkW && S.coins < tkC0) tkWisePay(tkC0 - S.coins);
+  if (tkW && S.coins < tkC0) tkWisePay(tkC0 - S.coins, tkW.share);
   refreshPanel(); save();
 });
 $('#sheet-bg').addEventListener('click', closePanel);
@@ -7676,5 +7678,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=548').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=549').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
