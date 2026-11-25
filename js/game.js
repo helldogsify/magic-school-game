@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=519';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=520';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=519';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=519';
-import { initMinigame } from './minigame.js?v=519';
-import { initChests } from './chests.js?v=519';
-import { initValley } from './valley.js?v=519';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=519';
-import { initLore } from './lore.js?v=519';
-import { initAvatar } from './avatar.js?v=519';
+} from './data.js?v=520';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=520';
+import { initMinigame } from './minigame.js?v=520';
+import { initChests } from './chests.js?v=520';
+import { initValley } from './valley.js?v=520';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=520';
+import { initLore } from './lore.js?v=520';
+import { initAvatar } from './avatar.js?v=520';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 519;   // keep equal to the ?v= number in index.html
+const BUILD = 520;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4486,6 +4486,42 @@ function animPilot(a, sp0, cpose, walking) {
   if (!ANIM_SHEETS || sp0 !== 'mothfox' || cpose || a._tierImg || a.back || (a.rk || 0)) return null;
   const A = (walking && ANIM_SHEETS.walk) || ANIM_SHEETS.idle; return A.im.complete && A.im.naturalWidth ? A : null;
 }
+// ---- lesson effects (?anim=fx pilot): body motion + a floating wand with star sparkles, drawn by the game
+const LESSON_FX = ANIM_MODE === 'fx' ? { charms: 1 } : null;
+function lessonFx(a) {
+  if (!LESSON_FX || a.state !== 'study' || !CLASSES[a.c] || !LESSON_FX[CLASSES[a.c].id] || !SPECIES.includes(a.sp)) return null;
+  const T = performance.now() / 1000 + (a.id || 0) * 0.613, P = 2.6, ph = (T % P) / P;   // one cast every 2.6 s, students out of step
+  const flick = ph > 0.5 && ph < 0.62 ? Math.sin((ph - 0.5) / 0.12 * Math.PI) : 0;      // the quick swing of the wand
+  return { T, ph, flick, kind: CLASSES[a.c].id };
+}
+function lessonBody(F, s, z, h) {   // breathing, a slow sway, a little hop and lean into the cast; feet stay on the floor
+  const br = 1 + 0.025 * Math.sin(F.T * 2.4), sw = Math.sin(F.T * 1.3) * 0.03 + F.flick * 0.06, hop = F.flick * h * 0.05;
+  ctx.translate(s.x, s.y - z - hop); ctx.rotate(sw); ctx.scale(1 / Math.sqrt(br), br); ctx.translate(-s.x, -(s.y - z));
+}
+function star4(x, y, r, col, alpha) {
+  ctx.globalAlpha = alpha; ctx.fillStyle = col; ctx.beginPath();
+  for (let k = 0; k < 8; k++) { const an = k * Math.PI / 4, rr = k % 2 ? r * 0.38 : r; ctx.lineTo(x + Math.cos(an) * rr, y + Math.sin(an) * rr); }
+  ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+}
+const FX_COLS = ['#ffd75e', '#ffe9a8', '#c9a6ff', '#ff9fd8', '#ffffff'];
+function lessonWand(F, a, s, z, h, fl) {   // the wand floats above the shoulder, swings, its tip throws sparkles
+  const side = fl ? -1 : 1, bob = Math.sin(F.T * 2) * h * 0.03;
+  const gx = s.x + side * h * 0.5, gy = s.y - z - h * 0.42 + bob;                          // the grip, in the air beside the head
+  const ang = side * (0.75 - F.flick * 1.0 + Math.sin(F.T * 1.7) * 0.15), L = h * 0.5;     // tilted outwards, flicks over
+  const tx = gx + Math.sin(ang) * L, ty = gy - Math.cos(ang) * L;
+  if (window.__fxProbe) { const m = ctx.getTransform(); window.__fxProbe[a.id] = [m.a * s.x + m.c * (s.y - z) + m.e, m.b * s.x + m.d * (s.y - z) + m.f, m.a * h]; }   // test hook: the feet on the canvas
+  ctx.lineCap = 'round'; ctx.strokeStyle = '#6b4226'; ctx.lineWidth = Math.max(3, h * 0.08); ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(tx, ty); ctx.stroke();
+  ctx.strokeStyle = '#a8703f'; ctx.lineWidth = Math.max(1.5, h * 0.035); ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(tx, ty); ctx.stroke();
+  const glow = 0.35 + 0.65 * Math.max(F.flick, 0.3 + 0.2 * Math.sin(F.T * 6));
+  if (typeof glowSprite === 'function') { const gs = h * (0.6 + F.flick * 0.6); ctx.globalAlpha = glow; ctx.drawImage(glowSprite('255,220,140'), tx - gs / 2, ty - gs / 2, gs, gs); ctx.globalAlpha = 1; }
+  star4(tx, ty, h * 0.11 * (0.8 + glow * 0.5), '#fff4c2', 1);
+  // sparkles: born at the tip during the flick, drift out and fade
+  const now = F.T; a._fx ||= []; const P = a._fx;
+  if (F.flick > 0.15 && (!a._fxLast || now - a._fxLast > 0.04)) { a._fxLast = now; for (let k = 0; k < 4; k++) P.push({ x: tx, y: ty, vx: (Math.random() - 0.5 + side * 0.6) * h * 0.9, vy: (-Math.random() * 0.9 - 0.2) * h * 0.8, t0: now, life: 0.7 + Math.random() * 0.5, c: FX_COLS[Math.floor(Math.random() * FX_COLS.length)], r: h * (0.06 + Math.random() * 0.06) }); }
+  for (let k = P.length - 1; k >= 0; k--) { const q = P[k], u = now - q.t0; if (u > q.life || u < 0) { P.splice(k, 1); continue; }
+    star4(q.x + q.vx * u, q.y + q.vy * u + u * u * h * 0.6, q.r * (1 - u / q.life * 0.5), q.c, 1 - u / q.life); }
+  if (P.length > 60) P.splice(0, P.length - 60);
+}
 function drawPilot(A, s, h, bob, z, fl, a, walking) {
   const k = Math.floor(performance.now() / 1000 * A.fps + (a.id || 0) * 5) % A.n, sx = (k % A.cols) * A.fw, sy = Math.floor(k / A.cols) * A.fh, sc = h / 180, dw = A.fw * sc, dh = A.fh * sc;
   ctx.save(); ctx.translate(s.x, s.y - z - (A === ANIM_SHEETS.walk ? 0 : bob)); if (fl) ctx.scale(-1, 1); ctx.drawImage(A.im, sx, sy, A.fw, A.fh, -dw / 2, -dh, dw, dh); ctx.restore();
@@ -4511,10 +4547,12 @@ function drawCreature(a, x, y, h, extra) {
   const z = a.z || 0;
   if (!a._ghost) ctx.drawImage(creatureShadow(), s.x - h * 0.3, s.y - h * 0.12, h * 0.6, h * 0.24);   // cached oval (was a path fill per creature per frame)
   if (SP_GLOW[sp0] && !a._ghost) { ctx.globalAlpha = 0.32; const gs = h * 1.5; ctx.drawImage(glowSprite('185,205,255'), s.x - gs / 2, s.y - bob - z - h * 0.55 - gs / 2, gs, gs); ctx.globalAlpha = 1; }   // rim light: dark creatures stay visible in the cave
+  const FXL = lessonFx(a); if (FXL) { ctx.save(); lessonBody(FXL, s, z, h); }   // lesson effect pilot (?anim=fx)
   if (AP) drawPilot(AP, s, h, bob, z, fl, a, walking);
   else if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; const sm = sized(im, h * scale * dpr); ctx.drawImage(fl ? flipped(sm) : sm, s.x - w * sx / 2, s.y - bob - z - h * sy, w * sx, h * sy); 
     if (sp0 === 'mossmole' && !a._tierImg) { const lg = glowSprite('255,240,170'), r = h * 0.32; ctx.globalAlpha = 0.75; for (const fx of [0.1, 0.9]) ctx.drawImage(lg, s.x - w / 2 + w * (a.flip ? 1 - fx : fx) - r / 2, s.y - bob - z - h * 0.985 - r / 2, r, r); ctx.globalAlpha = 1; } }   // the lanterns on its antennae glow   // no save/restore per creature, a small copy of the sprite (build 207)
   else { ctx.fillStyle = '#ffd6e8'; ctx.beginPath(); ctx.ellipse(s.x, s.y - bob - z - h / 2, h / 2.6, h / 2.2, 0, 0, Math.PI * 2); ctx.fill(); }
+  if (FXL) { ctx.restore(); lessonWand(FXL, a, s, z, h, a.flip); }
   if (rk === 5) {   // twinkling sparks of the element orbit a master: rarity you can see from afar
     const T = performance.now() / 1000 + (a.ph || 0), c = ELEMS[a.el || 0].col;
     for (let k = 0; k < 3; k++) {
@@ -7374,5 +7412,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=519').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=520').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
