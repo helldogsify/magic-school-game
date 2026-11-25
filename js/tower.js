@@ -74,9 +74,23 @@ export function runTower(box, o) {
     st.tower.forEach((b, k) => { if (b.base) { const im = okI('base'), py = Hp * (0.92 + st.cam); if (im) { const w = W0 * 1.15 * Wp, h = w * im.naturalHeight / im.naturalWidth; cx.drawImage(im, b.x * Wp - w / 2, py - h * 0.55, w, h); } return; } block(b.img, b.x, b.w, k * BH); });
     for (const c of st.chips) block(c.img, c.x, c.w, c.y, c.rot, 0.9);
     // the crane arm at the top, the hook and the swinging block
-    const hy = Hp * (0.92 - (hookY() - st.cam)) - BH * Hp, craneY = Math.min(hy - Hp * 0.12, Hp * 0.12);
-    { const im = okI('crane'); if (im) { const w = u * 0.5, h = w * im.naturalHeight / im.naturalWidth; cx.drawImage(im, -w * 0.12, craneY - h * 0.3, w, h * 0.6); } }
-    if (st.hang) { const x = hangX(); cx.strokeStyle = '#8a6a44'; cx.lineWidth = 2.5 * dpr; cx.beginPath(); cx.moveTo(u * 0.38, craneY); cx.lineTo(x * Wp, hy - BH * Hp * 0.5); cx.stroke(); block(st.hang.img, x, st.hang.w, hookY()); }
+    const hy = Hp * (0.92 - (hookY() - st.cam)) - BH * Hp, beamY = Hp * 0.07;   // hy: top edge of the hanging block
+    { // the beam: honey wood with planks and bolts, full width
+      const bh = Hp * 0.035; cx.fillStyle = '#9c6b3f'; cx.fillRect(0, beamY - bh / 2, Wp, bh); cx.fillStyle = '#b98551'; cx.fillRect(0, beamY - bh / 2, Wp, bh * 0.35);
+      cx.strokeStyle = '#4a2f1e'; cx.lineWidth = 2 * dpr; cx.strokeRect(-2, beamY - bh / 2, Wp + 4, bh);
+      cx.fillStyle = '#5c5468'; for (let k = 0; k < 6; k++) { cx.beginPath(); cx.arc((k + 0.5) * Wp / 6, beamY, 2.6 * dpr, 0, 7); cx.fill(); } }
+    function hoist(x, top, w, loaded) {   // x: centre in screen px, top: the block's top edge, w: block width in px
+      const ty = beamY + Hp * 0.018, hookY0 = loaded ? top - Hp * 0.045 : beamY + Hp * 0.09;
+      cx.fillStyle = '#5c5468'; cx.strokeStyle = '#2b2236'; cx.lineWidth = 2 * dpr; cx.beginPath(); cx.roundRect(x - 16 * dpr, beamY - 10 * dpr, 32 * dpr, 20 * dpr, 4 * dpr); cx.fill(); cx.stroke();   // trolley
+      for (const dx of [-9, 9]) { cx.fillStyle = '#2b2236'; cx.beginPath(); cx.arc(x + dx * dpr, beamY - 10 * dpr, 4 * dpr, 0, 7); cx.fill(); }
+      const rope = (x1, y1, x2, y2) => { cx.lineCap = 'round'; cx.strokeStyle = '#5a4128'; cx.lineWidth = 5 * dpr; cx.beginPath(); cx.moveTo(x1, y1); cx.lineTo(x2, y2); cx.stroke(); cx.strokeStyle = '#d9b77e'; cx.lineWidth = 3 * dpr; cx.beginPath(); cx.moveTo(x1, y1); cx.lineTo(x2, y2); cx.stroke(); };
+      rope(x, ty, x, hookY0);
+      if (loaded) { rope(x, hookY0 + 6 * dpr, x - w * 0.36, top + 2 * dpr); rope(x, hookY0 + 6 * dpr, x + w * 0.36, top + 2 * dpr); }
+      cx.strokeStyle = '#8c8698'; cx.lineWidth = 4 * dpr; cx.beginPath(); cx.arc(x, hookY0 + 6 * dpr, 6 * dpr, Math.PI * 0.15, Math.PI * 1.05); cx.stroke();   // the hook
+      cx.fillStyle = '#8c8698'; cx.beginPath(); cx.arc(x, hookY0, 3.5 * dpr, 0, 7); cx.fill();
+    }
+    if (st.hang) { const x = hangX(); block(st.hang.img, x, st.hang.w, hookY()); hoist(x * Wp, hy, st.hang.w * Wp, true); }
+    else hoist((st.fall ? st.fall.x : 0.5) * Wp, hy, 0, false);
     if (st.fall) block(st.fall.img, st.fall.x, st.fall.w, st.fall.y);
     for (const p of st.fx) { cx.globalAlpha = 1 - p.t / p.life; cx.fillStyle = p.col; cx.beginPath(); cx.arc(p.x * Wp, Hp * (0.92 - (p.y - st.cam)), (2 + 3 * (1 - p.t / p.life)) * dpr, 0, 7); cx.fill(); }
     cx.globalAlpha = 1; cx.textAlign = 'center'; cx.textBaseline = 'middle';
