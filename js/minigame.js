@@ -13,7 +13,8 @@ const MAX_MIN = 10;               // the best round pays 10 minutes of the schoo
 const BOOST = [0, 0, 5, 10];      // minutes of «Вдохновение» per stars
 const BOOST_CAP_MIN = 60;         // same cap as gifts (BOOST_MAX_MIN in game.js)
 import { runFlight, loadFlightArt } from './flight.js?v=5';   // bump when flight.js changes
-import { runCart } from './cart.js?v=1';   // world 2: «Вагонетка в штольне» (bump when cart.js changes)
+import { runCart } from './cart.js?v=1';
+import { runGem, loadGemArt } from './gem.js?v=1';   // world 2: «Огранка самоцветов»   // world 2: «Вагонетка в штольне» (bump when cart.js changes)
 const W2 = () => !!(A && A.world && A.world() === 2);
 // the flight's words in world 2 (the cart uses the same shell, records and weekly table)
 const cw = (t) => (W2() ? String(t).replace(/искорки \+1 очко/, 'руда +1 очко').replace(/искорки \+1/, 'руда +1').replace(/искорок/g, 'руды').replace(/золотые перья вдвое чаще/, 'каски вдвое чаще').replace(/защитой пера|защита пера/, 'с каской').replace(/огненный щит/, 'каска').replace(/щит и реже задевает тучки/, 'каска и реже задевает завалы').replace(/ветер не страшен/, 'видит в темноте').replace(/обычный полёт/, 'обычная поездка').replace(/Перо с собой/, 'Каска с собой').replace(/Магнит искорок/, 'Магнит руды') : t);
@@ -65,12 +66,14 @@ function mg() {
 const META_KEY = 'magicschool.meta';   // the world meta goes to the cloud with the saves: the pool lives there (build 426)
 const readMeta = () => { try { return JSON.parse(localStorage.getItem(META_KEY) || '{}') || {}; } catch (e) { return {}; } };
 function pool() {   // the shared pool {ch, t}; first time: the old device-local key (build 425), else this world's own count
-  let p = readMeta().mgch;
+  let p = readMeta()[PK()];
+  if (W2() && (!p || typeof p.ch !== 'number')) p = { ch: CH_MAX, t: Date.now() };   // world 2 gets its own tries, a full pool to start
   if (!p || typeof p.ch !== 'number') { try { p = JSON.parse(localStorage.getItem(CH_KEY) || 'null'); } catch (e) { p = null; } }
   if (!p || typeof p.ch !== 'number') { const m = mg(); p = { ch: Math.min(CH_MAX, m.ch ?? CH_MAX), t: m.t || Date.now() }; }
   return p;
 }
-const savePool = (p) => { try { const m = readMeta(); m.mgch = { ch: p.ch, t: p.t }; localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) { /* storage full */ } };
+const PK = () => (W2() ? 'mgch2' : 'mgch');   // own tries per world (her «И попытки для каждого мира свои»)
+const savePool = (p) => { try { const m = readMeta(); m[PK()] = { ch: p.ch, t: p.t }; localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) { /* storage full */ } };
 export function charges() {
   const p = pool(), now = Date.now();
   if (p.ch >= CH_MAX) { p.t = now; savePool(p); return p.ch; }
@@ -360,15 +363,15 @@ export function open() {
   root.addEventListener('click', onClick);
   emaSnap = (A.rate ? A.rate() : st().ema) || 0;   // build audit 2026-11-24: the steady rate: a reward right before no longer multiplies the next one   // prices and rewards use the income of the moment the mini-game was opened
   A.onOpen && A.onOpen();
-  loadFlightArt();
+  loadFlightArt(); if (W2()) loadGemArt();
   showChooser();
 }
 function showChooser() {   // the 🧪 pill: choose a mini-game (tries are shared)
   const n = charges(), m = mg(), f = fl();
   root.innerHTML = A.emojiHtml(`<div class="mg-card">
     <h2>Мини-игры</h2>
-    <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : n > CH_MAX ? '<br><span class="muted">выигранные попытки сверх 3 тоже твои</span>' : ''}<br><span class="muted">общие для всех мини-игр и обоих миров</span></p>
-    <button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button>
+    <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : n > CH_MAX ? '<br><span class="muted">выигранные попытки сверх 3 тоже твои</span>' : ''}<br><span class="muted">общие для всех мини-игр этого мира</span></p>
+    ${W2() ? `<button class="mg-pick" data-mgpick="gem"><span class="mg-pi">${sgImg('gem')}</span><span><b>Огранка самоцветов</b><br><span class="muted">режь камни, не трогай проклятые · рекорд недели ${num(m.wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button>`}
     ${W2() ? `<button class="mg-pick" data-mgpick="f"><span class="mg-pi">${CART_ICON}</span><span><b>Вагонетка в штольне</b><br><span class="muted">мчись по рельсам до первого завала · рекорд недели ${num(f.wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=2" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>`}
     <button class="btn wide ghost" data-mgback>В школу</button>
   </div>`);
@@ -376,6 +379,7 @@ function showChooser() {   // the 🧪 pill: choose a mini-game (tries are share
 function close() {
   if (R && R.live) finish(true);
   if (FL) { if (FL.live) flEnd(FL.h.state, true); FL.h.stop(); FL = null; }
+  if (SGR) { if (SGR.live) sgEnd(SGR.h.state, true); SGR.h.stop(); SGR = null; }
   cancelAnimationFrame(raf); raf = 0; R = null;
   if (root) root.remove(); root = null; cv = null;
   A.onClose && A.onClose();
@@ -383,11 +387,13 @@ function close() {
 function onClick(e) {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
+  if (d.mgx !== undefined && SGR && SGR.live) { if (SGR.offer) { contSkip('s'); return; } SGR.noCont = true; SGR.h.crash(); return; }
+  if (d.sgplay !== undefined) { startSimple(d.sgplay); return; }
   if (d.mgx !== undefined) { if (FL && FL.live) { if (FL.offer) { contSkip('f'); return; } FL.noCont = true; FL.h.crash(); return; } if (R && R.live) { R.noCont = true; R.offer = false; root.querySelectorAll('.mg-cont').forEach((x) => x.remove()); finish(false); } else close(); return; }
   if (d.mgcont !== undefined) { contTake(d.mgcont); return; }
   if (d.mgnocont !== undefined) { contSkip(d.mgnocont); return; }
-  if (d.mgpick !== undefined) { if (d.mgpick === 'f') showFlightStart(); else showStart(); return; }
-  if (d.mgchoose !== undefined) { if (FL) { FL.h.stop(); FL = null; } showChooser(); return; }
+  if (d.mgpick !== undefined) { if (SG[d.mgpick]) showSimpleStart(d.mgpick); else if (d.mgpick === 'f') showFlightStart(); else showStart(); return; }
+  if (d.mgchoose !== undefined) { if (FL) { FL.h.stop(); FL = null; } if (SGR) { SGR.h.stop(); SGR = null; } showChooser(); return; }
   if (d.flwho !== undefined) { const w = A.flyers ? A.flyers() : []; if (w[+d.flwho]) { mg().fly = w[+d.flwho].k; showFlightStart(); } return; }
   if (d.flplay !== undefined) { startFlight(); return; }
   if (d.flb !== undefined) { const b = FBOOSTS[+d.flb]; if (!b) return; if (charges() <= 0) { A.toast('Бонусы — только для полёта с наградой'); return; }
@@ -812,26 +818,91 @@ const stoneImg = (h = 18) => `<img src="assets/ui/moonstone.webp?v=1" alt="" sty
 function contCard(kind, k) {   // kind 'p' potions / 'f' flight; k = continues used this round
   const price = CONT_PRICE[k], have = A.stones ? A.stones() : 0, ok = have >= price;
   root.appendChild(el(`<div class="mg-card mg-cont">
-    <h2>${kind === 'p' ? 'Время вышло!' : W2() ? 'Ой, завал!' : 'Ой, тучка!'}</h2>
-    <p style="margin:4px 0 10px">${kind === 'p' ? `Продолжить с этого места? Доска и очки останутся, добавится ${CONT_SEC} секунд.` : (W2() ? 'Продолжить поездку с этого места? Очки и руда останутся.' : 'Продолжить полёт с этого места? Очки и кольца останутся.')}</p>
-    <button class="btn wide hot" data-mgcont="${kind}" ${ok ? '' : 'disabled'}>${kind === 'p' ? `⏳ +${CONT_SEC} секунд` : W2() ? '⛏️ Ехать дальше' : '🪶 Лететь дальше'} за ${stoneImg(18)} ${price}</button>
+    <h2>${kind === 'p' ? 'Время вышло!' : kind === 's' ? SG[SGR.id].lost : W2() ? 'Ой, завал!' : 'Ой, тучка!'}</h2>
+    <p style="margin:4px 0 10px">${kind === 'p' ? `Продолжить с этого места? Доска и очки останутся, добавится ${CONT_SEC} секунд.` : kind === 's' ? 'Продолжить с этого места? Очки останутся.' : (W2() ? 'Продолжить поездку с этого места? Очки и руда останутся.' : 'Продолжить полёт с этого места? Очки и кольца останутся.')}</p>
+    <button class="btn wide hot" data-mgcont="${kind}" ${ok ? '' : 'disabled'}>${kind === 'p' ? `⏳ +${CONT_SEC} секунд` : kind === 's' ? SG[SGR.id].cont : W2() ? '⛏️ Ехать дальше' : '🪶 Лететь дальше'} за ${stoneImg(18)} ${price}</button>
     <p class="muted" style="margin:6px 0">${ok ? `У тебя ${stoneImg(14)} ${have}` : `Нужно ${stoneImg(14)} ${price}, у тебя ${have}`}</p>
     <button class="btn wide ghost" data-mgnocont="${kind}">Закончить</button>
   </div>`));
 }
 function contTake(kind) {
-  const R0 = kind === 'p' ? R : FL; if (!R0 || !R0.offer) return;
+  const R0 = kind === 'p' ? R : kind === 's' ? SGR : FL; if (!R0 || !R0.offer) return;
   const price = CONT_PRICE[R0.cont || 0];
   if (!A.stones || A.stones() < price) return;
   A.spendStones(price); R0.cont = (R0.cont || 0) + 1; R0.offer = false; A.save();
   root.querySelectorAll('.mg-cont').forEach((x) => x.remove());
   if (kind === 'p') { R.left = CONT_SEC; R.lastTick = 0; R.idleT = 0; }
+  else if (kind === 's') SGR.h.revive();
   else FL.h.revive();
 }
 function contSkip(kind) {
-  const R0 = kind === 'p' ? R : FL; if (!R0) return;
+  const R0 = kind === 'p' ? R : kind === 's' ? SGR : FL; if (!R0) return;
   R0.offer = false; R0.noCont = true; root.querySelectorAll('.mg-cont').forEach((x) => x.remove());
-  if (kind === 'p') finish(false); else flEnd(FL.res || FL.h.state, false);
+  if (kind === 'p') finish(false); else if (kind === 's') sgEnd(SGR.res || SGR.h.state, false); else flEnd(FL.res || FL.h.state, false);
+}
+
+// ---- simple games: one shell for the newer mini-games (start card, tries, reward, records, continue for moonstones) ----
+// world 2: «Огранка самоцветов» keeps its records in mg() (the potion slot: the weekly table «mg» of world 2 is now this game)
+const SG = {
+  gem: { title: 'Огранка самоцветов', icon: '💎', stars: [150, 400, 800], run: runGem, rec: () => mg(),
+    desc: 'Из шахты вылетают камни — проводи по ним пальцем, чтобы разрезать. Из каждого выпадает самоцвет. Камень, который упал обратно целым, отнимает жизнь (их три). Чёрный проклятый камень резать нельзя!',
+    more: 'Камень +10, золотая жеода +30, три и больше камней одним взмахом — серия и бонус. Камни летят всё чаще.',
+    res: (r) => `самоцветов: ${r.rings || 0} · жеод: ${r.sparks || 0}`, lost: 'Ой, проклятый камень!', win: 'Отличная огранка!', go: 'Резать', more1: 'Ещё огранка', cont: '💎 Ещё жизнь' },
+};
+let SGR = null;   // { id, live, rewarded, h, cont, offer, noCont, res }
+const sgImg = (id) => `<span style="font-size:34px;line-height:1">${SG[id].icon}</span>`;
+function showSimpleStart(id) {
+  if (SGR) { SGR.h.stop(); SGR = null; }
+  const g = SG[id], n = charges(), m = g.rec();
+  root.innerHTML = A.emojiHtml(`<div class="mg-card">
+    <div class="mg-pot">${sgImg(id)}</div><h2>${g.title}</h2><p>${g.desc}</p><p class="muted">${g.more}</p>
+    <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : ''}</p>
+    <p class="muted">Награда: монеты (до ${MAX_MIN} минут дохода школы), за 2–3 ⭐ ещё ✨ Вдохновение. Рекорд недели: ${num(m.wb || 0)}${m.best ? ` · за всё время: ${num(m.best)}` : ''}</p>
+    <button class="btn wide" data-sgplay="${id}">${n > 0 ? `▶️ ${g.go} (1 попытка)` : `▶️ ${g.go} без награды`}</button>
+    <button class="btn wide ghost" data-mgchoose>← Другие мини-игры</button>
+  </div>`);
+}
+function startSimple(id) {
+  const g = SG[id], rewarded = charges() > 0;
+  if (rewarded) spendCharge();
+  A.save();
+  root.innerHTML = A.emojiHtml(`<div class="mg-top"><button class="mg-x" data-mgx aria-label="Закончить">✕</button><div class="mg-chip">${g.icon} <span class="fl-r">0</span></div><div class="mg-chip score">✨ <span class="fl-s">0</span></div></div>
+    <div class="fl-box"></div>`);
+  const box = root.querySelector('.fl-box');
+  SGR = { id, live: true, rewarded, h: null };
+  SGR.h = g.run(box, { snd, onScore: (sc, k) => { const a = root.querySelector('.fl-s'), b = root.querySelector('.fl-r'); if (a) a.textContent = num(sc); if (b) b.textContent = k; }, onEnd: (res) => sgEnd(res, false) });
+}
+function sgEnd(res, silent) {
+  if (!SGR || !SGR.live) return;
+  if (!silent && !SGR.noCont && !SGR.offer && (SGR.cont || 0) < CONT_PRICE.length) { SGR.offer = true; SGR.res = res; snd('end'); contCard('s', SGR.cont || 0); return; }
+  if (SGR.offer) { SGR.offer = false; root.querySelectorAll('.mg-cont').forEach((x) => x.remove()); }
+  SGR.live = false;
+  const g = SG[SGR.id], S = st(), m = g.rec(), score = res.score || 0, stars = score >= g.stars[2] ? 3 : score >= g.stars[1] ? 2 : score >= g.stars[0] ? 1 : 0;
+  const recW = score > (m.wb || 0), recAll = score > (m.best || 0);
+  m.wb = Math.max(m.wb || 0, score); m.best = Math.max(m.best || 0, score);
+  let coins = 0, boost = 0;
+  if (SGR.rewarded && score > 0) {
+    const min = Math.min(MAX_MIN, MAX_MIN * score / g.stars[2]);
+    coins = Math.max(10, Math.round(Math.max(min * 60 * incomeNow(), min * 30) / 10) * 10);
+    A.earn(coins); boost = BOOST[stars];
+    if (boost) { const now = Date.now(); S.boostEnd = Math.min(now + BOOST_CAP_MIN * 60000, Math.max(now, S.boostEnd || 0) + boost * 60000); }
+  }
+  if (SGR.rewarded && score <= 0) addCharges(1);   // quit at once: the try comes back
+  if (score > 0) m.n = (m.n || 0) + 1;   // daily task, alliance goal, the battle
+  A.save(); A.onFinish && A.onFinish(score, stars);
+  if (silent) return;
+  snd('end');
+  const n = charges();
+  root.appendChild(el(`<div class="mg-card">
+    <h2>${score >= g.stars[0] ? g.win : g.lost}</h2>
+    <div class="mg-stars">${[0, 1, 2].map((k) => `<span class="${k < stars ? '' : 'off'}">⭐</span>`).join('')}</div>
+    <div class="mg-big">${num(score)}</div>
+    <p class="muted">${g.res(res)}${recW ? ' · 🏅 рекорд недели!' : ''}${recAll && !recW ? ' · 🏅 рекорд!' : ''}</p>
+    ${SGR.rewarded ? `<div class="mg-prize">Награда: 🪙 ${A.fmt(coins)}${boost ? `<br>✨ Вдохновение +${boost} мин (уроки +10%)` : ''}</div>` : '<p class="muted">Игра без награды — только рекорд.</p>'}
+    <p class="muted">${stars < 3 ? `До ${stars + 1} ⭐ — ${num(g.stars[stars])} очков. ` : ''}Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}${n < CH_MAX ? `, следующая через ${mmss(nextIn())}` : ''}</p>
+    <button class="btn wide" data-mgpick="${SGR.id}">${n > 0 ? `🔁 ${g.more1} (1 попытка)` : `🔁 ${g.more1} без награды`}</button>
+    <button class="btn wide ghost" data-mgback>В школу</button>
+  </div>`));
 }
 
 // ---- end of round ----
@@ -873,7 +944,7 @@ function finish(silent) {
 export function initMinigame(api) {
   A = api;
   addEventListener('resize', () => { if (R && cv) layout(); });
-  window.__mg = { open, close, charges, get R() { return R; }, cart: () => W2(), get FL() { return FL; }, resolveStep, findGroups, findMove, setLeft: (s) => { if (R) R.left = s; }, setScore: (s) => { if (R) R.score = s; }, SND, SND_DB, STAR };
+  window.__mg = { open, close, charges, get R() { return R; }, get SGR() { return SGR; }, cart: () => W2(), get FL() { return FL; }, resolveStep, findGroups, findMove, setLeft: (s) => { if (R) R.left = s; }, setScore: (s) => { if (R) R.score = s; }, SND, SND_DB, STAR };
   window.__fl = { get FL() { return FL; }, F_STAR, start: () => { showFlightStart(); startFlight(); } };
   return { open, isOpen, pill, charges, addCharges, weekBest, weekKey, prevBest, prizeDue, claim: () => { mg().claimed = weekKey() - 1; A.save(); },
     flightBest, flightPrev, flightPrizeDue, claimFlight: () => { fl().claimed = weekKey() - 1; A.save(); } };

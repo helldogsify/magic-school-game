@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=509';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=510';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=509';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=509';
-import { initMinigame } from './minigame.js?v=509';
-import { initChests } from './chests.js?v=509';
-import { initValley } from './valley.js?v=509';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=509';
-import { initLore } from './lore.js?v=509';
-import { initAvatar } from './avatar.js?v=509';
+} from './data.js?v=510';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=510';
+import { initMinigame } from './minigame.js?v=510';
+import { initChests } from './chests.js?v=510';
+import { initValley } from './valley.js?v=510';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=510';
+import { initLore } from './lore.js?v=510';
+import { initAvatar } from './avatar.js?v=510';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 509;   // keep equal to the ?v= number in index.html
+const BUILD = 510;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5914,7 +5914,16 @@ function refEnter(raw) {
 }
 try { const r = new URLSearchParams(location.search).get('ref'); if (r) localStorage.setItem('magicschool.refin', r); } catch (e) { /* no storage */ }
 let qTickT = 0;
-function qTick() {   // from renderMission: a code that came with the invite link is applied once the school is loaded
+function gemMigrate() {   // once: world 2's potion records go to world 1 (the bigger number wins), world 2's slot starts clean for «Огранка самоцветов»
+  if (WORLD !== 2 || !S || !S.mg || S.mg.gemMig) return;
+  try {
+    const k1 = saveKeyOf(1), o1 = JSON.parse(localStorage.getItem(k1) || 'null'), a = S.mg;
+    if (o1) { const b = (o1.mg ||= {}); b.best = Math.max(b.best || 0, a.best || 0); if (a.wk && a.wk === b.wk) b.wb = Math.max(b.wb || 0, a.wb || 0); else if (a.wk && a.wk > (b.wk || 0)) { b.wk = a.wk; b.wb = a.wb || 0; }
+      if (a.pw && a.pw === b.pw) b.pm = Math.max(b.pm || 0, a.pm || 0); localStorage.setItem(k1, JSON.stringify(o1)); }
+    a.best = 0; a.wb = 0; a.pm = 0; a.gemMig = Date.now(); save(); topPush(true);
+  } catch (e) { /* next time */ }
+}
+function qTick() { gemMigrate();   // from renderMission: a code that came with the invite link is applied once the school is loaded
   if (!S || Date.now() - qTickT < 3000) return; qTickT = Date.now(); try { warTick(); } catch (e) { /* the battle never stops the game */ }
   const r = localStorage.getItem('magicschool.refin'); if (!r) return;
   localStorage.removeItem('magicschool.refin');
@@ -6748,7 +6757,7 @@ function topPanel() {
 // ---- weekly tables and prizes of the mini-games (build 358 potions, flight added later; her picks «Призы за неделю», «Полёт через кольца») ----
 const MG_PRIZE = [60, 30, 15];   // minutes of «Вдохновение» for places 1-3 of last week (capped at 60 like every boost)
 const MG_GAMES = {
-  p: { cur: 'mg', w: 'mw', pm: 'pm', pw: 'pw', title: 'Зельеварка', icon: '🧪', mark: ' 🏆', best: () => MG.weekBest(), prev: () => MG.prevBest(), due: () => MG.prizeDue(), claim: () => MG.claim() },
+  p: { cur: 'mg', w: 'mw', pm: 'pm', pw: 'pw', title: WORLD === 2 ? 'Огранка самоцветов' : 'Зельеварка', icon: WORLD === 2 ? '💎' : '🧪', mark: ' 🏆', best: () => MG.weekBest(), prev: () => MG.prevBest(), due: () => MG.prizeDue(), claim: () => MG.claim() },
   f: { cur: 'fl', w: 'flw', pm: 'fpm', pw: 'fpw', title: WORLD === 2 ? 'Вагонетка в штольне' : 'Полёт через кольца', icon: WORLD === 2 ? '⛏️' : '🪽', mark: WORLD === 2 ? ' ⛏️' : ' 🪽', best: () => MG.flightBest(), prev: () => MG.flightPrev(), due: () => MG.flightPrizeDue(), claim: () => MG.claimFlight() },
 };
 let mgSub = 'p';
@@ -7331,5 +7340,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=509').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=510').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
