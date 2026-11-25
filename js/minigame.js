@@ -376,6 +376,7 @@ function showChooser() {   // the 🧪 pill: choose a mini-game (tries are share
     <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : n > CH_MAX ? '<br><span class="muted">выигранные попытки сверх 3 тоже твои</span>' : ''}<br><span class="muted">общие для всех мини-игр этого мира</span></p>
     ${W2() ? `<button class="mg-pick" data-mgpick="gem"><span class="mg-pi">${sgImg('gem')}</span><span><b>Огранка самоцветов</b><br><span class="muted">режь камни, не трогай проклятые · рекорд недели ${num(m.wb || 0)}</span></span></button><button class="mg-pick" data-mgpick="tower"><span class="mg-pi">${sgImg('tower')}</span><span><b>Башня из руды</b><br><span class="muted">строй башню как можно выше · рекорд недели ${num(g3().wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button><button class="mg-pick" data-mgpick="fish"><span class="mg-pi">${sgImg('fish')}</span><span><b>Рыбалка</b><br><span class="muted">лови рыбу на лесном озере · рекорд недели ${num(g3().wb || 0)}</span></span></button>`}
     ${W2() ? `<button class="mg-pick" data-mgpick="f"><span class="mg-pi">${CART_ICON}</span><span><b>Вагонетка в штольне</b><br><span class="muted">мчись по рельсам до первого завала · рекорд недели ${num(f.wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=2" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>`}
+    ${A.tester && A.tester() ? '<button class="btn wide ghost" data-mgtest>🧪 +20 попыток (тест, видно только тебе)</button>' : ''}
     <button class="btn wide ghost" data-mgback>В школу</button>
   </div>`);
 }
@@ -408,6 +409,7 @@ function onClick(e) {
   if (d.mgb !== undefined) { const b = BOOSTS[+d.mgb]; if (!b) return; if (charges() <= 0) { A.toast('Бонусы — только для игры с наградой'); return; }
     if (bsel.has(b.id)) bsel.delete(b.id); else if ((st().coins || 0) < bTotal() + boostCost(b)) { A.toast('🪙 Не хватает монет на этот бонус'); return; } else bsel.add(b.id);
     showStart(); return; }
+  if (d.mgtest !== undefined && A.tester && A.tester()) { addCharges(20); A.toast('🧪 +20 попыток для теста'); showChooser(); return; }
   if (d.mgback !== undefined) { close(); return; }
 }
 function showStart() {
