@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=560';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=561';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=560';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=560';
-import { initMinigame } from './minigame.js?v=560';
-import { initChests } from './chests.js?v=560';
-import { initValley } from './valley.js?v=560';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=560';
-import { initLore } from './lore.js?v=560';
-import { initAvatar } from './avatar.js?v=560';
+} from './data.js?v=561';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=561';
+import { initMinigame } from './minigame.js?v=561';
+import { initChests } from './chests.js?v=561';
+import { initValley } from './valley.js?v=561';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=561';
+import { initLore } from './lore.js?v=561';
+import { initAvatar } from './avatar.js?v=561';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 560;   // keep equal to the ?v= number in index.html
+const BUILD = 561;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -722,7 +722,6 @@ function pondLayout() {
   POND = null; if (WORLD !== 1 || !window.__EDIT || !SLOTS.REC || !SLOTS.DIR) return;   // editor only until her OK (Maria: «В редактор ставь мне»)
   const r = SLOTS.REC, x0 = r.x1, x1 = SLOTS.DIR.x0, y0 = r.y0, y1 = r.y1; if (x1 - x0 < 9) return;
   POND = { x0, x1, y0, y1, cx: (x0 + x1) / 2 + 0.7, cy: (y0 + y1) / 2 + 0.3, rx: (x1 - x0) / 2 - 2.2, ry: (y1 - y0) / 2 - 1.8 };
-  const py = Math.floor(POND.cy); PATHS.push({ x0, y0, x1: x0 + 2, y1: py + 2, paved: 1 });   // from the reception's side door down to the shore by the pier
 }
 const pondBox = () => ({ x0: POND.x0 - 5, y0: POND.y0 - 3, x1: POND.x1 + 3, y1: POND.y1 + 7 });   // where the editor lets her move the pond's things (wider than the plot)
 function pondW() {   // the water where the editor put the scene: the same move / scale / flip as layAdd draws it with
@@ -733,7 +732,7 @@ function pondW() {   // the water where the editor put the scene: the same move 
 const pondD = (x, y, m = 0) => { if (!POND) return 9; const w = pondW(); return Math.pow((x - w.cx) / (w.rx + m), 2) + Math.pow((y - w.cy) / (w.ry + m), 2); };   // < 1 inside the pond grown by m tiles
 function pondRing(m = 0, n = 56) { const o = []; for (let k = 0; k < n; k++) { const an = k / n * Math.PI * 2, w = 1 + 0.05 * Math.sin(an * 3 + 2) + 0.03 * Math.sin(an * 5); o.push(P(POND.cx + Math.cos(an) * (POND.rx + m) * w, POND.cy + Math.sin(an) * (POND.ry + m) * w)); } return o; }
 function openFish() { MG.open(); const b = document.querySelector('#mg [data-mgpick="fish"]'); if (b) b.click(); }   // straight into «Рыбалка»
-const POND_IMG = new Image(); if (WORLD === 1) { POND_IMG.onload = () => { staticKey = ''; }; POND_IMG.src = 'assets/parts/outdoor/pond.webp?v=2'; }   // the painted pond (one picture)
+const POND_IMG = new Image(); if (WORLD === 1) { POND_IMG.onload = () => { staticKey = ''; }; POND_IMG.src = 'assets/parts/outdoor/pond.webp?v=3'; }   // the painted pond (one picture)
 const FISH_IMG = {}; if (WORLD === 1) for (const k of ['bobber', 'f_gold']) { const im = new Image(); im.src = `assets/fish/${k}.webp?v=1`; FISH_IMG[k] = im; }
 function drawPondFx() {   // on the water, before the sorted things: ripples, the bobber of a waiting try, the golden fish
   const now = performance.now(), t = now / 1000, P0 = POND;
@@ -754,6 +753,29 @@ function drawPondFish() {   // the golden fish jumps over everything on the wate
       ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.4; for (const q of [0, 1]) { const uu = q ? Math.max(0, u - 0.85) / 0.15 : Math.min(1, u / 0.15); if (uu > 0 && uu < 1) { const sx = m.x + (pondFish.fl ? -1 : 1) * (q ? 17 : -17); ctx.globalAlpha = 1 - uu; ctx.beginPath(); ctx.ellipse(sx, m.y, 5 + uu * 12, 2 + uu * 5, 0, 0, Math.PI * 2); ctx.stroke(); } } ctx.restore();
       ctx.save(); ctx.translate(fx, fy); ctx.rotate((pondFish.fl ? 1 : -1) * (0.9 - 1.8 * u)); ctx.scale(pondFish.fl ? -1 : 1, 1); ctx.drawImage(sized(f, h * scale * dpr), -w / 2, -h / 2, w, h); ctx.restore();
       if (u > 0.1 && u < 0.92) pondFishRect = { x0: fx - w / 2 - 12, y0: fy - h / 2 - 12, x1: fx + w / 2 + 12, y1: fy + h / 2 + 12, t: now }; } }
+}
+function pondPt(u, v) {   // a point of the scene picture (u, v = shares of its width / height) in world px, where the editor put the scene
+  const W = pondW(), o = (((RLAY.rooms.POND || {}).items) || {})['pond_scene#1'] || {}, f = o.flip ? -1 : 1, w = 2 * Math.hypot(W.rx, W.ry) * HW / 0.677, h = w * 0.72, m = P(W.cx, W.cy);
+  return { x: m.x + f * (u - 0.489) * w, y: m.y + (v - 0.629) * h, k: w / (2 * Math.hypot(POND.rx, POND.ry) * HW / 0.677) };
+}
+const pondTile = (q) => { const a = (q.x - OX) / HW, b = (q.y - OY) / HH; return { x: (a + b) / 2, y: (b - a) / 2 }; };
+function drawPondPath() {   // flagstones from the reception's side door (its top-right corner) down and along to the pier's land end
+  const pt = isoPat(ctx, 'path', 3); if (!pt) return; const x0 = POND.x0, y0 = POND.y0, e = pondTile(pondPt(0.2, 0.43)), ey = Math.max(y0 + 1, Math.round(e.y)), ex = Math.round(e.x);
+  const R = [[x0, y0, x0 + 2, ey + 1]]; if (ex > x0 + 2) R.push([x0 + 2, ey - 1, ex + 1, ey + 1]); else if (ex < x0) R.push([ex, ey - 1, x0, ey + 1]); R.push([Math.min(ex, x0), ey, Math.max(ex + 1, x0 + 2), ey + 2]);   /* the last step reaches the pier */
+  ctx.save(); ctx.fillStyle = pt; for (const [a, b, c, d] of R) { poly(ctx, [P(a, b), P(c, b), P(c, d), P(a, d)]); ctx.fill(); } ctx.restore();
+}
+const POND_LAMPS = [[0.297, 0.056], [0.304, 0.114], [0.369, 0.131], [0.47, 0.138], [0.256, 0.177], [0.492, 0.176], [0.327, 0.18], [0.354, 0.191], [0.417, 0.194], [0.437, 0.197], [0.245, 0.239], [0.4, 0.247], [0.476, 0.274], [0.434, 0.276], [0.273, 0.278], [0.231, 0.294], [0.322, 0.319], [0.209, 0.329]];   // the willow's paper lanterns (measured on pond.webp)
+const POND_FISH = [[0.51, 0.52, '255,205,110'], [0.575, 0.535, '255,205,110'], [0.625, 0.42, '200,160,255'], [0.655, 0.43, '170,220,255'], [0.405, 0.665, '255,205,110'], [0.445, 0.68, '200,160,255'], [0.525, 0.69, '255,190,120'], [0.47, 0.71, '170,210,255'], [0.585, 0.7, '170,230,255']];
+function drawPondNight() {   // after the night tint: lanterns, the hut's window, the glowing fish, the water and fireflies shine
+  if (!POND || !POND_IMG.naturalWidth) return; const D = dayTint(), tt = D.sun.map((v, i) => (v + D.shade[i]) / 2), L = Math.min(1, Math.max(0, 1 - (tt[0] + tt[1] + tt[2]) / 765) * 2.2); if (L < 0.05) return;
+  const T = performance.now() / 1000, c0 = pondPt(0.489, 0.629), k = c0.k; if (!onScreen(c0.x, c0.y, 400, 400)) return;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  { const r = 2 * Math.hypot(POND.rx, POND.ry) * HW * 0.5 * k; ctx.globalAlpha = 0.28 * L; ctx.drawImage(glowSprite('90,190,255'), c0.x - r, c0.y - r * 0.45, r * 2, r * 0.9); }   // the water's own light
+  POND_FISH.forEach(([u, v, col], j) => { const q = pondPt(u, v), r = 11 * k; ctx.globalAlpha = L * (0.55 + 0.25 * Math.sin(T * 1.7 + j * 1.3)); ctx.drawImage(glowSprite(col), q.x - r, q.y - r * 0.6, r * 2, r * 1.2); });
+  POND_LAMPS.forEach(([u, v], j) => { const q = pondPt(u, v), f = 0.8 + 0.2 * Math.sin(T * 4.1 + j * 2.3), r = 7 * k; ctx.globalAlpha = 0.9 * L * f; ctx.drawImage(glowSprite('255,190,100'), q.x - r, q.y - r, r * 2, r * 2); ctx.globalAlpha = 0.6 * L * f; ctx.drawImage(glowSprite('255,235,180'), q.x - r * 0.45, q.y - r * 0.45, r * 0.9, r * 0.9); });
+  { const q = pondPt(0.605, 0.185), r = 9 * k; ctx.globalAlpha = 0.85 * L; ctx.drawImage(glowSprite('255,200,110'), q.x - r, q.y - r, r * 2, r * 2); }   // the hut's round window
+  for (let j = 0; j < 12; j++) { const u = 0.3 + 0.45 * ((j * 0.37) % 1) + 0.04 * Math.sin(T * 0.6 + j), v = 0.25 + 0.35 * ((j * 0.61) % 1) + 0.03 * Math.sin(T * 0.8 + j * 2), q = pondPt(u, v), bl = Math.max(0, Math.sin(T * 1.3 + j * 1.9)); if (bl < 0.1) continue; const r = 3.5 * k; ctx.globalAlpha = L * bl; ctx.drawImage(glowSprite('220,255,140'), q.x - r, q.y - r, r * 2, r * 2); }   // fireflies
+  ctx.restore();
 }
 function drawPondPic() {   // the painted scene (SYNTX, art/pond/pond_v2.jpg): its water spans 67.7% of the width, water centre at (48.9%, 62.9%); then the water fx on it
   const im = POND_IMG; if (im.naturalWidth) { const m0 = P(POND.cx, POND.cy), w = 2 * Math.hypot(POND.rx, POND.ry) * HW / 0.677, h = w * im.naturalHeight / im.naturalWidth; ctx.drawImage(sized(im, h * scale * dpr), m0.x - w * 0.489, m0.y - h * 0.629, w, h); }
@@ -5314,6 +5336,7 @@ function render() {
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
   if (WORLD === 1 && POND) { const q = POND, la = layAdd('POND', pondBox(), add);   // the fishing pond: the editor's room «🎣 Пруд», every piece movable
+    list.push({ k1: -1e9, k2: 0, draw: drawPondPath });   // the path lies on the ground under everything
     la(q.cx, q.cy, drawPondPic, -(q.rx * 0.5 + q.ry * 0.7), 'pond_scene');
     for (const [n, dx, dy, sc] of [['bench_b', -1.6, q.ry + 1.3, 1.05], ['lantern_gold', q.x0 + 2.4 - q.cx, q.y0 + 1.6 - q.cy, 0.8], ['lantern_gold', -q.rx - 0.2, Math.floor(q.cy) + 2.4 - q.cy, 0.8]]) la(q.cx + dx, q.cy + dy, () => drawOut({ n, x: q.cx + dx, y: q.cy + dy, s: sc }), 0, n);
     layExtra('POND', pondBox(), add); }
@@ -5488,6 +5511,7 @@ function render() {
   drawDewFx();   // secret «Роса» (lore stage 4): dawn dew in the graduates' garden
   drawPukh();   // secret «Совёнок Пух»: the owlet flies over now and then
   drawStarfall();   /* secret «Звездопад» */
+  if (WORLD === 1 && POND) drawPondNight();   // the pond's lanterns and fish at night (build 561)
   drawMoonFx();   // the Moon Tree glow and fruits stay bright at night   // day and night (signs stay bright: drawn after)
   signRects = [];
   for (const id of Object.keys(SLOTS)) drawSign(ctx, id);
@@ -7816,5 +7840,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => POND && pondBox(), entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=560').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=561').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
