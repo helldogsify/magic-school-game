@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=550';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=551';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=550';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=550';
-import { initMinigame } from './minigame.js?v=550';
-import { initChests } from './chests.js?v=550';
-import { initValley } from './valley.js?v=550';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=550';
-import { initLore } from './lore.js?v=550';
-import { initAvatar } from './avatar.js?v=550';
+} from './data.js?v=551';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=551';
+import { initMinigame } from './minigame.js?v=551';
+import { initChests } from './chests.js?v=551';
+import { initValley } from './valley.js?v=551';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=551';
+import { initLore } from './lore.js?v=551';
+import { initAvatar } from './avatar.js?v=551';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 550;   // keep equal to the ?v= number in index.html
+const BUILD = 551;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2562,6 +2562,7 @@ function tkGain(op) {   // extra coins per minute; op = { act, i, k } as in the 
   } catch (e) { /* the model never breaks the game */ }
   return null;
 }
+window.__tkt = { tips: () => tkTips(), wise: (o) => tkWiseOf({ act: o.act, k: o.k === undefined ? undefined : String(o.k) }, o.i), tuition: (i) => tuition(i), crowded: () => tkCrowded(), forms: () => { const c = {}; inSchool().forEach((a) => { if (SPECIES.includes(a.sp)) c[formOf(a)] = (c[formOf(a)] || 0) + 1; }); return c; }, name: (i) => CLASSES[i].name };   // test hook
 window.__tkm = { snap: tkSnap, gain: tkGain, cap: tkCap, intake: tkIntake };   // test hook
 let advCache = null, advCacheAt = 0;
 function advReport() {   // [{hot, emo, text, go}] — go: [room id, selector] | 'missions' | null
@@ -2652,43 +2653,50 @@ function drawTikhonBadge(p) {   // a scroll over his head while he has something
 // choice). He names WHAT is wrong in the school, never which button fixes it; the player finds the place and picks the upgrade.
 const TK_TIP_N = 3, TK_WISE_SHARE = 0.15, TK_WISE_HINT = 0.1;   // 10% when the riddle's «Подсказка» was opened (Maria 2026-11-25);   // a wise purchase: Tikhon pays back 15% of its price (Maria: smaller, the game must not go much faster) (level quests pay 30%, but pick at random)
 let tkTipCache = null, tkTipAt = 0;
-function tkWhy(o, s0) {   // [family, emoji, title, riddle with a clue where to look, hint = the place]
-  const slow = o.i !== undefined && o.i !== null && o.i === s0.b, cn = o.i !== undefined && o.i !== null ? `Это класс «${CLASSES[o.i].name}».` : '';
-  let top = -1, mx = 0; for (let j = 0; j < CLASSES.length; j++) if (isOpen(j) && tuition(j) > mx) { mx = tuition(j); top = j; }
-  const cap = () => (slow ? ['cap', '🚪', 'Где-то тесно', 'Посмотри на таблички классов на карте: у какого класса ждёт больше всего учеников? Там нужно учить больше учеников сразу — парты, урок покороче, учитель.', cn]
-    : ['cap', '⏳', 'Медленный класс', 'Один класс учит медленнее остальных. Загляни в классы и сравни: где урок длиннее, а парт меньше?', cn]);
-  const pay = () => (o.i === top ? ['pay', '🪙', 'Самый дорогой урок', 'Найди самый дорогой урок в школе (плата видна в каждом классе вверху) и сделай его ещё дороже: учитель и предметы с «+8% платы».', cn]
-    : ['pay', '🪙', 'Плата за урок', 'Сравни плату в классах: в одном из них поднять плату сейчас особенно выгодно — учитель или предметы с «+8% платы».', cn]);
+function tkWhy(o) {   // [family, emoji, title, riddle with a clue the player can check on screen, hint = the place]
+  const cn = o.i !== undefined && o.i !== null ? `Это класс «${CLASSES[o.i].name}».` : '';
+  const cap = ['cap', '⏳', 'Медленный класс', 'Один из классов пропускает учеников медленнее остальных. Подсказка назовёт его, а что там улучшить — парту, урок покороче или учителя — выбери сам.', cn];
+  const pay = ['pay', '🪙', 'Плата за урок', 'Подними плату за урок: учитель или предметы, которые прибавляют плату (на карточке написано «+% платы»). Выгоднее там, где плата уже большая (она видна вверху каждого класса), а улучшение недорогое.', cn];
   switch (o.act) {
-    case 'desk': case 'time': case 'expand': return cap();
-    case 'teacher': return slow ? cap() : pay();
-    case 'item': return CLASSES[o.i].items[o.k].kind === 'tuition' || overflow(o.i) > 0 ? pay() : cap();
-    case 'rec': return ['rec', '🛎️', 'Очередь у входа', 'Новички долго ждут, пока их запишут в школу. Кто у нас этим занимается?', 'Это секретарь в приёмной.'];
-    case 'ads': return ['ads', '📣', 'Мало новичков', 'Школа могла бы учить больше учеников, но новички приходят редко. Как бы о нас узнали?', 'Это объявления в приёмной.'];
-    case 'beds': return ['beds', '🛏️', 'Негде подождать', 'Новичков разворачивают у ворот: в школе им негде подождать своей очереди.', 'Это кровати в спальне.'];
-    case 'shopup': return ['shop', '🍭', 'Сладкоежки', 'После уроков ученики хотят потратить монетки, а в лавке не всё ладно.', 'Это лавка.'];
-    case 'cantup': return ['cant', '🍲', 'Голодные ученики', 'После уроков ученики хотят есть. В столовой можно кое-что наладить.', 'Это столовая.'];
-    case 'dir': return ['dir', '💸', 'Казна худеет', 'Ушедшим ученикам школа возвращает слишком много монет. Кто пишет правила?', 'Это кабинет директора.'];
-    case 'exlvl': case 'xpllvl': return ['rank', '🌟', 'Звания', 'Ученик со званием платит больше за каждый урок. Звания дают в классах: в каждом классе есть раздел про звание. В каком классе помочь ученикам?', cn];
+    case 'desk': case 'time': case 'expand': return cap;
+    case 'teacher': return o.i === tkSnap().b ? cap : pay;
+    case 'item': return CLASSES[o.i].items[o.k].kind === 'tuition' || overflow(o.i) > 0 ? pay : cap;
+    case 'rec': return ['rec', '🛎️', 'Очередь у входа', 'Новички долго ждут, пока их запишут в школу. Загляни в приёмную.', 'Это приёмная: секретарь.'];
+    case 'ads': return ['ads', '📣', 'Мало новичков', 'Школа могла бы учить больше учеников, но новички приходят редко. Загляни в приёмную.', 'Это приёмная: объявления.'];
+    case 'beds': return ['beds', '🛏️', 'Негде подождать', 'Новичков разворачивают у ворот: в школе им негде подождать своей очереди. Загляни в спальню.', 'Это спальня: кровати.'];
+    case 'shopup': return ['shop', '🍭', 'Сладкоежки', 'После уроков ученики хотят потратить монетки. Загляни в лавку — что там можно улучшить?', 'Это лавка.'];
+    case 'cantup': return ['cant', '🍲', 'Голодные ученики', 'После уроков ученики хотят есть. Загляни в столовую — что там можно улучшить?', 'Это столовая.'];
+    case 'dir': return ['dir', '💸', 'Казна худеет', 'Ушедшим ученикам школа возвращает слишком много монет. Загляни в кабинет директора.', 'Это кабинет директора: правила возврата.'];
+    case 'exlvl': return ['rank', '🌟', 'Звания', 'Ученик со званием платит больше за каждый следующий урок. Поэтому звание выгоднее давать в первых классах школы: впереди ещё много уроков. Улучши «Шанс экзамена» в одном из первых классов — там, где это дешевле.', cn];
     case 'formlvl': return ['form', '🎓', 'Альбом', 'Открой альбом 🎓. У каждой карточки написано, сколько таких учеников в школе сейчас и сколько стоит улучшение. Выгоднее та, где учеников много, а улучшение недорогое: каждый из них станет платить больше.', `Это карточка «${formName(o.k)}».`];
   }
   return null;
+}
+const TK_OK = 0.5;   // an answer counts when it is worth at least half of the best upgrade of that kind (per coin); in a room any upgrade counts
+const TK_ROOM = { rec: 1, ads: 1, beds: 1, shop: 1, cant: 1, dir: 1 };
+const tkCapOf = (o) => ['desk', 'time', 'expand', 'teacher', 'item'].includes(o.act) && tkWhy(o) && tkWhy(o)[0] === 'cap';
+function tkCrowded() {   // the class with the most students really waiting (door line + dorm), if it can still be made roomier
+  let b = -1, bn = 0;
+  for (let i = 0; i < CLASSES.length; i++) if (isOpen(i)) { const n = waitList[i].length + sleepersFor(i); if (n > bn) { bn = n; b = i; } }
+  if (b < 0 || bn < 3) return null;
+  const st = S.classes[b], roomy = st.desks < maxDesksOf(b) || st.time < MAX_TIME_LEVEL || (!CLASSES[b].final && sizeOf(b) < MAX_SIZE) || st.teacher < MAX_TEACHER_LEVEL;
+  return roomy ? { i: b, n: bn } : null;
 }
 function tkRank() {   // [{o, g, r}] the upgrades the model values, best gain per coin first (affordable within ~30 min of income)
   const R = tkInc(), budget = (S.coins || 0) + R * 30, val = [];
   for (const o of window.__sim.options()) { if ((o.stars && schoolStars() < o.stars) || o.act === 'build' || o.cost > budget) continue; const g = tkGain(o); if (g > 0) val.push({ o, g, r: g / o.cost }); }
   return val.sort((a, b) => b.r - a.r);
 }
-function tkWiseOf(d, i) {   // before a purchase: is it one of the three best upgrades right now? (the player's own choice)
+function tkWiseOf(d, i) {   // before a purchase: one of the 3 best upgrades now, or a good answer to a riddle on screen (the player's own choice)
   try {
     if (WORLD !== 1 || !d.act || EDIT) return null;
-    const k = d.k === undefined ? undefined : /^\d+$/.test(d.k) ? +d.k : d.k, ii = Number.isFinite(i) ? i : undefined;
-    // wise = one of the 3 best upgrades now, or the answer to a riddle on screen: the same kind of upgrade in the same place (class, card, room)
-    const op = { act: d.act, i: ii, k }, s0 = tkSnap(), w0 = tkWhy(op, s0), keys = new Set(tkTips().map((t) => t.key));
-    const top = tkRank().slice(0, 3).find((x) => x.o.act === d.act && (x.o.i === undefined || x.o.i === ii) && String(x.o.k) === String(k));
-    const key = w0 ? w0[0] + ':' + w0[4] : '', solved = !!key && keys.has(key); if (!top && !solved) return null;
-    const w = solved ? w0 : tkWhy(top.o, s0), hinted = !!(w && S.tkHint && S.tkHint[w[0] + ':' + w[4]]);   // the riddle about this very place had its hint opened
-    return { share: hinted ? TK_WISE_HINT : TK_WISE_SHARE };
+    const k = d.k === undefined ? undefined : /^\d+$/.test(d.k) ? +d.k : d.k, ii = Number.isFinite(i) ? i : undefined, op = { act: d.act, i: ii, k };
+    const rank = tkRank(), mine = rank.find((x) => x.o.act === d.act && (x.o.i === undefined || x.o.i === ii) && String(x.o.k) === String(k));
+    const w0 = tkWhy(op), tips = tkTips(), hintOf = (t) => !!(t && S.tkHint && S.tkHint[t.key]);
+    const tip = w0 && tips.find((t) => t.fam === w0[0] && ((t.place !== null && t.place !== undefined && t.place === ii && tkCapOf(op)) || (mine && (mine.r >= t.r * TK_OK || TK_ROOM[t.fam]))));
+    if (tip) return { share: hintOf(tip) ? TK_WISE_HINT : TK_WISE_SHARE };
+    if (mine && rank.indexOf(mine) < 3) { const t = w0 && tips.find((x) => x.fam === w0[0]); return { share: hintOf(t) ? TK_WISE_HINT : TK_WISE_SHARE }; }
+    return null;
   } catch (e) { return null; }
 }
 function tkWisePay(paid, share = TK_WISE_SHARE) {
@@ -2702,10 +2710,12 @@ function tkTips() {   // [{key, emo, title, text, g, mins, go}] best first; cach
     if (WORLD === 1) {
       const s0 = tkSnap(), nb = window.__sim.options().some((o) => o.act === 'build' && o.cost <= S.coins && (!o.stars || schoolStars() >= o.stars));
       if (nb) out.push({ key: 'build', emo: '🏗️', title: 'Пора строить', text: 'Монет уже хватает на что-то большое и новое! Новый урок — новые монеты с каждого ученика.' });
-      const used = new Set();
-      for (const v of tkRank()) {
-        const w = tkWhy(v.o, s0); if (!w || used.has(w[0])) continue; used.add(w[0]);
-        out.push({ key: w[0] + ':' + w[4], emo: w[1], title: w[2], text: w[3], hint: w[4] });
+      const used = new Set(), rank = tkRank();
+      for (const v of rank) {
+        let w = tkWhy(v.o); if (!w || used.has(w[0])) continue; used.add(w[0]);
+        let place = null;
+        if (w[0] === 'cap') { const c = tkCrowded(); if (c) { place = c.i; w = ['cap', '🚪', 'Где-то тесно', `Посмотри на таблички классов на карте: у какого класса ждёт больше всего учеников? Там нужно учить больше учеников сразу: ещё парта, урок покороче или учитель получше.`, `Это класс «${CLASSES[c.i].name}».`]; } }
+        out.push({ key: w[0] + ':' + w[4], fam: w[0], r: v.r, place, emo: w[1], title: w[2], text: w[3], hint: w[4] });
         if (out.length >= TK_TIP_N) break;
       }
     }
@@ -7681,5 +7691,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=550').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=551').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
