@@ -14,7 +14,8 @@ const BOOST = [0, 0, 5, 10];      // minutes of «Вдохновение» per s
 const BOOST_CAP_MIN = 60;         // same cap as gifts (BOOST_MAX_MIN in game.js)
 import { runFlight, loadFlightArt } from './flight.js?v=5';   // bump when flight.js changes
 import { runCart } from './cart.js?v=1';
-import { runGem, loadGemArt } from './gem.js?v=1';   // world 2: «Огранка самоцветов»   // world 2: «Вагонетка в штольне» (bump when cart.js changes)
+import { runGem, loadGemArt } from './gem.js?v=1';
+import { runTower, loadTowerArt } from './tower.js?v=1';   // world 2: «Башня из руды»   // world 2: «Огранка самоцветов»   // world 2: «Вагонетка в штольне» (bump when cart.js changes)
 const W2 = () => !!(A && A.world && A.world() === 2);
 // the flight's words in world 2 (the cart uses the same shell, records and weekly table)
 const cw = (t) => (W2() ? String(t).replace(/искорки \+1 очко/, 'руда +1 очко').replace(/искорки \+1/, 'руда +1').replace(/искорок/g, 'руды').replace(/золотые перья вдвое чаще/, 'каски вдвое чаще').replace(/защитой пера|защита пера/, 'с каской').replace(/огненный щит/, 'каска').replace(/щит и реже задевает тучки/, 'каска и реже задевает завалы').replace(/ветер не страшен/, 'видит в темноте').replace(/обычный полёт/, 'обычная поездка').replace(/Перо с собой/, 'Каска с собой').replace(/Магнит искорок/, 'Магнит руды') : t);
@@ -55,6 +56,7 @@ function rollWeek(m) {   // a new week: last week's best is kept as pw/pm (weekl
   }
   return m;
 }
+const g3 = () => { const m = mg(); m.g ||= { wk: weekKey(), wb: 0, best: 0, n: 0 }; return rollWeek(m.g); };   // the third game of the world (tower in world 2)
 const fl = () => { const m = mg(); m.f ||= { wk: weekKey(), wb: 0, best: 0, n: 0 }; return rollWeek(m.f); };   // «Полёт через кольца» records
 export const F_STAR = [80, 200, 400];   // score for 1/2/3 stars in the flight (8 / 20 / 40 rings); first guess, tune by her feedback
 function mg() {
@@ -363,7 +365,7 @@ export function open() {
   root.addEventListener('click', onClick);
   emaSnap = (A.rate ? A.rate() : st().ema) || 0;   // build audit 2026-11-24: the steady rate: a reward right before no longer multiplies the next one   // prices and rewards use the income of the moment the mini-game was opened
   A.onOpen && A.onOpen();
-  loadFlightArt(); if (W2()) loadGemArt();
+  loadFlightArt(); if (W2()) { loadGemArt(); loadTowerArt(); }
   showChooser();
 }
 function showChooser() {   // the 🧪 pill: choose a mini-game (tries are shared)
@@ -371,7 +373,7 @@ function showChooser() {   // the 🧪 pill: choose a mini-game (tries are share
   root.innerHTML = A.emojiHtml(`<div class="mg-card">
     <h2>Мини-игры</h2>
     <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : n > CH_MAX ? '<br><span class="muted">выигранные попытки сверх 3 тоже твои</span>' : ''}<br><span class="muted">общие для всех мини-игр этого мира</span></p>
-    ${W2() ? `<button class="mg-pick" data-mgpick="gem"><span class="mg-pi">${sgImg('gem')}</span><span><b>Огранка самоцветов</b><br><span class="muted">режь камни, не трогай проклятые · рекорд недели ${num(m.wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button>`}
+    ${W2() ? `<button class="mg-pick" data-mgpick="gem"><span class="mg-pi">${sgImg('gem')}</span><span><b>Огранка самоцветов</b><br><span class="muted">режь камни, не трогай проклятые · рекорд недели ${num(m.wb || 0)}</span></span></button><button class="mg-pick" data-mgpick="tower"><span class="mg-pi">${sgImg('tower')}</span><span><b>Башня из руды</b><br><span class="muted">строй башню как можно выше · рекорд недели ${num(g3().wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button>`}
     ${W2() ? `<button class="mg-pick" data-mgpick="f"><span class="mg-pi">${CART_ICON}</span><span><b>Вагонетка в штольне</b><br><span class="muted">мчись по рельсам до первого завала · рекорд недели ${num(f.wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=2" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>`}
     <button class="btn wide ghost" data-mgback>В школу</button>
   </div>`);
@@ -808,6 +810,9 @@ function flEnd(res, silent) {
     <button class="btn wide ghost" data-mgback>В школу</button>
   </div>`));
 }
+export function gBest() { const S = st(); if (!S || !S.mg) return 0; return g3().wb || 0; }
+export function gPrev() { const S = st(); if (!S || !S.mg) return 0; const g = g3(); return g.pw === weekKey() - 1 ? g.pm || 0 : 0; }
+export function gPrizeDue() { const S = st(); if (!S || !S.mg) return false; const g = g3(), w = weekKey() - 1; return g.pw === w && g.pm > 0 && g.claimed !== w && Date.now() - (w + 1) * 7 * 86400000 + 3 * 86400000 > 15 * 60000; }
 export function flightBest() { const S = st(); if (!S || !S.mg) return 0; return fl().wb || 0; }
 export function flightPrev() { const S = st(); if (!S || !S.mg) return 0; const f = fl(); return f.pw === weekKey() - 1 ? f.pm || 0 : 0; }
 export function flightPrizeDue() { const S = st(); if (!S || !S.mg) return false; const f = fl(), w = weekKey() - 1; return f.pw === w && f.pm > 0 && f.claimed !== w && Date.now() - (w + 1) * 7 * 86400000 + 3 * 86400000 > 15 * 60000; }
@@ -848,6 +853,10 @@ const SG = {
     desc: 'Из шахты вылетают камни — проводи по ним пальцем, чтобы разрезать. Из каждого выпадает самоцвет. Камень, который упал обратно целым, отнимает жизнь (их три). Чёрный проклятый камень резать нельзя!',
     more: 'Камень +10, золотая жеода +30, три и больше камней одним взмахом — серия и бонус. Камни летят всё чаще.',
     res: (r) => `самоцветов: ${r.rings || 0} · жеод: ${r.sparks || 0}`, lost: 'Ой, проклятый камень!', win: 'Отличная огранка!', go: 'Резать', more1: 'Ещё огранка', cont: '💎 Ещё жизнь' },
+  tower: { title: 'Башня из руды', icon: '🏗️', stars: [120, 300, 550], run: runTower, rec: () => g3(),
+    desc: 'Кран раскачивает глыбу руды. Нажми — и она упадёт на башню. Что свисает за край, отваливается, и следующая глыба становится уже. Промахнёшься мимо башни — конец.',
+    more: 'Каждый этаж +10. Точно в край — «Идеально!» и бонус, три идеальных подряд возвращают ширину. Каждый десятый этаж — кристальный, +20. Кран раскачивается всё быстрее.',
+    res: (r) => `этажей: ${r.rings || 0} · идеальных: ${r.sparks || 0}`, lost: 'Глыба упала!', win: 'Отличная башня!', go: 'Строить', more1: 'Ещё башня', cont: '🏗️ Строить дальше' },
 };
 let SGR = null;   // { id, live, rewarded, h, cont, offer, noCont, res }
 const sgImg = (id) => `<span style="font-size:34px;line-height:1">${SG[id].icon}</span>`;
@@ -947,5 +956,5 @@ export function initMinigame(api) {
   window.__mg = { open, close, charges, get R() { return R; }, get SGR() { return SGR; }, cart: () => W2(), get FL() { return FL; }, resolveStep, findGroups, findMove, setLeft: (s) => { if (R) R.left = s; }, setScore: (s) => { if (R) R.score = s; }, SND, SND_DB, STAR };
   window.__fl = { get FL() { return FL; }, F_STAR, start: () => { showFlightStart(); startFlight(); } };
   return { open, isOpen, pill, charges, addCharges, weekBest, weekKey, prevBest, prizeDue, claim: () => { mg().claimed = weekKey() - 1; A.save(); },
-    flightBest, flightPrev, flightPrizeDue, claimFlight: () => { fl().claimed = weekKey() - 1; A.save(); } };
+    flightBest, flightPrev, flightPrizeDue, gBest, gPrev, gPrizeDue, claimG: () => { g3().claimed = weekKey() - 1; A.save(); }, claimFlight: () => { fl().claimed = weekKey() - 1; A.save(); } };
 }

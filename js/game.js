@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=511';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=512';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=511';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=511';
-import { initMinigame } from './minigame.js?v=511';
-import { initChests } from './chests.js?v=511';
-import { initValley } from './valley.js?v=511';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=511';
-import { initLore } from './lore.js?v=511';
-import { initAvatar } from './avatar.js?v=511';
+} from './data.js?v=512';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=512';
+import { initMinigame } from './minigame.js?v=512';
+import { initChests } from './chests.js?v=512';
+import { initValley } from './valley.js?v=512';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=512';
+import { initLore } from './lore.js?v=512';
+import { initAvatar } from './avatar.js?v=512';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 511;   // keep equal to the ?v= number in index.html
+const BUILD = 512;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5832,7 +5832,7 @@ const SP_LIST = [
 let qTab = '';
 document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('a[data-tglink]')) setTimeout(() => { qMetaSet((q) => { q.tg ||= Date.now(); }); if (panel === missionsPanel) refreshPanel(); }, 1500); });   // a real link: iOS PWAs ignore window.open from a delegated handler
 const qDay = (t = new Date(Date.now())) => `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;   // the same local day as the chests
-const mgRounds = () => ((S.mg && S.mg.n) || 0) + ((S.mg && S.mg.f && S.mg.f.n) || 0);   // potion + flight rounds ever played
+const mgRounds = () => ((S.mg && S.mg.n) || 0) + ((S.mg && S.mg.f && S.mg.f.n) || 0) + ((S.mg && S.mg.g && S.mg.g.n) || 0);   // potion + flight rounds ever played
 const qMeta = () => { const m = stMeta(); return m.q || {}; };
 function qMetaSet(fn) { const m = stMeta(); m.q ||= {}; fn(m.q); try { localStorage.setItem('magicschool.meta', JSON.stringify(m)); } catch (e) { /* full storage */ } dirtyPanel = true; }
 const stGot = (key) => !!((stMeta().stones || {}).got || {})[key];
@@ -6385,7 +6385,7 @@ async function topPush(force) {   // our line in the table (only with a school n
   try {
     const A = await anonToken();
     const I = (v) => ({ integerValue: String(Math.round(v || 0)) });
-    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), ...(myAl() ? { al: { stringValue: myAl() } } : {}), w: I(WORLD), lv: I(Math.max(1, Math.min(1000, schoolLevel()))), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), ...qTopFields(I), mg: I(MG.weekBest()), mw: I(MG.weekKey()), ...(MG.prevBest() ? { pm: I(MG.prevBest()), pw: I(MG.weekKey() - 1) } : {}), fl: I(MG.flightBest()), flw: I(MG.weekKey()), ...(MG.flightPrev() ? { fpm: I(MG.flightPrev()), fpw: I(MG.weekKey() - 1) } : {}), build: I(BUILD), updated: I(Date.now()) } };   // mg/mw: «Зельеварка» best of this week
+    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), ...(myAl() ? { al: { stringValue: myAl() } } : {}), w: I(WORLD), lv: I(Math.max(1, Math.min(1000, schoolLevel()))), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), ...qTopFields(I), mg: I(MG.weekBest()), mw: I(MG.weekKey()), ...(MG.prevBest() ? { pm: I(MG.prevBest()), pw: I(MG.weekKey() - 1) } : {}), fl: I(MG.flightBest()), flw: I(MG.weekKey()), ...(MG.flightPrev() ? { fpm: I(MG.flightPrev()), fpw: I(MG.weekKey() - 1) } : {}), ...(G3_ON && WORLD === 2 ? { g3: I(MG.gBest()), g3w: I(MG.weekKey()), ...(MG.gPrev() ? { g3pm: I(MG.gPrev()), g3pw: I(MG.weekKey() - 1) } : {}) } : {}), build: I(BUILD), updated: I(Date.now()) } };   // mg/mw: «Зельеварка» best of this week
     const r = await fetch(`${TOP_URL}/${A.uid}_w${WORLD}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify(body) });
     if (r.ok) topSentKey = key;
   } catch (e) { /* offline: next time */ }
@@ -6395,7 +6395,7 @@ async function topLoad() {
   try {
     const r = await fetch(TOP_URL + '?pageSize=300', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
     const d = await r.json(), num = (f) => (f ? +(f.integerValue ?? f.doubleValue ?? 0) : 0);
-    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', al: (x.fields.al || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), lv: num(x.fields.lv), rf: (x.fields.rf || {}).stringValue || '', aw: num(x.fields.aw), ag: num(x.fields.ag), am: num(x.fields.am), ap: num(x.fields.ap), wp: num(x.fields.wp), wpp: num(x.fields.wpp), wpw: num(x.fields.wpw), g: num(x.fields.g), gold: num(x.fields.gold), mg: num(x.fields.mg), mw: num(x.fields.mw), pm: num(x.fields.pm), pw: num(x.fields.pw), fl: num(x.fields.fl), flw: num(x.fields.flw), fpm: num(x.fields.fpm), fpw: num(x.fields.fpw) }));
+    topList = (d.documents || []).map((x) => ({ id: x.name.split('/').pop(), name: (x.fields.name || {}).stringValue || '?', nick: (x.fields.nick || {}).stringValue || '', al: (x.fields.al || {}).stringValue || '', w: num(x.fields.w), r: num(x.fields.r), n: num(x.fields.n), lv: num(x.fields.lv), rf: (x.fields.rf || {}).stringValue || '', aw: num(x.fields.aw), ag: num(x.fields.ag), am: num(x.fields.am), ap: num(x.fields.ap), wp: num(x.fields.wp), wpp: num(x.fields.wpp), wpw: num(x.fields.wpw), g: num(x.fields.g), gold: num(x.fields.gold), mg: num(x.fields.mg), mw: num(x.fields.mw), pm: num(x.fields.pm), pw: num(x.fields.pw), fl: num(x.fields.fl), flw: num(x.fields.flw), fpm: num(x.fields.fpm), fpw: num(x.fields.fpw), g3: num(x.fields.g3), g3w: num(x.fields.g3w), g3pm: num(x.fields.g3pm), g3pw: num(x.fields.g3pw) }));
     topErr = ''; topLoadedAt = Date.now(); mgPrizeCheck();
   } catch (e) { topErr = 'Не получилось загрузить топ — проверь интернет'; }
   await AV.load();   // approved avatars (every 5 min at most)
@@ -6762,6 +6762,8 @@ const MG_GAMES = {
   p: { cur: 'mg', w: 'mw', pm: 'pm', pw: 'pw', title: WORLD === 2 ? 'Огранка самоцветов' : 'Зельеварка', icon: WORLD === 2 ? '💎' : '🧪', mark: ' 🏆', best: () => MG.weekBest(), prev: () => MG.prevBest(), due: () => MG.prizeDue(), claim: () => MG.claim() },
   f: { cur: 'fl', w: 'flw', pm: 'fpm', pw: 'fpw', title: WORLD === 2 ? 'Вагонетка в штольне' : 'Полёт через кольца', icon: WORLD === 2 ? '⛏️' : '🪽', mark: WORLD === 2 ? ' ⛏️' : ' 🪽', best: () => MG.flightBest(), prev: () => MG.flightPrev(), due: () => MG.flightPrizeDue(), claim: () => MG.claimFlight() },
 };
+if (WORLD === 2) MG_GAMES.g = { cur: 'g3', w: 'g3w', pm: 'g3pm', pw: 'g3pw', title: 'Башня из руды', icon: '🏗️', mark: ' 🏗️', best: () => MG.gBest(), prev: () => MG.gPrev(), due: () => MG.gPrizeDue(), claim: () => MG.claimG() };   // the third game's weekly table (fields g3*)
+const G3_ON = true;   // Firestore rules allow g3 / g3w / g3pm / g3pw
 let mgSub = 'p';
 function mgLastWeek(g = 'p') {   // last week's table of this world: an entry still in that week or already moved on (previous-week fields)
   const G = MG_GAMES[g], w = MG.weekKey() - 1;
@@ -7346,5 +7348,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=511').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=512').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
