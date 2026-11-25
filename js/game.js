@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=496';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=497';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=496';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=496';
-import { initMinigame } from './minigame.js?v=496';
-import { initChests } from './chests.js?v=496';
-import { initValley } from './valley.js?v=496';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=496';
-import { initLore } from './lore.js?v=496';
-import { initAvatar } from './avatar.js?v=496';
+} from './data.js?v=497';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=497';
+import { initMinigame } from './minigame.js?v=497';
+import { initChests } from './chests.js?v=497';
+import { initValley } from './valley.js?v=497';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=497';
+import { initLore } from './lore.js?v=497';
+import { initAvatar } from './avatar.js?v=497';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -36,7 +36,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 496;   // keep equal to the ?v= number in index.html
+const BUILD = 497;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -360,6 +360,7 @@ const depthOf = (i) => ROOM + 2 * (sizeOf(i) - 1);                // 6, 8, 10 ti
 const maxDesksOf = (i) => (CLASSES[i].final ? 21 : 6 + 4 * (sizeOf(i) - 1));   // 6, 10, 14; the wide exam hall: 21 (3 rows of 7)
 const MAX_DESKS_ABS = 21;
 const ART = {                                               // room pictures with floor corners in image px
+  ...(window.__EDIT ? { REC: { src: 'assets/parts/reception/rc_room.webp?v=1', L: [11, 689], R: [953, 699], F: [502, 952] } } : {}),   /* editor only until her OK */   /* the Arrival Hall, painted from the approved concept */
 };
 // ---- rooms assembled from parts (any size looks whole): seamless wall + floor textures, wall decor hung
 // on the back walls and furniture placed on the floor by the engine. A themed room replaces its painted picture.
@@ -469,11 +470,13 @@ const THEMES = {
     stations: ['exdesk_a', 'exdesk_b', 'exdesk_c'], teacherProp: 'commission' },
   // Reception (her choice 2026-11-21: the same look as the old picture, built from parts). The counter stands where the painted one was
   // (tiles blocked by recBlocked), a pink runner leads from the street entrance to the back passage.
-  REC: { dir: 'assets/parts/reception/', wallTiles: 4, floorTiles: 3, board: 'map', isoOnly: true, iso: true,
-    decor: ['window', 'notice', 'clock', 'lantern', 'shelf', 'window'], back: [], side: [], front: [], rug: '', runner: { u0: 4.3, u1: 6.3, color: '#eaa6b4' },
-    h: { plant_big: 40, bush: 24 },
-    extras: (s) => [{ n: 'counter', x: s.x0 + 1.75, y: s.y0 + 3.9 }, { n: 'coat_rack', x: s.x0 + 0.45, y: s.y0 + 0.5 }, { n: 'plant_big', x: s.x0 + 0.5, y: s.y1 - 0.5 },
-      { n: 'bench_l', x: s.x1 - 0.7, y: s.y0 + 5.6 }, { n: 'bench_l', x: s.x1 - 0.7, y: s.y0 + 7.3 }, { n: 'bush', x: s.x1 - 0.5, y: s.y1 - 0.4 }, { n: 'signpost', x: s.x0 + 3.4, y: s.y1 - 0.6 }] },
+  REC: { dir: 'assets/parts/reception/', wallTiles: 8, floorTiles: 3, board: 'map', isoOnly: true, iso: true, arrival: true, capCol: '#efe5d3', skirtCol: '#cbb68f',   /* redesign 2026-11-25: the Arrival Hall */
+    decor: [], back: [], side: [], front: [], rug: '', runner: { u0: 4.2, u1: 5.8, color: '#7f9fd4', edge: '#d8b25c' },
+    h: { rc_counter: 52, rc_archive: 80, rc_files: 54, rc_bench: 40, rc_tree: 46, rc_umbrellas: 34, rc_lamp: 50, rc_vase: 30, rc_trunks: 34, rc_teatable: 34, rc_board: 42, rc_clock: 19 },
+    extras: (s) => [{ n: 'rc_counter', x: s.x0 + 1.75, y: s.y0 + 3.9 }, { n: 'rc_archive', x: s.x0 + 0.32, y: s.y0 + 1.55 }, { n: 'rc_board', x: s.x0 + 1.3, y: s.y0 + 0.08, lift: WALLH * 0.95 * 0.26 }, { n: 'rc_clock', x: s.x0 + 1.3, y: s.y0 + 0.06, lift: WALLH * 0.95 * 0.66 },
+      { n: 'rc_files', x: s.x0 + 0.32, y: s.y0 + 5.7 }, { n: 'rc_bench', x: s.x0 + 0.4, y: s.y0 + 7.3 }, { n: 'rc_tree', x: s.x0 + 0.6, y: s.y1 - 0.55 }, { n: 'rc_umbrellas', x: s.x0 + 3.3, y: s.y1 - 0.45 },
+      { n: 'rc_tree', x: s.x0 + 6.75, y: s.y1 - 0.55 }, { n: 'rc_lamp', x: s.x0 + 2.4, y: s.y0 + 0.4 }, { n: 'rc_vase', x: s.x0 + 7.6, y: s.y0 + 0.4 }, { n: 'rc_trunks', x: s.x1 - 0.6, y: s.y1 - 0.9 },
+      { n: 'rc_teatable', x: s.x1 - 0.65, y: s.y0 + 6.0 }] },
   // Dorms (her choice 2026-11-21: small beds with blankets; the sleeper lies on its bed)
   DORM: { dir: 'assets/parts/dorm/', wallTiles: 4, floorTiles: 3, board: 'garland', isoOnly: true, iso: true,
     decor: ['window', 'shelf', 'painting', 'moon_clock', 'round_window'], back: [], side: [], front: [], rug: 'rug', beds: ['bed_pink', 'bed_mint', 'bed_lilac'], load: ['conc_desk'],
@@ -519,6 +522,7 @@ const THEMES = {
 const DECOR = { kp_relief: { w: 2.5, lo: 0.08, deep: 1.0 }, kp_fire: { w: 1.0, lo: 0.03, deep: 1.0 }, kp_deep: { w: 1.0, lo: 0.03, deep: 1.0 }, kp_sconce: { w: 0.4, lo: 0.45, deep: 1.2 }, kp_banner: { w: 0.7, lo: 0.25, deep: 0.5 }, kp_window: { w: 0.75, lo: 0.3, deep: 0.8 }, crownrelief: { w: 2.0, lo: 0.05, deep: 1.0 }, crownbanner: { w: 0.5, lo: 0.25, deep: 0.5 }, tshield: { w: 0.6, lo: 0.35, deep: 0.8 }, tbrazier: { w: 0.45, lo: 0.45, deep: 1.2 }, crownniche: { w: 0.6, lo: 0.3, deep: 1.0 }, taxes: { w: 0.7, lo: 0.35, deep: 0.8 }, bigshelf: { w: 1.6, lo: 0.0, deep: 1.2 }, ambwin: { w: 0.6, lo: 0.3, deep: 0.6 }, scrollcase: { w: 0.6, lo: 0.0, deep: 1.2 }, kingtree: { w: 0.8, lo: 0.25, deep: 0.6 }, hanglamps: { w: 0.8, lo: 0.4, deep: 1.0 }, kmap2: { w: 0.9, lo: 0.35, deep: 0.5 }, hookboard: { w: 1.8, lo: 0.3, deep: 0.8 }, roundwin: { w: 0.7, lo: 0.3, deep: 0.8 }, cshelf: { w: 0.9, lo: 0.4, deep: 1.0 }, embroid: { w: 0.6, lo: 0.3, deep: 0.5 }, moondial: { w: 0.6, lo: 0.35, deep: 0.8 }, clamp: { w: 0.35, lo: 0.45, deep: 1.0 }, kmap: { w: 1.8, lo: 0.1, deep: 1.0 }, slit: { w: 0.4, lo: 0.25, deep: 0.6 }, gnotice: { w: 0.8, lo: 0.35, deep: 0.6 }, runeclock: { w: 0.6, lo: 0.4, deep: 0.8 }, glamp: { w: 0.4, lo: 0.45, deep: 1.2 }, ledgers: { w: 0.9, lo: 0.4, deep: 1.0 }, kingrelief: { w: 2.6, lo: 0.0, deep: 1.0 }, oathbanner: { w: 0.7, lo: 0.25, deep: 0.5 }, goldcandle: { w: 0.45, lo: 0.4, deep: 1.0 }, names: { w: 1.1, lo: 0.4, deep: 0.5 }, wallgong: { w: 0.7, lo: 0.3, deep: 1.0 }, goldhammers: { w: 0.7, lo: 0.35, deep: 0.8 }, lakearch: { w: 2.0, lo: 0.0, deep: 1.0 }, net: { w: 1.0, lo: 0.25, deep: 0.6 }, oars: { w: 0.6, lo: 0.3, deep: 0.8 }, bluelamp: { w: 0.35, lo: 0.4, deep: 1.0 }, lakemap: { w: 0.9, lo: 0.4, deep: 0.5 }, fishstring: { w: 0.35, lo: 0.3, deep: 0.8 }, gbanner: { w: 2.0, lo: 0.05, deep: 1.0 }, shields: { w: 1.2, lo: 0.3, deep: 0.8 }, gtorch: { w: 0.4, lo: 0.45, deep: 1.2 }, axes: { w: 0.9, lo: 0.3, deep: 0.8 }, helm: { w: 0.5, lo: 0.35, deep: 1.0 }, warhorn: { w: 0.8, lo: 0.35, deep: 0.8 }, gcab: { w: 2.0, lo: 0.05, deep: 1.0 }, cuts: { w: 0.8, lo: 0.3, deep: 0.5 }, gsconce: { w: 0.45, lo: 0.45, deep: 1.2 }, gtap: { w: 0.8, lo: 0.3, deep: 0.5 }, gcrys: { w: 0.5, lo: 0.35, deep: 1.0 }, hearth: { w: 2.1, lo: 0.0, deep: 1.2 }, tongs: { w: 0.9, lo: 0.35, deep: 0.8 }, chain: { w: 0.4, lo: 0.3, deep: 0.8 }, tunnel: { w: 2.4, lo: 0.0, deep: 1.0 }, rack: { w: 1.0, lo: 0.35, deep: 1.0 }, sign: { w: 0.7, lo: 0.4, deep: 0.6 }, rope: { w: 0.45, lo: 0.3, deep: 1.0 }, shield: { w: 0.8, lo: 0.4, deep: 0.8 }, niche: { w: 0.8, lo: 0.25, deep: 1.0 }, plaque: { w: 0.75, lo: 0.35, deep: 0.8 }, menu: { w: 0.8, lo: 0.3, deep: 0.8 }, plates: { w: 1.1, lo: 0.35, deep: 1.4 }, pots: { w: 1.1, lo: 0.4, deep: 1.2 }, dried_herbs: { w: 0.8, lo: 0.35, deep: 1.2 }, stained: { w: 0.95, lo: 0.3, deep: 0.6 }, masters_art: { w: 1.4, lo: 0.32, deep: 0.7 }, trophies: { w: 1.3, lo: 0.4, deep: 1.4 }, jar_shelf: { w: 1.1, lo: 0.25, deep: 1.3 }, toy_rack: { w: 1.2, lo: 0.4, deep: 1.4 }, owl_clock: { w: 0.7, lo: 0.45, deep: 1.2 }, flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9, lo: 0.55, deep: 1.6 }, portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
 const PROP_H = { fire_ped: 42, water_ped: 42, earth_ped: 42, air_ped: 42, sofa: 22, gold_chair: 30, lectern: 32, moon_plant: 40, toy_table: 34, quill_barrel: 34, candy_stand: 32, book_crate: 26, floss_cauldron: 30, desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 42, station_green: 42, station_purple: 42, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
+if (!window.__EDIT) THEMES.REC = { dir: 'assets/parts/reception/', wallTiles: 4, floorTiles: 3, board: 'map', isoOnly: true, iso: true, decor: ['window', 'notice', 'clock', 'lantern', 'shelf', 'window'], back: [], side: [], front: [], rug: '', runner: { u0: 4.3, u1: 6.3, color: '#eaa6b4' }, h: { plant_big: 40, bush: 24 }, extras: (s) => [{ n: 'counter', x: s.x0 + 1.75, y: s.y0 + 3.9 }, { n: 'coat_rack', x: s.x0 + 0.45, y: s.y0 + 0.5 }, { n: 'plant_big', x: s.x0 + 0.5, y: s.y1 - 0.5 }, { n: 'bench_l', x: s.x1 - 0.7, y: s.y0 + 5.6 }, { n: 'bench_l', x: s.x1 - 0.7, y: s.y0 + 7.3 }, { n: 'bush', x: s.x1 - 0.5, y: s.y1 - 0.4 }, { n: 'signpost', x: s.x0 + 3.4, y: s.y1 - 0.6 }] };   /* the new Arrival Hall is shown in the room editor only until Maria approves it */
 const parts = {};
 let partsVer = 0;   // bumped on every part load: themeReady() answers from its cache until then
 for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso && !t.bays ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
@@ -530,6 +534,7 @@ for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => {
 if (WORLD === 1) Object.assign(THEMES.final, { decor: [], back: ['', ''], side: ['', ''], teacherProp: '', bays: { w: 2.4, y0: ['exwin', 'exboard', 'exwin', 'exboard', 'exwin', 'exboard', 'exwin'], x0: [] } });   /* exam hall redesign (live since her OK 2026-11-25) */
 for (const [n, f] of [['wall', 'ex_wall'], ['floor', 'ex_floor'], ['iso_exwin', 'ex_window_day'], ['exboard', 'ex_board']]) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/${f}.webp?v=1`; if (WORLD === 1) parts['final/' + n] = im; }   // Final exam hall redesign   // Charms redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/st_${n}.webp?v=1`; if (WORLD === 1) parts['stars/' + n] = im; }   // Stargazing redesign
+for (const [n, f] of [['wall', 'rc_wall'], ['floor', 'rc_floor'], ['rc_arch', 'rc_arch'], ['rc_win', 'rc_win'], ['rc_star', 'rc_star'], ['rc_plane', 'rc_plane']]) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/reception/${f}.webp?v=1`; if (WORLD === 1 && window.__EDIT) parts['REC/' + n] = im; }   /* the Arrival Hall (reception redesign) */
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/pot_${n}.webp?v=1`; if (WORLD === 1) parts['potions/' + n] = im; }   // Potions redesign
 for (const n of ['wall', 'floor']) { const im = new Image(); im.onload = () => { partsVer++; staticKey = ''; }; im.src = `assets/parts/items/herbs_${n}.webp?v=1`; if (WORLD === 1) parts['herbs/' + n] = im; }
 const part = (th, n) => { const im = parts[th + '/' + n]; return im && im.complete && im.naturalWidth ? im : null; };
@@ -669,6 +674,7 @@ function genLayoutCourt() {
   const rx = Math.round((cx0 + cx1) / 2) - 4;
   SLOTS.REC = slot(rx, Yf, [[rx + 3, Yf], [rx + 3, Yf - 1]], {}, 9, 9,
     [[[rx + 4, Yf], [rx + 4, Yf - 1]], [[rx + 5, Yf], [rx + 5, Yf - 1]], [[rx + 4, Yf + 8], [rx + 4, Yf + 9]], [[rx + 5, Yf + 8], [rx + 5, Yf + 9]], [[rx + 8, Yf], [rx + 9, Yf]]]);
+  if (window.__EDIT) { SLOTS.REC.door = SLOTS.REC.extra[0]; SLOTS.REC.extra = SLOTS.REC.extra.slice(1); }   /* the Arrival Hall: a 2-tile arched doorway to the court (editor only for now) */
   SLOTS.SHOP = slot(rx - 10, Yf, [[rx - 8, Yf], [rx - 8, Yf - 1]], {}, 6, 6, [[[rx - 7, Yf], [rx - 7, Yf - 1]]]);   // 4-tile lawn: the reception keeps its tall left wall behind the secretary (her «Плинтус на секретаря также заходит»)
   SLOTS.DORM = slot(rx + 9, Yf, [[rx + 9, Yf], [rx + 8, Yf]], {}, ROOM, dormDepth(1));
   SLOTS.DORM2 = slot(rx + 15, Yf, [[rx + 15, Yf + 3], [rx + 14, Yf + 3]], {}, ROOM, dormDepth(2));
@@ -3224,6 +3230,7 @@ function litRooms() {   // screen polygons (device px) of every built room: floo
     for (let y = s.y1 - 1; y >= s.y0; y--) { const h = eh(s.x0, y, 'x0'); q.push(up(P(s.x0, y + 1), h), up(P(s.x0, y), h)); }
     for (let x = s.x0; x < s.x1; x++) { const h = eh(x, s.y0, 'y0'); q.push(up(P(x, s.y0), h), up(P(x + 1, s.y0), h)); }
     q.push(c, d, a); const q2 = q.map(S2); q2.s = s; out.push(q2);
+    if (id === 'REC' && WORLD === 1 && arts.REC && arts.REC.naturalWidth) q2.extra = []; if (q2.extra) for (let x = s.x0; x < s.x1; x++) if (!litEdges.has(`${id},${x},${s.y0},y0`)) q2.extra.push([up(P(x, s.y0), WALLH * 0.5), up(P(x + 1, s.y0), WALLH * 0.5), up(P(x + 1, s.y0), WALLH), up(P(x, s.y0), WALLH)].map(S2));   /* the painted Arrival Hall: the wall over its doorway stays lit at night, only the opening shows the dark court */
   }
   return out;
 }
@@ -3292,7 +3299,7 @@ function drawDayNight() {
   const W0 = ctx.canvas.width, H0 = ctx.canvas.height, mc = dnMask, mx = mc.getContext('2d'); if (mc.width !== W0 || mc.height !== H0) { mc.width = W0; mc.height = H0; }
   const gr = mx.createLinearGradient(D.side < 0 ? 0 : W0, 0, D.side < 0 ? W0 : 0, H0 * 0.6); gr.addColorStop(0, `rgb(${D.sun.join(',')})`); gr.addColorStop(1, `rgb(${D.shade.join(',')})`);   // the sun side is warm, the far side in a lilac shade
   mx.globalCompositeOperation = 'copy'; mx.fillStyle = gr; mx.fillRect(0, 0, W0, H0);
-  if (lit.length) { mx.globalCompositeOperation = 'source-over'; mx.beginPath(); for (const q of lit) { q.forEach((m, k) => (k ? mx.lineTo(m.x, m.y) : mx.moveTo(m.x, m.y))); mx.closePath(); }
+  if (lit.length) { mx.globalCompositeOperation = 'source-over'; mx.beginPath(); for (const q of lit) { q.forEach((m, k) => (k ? mx.lineTo(m.x, m.y) : mx.moveTo(m.x, m.y))); mx.closePath(); for (const e2 of q.extra || []) { e2.forEach((m, k) => (k ? mx.lineTo(m.x, m.y) : mx.moveTo(m.x, m.y))); mx.closePath(); } }
     const ev = [255, Math.round(255 - 50 * L), Math.round(255 - 95 * L)]; mx.fillStyle = `rgb(${ev[0]},${ev[1]},${ev[2]})`; mx.fill(); }
   if (L >= 0.08) { const k = scale * dpr, ox = scroller.scrollLeft * dpr, oy = scroller.scrollTop * dpr, pool = dnPool(L); mx.globalCompositeOperation = 'lighten';   // her «Свет из дверей выглядит странно»: door light and the students' lantern light lift the darkness (capped), no additive white blobs
     const put = (x, y, rx, ry) => { const m = P(x, y); mx.drawImage(pool, m.x * k - ox - rx * k, m.y * k - oy - ry * k, rx * 2 * k, ry * 2 * k); };
@@ -3519,6 +3526,7 @@ function wallColor(id) {
   return { REC: '#d9c4f0', DORM: '#bcd3f2', DORM2: '#bcd3f2', LIB: '#d8b48a', TOWER: '#9d84d8', hall: '#e9e1f3' }[id] || '#e9e1f3';
 }
 function drawEdge(c, e, capOnly = false) {
+  if (e.id === 'REC' && WORLD === 1 && arts.REC && arts.REC.naturalWidth) return;   /* the painted Arrival Hall has its own walls */
   const { x, y, side } = e, h = e.tall ? TALL_H() : KNEE_H();
   let a, b, a2, b2;                                    // base line (a,b) and the cap's far line (a2,b2)
   if (side === 'x0') { a = P(x, y + 1); b = P(x, y); a2 = P(x - TH, y + 1); b2 = P(x - TH, y); }
@@ -3624,6 +3632,7 @@ DECOR.exwin = { w: 1.3, lo: 0.2, deep: 0.6 }; ISO_W.exwin = 1.9; DECOR.exboard =
 DECOR.chwin = { w: 1.3, lo: 0.22, deep: 0.6 }; ISO_W.chwin = 1.4;   // Charms: arched windows with lilac curtains
 DECOR.flwin = { w: 1.1, lo: 0.3, deep: 0.6 }; ISO_W.flwin = 1.0; DECOR.flopen = { w: 1.5, lo: 0.12, deep: 0.6 }; ISO_W.flopen = 1.6; DECOR.elwin = { w: 0.75, lo: 0.2, deep: 0.6 }; ISO_W.elwin = 0.75;   // Flight: brass portholes and one big open arched window (her «суперское открытое окно»)
 DECOR.el_med_fire = { w: 1.05, lo: 0.35, deep: 0.5 }; DECOR.el_med_water = DECOR.el_med_earth = DECOR.el_med_air = DECOR.el_med_fire; DECOR.el_win_a = { w: 0.77, lo: 0.3, deep: 0.01 }; DECOR.el_win_b = { w: 0.62, lo: 0.3, deep: 0.01 }; DECOR.el_painting = { w: 0.97, lo: 0.38, deep: 0.8 }; const EL_HUNG = new Map(), EL_BLOOM = {};   // Elements: medallions, windows and the painting sit inside the arches
+DECOR.rc_arch = { w: 2.25, lo: 0, deep: 0.4 }; DECOR.rc_win = { w: 0.6, lo: 0.2, deep: 0.5 };   /* Arrival Hall: the arched doorway over the court opening, pointed windows */
 DECOR.chportrait = { w: 1.05, lo: 0.3, deep: 0.6 }; const CH_SLOTS = new Map();   // free wall places between the windows: the portrait takes the first one, ribbons the rest   // Stargazing: round porthole windows   // Potions: tall gothic windows with stained glass
 const HERBS_WINS = new Map();   // where the big windows were hung (world px), for the night glass drawn every frame
 function hangIso(c, th, n, s, side, t0, lo) {
@@ -3674,6 +3683,13 @@ function drawWallDecor(c, id) {
   const th = themeOf(id), s = SLOTS[id]; if (!th) return;
   const T = THEMES[th];
   let k = 0;
+  if (T.arrival && WORLD === 1 && arts.REC && arts.REC.naturalWidth) return;
+  if (T.arrival) {   /* Arrival Hall: the doorway frames the 2-tile opening in the back wall, a pointed window on each side of it */
+    const d = (s.door || [])[0]; const gx = d ? d[0] : s.x0 + 3;
+    hang(c, th, 'rc_arch', s, 'y0', gx - 0.125, 0); hang(c, th, 'rc_win', s, 'y0', gx - 1.45, DECOR.rc_win.lo); hang(c, th, 'rc_win', s, 'y0', gx + 2.85, DECOR.rc_win.lo);
+    { const H = TALL_H(); for (let x = gx; x < gx + 2; x++) { const a = P(x, s.y0), b = P(x + 1, s.y0), a2 = P(x, s.y0 - TH), b2 = P(x + 1, s.y0 - TH); poly(c, [up(a, H), up(b, H), up(b2, H), up(a2, H)], '#efe5d3', '#c9b593'); } }   /* the wall's cap runs on over the doorway */
+    return;
+  }
   if (T.bays) {   // an arcade: one thing per arch, counted from the corner, so it always sits in the middle of its arch
     for (const side of ['y0', 'x0']) { const r = wallRun(id, side); if (!r) continue; const c0 = side === 'y0' ? s.x0 : s.y0, L = T.bays[side];
       for (let a = c0, n = 0; a + T.bays.w <= r[1] + 0.01; a += T.bays.w, n++) { const nm = L[n]; if (nm && DECOR[nm] && a >= r[0] - 0.01) hang(c, th, nm, s, side, a + (T.bays.w - DECOR[nm].w) / 2, DECOR[nm].lo); } }
@@ -3775,7 +3791,7 @@ function deskScaled(i, d, p, draw) {   /* a student's place scaled by the room e
 }
 const deskOv = (i, d) => { const R = RLAY.rooms[CLASSES[i].id]; return (R && R.desks && R.desks[d]) || null; };
 function layAdd(i, s, add) {   // wraps the room's add(): each entry is one item; the layout moves / scales / flips / hides it
-  const cid = CLASSES[i].id, R = RLAY.rooms[cid], items = (R && R.items) || {}, seen = (LAY_SEEN[cid] ||= { names: [], xy: [] }), cnt = {};
+  const cid = typeof i === 'string' ? i : CLASSES[i].id, R = RLAY.rooms[cid], items = (R && R.items) || {}, seen = (LAY_SEEN[cid] ||= { names: [], xy: [] }), cnt = {};
   let j = -1;
   return (x, y, draw, bias = 0, name) => {
     j++; const jj = j, xy = Math.round(x * 10) + ',' + Math.round(y * 10), known = seen.xy[jj] === xy, nm = name || (known ? seen.names[jj] : null);
@@ -3796,7 +3812,7 @@ function layPos(a, s) {   // an added item's tile from its corner anchor, kept i
   return { x, y };   // no limits: she may put things anywhere, even outside the walls
 }
 function layExtra(i, s, add) {   // sprites added in the editor
-  const cid = CLASSES[i].id, R = RLAY.rooms[cid]; if (!R || !R.add) return;
+  const cid = typeof i === 'string' ? i : CLASSES[i].id, R = RLAY.rooms[cid]; if (!R || !R.add) return;
   R.add.forEach((a, j) => {
     const q = layPos(a, s), wx = a.wall === 'x0' ? s.x0 + 0.1 : q.x, wy = a.wall === 'y0' ? s.y0 + 0.1 : q.y;
     add(Math.max(s.x0 + 0.05, Math.min(s.x1 - 0.05, wx)), Math.max(s.y0 + 0.05, Math.min(s.y1 - 0.05, wy)), () => layRun({ cid, kind: 'add', key: 'add#' + j, j, n: a.src, x: q.x, y: q.y, ov: a, tint: hasTint(a) ? a : R.allTint || null }, () => {
@@ -4277,7 +4293,9 @@ function drawSlot(c, id) {
   } else if (themeOf(id) && texFloor(c, themeOf(id), s)) {
     if (ci >= 0) { if (!rugDyn(ci)) drawRug(c, themeOf(id), s, ci); } else drawRugAt(c, themeOf(id), s);   /* an editable class rug is drawn with the room's items */
     const rn = THEMES[themeOf(id)].runner;
-    if (rn) { poly(c, [P(s.x0 + rn.u0, s.y0), P(s.x0 + rn.u1, s.y0), P(s.x0 + rn.u1, s.y1), P(s.x0 + rn.u0, s.y1)], rn.color, '#c9849488'); }
+    if (rn && rn.edge) { poly(c, [P(s.x0 + rn.u0, s.y0), P(s.x0 + rn.u1, s.y0), P(s.x0 + rn.u1, s.y1), P(s.x0 + rn.u0, s.y1)], rn.color); c.strokeStyle = rn.edge; c.lineWidth = 1.6; for (const u of [rn.u0 + 0.12, rn.u1 - 0.12]) { const a = P(s.x0 + u, s.y0), b = P(s.x0 + u, s.y1); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke(); } }   /* blue runner with gold edges */
+    { const st = THEMES[themeOf(id)].arrival && part(themeOf(id), 'rc_star'); if (st) { const m = P(s.x0 + (rn.u0 + rn.u1) / 2, s.y0 + 4.4), r = 1.55 * Math.SQRT2; c.drawImage(st, m.x - r * HW, m.y - r * HH, 2 * r * HW, 2 * r * HH); } }   /* the golden star mosaic */
+    if (rn && !rn.edge) { poly(c, [P(s.x0 + rn.u0, s.y0), P(s.x0 + rn.u1, s.y0), P(s.x0 + rn.u1, s.y1), P(s.x0 + rn.u0, s.y1)], rn.color, '#c9849488'); }
   } else {
     poly(c, [L, B, R, F], col.floor, '#00000012');
     c.strokeStyle = '#0000000d'; c.lineWidth = 1;
@@ -4851,7 +4869,11 @@ function render() {
     if (rid === 'LIB') LIB_SPOTS.slice(0, libSeats()).forEach((q, k) => { const o = { n: T.seats[k % T.seats.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); });
     if (T.beds) { const from = rid === 'DORM' ? 0 : DORM_STRIDE, n = rid === 'DORM' ? beds1() : beds2();
       DORM_SPOTS.slice(from, from + n).forEach((q, k) => { const o = { n: T.beds[k % T.beds.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); }); }
-    for (const o of (T.extras ? T.extras(s) : [])) { const oo = { ...o, th }; add(oo.x, oo.y, () => drawProp(oo)); }
+    const addR = rid === 'REC' && WORLD === 1 ? layAdd('REC', s, add) : null;   /* the reception's furniture is editable in the room editor */
+    for (const o of (T.extras ? T.extras(s) : [])) { const oo = { ...o, th }; if (addR) addR(oo.x, oo.y, () => drawProp(oo), 0, oo.n); else add(oo.x, oo.y, () => drawProp(oo)); }
+    if (addR) layExtra('REC', s, add);
+    if (T.arrival) { const pl = part(th, 'rc_plane'); if (pl) for (let m = 0; m < 2; m++) { const T0 = performance.now() / 1000 + m * 4.5, u = (T0 % 9) / 9; if (u > 0.55) continue; const v = u / 0.55, x = s.x0 + 1.75 + (1.3 - 1.75) * v, y = s.y0 + 3.6 + (0.4 - 3.6) * v;   /* paper airplanes fly from the counter to the notice board */
+      add(x + 0.4, y + 0.4, () => { const p = P(x, y), h = 46 + Math.sin(v * Math.PI) * 22, w = 13; ctx.save(); ctx.globalAlpha = Math.min(1, v * 6, (1 - v) * 6); ctx.translate(p.x, p.y - h); ctx.rotate(-0.35 + Math.sin(v * 9) * 0.08); ctx.drawImage(pl, -w / 2, -w * 0.35, w, w * 0.7); ctx.restore(); }); } }
   }
   // reception desk + officer
   if (WORLD <= 2 && SLOTS.LIB) { const lo = librarianPos(), im = sprites['lib_' + lo.pose]; if (im && im.naturalWidth) add(lo.x, lo.y, () => { teacherGlow(lo, 56, 'rgba(255,244,200,0.85)'); drawPose(im, lo.x, lo.y, 56, lo.flip, lo.moving); }); }   // glow: he blended into the dark green room (her report)
@@ -7238,5 +7260,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=496').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=497').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }

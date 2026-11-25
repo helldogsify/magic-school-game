@@ -4,7 +4,8 @@
 // Save = draft on the PC (editor API through lazy.vazuza.love) + this device; Publish = the PC commits layouts/layouts.json as a build.
 export function initEditor(A) {
   const E = A.EDIT, $ = (s, r = document) => r.querySelector(s);
-  const ci = Math.max(0, A.CLASSES.findIndex((c) => c.id === E.cls)), C = A.CLASSES[ci], cid = C.id, s = A.slotOf(ci);
+  const RMS = [{ id: 'REC', name: 'Приёмная', emoji: '🛎️' }], RM = RMS.find((r) => r.id === E.cls);   /* rooms that are not classes */
+  const ci = RM ? -1 : Math.max(0, A.CLASSES.findIndex((c) => c.id === E.cls)), C = RM || A.CLASSES[ci], cid = C.id, s = RM ? A.SLOTS[RM.id] : A.slotOf(ci);
   const KEY_LS = 'magicschool.editor.key', DRAFT_LS = 'magicschool.editor.draft';
   const q = new URLSearchParams(location.search); if (q.get('key')) { localStorage.setItem(KEY_LS, q.get('key')); const u = new URL(location.href); u.searchParams.delete('key'); history.replaceState(null, '', u); }   // the key stays on this device, not in the address
   const key = localStorage.getItem(KEY_LS) || '';
@@ -61,7 +62,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
 #ed-ov { position: fixed; pointer-events: none; z-index: 80; }
 @media (min-width: 900px) { #ed-grid { height: 104px; } #ed-grid img { height: 96px; } #ed-sel { bottom: 175px; } }`;
   document.head.appendChild(css);
-  const names = A.CLASSES.filter((c) => !c.w2 && c.id).map((c) => `<option value="${c.id}"${c.id === cid ? ' selected' : ''}>${c.emoji || ''} ${c.name}</option>`).join('');
+  const names = A.CLASSES.filter((c) => !c.w2 && c.id).map((c) => `<option value="${c.id}"${c.id === cid ? ' selected' : ''}>${c.emoji || ''} ${c.name}</option>`).join('') + RMS.map((c) => `<option value="${c.id}"${c.id === cid ? ' selected' : ''}>${c.emoji} ${c.name}</option>`).join('');
   const top = document.createElement('div'); top.id = 'ed-top'; top.innerHTML = `
 <select id="ed-cls" aria-label="Класс">${names}</select>
 <span><button data-size="1">Мал.</button> <button data-size="2">Сред.</button> <button data-size="3">Бол.</button></span>
