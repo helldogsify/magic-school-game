@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=549';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=550';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=549';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=549';
-import { initMinigame } from './minigame.js?v=549';
-import { initChests } from './chests.js?v=549';
-import { initValley } from './valley.js?v=549';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=549';
-import { initLore } from './lore.js?v=549';
-import { initAvatar } from './avatar.js?v=549';
+} from './data.js?v=550';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=550';
+import { initMinigame } from './minigame.js?v=550';
+import { initChests } from './chests.js?v=550';
+import { initValley } from './valley.js?v=550';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=550';
+import { initLore } from './lore.js?v=550';
+import { initAvatar } from './avatar.js?v=550';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 549;   // keep equal to the ?v= number in index.html
+const BUILD = 550;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2670,7 +2670,7 @@ function tkWhy(o, s0) {   // [family, emoji, title, riddle with a clue where to 
     case 'cantup': return ['cant', '🍲', 'Голодные ученики', 'После уроков ученики хотят есть. В столовой можно кое-что наладить.', 'Это столовая.'];
     case 'dir': return ['dir', '💸', 'Казна худеет', 'Ушедшим ученикам школа возвращает слишком много монет. Кто пишет правила?', 'Это кабинет директора.'];
     case 'exlvl': case 'xpllvl': return ['rank', '🌟', 'Звания', 'Ученик со званием платит больше за каждый урок. Звания дают в классах: в каждом классе есть раздел про звание. В каком классе помочь ученикам?', cn];
-    case 'formlvl': return ['form', '🎓', 'Альбом', 'Открой альбом 🎓 и улучши карточку тех учеников, которых в школе больше всего: каждый из них станет платить больше.', `Это карточка «${formName(o.k)}».`];
+    case 'formlvl': return ['form', '🎓', 'Альбом', 'Открой альбом 🎓. У каждой карточки написано, сколько таких учеников в школе сейчас и сколько стоит улучшение. Выгоднее та, где учеников много, а улучшение недорогое: каждый из них станет платить больше.', `Это карточка «${formName(o.k)}».`];
   }
   return null;
 }
@@ -2683,8 +2683,11 @@ function tkWiseOf(d, i) {   // before a purchase: is it one of the three best up
   try {
     if (WORLD !== 1 || !d.act || EDIT) return null;
     const k = d.k === undefined ? undefined : /^\d+$/.test(d.k) ? +d.k : d.k, ii = Number.isFinite(i) ? i : undefined;
-    const v = tkRank().slice(0, 3).find((x) => x.o.act === d.act && (x.o.i === undefined || x.o.i === ii) && String(x.o.k) === String(k)); if (!v) return null;
-    const w = tkWhy(v.o, tkSnap()), hinted = !!(w && S.tkHint && S.tkHint[w[0] + ':' + w[4]]);   // the riddle about this very place had its hint opened
+    // wise = one of the 3 best upgrades now, or the answer to a riddle on screen: the same kind of upgrade in the same place (class, card, room)
+    const op = { act: d.act, i: ii, k }, s0 = tkSnap(), w0 = tkWhy(op, s0), keys = new Set(tkTips().map((t) => t.key));
+    const top = tkRank().slice(0, 3).find((x) => x.o.act === d.act && (x.o.i === undefined || x.o.i === ii) && String(x.o.k) === String(k));
+    const key = w0 ? w0[0] + ':' + w0[4] : '', solved = !!key && keys.has(key); if (!top && !solved) return null;
+    const w = solved ? w0 : tkWhy(top.o, s0), hinted = !!(w && S.tkHint && S.tkHint[w[0] + ':' + w[4]]);   // the riddle about this very place had its hint opened
     return { share: hinted ? TK_WISE_HINT : TK_WISE_SHARE };
   } catch (e) { return null; }
 }
@@ -7678,5 +7681,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=549').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=550').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
