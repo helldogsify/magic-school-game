@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=541';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=542';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=541';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=541';
-import { initMinigame } from './minigame.js?v=541';
-import { initChests } from './chests.js?v=541';
-import { initValley } from './valley.js?v=541';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=541';
-import { initLore } from './lore.js?v=541';
-import { initAvatar } from './avatar.js?v=541';
+} from './data.js?v=542';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=542';
+import { initMinigame } from './minigame.js?v=542';
+import { initChests } from './chests.js?v=542';
+import { initValley } from './valley.js?v=542';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=542';
+import { initLore } from './lore.js?v=542';
+import { initAvatar } from './avatar.js?v=542';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 541;   // keep equal to the ?v= number in index.html
+const BUILD = 542;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -960,6 +960,7 @@ function finishProcess() {
   a.state = 'walk';
   route(a, nextClass(-1));
 }
+let calmT = 0; const CALM_T = 120;   // build 541: game seconds after a restore (reload, update, new map) in which nobody leaves for lack of room
 const MAX_WAIT = 6;                                   // students allowed to wait in the line of a class
 // line of a class = waiting + already walking there
 const lineCount = (i) => waitList[i].length + agents.reduce((n, a) => n + (a.goal && a.goal.t === 'c' && a.goal.i === i && (a.state === 'walk') ? 1 : 0), 0);
@@ -1061,7 +1062,7 @@ function route(a, i) {   // send a student on to class i, or to the dorm when it
   // Sleepers already woken and walking back keep their places (roomForWaker counts them), so nobody is overtaken.
   if (i < 0 || waitList[i].length < MAX_WAIT) { goClass(a, i); return true; }   // the door line decides, not the walkers (Sonya's report 2026-11-22: dorm full, lines empty)
   if (courtRoom()) { goCourt(a, i); return true; }   // build 259: the court first (mood rises there), the dorm only when the court is full
-  if (!dormFree()) { leaveSchool(a); return false; }
+  if (!dormFree()) { if (calmT > 0) { goCourt(a, i); return true; } leaveSchool(a); return false; }   // build 541: not right after a reload
   popup('😢', a.x, a.y, '#5b7fd6', 44);
   goDorm(a, i);
   return true;
@@ -1239,7 +1240,10 @@ function arriveClass(a, i) {
   const d = freeDesk(i);
   if (d < 0 && waitList[i].length >= MAX_WAIT) {   // the line filled up while walking here
     a.state = 'walk';
-    if (dormFree()) { popup('😢', a.x, a.y, '#5b7fd6', 44); goDorm(a, i); } else leaveSchool(a);
+    if (courtRoom()) goCourt(a, i);   // build 541: the court first, like route() (before, the overflow went to bed or home while the court had room)
+    else if (dormFree()) { popup('😢', a.x, a.y, '#5b7fd6', 44); goDorm(a, i); }
+    else if (calmT > 0) goCourt(a, i);   // just after a reload: wait in the court even over its places
+    else leaveSchool(a);
     return;
   }
   if (d < 0) { waitList[i].push(a); const p = waitSpot(i, waitList[i].length - 1); a.state = 'walkwait'; walk(a, p.x, p.y, () => { a.state = 'wait'; }); return; }
@@ -2281,6 +2285,7 @@ function setMenu(on) {
   if (!panel) $('#tour').classList.toggle('under-panel', on);   // the tour card hides under the menu as it does under panels
 }
 function stepWorld(dt, live = false) {
+  if (calmT > 0) calmT = Math.max(0, calmT - dt);
   stepIncidents(dt, live);
   stepInspector(dt, live);
   stepBoss(dt, live);
@@ -7126,6 +7131,7 @@ function relayout() {   // rebuild the map (a class was expanded): creatures kee
   }
 }   // bump when the map changes: old creature positions are dropped
 function restoreWorld(teleport = false) {
+  calmT = CALM_T;   // build 541: the restored crowd arrives at once, nobody is sent home for it
   // a new map after an update: keep every creature and its task, just move it onto the new map (never restart the school)
   if (S.layout !== LAYOUT) { S.layout = LAYOUT; teleport = true; }
   const w = S.world; if (!w) return;
@@ -7472,5 +7478,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=541').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=542').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
