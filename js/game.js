@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=534';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=535';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=534';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=534';
-import { initMinigame } from './minigame.js?v=534';
-import { initChests } from './chests.js?v=534';
-import { initValley } from './valley.js?v=534';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=534';
-import { initLore } from './lore.js?v=534';
-import { initAvatar } from './avatar.js?v=534';
+} from './data.js?v=535';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=535';
+import { initMinigame } from './minigame.js?v=535';
+import { initChests } from './chests.js?v=535';
+import { initValley } from './valley.js?v=535';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=535';
+import { initLore } from './lore.js?v=535';
+import { initAvatar } from './avatar.js?v=535';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 534;   // keep equal to the ?v= number in index.html
+const BUILD = 535;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1007,6 +1007,8 @@ const NEWDORM = WORLD === 1 && !!window.__EDIT;   /* the tree dorms with two con
 const concOff = (rid) => { const R = NEWDORM && RLAY.rooms[rid], o = R && R.items && R.items['conc#1']; return { dx: (o && o.dx) || 0, dy: (o && o.dy) || 0 }; };   /* moved in the editor */
 const CON2 = { line: [], cur: null, t: 0, keyAt: -1e9, x: 0, y: 0 };   /* Ляля-Люля, Спальня 2 */
 const LYALYA = (() => { const im = new Image(); im.src = 'assets/staff/concierge2.webp?v=1'; return im; })();
+const LY_POSE = Object.fromEntries(['write', 'key', 'yawn', 'walk'].map((k) => { const im = new Image(); im.src = `assets/staff/ly_${k}.webp?v=1`; return [k, im]; }));
+function lyalyaIm() { const T = performance.now() / 1000, k = T - CON2.keyAt < 2.5 ? 'key' : CON2.cur ? 'write' : (T % 9) < 2.6 ? 'yawn' : 'write', im = LY_POSE[k]; return im.complete && im.naturalWidth ? im : LYALYA; }   /* like Баю-Бая */
 function concPlace() { if (!NEWDORM) return; const o1 = concOff('DORM'), o2 = concOff('DORM2'); CONCIERGE = { x: DS.x0 + 0.65 + o1.dx, y: DS.y0 + 0.75 + o1.dy }; CON2.x = DS2.x1 - 0.75 + o2.dx; CON2.y = DS2.y0 + 2.3 + o2.dy; }
 const toTwin = (a) => NEWDORM && dorm2Built() && a.bed >= DORM_STRIDE;
 const line2Spot = (k) => ({ x: CON2.x + 0.15, y: Math.min(DS2.y1 - 0.4, CON2.y + 3.9 + k * 0.5) });
@@ -5039,7 +5041,7 @@ function render() {
     aD(bx, by + 0.75, () => { const im = sprites['con_' + co.pose]?.naturalWidth ? (co.pose === 'walk' ? sprites['staff_concierge'] : sprites['con_' + co.pose]) : sprites['staff_concierge']; if (im && im.naturalWidth) { drawPose(im, co.x - o1.dx, co.y - o1.dy, 62, co.flip, co.moving); if (checkin) { const q = P(co.x - o1.dx, co.y - o1.dy); ring(q.x - 24, q.y - 62, Math.min(1, checkinT / checkinTime()), '#2f9e7a'); } } const d = th && part(th, 'conc_desk'); if (d) drawProp({ n: 'conc_desk', x: bx - 0.05, y: by + 0.75, th }); }, 0, 'conc');
     if (dorm2Built() && SLOTS.DORM2) { const o2 = concOff('DORM2'), aD2 = layAdd('DORM2', SLOTS.DORM2, add), cx = CON2.x - o2.dx, cy = CON2.y - o2.dy;   /* Ляля-Люля with her desk */
       aD2(cx, cy + 0.75, () => { if (LYALYA.complete && LYALYA.naturalWidth) { const q = P(cx, cy), T = performance.now() / 1000, nod = (T % 9) > 7.6 ? Math.sin(((T % 9) - 7.6) / 1.4 * Math.PI) : 0, br = Math.sin(T * 2.2);   /* Ляля-Люля breathes, sways and nods off now and then */
-        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(Math.sin(T * 0.9) * 0.025 + nod * 0.06); ctx.scale(1 + br * 0.012, 1 - br * 0.012 - nod * 0.03); ctx.translate(-q.x, -q.y); drawPose(LYALYA, cx, cy, 62, false, false); ctx.restore();
+        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(Math.sin(T * 0.9) * 0.025 + nod * 0.06); ctx.scale(1 + br * 0.012, 1 - br * 0.012 - nod * 0.03); ctx.translate(-q.x, -q.y); drawPose(lyalyaIm(), cx, cy, 62, false, false); ctx.restore();
         { const f = 0.75 + 0.25 * Math.sin(T * 7) * Math.sin(T * 2.3); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.45 * f; ctx.drawImage(glowSprite('170,200,255'), q.x - 30, q.y - 50, 26, 26); ctx.restore(); } if (CON2.cur) { const q = P(cx, cy); ring(q.x - 24, q.y - 62, Math.min(1, CON2.t / checkinTime()), '#4f86c6'); } } const d = th && part(th, 'conc_desk'); if (d) drawProp({ n: 'conc_desk', x: cx - 0.05, y: cy + 0.75, th }); }, 0, 'conc'); } }
   else if (themeOf('DORM') && part(themeOf('DORM'), 'conc_desk')) { const o = { n: 'conc_desk', x: CONCIERGE.x - 0.05, y: CONCIERGE.y + 0.75, th: themeOf('DORM') }; add(o.x, o.y, () => drawProp(o)); }   // her desk in front of her
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR', 'SHOP', 'TOWER', 'CANT']) {
@@ -7460,5 +7462,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=534').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=535').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
