@@ -305,7 +305,9 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   function goCheck() {   // the screen shows another class than the one being edited: offer to switch to it
     const r = stageRect(), w = toWorld(r.left + r.width / 2, r.top + r.height * 0.45), td = tileDelta(w.x - A.P(0, 0).x, w.y - A.P(0, 0).y), b = $('#ed-go');
     const j = A.CLASSES.findIndex((c, i) => { const q = A.slotOf(i); return q && td.dx >= q.x0 && td.dx < q.x1 && td.dy >= q.y0 && td.dy < q.y1; });
-    if (j >= 0 && A.CLASSES[j].id !== cid) { b.style.display = ''; b.textContent = `✏️ Править «${A.CLASSES[j].name}»`; b.onclick = () => reload({ c: A.CLASSES[j].id }); } else b.style.display = 'none';
+    const rm = j < 0 ? RMS.find((r) => { const q = A.SLOTS[r.id]; return q && td.dx >= q.x0 && td.dx < q.x1 && td.dy >= q.y0 && td.dy < q.y1; }) : null;   /* the reception and the dorms too */
+    const to = j >= 0 ? A.CLASSES[j] : rm;
+    if (to && to.id !== cid) { b.style.display = ''; b.textContent = `✏️ Править «${to.name}»`; b.onclick = () => reload({ c: to.id }); } else b.style.display = 'none';
   }
   function frame() {
     requestAnimationFrame(frame); if (performance.now() - goT > 500) { goT = performance.now(); goCheck(); }
