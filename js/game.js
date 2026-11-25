@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=540';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=541';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=540';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=540';
-import { initMinigame } from './minigame.js?v=540';
-import { initChests } from './chests.js?v=540';
-import { initValley } from './valley.js?v=540';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=540';
-import { initLore } from './lore.js?v=540';
-import { initAvatar } from './avatar.js?v=540';
+} from './data.js?v=541';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=541';
+import { initMinigame } from './minigame.js?v=541';
+import { initChests } from './chests.js?v=541';
+import { initValley } from './valley.js?v=541';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=541';
+import { initLore } from './lore.js?v=541';
+import { initAvatar } from './avatar.js?v=541';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 540;   // keep equal to the ?v= number in index.html
+const BUILD = 541;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3447,11 +3447,14 @@ function layoutNaveW2() {
 function drawCaravan(o) {   // home: wagon (empty or loaded) with the goat; leaving / coming back: they ride along the road out of the cave (12 s)
   const T = trade(), wg = part('corridor', T.load + T.gems > 0 || T.away ? 't_wagon_full' : 't_wagon'), gt = part('corridor', 't_goat'); if (!wg || !gt) return;
   let x = o.x, y = o.y; const out = T.away ? (T.trip || T.away) - T.away : 0, back = T.away;
-  if (T.away) { const u = out < 12 ? out / 12 : back < 12 ? back / 12 : 1; if (u >= 1) return; x = o.x - u * 16; y = o.y + u * 2; }   // further than the map: not drawn
+  let al = 1;   // the wagon faces down-left (+y): it leaves forward and fades out, and comes back rolling in from the yard behind it (it has no back view)
+  if (T.away) { if (out < 12) { const u = out / 12; y = o.y + u * u * 9; al = u < 0.6 ? 1 : (1 - u) / 0.4; } else if (back < 2.5) { const u = back / 2.5; y = o.y - u * 1.5; al = 1 - u; } else return; }
   const p = P(x, y), hw = CORR_H.t_wagon, ww = hw * wg.naturalWidth / wg.naturalHeight, hg = CORR_H.t_goat, gw = hg * gt.naturalWidth / gt.naturalHeight, bob = T.away ? Math.abs(Math.sin(performance.now() / 160)) * 1.5 : 0;
-  ctx.drawImage(propShadow(), p.x - ww * 0.45, p.y - ww * 0.16, ww * 0.9, ww * 0.32);
-  ctx.drawImage(sized(wg, hw * scale * dpr), p.x - ww / 2 + ww * 0.12, p.y - hw * 0.94, ww, hw);
-  const g = P(x - 1.1, y + 0.1); ctx.drawImage(flipped(sized(gt, hg * scale * dpr)), g.x - gw / 2, g.y - hg * 0.96 - bob, gw, hg);   // the goat faces left, toward the road out
+  ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, al));
+  ctx.drawImage(propShadow(), p.x - ww * 0.45, p.y - ww * 0.16, ww * 0.9, ww * 0.32); ctx.drawImage(propShadow(), p.x - 19 - gw * 0.4, p.y + 13 - gw * 0.14, gw * 0.8, gw * 0.28);
+  ctx.drawImage(sized(wg, hw * scale * dpr), p.x - ww / 2 + ww * 0.12, p.y - hw * 0.94 - bob * 0.5, ww, hw);
+  ctx.drawImage(flipped(sized(gt, hg * scale * dpr)), p.x - 19 - gw / 2, p.y + 13 - hg * 0.96 - bob, gw, hg);   // the goat stands in the shafts, in front of the wagon (tuned offline, tools/_wk/caravan_comp.py)
+  ctx.restore();
 }
 function drawCorr(o) {
   if (o.n === 'caravan') return drawCaravan(o);
@@ -7469,5 +7472,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=540').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=541').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
