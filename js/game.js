@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=552';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=553';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=552';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=552';
-import { initMinigame } from './minigame.js?v=552';
-import { initChests } from './chests.js?v=552';
-import { initValley } from './valley.js?v=552';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=552';
-import { initLore } from './lore.js?v=552';
-import { initAvatar } from './avatar.js?v=552';
+} from './data.js?v=553';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=553';
+import { initMinigame } from './minigame.js?v=553';
+import { initChests } from './chests.js?v=553';
+import { initValley } from './valley.js?v=553';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=553';
+import { initLore } from './lore.js?v=553';
+import { initAvatar } from './avatar.js?v=553';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 552;   // keep equal to the ?v= number in index.html
+const BUILD = 553;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2693,16 +2693,18 @@ function tkWiseOf(d, i) {   // before a purchase: one of the 3 best upgrades now
     const k = d.k === undefined ? undefined : /^\d+$/.test(d.k) ? +d.k : d.k, ii = Number.isFinite(i) ? i : undefined, op = { act: d.act, i: ii, k };
     const rank = tkRank(), mine = rank.find((x) => x.o.act === d.act && (x.o.i === undefined || x.o.i === ii) && String(x.o.k) === String(k));
     const w0 = tkWhy(op), tips = tkTips(), hintOf = (t) => !!(t && S.tkHint && S.tkHint[t.key]);
+    if (w0 && S.tkRest && S.tkRest[w0[0]] > Date.now()) return { rest: 1 };   // solved lately: no second bonus for the same kind
     const tip = w0 && tips.find((t) => t.fam === w0[0] && ((t.place !== null && t.place !== undefined && t.place === ii && tkCapOf(op)) || (mine && (mine.r >= t.r * TK_OK || TK_ROOM[t.fam]))));
-    if (tip) return { share: hintOf(tip) ? TK_WISE_HINT : TK_WISE_SHARE, title: tip.title };
+    if (tip) return { share: hintOf(tip) ? TK_WISE_HINT : TK_WISE_SHARE, title: tip.title, fam: tip.fam };
     const near = w0 && tips.find((x) => x.fam === w0[0]);
-    if (mine && rank.indexOf(mine) < 3) return { share: hintOf(near) ? TK_WISE_HINT : TK_WISE_SHARE, title: near ? near.title : '' };
+    if (mine && rank.indexOf(mine) < 3) return { share: hintOf(near) ? TK_WISE_HINT : TK_WISE_SHARE, title: near ? near.title : '', fam: near ? near.fam : '' };
     return near ? { miss: near.title } : null;   // the riddle's kind, but not a good answer: Tikhon says so
   } catch (e) { return null; }
 }
-function tkWisePay(paid, share = TK_WISE_SHARE, title = '') {
+const TK_REST = 30 * 60000;   // a solved riddle rests 30 min: the next ones get their turn
+function tkWisePay(paid, share = TK_WISE_SHARE, title = '', fam = '') {
   const bonus = Math.max(1, nice(paid * share)); S.coins += bonus; S.stats.wise = (S.stats.wise || 0) + 1;
-  S.tkLast = { title, bonus, t: Date.now() };
+  S.tkLast = { title, bonus, t: Date.now() }; if (fam) { (S.tkRest ||= {})[fam] = Date.now() + TK_REST; tkTipCache = null; }
   toast(`🦉 ${title ? `Загадка «${title}» разгадана!` : 'Мудрое решение, директор!'} Тихон доплатил 🪙${fmt(bonus)}`); updateHud();
 }
 function tkMiss(title) { toast(`🦉 «${title}»: польза есть, но можно выгоднее. Сравни цены — или открой подсказку`); }
@@ -2715,7 +2717,7 @@ function tkTips() {   // [{key, emo, title, text, g, mins, go}] best first; cach
       if (nb) out.push({ key: 'build', emo: '🏗️', title: 'Пора строить', text: 'Монет уже хватает на что-то большое и новое! Новый урок — новые монеты с каждого ученика.' });
       const used = new Set(), rank = tkRank();
       for (const v of rank) {
-        let w = tkWhy(v.o); if (!w || used.has(w[0])) continue; used.add(w[0]);
+        let w = tkWhy(v.o); if (!w || used.has(w[0]) || (S.tkRest && S.tkRest[w[0]] > Date.now())) continue; used.add(w[0]);   // a solved kind rests
         let place = null;
         if (w[0] === 'cap') { const c = tkCrowded(); if (c) { place = c.i; w = ['cap', '🚪', 'Где-то тесно', `Посмотри на таблички классов на карте: у какого класса ждёт больше всего учеников? Там нужно учить больше учеников сразу: ещё парта, урок покороче или учитель получше.`, `Это класс «${CLASSES[c.i].name}».`]; } }
         out.push({ key: w[0] + ':' + w[4], fam: w[0], r: v.r, place, emo: w[1], title: w[2], text: w[3], hint: w[4] });
@@ -6657,7 +6659,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'conc') { if (dormUp().conc < MAX_CONC && spend(concCost())) dormUp().conc++; }
   else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= buildCost(i) && spendStars(starsNeed(i)) && spend(buildCost(i))) { st.built = true; st.buildEnd = Date.now() + buildTime(i) * 1000; panel = classPanel(i); } }
   else return;
-  if (tkW && S.coins < tkC0) { if (tkW.miss) tkMiss(tkW.miss); else tkWisePay(tkC0 - S.coins, tkW.share, tkW.title); tkFrozen = null; }
+  if (tkW && S.coins < tkC0) { if (tkW.rest) toast('🦉 Эта загадка уже разгадана — загляни в другие мои загадки'); else if (tkW.miss) tkMiss(tkW.miss); else tkWisePay(tkC0 - S.coins, tkW.share, tkW.title, tkW.fam); tkFrozen = null; }
   refreshPanel(); save();
 });
 $('#sheet-bg').addEventListener('click', closePanel);
@@ -7698,5 +7700,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=552').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=553').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
