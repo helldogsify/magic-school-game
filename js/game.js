@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=537';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=538';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=537';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=537';
-import { initMinigame } from './minigame.js?v=537';
-import { initChests } from './chests.js?v=537';
-import { initValley } from './valley.js?v=537';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=537';
-import { initLore } from './lore.js?v=537';
-import { initAvatar } from './avatar.js?v=537';
+} from './data.js?v=538';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=538';
+import { initMinigame } from './minigame.js?v=538';
+import { initChests } from './chests.js?v=538';
+import { initValley } from './valley.js?v=538';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=538';
+import { initLore } from './lore.js?v=538';
+import { initAvatar } from './avatar.js?v=538';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 537;   // keep equal to the ?v= number in index.html
+const BUILD = 538;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -364,7 +364,7 @@ const depthOf = (i) => ROOM + 2 * (sizeOf(i) - 1);                // 6, 8, 10 ti
 const maxDesksOf = (i) => (CLASSES[i].final ? 21 : 6 + 4 * (sizeOf(i) - 1));   // 6, 10, 14; the wide exam hall: 21 (3 rows of 7)
 const MAX_DESKS_ABS = 21;
 const ART = {                                               // room pictures with floor corners in image px
-  ...((window.__EDIT) ? { DORM: { src: 'assets/parts/dorm/dm_tree.webp?v=1', L: [60, 669], R: [1090, 519], F: [452, 897], band: 1, fill: 1 }, DORM2: { src: 'assets/parts/dorm/dm_tree_nodoor.webp?v=1', L: [60, 669], R: [1090, 519], F: [452, 897], band: 1, fill: 1 } } : {}),   /* the tree dorms: editor only until her OK */
+  ...((true) ? { DORM: { src: 'assets/parts/dorm/dm_tree.webp?v=1', L: [60, 669], R: [1090, 519], F: [452, 897], band: 1, fill: 1 }, DORM2: { src: 'assets/parts/dorm/dm_tree_nodoor.webp?v=1', L: [60, 669], R: [1090, 519], F: [452, 897], band: 1, fill: 1 } } : {}),   /* the tree dorms: editor only until her OK */
   REC: { src: 'assets/parts/reception/rc_room.webp?v=1', L: [11, 689], R: [953, 699], F: [502, 952] },   /* the Arrival Hall (live since her OK 2026-11-25) */   /* the Arrival Hall, painted from the approved concept */
 };
 // ---- rooms assembled from parts (any size looks whole): seamless wall + floor textures, wall decor hung
@@ -527,7 +527,7 @@ const THEMES = {
 const DECOR = { kp_relief: { w: 2.5, lo: 0.08, deep: 1.0 }, kp_fire: { w: 1.0, lo: 0.03, deep: 1.0 }, kp_deep: { w: 1.0, lo: 0.03, deep: 1.0 }, kp_sconce: { w: 0.4, lo: 0.45, deep: 1.2 }, kp_banner: { w: 0.7, lo: 0.25, deep: 0.5 }, kp_window: { w: 0.75, lo: 0.3, deep: 0.8 }, crownrelief: { w: 2.0, lo: 0.05, deep: 1.0 }, crownbanner: { w: 0.5, lo: 0.25, deep: 0.5 }, tshield: { w: 0.6, lo: 0.35, deep: 0.8 }, tbrazier: { w: 0.45, lo: 0.45, deep: 1.2 }, crownniche: { w: 0.6, lo: 0.3, deep: 1.0 }, taxes: { w: 0.7, lo: 0.35, deep: 0.8 }, bigshelf: { w: 1.6, lo: 0.0, deep: 1.2 }, ambwin: { w: 0.6, lo: 0.3, deep: 0.6 }, scrollcase: { w: 0.6, lo: 0.0, deep: 1.2 }, kingtree: { w: 0.8, lo: 0.25, deep: 0.6 }, hanglamps: { w: 0.8, lo: 0.4, deep: 1.0 }, kmap2: { w: 0.9, lo: 0.35, deep: 0.5 }, hookboard: { w: 1.8, lo: 0.3, deep: 0.8 }, roundwin: { w: 0.7, lo: 0.3, deep: 0.8 }, cshelf: { w: 0.9, lo: 0.4, deep: 1.0 }, embroid: { w: 0.6, lo: 0.3, deep: 0.5 }, moondial: { w: 0.6, lo: 0.35, deep: 0.8 }, clamp: { w: 0.35, lo: 0.45, deep: 1.0 }, kmap: { w: 1.8, lo: 0.1, deep: 1.0 }, slit: { w: 0.4, lo: 0.25, deep: 0.6 }, gnotice: { w: 0.8, lo: 0.35, deep: 0.6 }, runeclock: { w: 0.6, lo: 0.4, deep: 0.8 }, glamp: { w: 0.4, lo: 0.45, deep: 1.2 }, ledgers: { w: 0.9, lo: 0.4, deep: 1.0 }, kingrelief: { w: 2.6, lo: 0.0, deep: 1.0 }, oathbanner: { w: 0.7, lo: 0.25, deep: 0.5 }, goldcandle: { w: 0.45, lo: 0.4, deep: 1.0 }, names: { w: 1.1, lo: 0.4, deep: 0.5 }, wallgong: { w: 0.7, lo: 0.3, deep: 1.0 }, goldhammers: { w: 0.7, lo: 0.35, deep: 0.8 }, lakearch: { w: 2.0, lo: 0.0, deep: 1.0 }, net: { w: 1.0, lo: 0.25, deep: 0.6 }, oars: { w: 0.6, lo: 0.3, deep: 0.8 }, bluelamp: { w: 0.35, lo: 0.4, deep: 1.0 }, lakemap: { w: 0.9, lo: 0.4, deep: 0.5 }, fishstring: { w: 0.35, lo: 0.3, deep: 0.8 }, gbanner: { w: 2.0, lo: 0.05, deep: 1.0 }, shields: { w: 1.2, lo: 0.3, deep: 0.8 }, gtorch: { w: 0.4, lo: 0.45, deep: 1.2 }, axes: { w: 0.9, lo: 0.3, deep: 0.8 }, helm: { w: 0.5, lo: 0.35, deep: 1.0 }, warhorn: { w: 0.8, lo: 0.35, deep: 0.8 }, gcab: { w: 2.0, lo: 0.05, deep: 1.0 }, cuts: { w: 0.8, lo: 0.3, deep: 0.5 }, gsconce: { w: 0.45, lo: 0.45, deep: 1.2 }, gtap: { w: 0.8, lo: 0.3, deep: 0.5 }, gcrys: { w: 0.5, lo: 0.35, deep: 1.0 }, hearth: { w: 2.1, lo: 0.0, deep: 1.2 }, tongs: { w: 0.9, lo: 0.35, deep: 0.8 }, chain: { w: 0.4, lo: 0.3, deep: 0.8 }, tunnel: { w: 2.4, lo: 0.0, deep: 1.0 }, rack: { w: 1.0, lo: 0.35, deep: 1.0 }, sign: { w: 0.7, lo: 0.4, deep: 0.6 }, rope: { w: 0.45, lo: 0.3, deep: 1.0 }, shield: { w: 0.8, lo: 0.4, deep: 0.8 }, niche: { w: 0.8, lo: 0.25, deep: 1.0 }, plaque: { w: 0.75, lo: 0.35, deep: 0.8 }, menu: { w: 0.8, lo: 0.3, deep: 0.8 }, plates: { w: 1.1, lo: 0.35, deep: 1.4 }, pots: { w: 1.1, lo: 0.4, deep: 1.2 }, dried_herbs: { w: 0.8, lo: 0.35, deep: 1.2 }, stained: { w: 0.95, lo: 0.3, deep: 0.6 }, masters_art: { w: 1.4, lo: 0.32, deep: 0.7 }, trophies: { w: 1.3, lo: 0.4, deep: 1.4 }, jar_shelf: { w: 1.1, lo: 0.25, deep: 1.3 }, toy_rack: { w: 1.2, lo: 0.4, deep: 1.4 }, owl_clock: { w: 0.7, lo: 0.45, deep: 1.2 }, flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9, lo: 0.55, deep: 1.6 }, portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
 const PROP_H = { fire_ped: 42, water_ped: 42, earth_ped: 42, air_ped: 42, sofa: 22, gold_chair: 30, lectern: 32, moon_plant: 40, toy_table: 34, quill_barrel: 34, candy_stand: 32, book_crate: 26, floss_cauldron: 30, desk: 50, armchair: 30, palm: 44, tea_table: 22, cabinet: 34, counter: 82, bench_l: 32, bench_r: 32, signpost: 36, coat_rack: 42, bed_pink: 27, bed_mint: 27, bed_lilac: 27, conc_desk: 38, nightstand: 20, toy_chest: 20, pouf_pink: 20, pouf_green: 20, pouf_lilac: 20, lib_desk: 30, globe: 34, book_pile: 28, exdesk_a: 24, exdesk_b: 24, exdesk_c: 24, commission: 30, candelabra: 44, laurel: 42, trophy: 26, cr_fire: 30, cr_water: 30, cr_earth: 30, cr_air: 30, altar: 42, fountain: 30, lectb_lilac: 25, lectb_pink: 25, lectb_mint: 25, cloud_white: 17, cloud_pink: 17, cloud_lilac: 17, perch: 50, tree: 46, lect_lilac: 36, lect_pink: 36, lect_mint: 36, big_book: 52, crystal_ball: 26, tel_gold: 32, tel_silver: 32, tel_rose: 32, big_telescope: 46, orrery: 38, station_pink: 42, station_green: 42, station_purple: 42, big_cauldron: 40, plant: 46, lavender: 30, magic_pot: 27, barrel: 34, basket: 24, table: 34, bookcase: 40 };
-if (WORLD === 1 && (window.__EDIT)) { Object.assign(THEMES.DORM, { moon: 1, h: { dm_nest_canopy: 74, dm_moth_lamp: 50, dm_mushrooms: 20, dm_table: 22 }, load: ['conc_desk', 'dm_nest_canopy', 'dm_moth_lamp', 'dm_mushrooms', 'dm_table'], extras: (s) => [{ n: 'dm_moth_lamp', x: s.x0 + 3.5, y: s.y0 + 0.45 }, { n: 'dm_mushrooms', x: s.x1 - 0.4, y: s.y0 + 0.45 }, { n: 'dm_table', x: s.x1 - 0.5, y: s.y1 - 0.6 }, { n: 'dm_mushrooms', x: s.x0 + 0.45, y: s.y1 - 0.5 }, { n: 'dm_moth_lamp', x: s.x1 - 0.45, y: (s.y0 + s.y1) / 2 }] }); Object.assign(THEMES.DORM2, { moon: 1, h: { dm_nest_canopy: 74, dm_moth_lamp: 50, dm_mushrooms: 20, dm_table: 22 }, load: ['dm_nest_canopy', 'dm_moth_lamp', 'dm_mushrooms', 'dm_table'], extras: (s) => [{ n: 'dm_moth_lamp', x: s.x0 + 3.5, y: s.y0 + 0.45 }, { n: 'dm_mushrooms', x: s.x1 - 0.4, y: s.y0 + 0.45 }, { n: 'dm_table', x: s.x1 - 0.5, y: s.y1 - 0.6 }, { n: 'dm_mushrooms', x: s.x0 + 0.45, y: s.y1 - 0.5 }, { n: 'dm_moth_lamp', x: s.x1 - 0.45, y: (s.y0 + s.y1) / 2 }] }); }   /* the Moon dorms: their own furniture */
+if (WORLD === 1 && (true)) { Object.assign(THEMES.DORM, { moon: 1, h: { dm_nest_canopy: 74, dm_moth_lamp: 50, dm_mushrooms: 20, dm_table: 22 }, load: ['conc_desk', 'dm_nest_canopy', 'dm_moth_lamp', 'dm_mushrooms', 'dm_table'], extras: (s) => [{ n: 'dm_moth_lamp', x: s.x0 + 3.5, y: s.y0 + 0.45 }, { n: 'dm_mushrooms', x: s.x1 - 0.4, y: s.y0 + 0.45 }, { n: 'dm_table', x: s.x1 - 0.5, y: s.y1 - 0.6 }, { n: 'dm_mushrooms', x: s.x0 + 0.45, y: s.y1 - 0.5 }, { n: 'dm_moth_lamp', x: s.x1 - 0.45, y: (s.y0 + s.y1) / 2 }] }); Object.assign(THEMES.DORM2, { moon: 1, h: { dm_nest_canopy: 74, dm_moth_lamp: 50, dm_mushrooms: 20, dm_table: 22 }, load: ['dm_nest_canopy', 'dm_moth_lamp', 'dm_mushrooms', 'dm_table'], extras: (s) => [{ n: 'dm_moth_lamp', x: s.x0 + 3.5, y: s.y0 + 0.45 }, { n: 'dm_mushrooms', x: s.x1 - 0.4, y: s.y0 + 0.45 }, { n: 'dm_table', x: s.x1 - 0.5, y: s.y1 - 0.6 }, { n: 'dm_mushrooms', x: s.x0 + 0.45, y: s.y1 - 0.5 }, { n: 'dm_moth_lamp', x: s.x1 - 0.45, y: (s.y0 + s.y1) / 2 }] }); }   /* the Moon dorms: their own furniture */
 const parts = {};
 let partsVer = 0;   // bumped on every part load: themeReady() answers from its cache until then
 for (const [k, t] of Object.entries(THEMES)) if (!!t.w2 === (WORLD === 2)) for (const n of new Set(['wall', 'floor', t.rug, ...(t.isoOnly ? [] : [t.board, ...t.decor]), ...t.back, ...t.side, ...t.front, ...(t.stations || []), ...(t.seats || []), ...(t.beds || []), ...(t.load || []), ...(t.extras ? t.extras({ x0: 0, y0: 0, x1: 0, y1: 0 }).map((o) => o.n) : []), ...(t.teacherProp ? [t.teacherProp] : []), ...(t.iso && !t.bays ? [t.board, ...t.decor].map((d) => 'iso_' + d) : [])])) {
@@ -681,7 +681,7 @@ function genLayoutCourt() {
     [[[rx + 4, Yf], [rx + 4, Yf - 1]], [[rx + 5, Yf], [rx + 5, Yf - 1]], [[rx + 4, Yf + 8], [rx + 4, Yf + 9]], [[rx + 5, Yf + 8], [rx + 5, Yf + 9]], [[rx + 8, Yf], [rx + 9, Yf]]]);
   { SLOTS.REC.door = SLOTS.REC.extra[0]; SLOTS.REC.extra = SLOTS.REC.extra.slice(1); }   /* the Arrival Hall: a 2-tile arched doorway to the court (editor only for now) */
   SLOTS.SHOP = slot(rx - 10, Yf, [[rx - 8, Yf], [rx - 8, Yf - 1]], {}, 6, 6, [[[rx - 7, Yf], [rx - 7, Yf - 1]]]);   // 4-tile lawn: the reception keeps its tall left wall behind the secretary (her «Плинтус на секретаря также заходит»)
-  const NEWD = (window.__EDIT), dx0 = XR + 4, dy0 = cy0 - 1;   /* the dorm pavilions: Спальня right of the library, Спальня 2 left of Звездочётство */
+  const NEWD = (true), dx0 = XR + 4, dy0 = cy0 - 1;   /* the dorm pavilions: Спальня right of the library, Спальня 2 left of Звездочётство */
   if (!NEWD) { SLOTS.DORM = slot(rx + 9, Yf, [[rx + 9, Yf], [rx + 8, Yf]], {}, ROOM, dormDepth(1)); SLOTS.DORM2 = slot(rx + 15, Yf, [[rx + 15, Yf + 3], [rx + 14, Yf + 3]], {}, ROOM, dormDepth(2)); }
   else { SLOTS.DORM = slot(dx0, dy0, [[dx0, dy0 + 2], [dx0 - 1, dy0 + 2]], {}, ROOM, 10, [[[dx0, dy0 + 3], [dx0 - 1, dy0 + 3]]]);
   SLOTS.DORM2 = slot(-11, 9, [[-6, 13], [-5, 13]], {}, ROOM, 10, [[[-6, 14], [-5, 14]]]); }   /* same as Спальня, its door in the front-right side towards Звездочётство */
@@ -976,7 +976,7 @@ let DS = SLOTS.DORM, DS2 = SLOTS.DORM2;
 // beds of room 1 are 0..31, of room 2 32..63 (only the first ones exist, see bedExists)
 const DORM_SPOTS = Array(64).fill(null);
 function dormSpots() {
-  if (WORLD === 1 && (window.__EDIT)) { for (const [k, R] of [[1, DS], [2, DS2]]) { const wide = R.x1 - R.x0 > R.y1 - R.y0, Ln = wide ? R.x1 - R.x0 : R.y1 - R.y0, step = (Ln - 2.4) / 4;   /* the tree dorms: nests for four in two rows along the long side */
+  if (WORLD === 1 && (true)) { for (const [k, R] of [[1, DS], [2, DS2]]) { const wide = R.x1 - R.x0 > R.y1 - R.y0, Ln = wide ? R.x1 - R.x0 : R.y1 - R.y0, step = (Ln - 2.4) / 4;   /* the tree dorms: nests for four in two rows along the long side */
       for (let b = 0; b < DORM_STRIDE; b++) { const n = Math.floor(b / 4), row = n % 2, i = Math.floor(n / 2), q = b % 4, along = 2.2 + i * step + step / 2 - 0.6, across = row ? 4.35 : 2.0, cx = R.x0 + (wide ? along : across), cy = R.y0 + (wide ? across : along);
         DORM_SPOTS[(k - 1) * DORM_STRIDE + b] = { x: cx + (q % 2 ? 0.32 : -0.32), y: cy + (q < 2 ? -0.22 : 0.26), nest: { x: cx, y: cy } }; } }
     return; }
@@ -987,7 +987,7 @@ function dormSpots() {
 }
 dormSpots();
 // concierge: everybody checks in at her desk before going to bed
-let CONCIERGE = WORLD === 1 && (window.__EDIT) ? { x: DS.x0 + 0.65, y: DS.y0 + 0.75 } : { x: DS.x0 - 0.55, y: DS.y0 + 1.1 };   /* world 1: Баю-Бая inside her dorm pavilion, behind the door */
+let CONCIERGE = WORLD === 1 && (true) ? { x: DS.x0 + 0.65, y: DS.y0 + 0.75 } : { x: DS.x0 - 0.55, y: DS.y0 + 1.1 };   /* world 1: Баю-Бая inside her dorm pavilion, behind the door */
 const MAX_CONC = 10, DORM2_COST = 1500;
 const dormExpandCost = (k) => paced(2500 * Math.pow(3, dormSize(k) - 1) * (k === 2 ? 1.5 : 1), dormSize(k));
 const dorm2Built = () => !!(S && S.dormUp && S.dormUp.room2 && Date.now() >= (S.dormUp.room2End || 0));
@@ -1001,9 +1001,9 @@ const bedExists = (b) => (b < DORM_STRIDE ? b < beds1() : b - DORM_STRIDE < beds
 const checkinTime = () => 2 * Math.pow(0.85, dormUp().conc - 1);
 const bedsCost = () => paced(150 * Math.pow(1.6, dormUp().beds - 1), dormUp().beds);
 const concCost = () => paced(100 * Math.pow(1.5, dormUp().conc - 1), dormUp().conc);
-const dormLineSpot = (k) => (WORLD === 1 && (window.__EDIT) ? { x: CONCIERGE.x - 0.05, y: Math.min(DS.y1 - 0.4, CONCIERGE.y + 3.55 + k * 0.5) } : { x: DS.x0 - 1.5, y: DS.y0 + 1.5 + k * 0.6 });   /* world 1: the line waits inside, along the wall past the door */   // the check-in line waits in the reception, by the dorm door
+const dormLineSpot = (k) => (WORLD === 1 && (true) ? { x: CONCIERGE.x - 0.05, y: Math.min(DS.y1 - 0.4, CONCIERGE.y + 3.55 + k * 0.5) } : { x: DS.x0 - 1.5, y: DS.y0 + 1.5 + k * 0.6 });   /* world 1: the line waits inside, along the wall past the door */   // the check-in line waits in the reception, by the dorm door
 let dormLine = [], checkin = null, checkinT = 0;
-const NEWDORM = WORLD === 1 && !!window.__EDIT;   /* the tree dorms with two concierges: editor only until her OK */
+const NEWDORM = WORLD === 1;   /* the tree dorms with two concierges: editor only until her OK */
 const concOff = (rid) => { const R = NEWDORM && RLAY.rooms[rid], o = R && R.items && R.items['conc#1']; return { dx: (o && o.dx) || 0, dy: (o && o.dy) || 0 }; };   /* moved in the editor */
 const CON2 = { line: [], cur: null, t: 0, keyAt: -1e9, x: 0, y: 0 };   /* Ляля-Люля, Спальня 2 */
 const LYALYA = (() => { const im = new Image(); im.src = 'assets/staff/concierge2.webp?v=1'; return im; })();
@@ -2377,7 +2377,7 @@ function conciergePos() {
   if (conTrip === 1 && conU >= 1) conTrip = -1;
   if (conTrip === -1 && conU <= 0) conTrip = 0;
   if (conTrip) conU = Math.max(0, Math.min(1, conU + conTrip * dt / 2.2));
-  const k = 0.5 - 0.5 * Math.cos(conU * Math.PI), far = WORLD === 1 && (window.__EDIT) ? { x: CONCIERGE.x + 1.2, y: CONCIERGE.y + 0.1 } : { x: CONCIERGE.x - 0.1, y: CONCIERGE.y + 3.2 };
+  const k = 0.5 - 0.5 * Math.cos(conU * Math.PI), far = WORLD === 1 && (true) ? { x: CONCIERGE.x + 1.2, y: CONCIERGE.y + 0.1 } : { x: CONCIERGE.x - 0.1, y: CONCIERGE.y + 3.2 };
   let pose;
   if (conTrip) pose = 'walk';
   else if (now - conKeyAt < 2.5) pose = 'key';   // hands the key over for a while after each check-in (it used to flash by)
@@ -3765,7 +3765,7 @@ let RLAY = { v: 1, rooms: {} }, LAY_VER = 0;
 const LAY_ENT = [], LAY_WALLS = {}, LAY_SEEN = {}, LAY_IMS = {}, texCache = new Map();
 let layCur = null, layHangN = {};
 function setLayout(L) { RLAY = L && L.rooms ? L : { v: 1, rooms: {} }; LAY_VER++; texCache.clear();
-  if (WORLD === 1 && window.__EDIT) { clearTimeout(setLayout.t); setLayout.t = setTimeout(() => { const k = JSON.stringify([concOff('DORM'), concOff('DORM2')]); if (k !== setLayout.k) { const first = setLayout.k === undefined; setLayout.k = k; if (!first || k !== '[{"dx":0,"dy":0},{"dx":0,"dy":0}]') relayout(); } }, 600); } }   /* a sister moved: rebuild the paths */
+  if (WORLD === 1) { clearTimeout(setLayout.t); setLayout.t = setTimeout(() => { const k = JSON.stringify([concOff('DORM'), concOff('DORM2')]); if (k !== setLayout.k) { const first = setLayout.k === undefined; setLayout.k = k; if (!first || k !== '[{"dx":0,"dy":0},{"dx":0,"dy":0}]') relayout(); } }, 600); } }   /* a sister moved: rebuild the paths */
 if (!EDIT) fetch('layouts/layouts.json?v=458').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.rooms && Object.keys(j.rooms).length) setLayout(j); }).catch(() => {});
 const layIm = (src) => { let im = LAY_IMS[src]; if (!im) { im = LAY_IMS[src] = new Image(); im.src = `assets/parts/${src}.webp?v=${src === 'reception/rc_umbrellas' ? 'e2' : 'e1'}`; } return im.complete && im.naturalWidth ? im : null; };
 function texPart(th, n) {   // the wall / floor texture of a room, recoloured or swapped by the layout
@@ -5048,7 +5048,7 @@ function render() {
     const th = themeOf(rid); if (!th || !SLOTS[rid] || (rid === 'CANT' && !cantOpen()) || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt()) || (rid === 'SHOP' && !shopOpen()) || (rid === 'TOWER' && !towerOpen())) continue;
     const T = THEMES[th], s = SLOTS[rid];
     if (rid === 'LIB') LIB_SPOTS.slice(0, libSeats()).forEach((q, k) => { const o = { n: T.seats[k % T.seats.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); });
-    if (T.beds && WORLD === 1 && (window.__EDIT)) { const from = rid === 'DORM' ? 0 : DORM_STRIDE, n = rid === 'DORM' ? beds1() : beds2(), aN = layAdd(rid, s, add);   /* one nest per four places, drawn behind its sleepers */
+    if (T.beds && WORLD === 1 && (true)) { const from = rid === 'DORM' ? 0 : DORM_STRIDE, n = rid === 'DORM' ? beds1() : beds2(), aN = layAdd(rid, s, add);   /* one nest per four places, drawn behind its sleepers */
       for (let b = 0; b < (EDIT ? DORM_STRIDE : n); b += 4) { const c = DORM_SPOTS[from + b].nest, o = { n: 'dm_nest_canopy', x: c.x, y: c.y, th }, num = b / 4 + 1; aN(c.x - 0.45, c.y - 0.45, () => { drawProp(o); if (EDIT) { const m = P(c.x, c.y); ctx.save(); ctx.font = '800 9px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.fillStyle = '#6b3fb0'; ctx.strokeText(String(num), m.x, m.y + 6); ctx.fillText(String(num), m.x, m.y + 6); ctx.restore(); } }, 0, 'dm_nest'); }   /* the editor shows all 8, numbered: players get them in this order */ }
     else if (T.beds) { const from = rid === 'DORM' ? 0 : DORM_STRIDE, n = rid === 'DORM' ? beds1() : beds2();
       DORM_SPOTS.slice(from, from + n).forEach((q, k) => { const o = { n: T.beds[k % T.beds.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); }); }
@@ -7100,13 +7100,13 @@ function frame(now) {
   warmRooms();
   requestAnimationFrame(frame);
 }
-const LAYOUT = window.__EDIT ? 16 : 15;   // 16: dorm pavilions in the wings, map moved 15 tiles right (2026-11-25)
+const LAYOUT = 16;   // 16: dorm pavilions in the wings, map moved 15 tiles right (2026-11-25)
 const LAYOUT_15 = 15;   // 15: library on top of the right column, tower outside (build 252); 14: front row with gaps (build 250); 10: world 1 courtyard layout (build 229); 11: «круг к экзамену» (build 243); 12: library + garden moved (build 245); 13: tall walls + 4-tile gallery (build 248)
 function relayout() {   // rebuild the map (a class was expanded): creatures keep their task, seats move with the rooms
   const snap = agents.length ? (save(), S.world) : null;
   genLayout(); buildGrid(); buildEdges(); decorateEdges();
   REC = SLOTS.REC; OFFICER = { x: REC.x0 + 0.75, y: REC.y0 + 3.3 };
-  DS = SLOTS.DORM; DS2 = SLOTS.DORM2; CONCIERGE = WORLD === 1 && (window.__EDIT) ? { x: DS.x0 + 0.65, y: DS.y0 + 0.75 } : { x: DS.x0 - 0.55, y: DS.y0 + 1.1 }; dormSpots();
+  DS = SLOTS.DORM; DS2 = SLOTS.DORM2; CONCIERGE = WORLD === 1 && (true) ? { x: DS.x0 + 0.65, y: DS.y0 + 0.75 } : { x: DS.x0 - 0.55, y: DS.y0 + 1.1 }; dormSpots();
   LS = SLOTS.LIB; libSpots();
   computeBounds(); staticKey = ''; resize();
   if (snap) {
@@ -7462,5 +7462,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=537').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=538').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
