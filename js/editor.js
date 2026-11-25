@@ -5,7 +5,7 @@
 export function initEditor(A) {
   const E = A.EDIT, $ = (s, r = document) => r.querySelector(s);
   const RMS = [{ id: 'REC', name: 'Приёмная', emoji: '🛎️' }, { id: 'DORM', name: 'Спальня', emoji: '🛏️' }, { id: 'DORM2', name: 'Спальня 2', emoji: '🛏️' }, ...(A.pond && A.pond() ? [{ id: 'POND', name: 'Пруд', emoji: '🎣' }] : [])], RM = RMS.find((r) => r.id === E.cls);   /* rooms that are not classes */
-  const ci = RM ? -1 : Math.max(0, A.CLASSES.findIndex((c) => c.id === E.cls)), C = RM || A.CLASSES[ci], cid = C.id, s = RM ? (RM.id === 'POND' ? A.pond() : A.SLOTS[RM.id]) : A.slotOf(ci);   /* the pond is not a slot: its plot box */
+  const ci = RM ? -1 : Math.max(0, A.CLASSES.findIndex((c) => c.id === E.cls)), C = RM || A.CLASSES[ci], cid = C.id, s = RM ? (RM.id === 'POND' ? A.pond() : A.SLOTS[RM.id]) : A.slotOf(ci);   /* the pond is not a slot: its box (game.js pondBox) */
   const KEY_LS = 'magicschool.editor.key', DRAFT_LS = 'magicschool.editor.draft';
   const q = new URLSearchParams(location.search); if (q.get('key')) { localStorage.setItem(KEY_LS, q.get('key')); const u = new URL(location.href); u.searchParams.delete('key'); history.replaceState(null, '', u); }   // the key stays on this device, not in the address
   const key = localStorage.getItem(KEY_LS) || '';
@@ -20,6 +20,7 @@ export function initEditor(A) {
   // ---------- UI ----------
   document.body.classList.add('editing');
   const css = document.createElement('style'); css.textContent = `
+body.editing #view::after { content: ''; display: block; height: 55vh; }   /* room to scroll the map's bottom out from under the editor's panel (her «Не дает вниз сделать») */
 body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, body.editing #menugrid, body.editing #menudim, body.editing #sheet-wrap, body.editing #fx, body.editing .ipill, body.editing #tour { display: none !important; }
 #ed-top, #ed-bot, #ed-sel { position: fixed; left: 0; right: 0; z-index: 90; font: 600 14px ui-rounded, system-ui, -apple-system, sans-serif; color: #4a2f7a; }
 #ed-top { top: 0; padding: calc(env(safe-area-inset-top) + 6px) 8px 6px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: #fffaf2ee; box-shadow: 0 2px 10px #3a2f4a33; }
