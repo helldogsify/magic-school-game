@@ -170,7 +170,7 @@ function tutHtml() { const [h, t] = TUT[tut]; return `<b>${h}</b> <span class="v
 function render() {
   if (!root) return;
   const left = st ? st.ends - Date.now() : 0;
-  root.innerHTML = A.emojiHtml(`<div class="vl-top"><button class="vl-x" data-vx>✕</button><h2>🗺️ Долина</h2>${st && st.me ? `<span class="vl-pill">⚔️ ${st.me.left}/${st.me.troops}</span>` : ''}<span class="vl-pill">⏳ ${st ? fmtLeft(left) : '…'}</span>${tab === 'map' ? `<button class="vl-x" data-vzoom>${zoom > 1 ? '🔍−' : '🔍+'}</button>` : ''}</div>
+  root.innerHTML = A.emojiHtml(`<div class="vl-top"><button class="vl-x" data-vx>✕</button><h2>🚩 Долина</h2>${st && st.me ? `<span class="vl-pill">⚔️ ${st.me.left}/${st.me.troops}</span>` : ''}<span class="vl-pill">⏳ ${st ? fmtLeft(left) : '…'}</span>${tab === 'map' ? `<button class="vl-x" data-vzoom>${zoom > 1 ? '🔍−' : '🔍+'}</button>` : ''}</div>
     <div class="vl-tabs">${[['map', '🗺 Карта'], ['log', '📜 События'], ['top', '🏆 Таблица'], ['help', '❓ Как играть']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-vtab="${k}">${t}</button>`).join('')}</div>
     ${tab === 'map' ? `${tipHtml()}<div class="vl-map"><canvas></canvas></div><div class="vl-card">${tut >= 0 ? tutHtml() : cardHtml()}</div>` : `<div class="vl-list">${listHtml()}</div>`}`);
   const keep = root.__scroll; cv = root.querySelector('canvas'); geo = null;
@@ -235,7 +235,7 @@ export function close() { clearInterval(pollT); if (root) root.remove(); root = 
 export function initValley(api) {
   A = api;
   window.addEventListener('resize', () => { if (root && cv) { layout(); draw(); } });
-  const reg = () => { if (!window.schoolMenu) { setTimeout(reg, 50); return; } window.schoolMenu.add({ attr: 'data-valley', icon: '🗺️', label: 'Долина', sub: () => '' }); };
+  const reg = () => { if (!window.schoolMenu) { setTimeout(reg, 50); return; } window.schoolMenu.add({ attr: 'data-valley', icon: '🚩', label: 'Долина', sub: () => '' }); };
   setTimeout(reg, 0);
   document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-valley]')) open(); });
   window.__valley = { open, close, url: URL0, call: (op) => call(op), get st() { return st; }, sel: (q, r) => { sel = { q, r }; render(); }, setN: (v) => { n = v; }, go: () => go() };   // test hook
