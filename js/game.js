@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=558';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=559';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=558';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=558';
-import { initMinigame } from './minigame.js?v=558';
-import { initChests } from './chests.js?v=558';
-import { initValley } from './valley.js?v=558';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=558';
-import { initLore } from './lore.js?v=558';
-import { initAvatar } from './avatar.js?v=558';
+} from './data.js?v=559';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=559';
+import { initMinigame } from './minigame.js?v=559';
+import { initChests } from './chests.js?v=559';
+import { initValley } from './valley.js?v=559';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=559';
+import { initLore } from './lore.js?v=559';
+import { initAvatar } from './avatar.js?v=559';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 558;   // keep equal to the ?v= number in index.html
+const BUILD = 559;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -724,7 +724,12 @@ function pondLayout() {
   POND = { x0, x1, y0, y1, cx: (x0 + x1) / 2 + 0.7, cy: (y0 + y1) / 2 + 0.3, rx: (x1 - x0) / 2 - 2.2, ry: (y1 - y0) / 2 - 1.8 };
   const py = Math.floor(POND.cy); PATHS.push({ x0, y0, x1: x0 + 2, y1: py + 2, paved: 1 });   // from the reception's side door down to the shore by the pier
 }
-const pondD = (x, y, m = 0) => (POND ? Math.pow((x - POND.cx) / (POND.rx + m), 2) + Math.pow((y - POND.cy) / (POND.ry + m), 2) : 9);   // < 1 inside the pond grown by m tiles
+function pondW() {   // the water where the editor put the scene: the same move / scale / flip as layAdd draws it with
+  const o = (((RLAY.rooms.POND || {}).items) || {})['pond_scene#1'] || {}, k = o.k || 1, f = o.flip ? -1 : 1, m0 = P(POND.cx, POND.cy), m1 = P(POND.cx + (o.dx || 0), POND.cy + (o.dy || 0)), qx = m0.x + (o.px || 0), qy = m0.y + (o.py || 0);
+  const X = m1.x - m0.x + qx + (m0.x - qx) * k * f, Y = m1.y - m0.y + qy + (m0.y - qy) * k - (o.lift || 0), a = (X - OX) / HW, b = (Y - OY) / HH;
+  return { cx: (a + b) / 2, cy: (b - a) / 2, rx: POND.rx * k, ry: POND.ry * k };
+}
+const pondD = (x, y, m = 0) => { if (!POND) return 9; const w = pondW(); return Math.pow((x - w.cx) / (w.rx + m), 2) + Math.pow((y - w.cy) / (w.ry + m), 2); };   // < 1 inside the pond grown by m tiles
 function pondRing(m = 0, n = 56) { const o = []; for (let k = 0; k < n; k++) { const an = k / n * Math.PI * 2, w = 1 + 0.05 * Math.sin(an * 3 + 2) + 0.03 * Math.sin(an * 5); o.push(P(POND.cx + Math.cos(an) * (POND.rx + m) * w, POND.cy + Math.sin(an) * (POND.ry + m) * w)); } return o; }
 function openFish() { MG.open(); const b = document.querySelector('#mg [data-mgpick="fish"]'); if (b) b.click(); }   // straight into «Рыбалка»
 const POND_IMG = new Image(); if (WORLD === 1) { POND_IMG.onload = () => { staticKey = ''; }; POND_IMG.src = 'assets/parts/outdoor/pond.webp?v=2'; }   // the painted pond (one picture)
@@ -739,7 +744,7 @@ function drawPondFx() {   // on the water, before the sorted things: ripples, th
     ctx.drawImage(sized(bob, h * scale * dpr), m.x - w / 2, m.y - h * 0.62 + dy, w, h); }
 }
 function drawPondFish() {   // the golden fish jumps over everything on the water (drawn after the sorted things)
-  const now = performance.now(), P0 = POND;
+  const now = performance.now(), P0 = pondW();
   if (!pondNext) pondNext = now + 40000;
   if (!pondFish && now > pondNext && !document.hidden && tourStep < 0) { const an = 0.3 + Math.random() * 2.5; pondFish = { t0: now, x: P0.cx + Math.cos(an) * P0.rx * 0.45, y: P0.cy + Math.sin(an) * P0.ry * 0.45, fl: Math.random() < 0.5 }; }
   pondFishRect = null;
@@ -3079,9 +3084,6 @@ function layoutOutdoor() {
     if (WORLD === 1) { MOON_AT.x = L - 6.4; MOON_AT.y = gy + 6.8; out.push({ n: 'moontree', x: MOON_AT.x, y: MOON_AT.y, th: 'outdoor', s: 1 }); keep.push([MOON_AT.x, MOON_AT.y]); }   // the Moon Tree (tester №73po7zf1, her pick)
     entrancePath = { x0: cx - 1.5, x1: cx + 2.5, y0: g.y + 0.5, y1: g.y + (WORLD === 1 ? 22.5 : 8.5) };   // world 1: the path comes out of the forest
     if (WORLD === 1) for (let k = 0; k < 3; k++) { const y = gy + 10 + k * 4; if (put('lantern_gold', L - 0.3, y, 1, 0.75)) keep.push([L - 0.3, y]); if (put('lantern_gold', R + 0.3, y, 1, 0.75)) keep.push([R + 0.3, y]); } }
-  if (WORLD === 1 && POND) { const q = POND, add = (n, dx, dy, sc = 1, fl = false) => { out.push({ n, x: q.cx + dx, y: q.cy + dy, th: 'outdoor', s: sc, flip: fl }); keep.push([q.cx + dx, q.cy + dy]); };   // the fishing pond (build 555)
-    add('bench_b', -1.6, q.ry + 1.3, 1.05); add('lantern_gold', q.x0 + 2.4 - q.cx, q.y0 + 1.6 - q.cy, 0.8); add('lantern_gold', -q.rx - 0.2, Math.floor(q.cy) + 2.4 - q.cy, 0.8);
-  }
   // the forest: grove centres on a loose grid in the band, away from scenes and the entrance
   const G = GATE_TILE;
   if (WORLD === 1 && COURT) {   // the magic court (her «место игровое с фонтаном, тусовкой учеников»): fountain in the middle, benches round the plaza, trees and flowers in the lawn corners, lanterns on the paths
@@ -5310,7 +5312,10 @@ function render() {
   const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
-  if (WORLD === 1 && POND) { const k = POND.cx - POND.rx * 0.5 + POND.cy - POND.ry * 0.7; list.push({ k1: k, k2: k, draw: drawPondPic }); }   // the fishing pond's painted scene (build 555)
+  if (WORLD === 1 && POND) { const q = POND, la = layAdd('POND', q, add);   // the fishing pond: the editor's room «🎣 Пруд», every piece movable
+    la(q.cx, q.cy, drawPondPic, -(q.rx * 0.5 + q.ry * 0.7), 'pond_scene');
+    for (const [n, dx, dy, sc] of [['bench_b', -1.6, q.ry + 1.3, 1.05], ['lantern_gold', q.x0 + 2.4 - q.cx, q.y0 + 1.6 - q.cy, 0.8], ['lantern_gold', -q.rx - 0.2, Math.floor(q.cy) + 2.4 - q.cy, 0.8]]) la(q.cx + dx, q.cy + dy, () => drawOut({ n, x: q.cx + dx, y: q.cy + dy, s: sc }), 0, n);
+    layExtra('POND', q, add); }
   if (WORLD <= 2) { layoutCorridor(); for (const o of CORR) add(o.x, o.y, () => drawCorr(o)); }
   if (WORLD <= 2 && OUT_ON) { layoutOutdoor(); drawEntrancePath();   // cheap pre-check with the cached screen point before the full add()
     const vx0 = VIEW.x0 - 140, vx1 = VIEW.x1 + 140, vy0 = VIEW.y0 - 20, vy1 = VIEW.y1 + 220;
@@ -5490,7 +5495,7 @@ function render() {
     if (onScreen(q.x, q.y, 160, 40)) ctx.drawImage(pl.cv, q.x - pl.w / 2, q.y - pl.h / 2, pl.w, pl.h);
     signRects.push({ id: 'FOUNT', x0: q.x - pl.tw / 2, y0: q.y - pl.hh, x1: q.x + pl.tw / 2, y1: q.y + pl.hh });
   }
-  if (WORLD === 1 && POND) { const n = MG.charges(), q = up(P(POND.cx + POND.rx * 0.35, POND.cy + POND.ry + 1.3), 4), pl = signPill(signLabel(n > 0 ? `🎣 Рыбалка · ${n}` : '🎣 Рыбалка'), n > 0 ? '#fff1b8' : '#d6f0ff', 12, 22, '#ffffff', '#2e2340');   // build 555: the pond's sign
+  if (WORLD === 1 && POND) { const n = MG.charges(), W0 = pondW(), q = up(P(W0.cx + W0.rx * 0.35, W0.cy + W0.ry + 1.3), 4), pl = signPill(signLabel(n > 0 ? `🎣 Рыбалка · ${n}` : '🎣 Рыбалка'), n > 0 ? '#fff1b8' : '#d6f0ff', 12, 22, '#ffffff', '#2e2340');   // build 555: the pond's sign
     if (onScreen(q.x, q.y, 160, 40)) ctx.drawImage(pl.cv, q.x - pl.w / 2, q.y - pl.h / 2, pl.w, pl.h);
     signRects.push({ id: 'POND', x0: q.x - pl.tw / 2, y0: q.y - pl.hh, x1: q.x + pl.tw / 2, y1: q.y + pl.hh }); }
   drawIncidents();
@@ -7808,7 +7813,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) swUp
 if (EDIT) {   // room editor: js/editor.js gets the game's room tools
   window.__EDIT_API = { EDIT, S, SLOTS, CLASSES, CLASS_SLOT, THEMES, DECOR, parts, P, up, HW, HH, TALL_H, slotOf, sizeOf, focusTile, setZoom,
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
-    get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
+    get layout() { return RLAY; }, setLayout, pond: () => POND, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=558').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=559').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
