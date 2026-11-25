@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=505';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=506';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=505';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=505';
-import { initMinigame } from './minigame.js?v=505';
-import { initChests } from './chests.js?v=505';
-import { initValley } from './valley.js?v=505';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=505';
-import { initLore } from './lore.js?v=505';
-import { initAvatar } from './avatar.js?v=505';
+} from './data.js?v=506';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=506';
+import { initMinigame } from './minigame.js?v=506';
+import { initChests } from './chests.js?v=506';
+import { initValley } from './valley.js?v=506';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=506';
+import { initLore } from './lore.js?v=506';
+import { initAvatar } from './avatar.js?v=506';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 505;   // keep equal to the ?v= number in index.html
+const BUILD = 506;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4397,6 +4397,21 @@ function drawPlot(c, s, ci, L, B, R, F, center) {
 }
 function shade(hex, d) { const n = parseInt(hex.slice(1), 16); const f = (v) => Math.max(0, Math.min(255, v + d)); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; }
 
+// ---- animation pilot: frame sheets in assets/anim (art/anim_pilot: puppet.py = warped game sprite, video2sheet.py = SYNTX video, green screen)
+const ANIM_MODE = new URLSearchParams(location.search).get('anim');
+const ANIM_SHEETS = ({
+  puppet: { idle: { src: 'assets/anim/mothfox_puppet.webp', n: 24, cols: 24, fw: 209, fh: 180, fps: 12 } },
+  video: { idle: { src: 'assets/anim/mothfox_vidle.webp', n: 70, cols: 10, fw: 267, fh: 180, fps: 12 }, walk: { src: 'assets/anim/mothfox_vwalk.webp', n: 36, cols: 10, fw: 244, fh: 203, fps: 12 } },
+})[ANIM_MODE] || null;
+if (ANIM_SHEETS) for (const k in ANIM_SHEETS) { const im = new Image(); im.src = ANIM_SHEETS[k].src + '?v=1'; ANIM_SHEETS[k].im = im; }
+function animPilot(a, sp0, cpose, walking) {
+  if (!ANIM_SHEETS || sp0 !== 'mothfox' || cpose || a._tierImg || a.back || (a.rk || 0)) return null;
+  const A = (walking && ANIM_SHEETS.walk) || ANIM_SHEETS.idle; return A.im.complete && A.im.naturalWidth ? A : null;
+}
+function drawPilot(A, s, h, bob, z, fl, a, walking) {
+  const k = Math.floor(performance.now() / 1000 * A.fps + (a.id || 0) * 5) % A.n, sx = (k % A.cols) * A.fw, sy = Math.floor(k / A.cols) * A.fh, sc = h / 180, dw = A.fw * sc, dh = A.fh * sc;
+  ctx.save(); ctx.translate(s.x, s.y - z - (A === ANIM_SHEETS.walk ? 0 : bob)); if (fl) ctx.scale(-1, 1); ctx.drawImage(A.im, sx, sy, A.fw, A.fh, -dw / 2, -dh, dw, dh); ctx.restore();
+}
 function drawCreature(a, x, y, h, extra) {
   const sp0 = a.sp; h *= SP_H[sp0] || 1;   // world-2 wide creatures (snail, salamander) are drawn lower
   const cpose = courtPose(a); if (cpose) h *= cpose.naturalHeight / 420 * 1.18 * COURT_POSE_K;   // pose sheets keep their sizes relative to the tallest pose (420 px)
@@ -4413,11 +4428,13 @@ function drawCreature(a, x, y, h, extra) {
   const walking = (a.path && a.path.length > 0 && !(a.pauseT > 0)) || a._panic;
   const crawl = CRAWLERS[sp0], cr = crawl && walking ? Math.sin(a.ph * 5) : 0;   // a snail does not hop: its body stretches and pulls up as it crawls
   const bob = crawl ? 0 : walking ? Math.abs(Math.sin(a.ph * 9)) * 2 : Math.sin(a.ph * 2) * 0.6, sx = 1 + 0.07 * cr, sy = 1 - 0.045 * cr;
-  const fl = FACES_LEFT[sp0] && (a._tierImg || im !== bk) ? !a.flip : a.flip;   // the snail pictures look left (all but the plain back view), the code expects right
+  const fl = FACES_LEFT[sp0] && (a._tierImg || im !== bk) ? !a.flip : a.flip;
+  const AP = animPilot(a, sp0, cpose, walking);   // animation pilot (?anim=)   // the snail pictures look left (all but the plain back view), the code expects right
   const z = a.z || 0;
   if (!a._ghost) ctx.drawImage(creatureShadow(), s.x - h * 0.3, s.y - h * 0.12, h * 0.6, h * 0.24);   // cached oval (was a path fill per creature per frame)
   if (SP_GLOW[sp0] && !a._ghost) { ctx.globalAlpha = 0.32; const gs = h * 1.5; ctx.drawImage(glowSprite('185,205,255'), s.x - gs / 2, s.y - bob - z - h * 0.55 - gs / 2, gs, gs); ctx.globalAlpha = 1; }   // rim light: dark creatures stay visible in the cave
-  if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; const sm = sized(im, h * scale * dpr); ctx.drawImage(fl ? flipped(sm) : sm, s.x - w * sx / 2, s.y - bob - z - h * sy, w * sx, h * sy); 
+  if (AP) drawPilot(AP, s, h, bob, z, fl, a, walking);
+  else if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; const sm = sized(im, h * scale * dpr); ctx.drawImage(fl ? flipped(sm) : sm, s.x - w * sx / 2, s.y - bob - z - h * sy, w * sx, h * sy); 
     if (sp0 === 'mossmole' && !a._tierImg) { const lg = glowSprite('255,240,170'), r = h * 0.32; ctx.globalAlpha = 0.75; for (const fx of [0.1, 0.9]) ctx.drawImage(lg, s.x - w / 2 + w * (a.flip ? 1 - fx : fx) - r / 2, s.y - bob - z - h * 0.985 - r / 2, r, r); ctx.globalAlpha = 1; } }   // the lanterns on its antennae glow   // no save/restore per creature, a small copy of the sprite (build 207)
   else { ctx.fillStyle = '#ffd6e8'; ctx.beginPath(); ctx.ellipse(s.x, s.y - bob - z - h / 2, h / 2.6, h / 2.2, 0, 0, Math.PI * 2); ctx.fill(); }
   if (rk === 5) {   // twinkling sparks of the element orbit a master: rarity you can see from afar
@@ -7260,5 +7277,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=505').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=506').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
