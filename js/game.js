@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=547';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=548';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=547';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=547';
-import { initMinigame } from './minigame.js?v=547';
-import { initChests } from './chests.js?v=547';
-import { initValley } from './valley.js?v=547';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=547';
-import { initLore } from './lore.js?v=547';
-import { initAvatar } from './avatar.js?v=547';
+} from './data.js?v=548';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=548';
+import { initMinigame } from './minigame.js?v=548';
+import { initChests } from './chests.js?v=548';
+import { initValley } from './valley.js?v=548';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=548';
+import { initLore } from './lore.js?v=548';
+import { initAvatar } from './avatar.js?v=548';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 547;   // keep equal to the ?v= number in index.html
+const BUILD = 548;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1367,8 +1367,9 @@ function rumbleLesson(i, p) {   // a passed lesson in the guard hall during the 
 }
 // the shadows themselves (build 542): live only while the game is open, not saved; they stand on the guard hall's floor and sway
 let shades = [], shadeT = 0, shadeId = 0, shadeRects = [];
+const SHADE_IMG = WORLD === 2 ? [0, 1, 2, 3].map((k) => { const im = new Image(); im.src = `assets/shades/shade${k}.webp?v=1`; return im; }) : [];   // the four shadow sprites (build 546)
 const SHADE_EVERY = 1.2, SHADE_MAX = 4;   // always up to 4 on the floor while shadows remain: a new one rises 1.2 s after one is beaten
-function shadeSpawn() { const s = slotOf(guardsIdx()); if (!s) return; shades.push({ id: shadeId++, x: s.x0 + 1 + Math.random() * Math.max(0.5, s.x1 - s.x0 - 2), y: s.y0 + 1 + Math.random() * Math.max(0.5, s.y1 - s.y0 - 2), born: performance.now(), die: 0 }); }
+function shadeSpawn() { const s = slotOf(guardsIdx()); if (!s) return; shades.push({ id: shadeId++, k: Math.floor(Math.random() * 4), fl: Math.random() < 0.5, x: s.x0 + 1 + Math.random() * Math.max(0.5, s.x1 - s.x0 - 2), y: s.y0 + 1 + Math.random() * Math.max(0.5, s.y1 - s.y0 - 2), born: performance.now(), die: 0 }); }
 function shadesGone() { const n = performance.now(); for (const h of shades) h.die ||= n; }
 function tapShade(h) {   // a tap beats one shadow
   const T = WORLD === 2 && S.w2 && S.w2.throne; if (!T || !T.cur || h.die) return false;
@@ -1380,6 +1381,17 @@ function drawShades() {
   for (const h of shades) {
     const age = (now - h.born) / 1000, rise = Math.min(1, age / 0.6), dk = h.die ? (now - h.die) / 500 : 0;
     const p = P(h.x + 0.35 * Math.sin(age * 0.8 + h.id * 1.7), h.y + 0.25 * Math.cos(age * 0.6 + h.id)), w = 30 * (1 + dk * 0.6), hh = 40 * rise * (1 + dk * 0.6), top = p.y - hh - 3 * Math.sin(age * 3 + h.id);
+    const im = SHADE_IMG[h.k || 0];
+    if (im && im.complete && im.naturalWidth) {   // the sprite: rises out of the floor (clipped at the floor line), sways; a beaten one melts up into smoke
+      const sh = 46, sw = sh * im.naturalWidth / im.naturalHeight, lift = dk * 22, sy = p.y - sh * rise - lift + 2 * Math.sin(age * 2.4 + h.id), sk = 1 + dk * 0.35;
+      ctx.save(); ctx.globalAlpha = 0.85 * (1 - dk) * Math.min(1, rise * 1.5);
+      ctx.globalAlpha = (1 - dk); ctx.beginPath(); ctx.rect(p.x - sw, p.y - sh * 2 - lift, sw * 2, sh * 2 + lift + 3); ctx.clip();
+      ctx.translate(p.x, sy + sh); ctx.rotate(0.05 * Math.sin(age * 1.7 + h.id)); ctx.scale((h.fl ? -1 : 1) * (1 - dk * 0.3), sk);
+      ctx.drawImage(sized(im, sh * scale * dpr), -sw / 2, -sh, sw, sh); ctx.restore();
+      if (dk > 0) { ctx.save(); for (let j = 0; j < 6; j++) { const an = j * 1.05 + h.id, r = 6 + dk * 26; ctx.globalAlpha = 0.55 * (1 - dk); ctx.fillStyle = j % 2 ? '#7a55c8' : '#3b2766'; ctx.beginPath(); ctx.arc(p.x + Math.cos(an) * r, p.y - sh * 0.5 - dk * 18 + Math.sin(an) * r * 0.6, 5 + dk * 7, 0, Math.PI * 2); ctx.fill(); } ctx.restore(); }
+      if (!h.die) shadeRects.push({ h, x0: p.x - sw / 2 - 8, y0: p.y - sh - 8, x1: p.x + sw / 2 + 8, y1: p.y + 8 });
+      continue;
+    }
     ctx.save(); ctx.globalAlpha = 0.95 * (1 - dk);
     ctx.fillStyle = '#0006'; ctx.beginPath(); ctx.ellipse(p.x, p.y, w * 0.55, w * 0.2, 0, 0, Math.PI * 2); ctx.fill();
     ctx.shadowColor = '#9a6cff'; ctx.shadowBlur = 14; const gr = ctx.createLinearGradient(0, top, 0, p.y); gr.addColorStop(0, '#3c2668'); gr.addColorStop(1, '#140c24'); ctx.fillStyle = gr;
@@ -7664,5 +7676,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=547').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=548').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
