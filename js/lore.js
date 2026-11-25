@@ -230,9 +230,10 @@ export function event(kind) {   // called by game.js; true = handled (the game d
   }
   if (kind === 'moon') { if (isNight() && canFind(0)) { findLine(0); A.flash && A.flash('moon'); } else if (isNight() && r.start && !has(0)) { (r.w ||= [])[0] = 1; A.save(); waitCard('🌙 Луна над лесом откликнулась на прикосновение.'); } else say(isNight() ? '🌙 Луна тихо светит над лесом.' : '🌙'); return true; }
   if (r.cv !== 2) { r.cv = 2; r.coins = 0; }   // the old passive count (100 coins) is dropped
-  if (kind === 'coin') { luckAt = Date.now(); window.__luckGlow = performance.now(); return true; }   // a lucky coin flares: the catch window opens
+  const wishWanted = () => !!r.start && !has(3) && !(r.w || [])[3] && (r.coins || 0) < 10;   // the «ten wishes» secret still needs catches
+  if (kind === 'coin') { if (!wishWanted()) return false; luckAt = Date.now(); window.__luckGlow = performance.now(); return true; }   // a lucky coin flares only while the secret wants catches (Maria 2026-11-25: «Клевер из задания не должен вылезать если я его уже сделал»)
   if (kind === 'fount') {   // a tap on the fountain
-    if (!r.start || has(3) || Date.now() - luckAt > LUCK_WIN) return false;
+    if (!wishWanted() || Date.now() - luckAt > LUCK_WIN) return false;
     luckAt = 0; r.coins++; A.save();
     if (r.coins >= 10 && canFind(3)) findLine(3); else if (r.coins >= 10) { (r.w ||= [])[3] = 1; A.save(); waitCard('🍀 Все десять счастливых желаний пойманы.'); } else say(`🍀 Поймано счастливое желание: ${r.coins} из 10`, 2500);
     if (root) redraw(); return true;
