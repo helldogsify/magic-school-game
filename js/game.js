@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=556';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=557';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=556';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=556';
-import { initMinigame } from './minigame.js?v=556';
-import { initChests } from './chests.js?v=556';
-import { initValley } from './valley.js?v=556';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=556';
-import { initLore } from './lore.js?v=556';
-import { initAvatar } from './avatar.js?v=556';
+} from './data.js?v=557';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=557';
+import { initMinigame } from './minigame.js?v=557';
+import { initChests } from './chests.js?v=557';
+import { initValley } from './valley.js?v=557';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=557';
+import { initLore } from './lore.js?v=557';
+import { initAvatar } from './avatar.js?v=557';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 556;   // keep equal to the ?v= number in index.html
+const BUILD = 557;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -244,13 +244,14 @@ const repK = () => 1 + 0.05 * (bossOn() ? boss().rep || 0 : 0);   // the school'
 function cheerAll(d, icon) {   // every student in school gets mood d
   for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && a.goal.t === 'x')) { a.mood = Math.max(0, Math.min(100, moodOf(a) + d)); if (icon && Math.random() < 0.35) popup(icon, a.x, a.y, d > 0 ? '#ff6fa3' : '#5b7fd6', 44); }
 }
+function quietNow() { try { return MG.isOpen() || LORE.isOpen(); } catch (e) { return false; } }   // build 557: a mini-game or the chronicle is open: no events
 function stepBoss(dt, live) {
   if (!bossOn()) return;
   const B = boss();
   if (B.camp && B.camp.k && Date.now() >= B.camp.end) { if (live) toast(`${CAMPS[B.camp.k].emo} Рекламная акция закончилась`); B.camp.k = null; dirtyPanel = true; }
   const M = B.mail;
   if (M.cur) { if (live) M.cur.t = (M.cur.t || 0) + dt; return; }   // build 240 (her «10 мин это слишком жестко»): no deadline, the letter simply waits for an answer; no new letter meanwhile
-  if (!live || calm() || MG.isOpen() || S.stats.graduated < 20 || tourStep >= 0) return;   // only while playing (not inside the mini-game); the calm mode has no complaints either
+  if (!live || calm() || quietNow() || S.stats.graduated < 20 || tourStep >= 0) return;   // only while playing (not inside the mini-game); the calm mode has no complaints either
   M.t -= dt; if (M.t > 0) return;
   M.t = MAIL_MIN + Math.random() * (MAIL_MAX - MAIL_MIN);
   M.cur = { m: Math.floor(Math.random() * MAILS.length), name: rnd(NAMES), t: 0 };
@@ -1339,7 +1340,7 @@ function rumbleChest() { const c = Math.round(Math.max(500, (rateNow() || 1) * 1
 function stepRumble(dt, live) {
   if (!rumbleOn()) return;
   const T = throne(); if (!live) { T.pc = 0; T.rt = 0; return; }   // build audit 2026-11-24: the pass meter only counts live time
-  if (calm() || tourStep >= 0 || (typeof MG !== 'undefined' && MG.isOpen())) { T.pc = 0; T.rt = 0; return; }
+  if (calm() || tourStep >= 0 || quietNow()) { T.pc = 0; T.rt = 0; return; }
   T.rt = (T.rt || 0) + dt; if (T.rt >= 60) { const r = (T.pc || 0) / T.rt; T.rate = T.rate ? T.rate * 0.7 + r * 0.3 : r; T.rt = 0; T.pc = 0; }   // build audit 2026-11-24: live guard-hall pass rate
   if (!T.cur) {
     T.t -= dt;
@@ -1766,7 +1767,7 @@ function hintOnce(key, emo, title, text) {   // a short explanation the first ti
 const idleNow = () => performance.now() - (window.__inputAt || 0) > 120000;
 function stepIncidents(dt, live) {
   S.inc ||= {};
-  if (MG.isOpen()) return;   // build 278 (tester Соня): the school is quiet while the player brews potions
+  if (quietNow()) return;   // build 278 (tester Соня): the school is quiet while the player brews potions
   for (const [i, x] of Object.entries(S.inc)) { x.t = (x.t || 0) + dt; if (x.t > (live && !idleNow() ? INC_AUTO_AT(dirLvl('keeper')) : Math.min(30, INC_AUTO_AT(dirLvl('keeper'))))) delete S.inc[i]; }   // away (catch-up) the caretaker fixes it within 30 s: an incident left open stopped its class for 10 min of the catch-up and emptied the rating (tester О-Дин: 3.9 -> 1.9 after 15 min away)
   if (!live || idleNow() || S.stats.graduated < 5 || tourStep >= 0) return;   // never while the game is closed, nor for a brand-new school, nor while nobody touches it (build audit 2026-11-24)
   incT -= dt; if (incT > 0) return;
@@ -1852,7 +1853,7 @@ function setCalm(on) {
   save(); updateHud(); dirtyPanel = true;
 }
 function stepInspector(dt, live) {
-  if (calm() || !live || idleNow() || MG.isOpen() || S.stats.graduated < 20 || tourStep >= 0) return;   // build audit 2026-11-24: nor while nobody is at the screen   // the inspector waits while the mini-game is open (a running check pauses too)
+  if (calm() || !live || idleNow() || quietNow() || S.stats.graduated < 20 || tourStep >= 0) return;   // build audit 2026-11-24: nor while nobody is at the screen   // the inspector waits while the mini-game is open (a running check pauses too)
   const I = insp();
   if (!I.cur) {
     I.t -= dt;
@@ -5168,7 +5169,7 @@ const INTROS = [
 ];
 let introT = 20, tourList = TOUR, introKey = '';
 function stepIntros(dt) {   // called from the frame loop while the game is on screen
-  if (!S || tourStep >= 0 || panel || MG.isOpen() || document.hidden) return;
+  if (!S || tourStep >= 0 || panel || quietNow() || document.hidden) return;
   introT -= dt; if (introT > 0) return; introT = 3;
   S.hints ||= {};
   if (!S.tourDone) return;
@@ -7757,5 +7758,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=556').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=557').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
