@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=516';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=517';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=516';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=516';
-import { initMinigame } from './minigame.js?v=516';
-import { initChests } from './chests.js?v=516';
-import { initValley } from './valley.js?v=516';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=516';
-import { initLore } from './lore.js?v=516';
-import { initAvatar } from './avatar.js?v=516';
+} from './data.js?v=517';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=517';
+import { initMinigame } from './minigame.js?v=517';
+import { initChests } from './chests.js?v=517';
+import { initValley } from './valley.js?v=517';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=517';
+import { initLore } from './lore.js?v=517';
+import { initAvatar } from './avatar.js?v=517';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 516;   // keep equal to the ?v= number in index.html
+const BUILD = 517;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4968,7 +4968,7 @@ function render() {
       DORM_SPOTS.slice(from, from + n).forEach((q, k) => { const o = { n: T.beds[k % T.beds.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); }); }
     const addR = (rid === 'REC' || rid === 'DORM' || rid === 'DORM2') && WORLD === 1 ? layAdd(rid, s, add) : null;   /* the reception's furniture is editable in the room editor */
     for (const o of (T.extras ? T.extras(s) : [])) { const oo = { ...o, th }; if (addR) addR(oo.x, oo.y, () => drawProp(oo), 0, oo.n); else add(oo.x, oo.y, () => drawProp(oo)); }
-    if (addR) layExtra('REC', s, add);
+    if (addR) layExtra(rid, s, add);
     if (T.arrival) { const pl = part(th, 'rc_plane'); if (pl) for (let m = 0; m < 2; m++) { const T0 = performance.now() / 1000 + m * 4.5, u = (T0 % 9) / 9; if (u > 0.55) continue; const v = u / 0.55, x = s.x0 + 1.75 + (1.3 - 1.75) * v, y = s.y0 + 3.6 + (0.4 - 3.6) * v;   /* paper airplanes fly from the counter to the notice board */
       add(x + 0.4, y + 0.4, () => { const p = P(x, y), h = 46 + Math.sin(v * Math.PI) * 22, w = 13; ctx.save(); ctx.globalAlpha = Math.min(1, v * 6, (1 - v) * 6); ctx.translate(p.x, p.y - h); ctx.rotate(-0.35 + Math.sin(v * 9) * 0.08); ctx.drawImage(pl, -w / 2, -w * 0.35, w, w * 0.7); ctx.restore(); }); } }
   }
@@ -7374,5 +7374,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=516').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=517').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
