@@ -38,6 +38,8 @@ function reach(c) {
 function defOf(c) { const base = { forest: 1.25, mountain: 1.5, tower: 1.5, castle: 2 }[c.t] || 1; const tw = c.o && nbs(c).some((x) => x.t === 'tower' && x.o === c.o) ? 1.25 : 1; return base * tw; }
 const alOf = (id) => (st && st.alliances[id]) || null;
 const fmtLeft = (ms) => { const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000), m = Math.floor((ms % 3600000) / 60000); return d ? `${d} д ${h} ч` : h ? `${h} ч ${m} мин` : `${m} мин`; };
+const refillMs = () => { const D = 86400000, M = 3 * 3600000, t = Date.now(); return (Math.floor((t + M) / D) + 1) * D - M - t; };   // the server's day is Moscow time
+const refillTxt = () => fmtLeft(refillMs());
 
 // ---- drawing
 let geo = null;
@@ -59,7 +61,7 @@ const tileImg = (c) => { const k = c.t === 'plain' && ((c.q * 7 + c.r * 13) & 3)
 const VAL = { mine: 3, castle: 4, ruins: 2.5, tower: 2 };
 function tipOf() {   // the best move now: a cheap valuable neighbour; or what else to do
   if (!st || !st.me) return null;
-  if (!st.me.left) return { text: 'Отряды на сегодня кончились — новые придут завтра. Загляни в «События»: что делают друзья по альянсу.' };
+  if (!st.me.left) return { text: `Отряды на сегодня кончились — новые ${st.me.troops} придут через ${refillTxt()}.` + ' Загляни в «События»: что делают друзья по альянсу.' };
   const mine = myAl(), opts = cells().filter((c) => c.o !== mine && reach(c) && c.t !== 'lake').map((c) => ({ c, need: Math.floor(c.g * defOf(c)) + 1 }));
   const ok = opts.filter((o) => o.need <= st.me.left).sort((x, y) => (VAL[y.c.t] || 1) / y.need - (VAL[x.c.t] || 1) / x.need);
   if (ok.length) { const o = ok[0], T = TINFO[o.c.t], why = o.c.t === 'mine' ? ' Шахта даёт каждому в альянсе +1 отряд в день.' : o.c.t === 'ruins' ? ' В руинах каждый день лунный камень.' : o.c.t === 'tower' ? ' Башня защищает соседние земли.' : o.c.o ? ' Это земля соперников!' : '';
@@ -132,14 +134,14 @@ function css() {
 function cardHtml() {
   if (!st) return '<div class="vl-muted">Загружаю долину…</div>';
   if (!st.me) return `<b>Долина альянсов</b><div class="vl-muted">Чтобы сражаться за земли, вступи в альянс (окно 🤝). Смотреть карту можно и так.</div>`;
-  if (!sel) return `<b>Твой ход</b><div class="vl-muted">Нажми на клетку с белой пунктирной рамкой — туда можно отправить отряды. Свои клетки можно укреплять. ${st.me.castle ? '' : ''}</div>${msg ? `<div class="vl-msg">${msg}</div>` : ''}`;
+  if (!sel) return `<b>Твой ход</b> <span class="vl-muted">· отрядов ${st.me.left} из ${st.me.troops}, новые через ${refillTxt()}</span><div class="vl-muted">Нажми на клетку с белой пунктирной рамкой — туда можно отправить отряды. Свои клетки можно укреплять. ${st.me.castle ? '' : ''}</div>${msg ? `<div class="vl-msg">${msg}</div>` : ''}`;
   const c = cellAt(sel.q, sel.r), T = TINFO[c.t], al = alOf(c.o), mine = c.o === myAl(), can = mine || reach(c), d = defOf(c), need = Math.floor(c.g * d) + 1;
   n = Math.max(1, Math.min(n, st.me.left || 1));
   let act = '';
   if (c.t === 'lake') act = '';
   else if (mine) act = `<div class="vl-act"><div class="vl-step"><button data-vn="-1">−</button><span>${n}</span><button data-vn="1">+</button></div><button class="btn" data-vgo ${st.me.left ? '' : 'disabled'}>🛡 Укрепить</button></div>`
     + (c.t === 'ruins' ? `<div class="vl-act"><button class="btn ghost" data-vruin ${st.me.ruins.includes(c.q + ',' + c.r) ? 'disabled' : ''}>🏚 Обыскать руины (лунный камень)</button></div>` : '');
-  else if (can) act = `<div class="vl-act"><div class="vl-step"><button data-vn="-1">−</button><span>${n}</span><button data-vn="1">+</button></div><button class="btn hot" data-vgo ${st.me.left ? '' : 'disabled'}>⚔️ ${c.o ? 'Напасть' : 'Занять'}</button></div><div class="vl-muted" style="margin-top:4px">Чтобы взять с одного раза, нужно отрядов: <b>${need}</b> · у тебя сегодня: <b>${st.me.left}</b></div>`;
+  else if (can) act = `<div class="vl-act"><div class="vl-step"><button data-vn="-1">−</button><span>${n}</span><button data-vn="1">+</button></div><button class="btn hot" data-vgo ${st.me.left ? '' : 'disabled'}>⚔️ ${c.o ? 'Напасть' : 'Занять'}</button></div><div class="vl-muted" style="margin-top:4px">Чтобы взять с одного раза, нужно отрядов: <b>${need}</b> · у тебя сегодня: <b>${st.me.left}</b>${st.me.left < st.me.troops ? ` · новые ${st.me.troops} через ${refillTxt()}` : ''}</div>`;
   else act = '<div class="vl-muted" style="margin-top:6px">Сюда пока не дойти: сначала займи соседнюю клетку.</div>';
   return `<b>${T.ico ? T.ico + ' ' : ''}${T.n}</b> <span class="vl-muted">· ${al ? `<span style="color:${al.color};font-weight:800">${esc(al.emo)} ${esc(al.name)}</span>` : 'ничья земля'}${c.t !== 'lake' ? ` · защитников ${c.g}${d > 1 ? ` · оборона ×${String(+d.toFixed(2)).replace('.', ',')}` : ''}` : ''}</span>
     <div class="vl-muted">${T.d}</div>${act}${msg ? `<div class="vl-msg">${msg}</div>` : ''}`;
