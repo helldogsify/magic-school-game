@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=510';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=511';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=510';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=510';
-import { initMinigame } from './minigame.js?v=510';
-import { initChests } from './chests.js?v=510';
-import { initValley } from './valley.js?v=510';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=510';
-import { initLore } from './lore.js?v=510';
-import { initAvatar } from './avatar.js?v=510';
+} from './data.js?v=511';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=511';
+import { initMinigame } from './minigame.js?v=511';
+import { initChests } from './chests.js?v=511';
+import { initValley } from './valley.js?v=511';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=511';
+import { initLore } from './lore.js?v=511';
+import { initAvatar } from './avatar.js?v=511';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 510;   // keep equal to the ?v= number in index.html
+const BUILD = 511;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -63,7 +63,9 @@ function load() {
 let noSave = false;
 function save() {
   if (noSave || !S) return;
-  S.last = Date.now() - Math.round((catchLeft || 0) * 1000);   // a catch-up still running: its rest is lived through at the next start
+  const run = catchLeft > 0 ? catchLeft + catchExtra : 0;
+  S.last = Date.now() - Math.round(run * 1000);   // a catch-up still running: its rest is lived through at the next start
+  if (run > 0) S.catchPend = { rest: run, left: catchLeft, extra: catchExtra, real: catchReal, gain: catchGain, simT: catchSimT }; else delete S.catchPend;   // tester №0b9ldbcf: a reload mid catch-up lost the paid hours and the real time away
   S.world = {   // creatures and their progress, so the school keeps living across reloads
     arrivalT, procT,
     queue: queue.map((a) => a.id),
@@ -7224,6 +7226,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) music
 function setMusic(on) { localStorage.setItem('magicschool.music', on ? '1' : '0'); if (on) musicStart(); else music.pause(); toast(on ? '🎵 Музыка включена' : '🔇 Музыка выключена'); }
 // a newer build on the server reloads the game by itself (on start and every time it comes back to the screen)
 async function checkUpdate() {
+  if (bootOn || catchLeft > 0 || panel) { setTimeout(checkUpdate, 3000); return; }   // never reload in the middle of the catch-up or over an open window such as the welcome (tester №0b9ldbcf)
   try {
     const t = await (await fetch('index.html?nc=' + Date.now(), { cache: 'no-store' })).text();
     const m = t.match(/game\.js\?v=(\d+)/); const v = m ? +m[1] : 0;
@@ -7323,7 +7326,10 @@ window.__pukh = () => { pukhNext = 0; }; window.__starfall = () => { sfNext = 0;
 window.__test = { P, SLOTS, focusTile, fps: () => ({ ...fpsStat, dpr }), edges: (x0, y0, x1, y1) => EDGES.filter((e) => e.x >= x0 && e.x <= x1 && e.y >= y0 && e.y <= y1).map((e) => `${e.x},${e.y},${e.side},${e.id},${e.tall ? 'T' : 'k'}${e.hallWall ? 'H' : ''}`), vanishDemo: (t) => { const g = SLOTS.GARDEN, src = agents.find((a) => SPECIES.includes(a.sp)); if (!src) return 0; agents.push({ ...src, id: S.nextId++, x: g.x0 + (WORLD === 1 ? 3 : 4.85), y: g.y0 + (WORLD === 1 ? 3 : 1.35), path: [], state: 'vanish', t: t || 0, goal: { t: 'g' }, c: -1, desk: -1 }); return 1; }, reg: (x, y) => regAt(x, y), world: () => ({ WW, WH, GW, GH, MARGIN, SW, SH, HW, HH, GATE: GATE_TILE, GATE_Y, BUILDING }), get renderMs() { return renderMs; }, get staticN() { return staticN; }, get roomBuilds() { return roomBuilds; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outShN: () => Object.keys(outSh).length + '/' + Object.keys(outLo).length, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
 resize();
 { const h = P((SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 + 1); scroller.scrollLeft = h.x * scale - scroller.clientWidth / 2; scroller.scrollTop = h.y * scale - scroller.clientHeight * 0.5; }
-{ const away = (Date.now() - (S.last || Date.now())) / 1000; restoreWorld(); catchUp(away); }   // lived through under the loading screen (bootFrame)
+{ const away = (Date.now() - (S.last || Date.now())) / 1000, pd = S.catchPend; delete S.catchPend; restoreWorld(); catchUp(away);
+  if (pd && catchLeft > 0 && away >= pd.rest - 5) { const more = Math.max(0, away - pd.rest);   // resume the catch-up a reload cut short: same split, same total, the real time away
+    catchLeft = Math.min(CATCH_SIM, pd.left + more); catchExtra = Math.min(OFFLINE_CAP_SEC - CATCH_SIM, pd.extra + Math.max(0, pd.left + more - catchLeft)); catchAll = catchLeft; catchDt = catchLeft > 600 ? 0.5 : 0.25;
+    catchReal = pd.real + more; catchGain = pd.gain; catchSimT = pd.simT; } }   // lived through under the loading screen (bootFrame)
 updateHud();
 if (!S.tourDone && WORLD <= 2) setTimeout(() => { closePanel(); showTour(0); }, 600);   // world 2 has its own tour since 2026-11-23
 requestAnimationFrame(frame);
@@ -7340,5 +7346,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=510').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=511').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
