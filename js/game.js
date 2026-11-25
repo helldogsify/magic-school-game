@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=498';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=499';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=498';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=498';
-import { initMinigame } from './minigame.js?v=498';
-import { initChests } from './chests.js?v=498';
-import { initValley } from './valley.js?v=498';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=498';
-import { initLore } from './lore.js?v=498';
-import { initAvatar } from './avatar.js?v=498';
+} from './data.js?v=499';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=499';
+import { initMinigame } from './minigame.js?v=499';
+import { initChests } from './chests.js?v=499';
+import { initValley } from './valley.js?v=499';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=499';
+import { initLore } from './lore.js?v=499';
+import { initAvatar } from './avatar.js?v=499';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -36,7 +36,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 498;   // keep equal to the ?v= number in index.html
+const BUILD = 499;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -3802,7 +3802,7 @@ function layAdd(i, s, add) {   // wraps the room's add(): each entry is one item
     if (!ov) { add(x, y, () => { const ent = { cid, kind: 'item', key, n: name || null, x, y, ov: null, tint: (R && R.allTint) || null }; layRun(ent, draw); learn(ent); }, bias); return; }
     const x1 = x + (ov.dx || 0), y1 = y + (ov.dy || 0);
     add(Math.max(s.x0 + 0.05, Math.min(s.x1 - 0.05, x1)), Math.max(s.y0 + 0.05, Math.min(s.y1 - 0.05, y1)), () => { const m0 = P(x, y), m1 = P(x1, y1), k = ov.k || 1, f = ov.flip ? -1 : 1, px = m0.x + (ov.px || 0), py = m0.y + (ov.py || 0), n0 = frameLamps.length, lf = ov.lift || 0;
-      ctx.save(); ctx.translate(m1.x - m0.x + px, m1.y - m0.y + py - lf); ctx.scale(k * f, k); if (ov.r) ctx.rotate(ov.r * f * Math.PI / 180); ctx.translate(-px, -py);
+      ctx.save(); ctx.translate(m1.x - m0.x + px, m1.y - m0.y + py - lf); ctx.scale(k * f, k); if (ov.r) ctx.rotate(ov.r * f * Math.PI / 180); if (ov.sk) ctx.transform(1, ov.sk * f, 0, 1, 0, 0); ctx.translate(-px, -py);
       const ent = { cid, kind: 'item', key, n: name || null, x, y, ov, tint: hasTint(ov) ? ov : (R && R.allTint) || null }; layRun(ent, draw); learn(ent); ctx.restore();
       for (let q = n0; q < frameLamps.length; q++) { const l = frameLamps[q]; l.x = px + (l.x - px) * k * f + m1.x - m0.x; l.y = py + (l.y - py) * k + m1.y - m0.y - lf; if (l.ly != null) l.ly = py + (l.ly - py) * k + m1.y - m0.y - lf; l.r *= k; } }, bias + (ov.z || 0));   // ov.z: the editor's «Вперёд / Назад»
   };
@@ -3817,9 +3817,9 @@ function layExtra(i, s, add) {   // sprites added in the editor
     const q = layPos(a, s), wx = a.wall === 'x0' ? s.x0 + 0.1 : q.x, wy = a.wall === 'y0' ? s.y0 + 0.1 : q.y;
     add(Math.max(s.x0 + 0.05, Math.min(s.x1 - 0.05, wx)), Math.max(s.y0 + 0.05, Math.min(s.y1 - 0.05, wy)), () => layRun({ cid, kind: 'add', key: 'add#' + j, j, n: a.src, x: q.x, y: q.y, ov: a, tint: hasTint(a) ? a : R.allTint || null }, () => {
       const im = layIm(a.src); if (!im) return; const h = a.h || 40, w = h * im.naturalWidth / im.naturalHeight;
-      if (a.wall) { const b = up(a.wall === 'x0' ? P(s.x0, q.y) : P(q.x, s.y0), a.lift || 0); ctx.save(); ctx.translate(b.x, b.y); ctx.transform(1, (a.wall === 'x0' ? -1 : 1) * HH / HW, 0, 1, 0, 0); if (a.flip) ctx.scale(-1, 1); if (a.rot) ctx.rotate(a.rot * (a.flip ? -1 : 1) * Math.PI / 180); ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore(); return; }
+      if (a.wall) { const b = up(a.wall === 'x0' ? P(s.x0, q.y) : P(q.x, s.y0), a.lift || 0); ctx.save(); ctx.translate(b.x, b.y); ctx.transform(1, (a.wall === 'x0' ? -1 : 1) * HH / HW + (a.sk || 0), 0, 1, 0, 0);   /* a.sk: the editor's slant */ if (a.flip) ctx.scale(-1, 1); if (a.rot) ctx.rotate(a.rot * (a.flip ? -1 : 1) * Math.PI / 180); ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore(); return; }
       const p = P(q.x, q.y); if (!a.lift && !a.flat && zoom >= 1.2) ctx.drawImage(propShadow(), p.x - w * 0.4, p.y - w * 0.12, w * 0.8, w * 0.24);
-      ctx.save(); if (a.flip) { ctx.translate(p.x, 0); ctx.scale(-1, 1); ctx.translate(-p.x, 0); } if (a.rot) { const by = a.flat ? p.y : p.y - (a.lift || 0); ctx.translate(p.x, by); ctx.rotate(a.rot * (a.flip ? -1 : 1) * Math.PI / 180); ctx.translate(-p.x, -by); } ctx.drawImage(im, p.x - w / 2, a.flat ? p.y - h / 2 : p.y - (a.lift || 0) - h, w, h); /* flat (rugs): centred on the floor point */ ctx.restore();
+      ctx.save(); if (a.flip) { ctx.translate(p.x, 0); ctx.scale(-1, 1); ctx.translate(-p.x, 0); } if (a.rot) { const by = a.flat ? p.y : p.y - (a.lift || 0); ctx.translate(p.x, by); ctx.rotate(a.rot * (a.flip ? -1 : 1) * Math.PI / 180); ctx.translate(-p.x, -by); } if (a.sk) { ctx.translate(p.x, p.y); ctx.transform(1, a.sk, 0, 1, 0, 0); ctx.translate(-p.x, -p.y); } ctx.drawImage(im, p.x - w / 2, a.flat ? p.y - h / 2 : p.y - (a.lift || 0) - h, w, h); /* flat (rugs): centred on the floor point */ ctx.restore();
     }), a.flat ? -1e5 + (a.bias || 0) : a.bias || 0);   // a rug goes under the desks and everyone
   });
 }
@@ -7260,5 +7260,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=498').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=499').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }

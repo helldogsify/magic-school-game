@@ -194,14 +194,16 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
       b('➖', () => { o().k = Math.round(Math.max(0.3, (o().k || 1) / 1.1) * 100) / 100; apply(false); }, 'Меньше'); b('➕', () => { o().k = Math.round(Math.min(3, (o().k || 1) * 1.1) * 100) / 100; apply(false); }, 'Больше');
       b('⇋ Развернуть', () => { o().flip = !o().flip || undefined; apply(false); }, 'Повернуть другим боком');
       b('⬆ Выше', () => { o().lift = (o().lift || 0) + 6; apply(false); }, 'Поднять'); b('⬇ Ниже', () => { o().lift = (o().lift || 0) - 6 || undefined; apply(false); }, 'Опустить');
-      b('↶', () => { o().r = ((o().r || 0) - 15) % 360 || undefined; apply(false); }, 'Наклонить влево'); b('↷', () => { o().r = ((o().r || 0) + 15) % 360 || undefined; apply(false); }, 'Наклонить вправо');
+      b('↶', () => { o().r = ((o().r || 0) - 5) % 360 || undefined; apply(false); }, 'Повернуть влево'); b('↷', () => { o().r = ((o().r || 0) + 5) % 360 || undefined; apply(false); }, 'Повернуть вправо');
+      b('⟋', () => { o().sk = Math.round(((o().sk || 0) - 0.05) * 100) / 100 || undefined; apply(false); }, 'Скосить, как левая стена'); b('⟍', () => { o().sk = Math.round(((o().sk || 0) + 0.05) * 100) / 100 || undefined; apply(false); }, 'Скосить, как правая стена');
       b('⏫ Вперёд', () => { o().z = (o().z || 0) + 1; apply(false); }, 'Поверх соседей'); b('⏬ Назад', () => { o().z = (o().z || 0) - 1 || undefined; apply(false); }, 'За соседей');
       b('🗑', () => { o().hide = 1; sel = null; apply(false); }, 'Убрать');
       b('Как было', () => { delete R.items[sel.key]; apply(false); }, 'Вернуть как было'); }
     else if (sel.t === 'add') { const j = +sel.key.split('#')[1], a = R.add && R.add[j]; if (!a) { sel = null; return showSel(); }
       b('➖', () => { a.h = Math.max(8, Math.round((a.h || 40) / 1.1)); apply(false); }, 'Меньше'); b('➕', () => { a.h = Math.min(400, Math.round((a.h || 40) * 1.1)); apply(false); }, 'Больше');
       b('⇋ Развернуть', () => { a.flip = !a.flip || undefined; apply(false); }, 'Повернуть другим боком');
-      b('↶', () => { a.rot = ((a.rot || 0) - 15) % 360 || undefined; apply(false); }, 'Наклонить влево'); b('↷', () => { a.rot = ((a.rot || 0) + 15) % 360 || undefined; apply(false); }, 'Наклонить вправо');
+      b('↶', () => { a.rot = ((a.rot || 0) - 5) % 360 || undefined; apply(false); }, 'Повернуть влево'); b('↷', () => { a.rot = ((a.rot || 0) + 5) % 360 || undefined; apply(false); }, 'Повернуть вправо');
+      b('⟋', () => { a.sk = Math.round(((a.sk || 0) - 0.05) * 100) / 100 || undefined; apply(false); }, 'Скосить, как левая стена'); b('⟍', () => { a.sk = Math.round(((a.sk || 0) + 0.05) * 100) / 100 || undefined; apply(false); }, 'Скосить, как правая стена');
       b('⏫ Вперёд', () => { a.bias = (a.bias || 0) + 1; apply(false); }, 'Поверх соседей'); b('⏬ Назад', () => { a.bias = (a.bias || 0) - 1 || undefined; apply(false); }, 'За соседей');
       b(a.flat ? '▯ Поставить' : '▭ Положить', () => { a.flat = a.flat ? undefined : 1; if (a.flat) { delete a.wall; a.lift = 0; } apply(false); }, a.flat ? 'Поставить стоя' : 'Положить на пол, как ковёр');
       b('⬆', () => { a.lift = Math.round((a.lift || 0) + 6); apply(false); }, 'Выше'); b('⬇', () => { a.lift = Math.max(0, Math.round((a.lift || 0) - 6)); apply(false); }, 'Ниже');
