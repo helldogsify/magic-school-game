@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=520';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=521';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=520';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=520';
-import { initMinigame } from './minigame.js?v=520';
-import { initChests } from './chests.js?v=520';
-import { initValley } from './valley.js?v=520';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=520';
-import { initLore } from './lore.js?v=520';
-import { initAvatar } from './avatar.js?v=520';
+} from './data.js?v=521';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=521';
+import { initMinigame } from './minigame.js?v=521';
+import { initChests } from './chests.js?v=521';
+import { initValley } from './valley.js?v=521';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=521';
+import { initLore } from './lore.js?v=521';
+import { initAvatar } from './avatar.js?v=521';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 520;   // keep equal to the ?v= number in index.html
+const BUILD = 521;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4476,7 +4476,7 @@ function drawPlot(c, s, ci, L, B, R, F, center) {
 function shade(hex, d) { const n = parseInt(hex.slice(1), 16); const f = (v) => Math.max(0, Math.min(255, v + d)); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; }
 
 // ---- animation pilot: frame sheets in assets/anim (art/anim_pilot: puppet.py = warped game sprite, video2sheet.py = SYNTX video, green screen)
-const ANIM_MODE = new URLSearchParams(location.search).get('anim');
+const ANIM_MODE = new URLSearchParams(location.search).get('anim') || localStorage.getItem('magicschool.anim');   // the link, or the Settings switch on Maria's device
 const ANIM_SHEETS = ({
   puppet: { idle: { src: 'assets/anim/mothfox_puppet.webp', n: 24, cols: 24, fw: 209, fh: 180, fps: 12 } },
   video: { idle: { src: 'assets/anim/mothfox_vidle.webp', n: 70, cols: 10, fw: 267, fh: 180, fps: 12 }, walk: { src: 'assets/anim/mothfox_vwalk.webp', n: 36, cols: 10, fw: 244, fh: 203, fps: 12 } },
@@ -5356,7 +5356,7 @@ function settingsPanel() {
     <div id="fb-pics" class="fb-pics"></div>
     <label class="btn ghost wide fb-add">📷 Добавить картинку (до 3)<input id="fb-file" type="file" accept="image/*" multiple hidden></label>
     <button class="btn wide" data-feedback>💌 Отправить отзыв</button>${fbReplies().length ? `<button class="btn ghost wide" data-replies>💌 Ответы на отзывы (${fbReplies().length})</button>` : ''}
-    <button class="btn ghost wide" data-gamelog>📜 Журнал событий</button>
+    <button class="btn ghost wide" data-gamelog>📜 Журнал событий</button>${AV.isMod() ? `<button class="btn ghost wide" data-animpilot>🧪 Проба анимаций: ${localStorage.getItem('magicschool.anim') === 'fx' ? 'включена' : 'выключена'}</button>` : ''}
     <button class="btn ghost wide" data-tour-again>❓ Как играть (обучение)</button>
     <button class="btn ghost wide" data-reset>Начать игру заново</button>`;
 }
@@ -6284,6 +6284,7 @@ document.addEventListener('click', (e) => {
   if (d.replies !== undefined) { openPanel(repliesPanel); return; }
   if (d.notif !== undefined) { openNotif(); return; }
   if (d.gamelog !== undefined) { openPanel(gameLogPanel); return; }
+  if (d.animpilot !== undefined) { if (localStorage.getItem('magicschool.anim') === 'fx') localStorage.removeItem('magicschool.anim'); else localStorage.setItem('magicschool.anim', 'fx'); save(); location.reload(); return; }   // the pilot switch (moderator only)
   if (d.gamelogcopy !== undefined) { const t = gdump(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('📜 Журнал скопирован')).catch(() => window.prompt('Скопируй журнал:', t)); return; }
   if (d.fbDel !== undefined) { fbPics.splice(+d.fbDel, 1); drawFbPics(); return; }
   if (d.cloudNew !== undefined) { cloudCreate(); return; }
@@ -7412,5 +7413,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=520').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=521').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
