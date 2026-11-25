@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=522';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=523';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=522';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=522';
-import { initMinigame } from './minigame.js?v=522';
-import { initChests } from './chests.js?v=522';
-import { initValley } from './valley.js?v=522';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=522';
-import { initLore } from './lore.js?v=522';
-import { initAvatar } from './avatar.js?v=522';
+} from './data.js?v=523';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=523';
+import { initMinigame } from './minigame.js?v=523';
+import { initChests } from './chests.js?v=523';
+import { initValley } from './valley.js?v=523';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=523';
+import { initLore } from './lore.js?v=523';
+import { initAvatar } from './avatar.js?v=523';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 522;   // keep equal to the ?v= number in index.html
+const BUILD = 523;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4488,11 +4488,27 @@ function animPilot(a, sp0, cpose, walking) {
 }
 // ---- lesson effects (?anim=fx pilot): body motion + a floating wand with star sparkles, drawn by the game
 const LESSON_FX = ANIM_MODE === 'fx' ? { charms: 1 } : null;
+const CAST_POSES = { mothfox: [21 / 209, 33 / 180] };   // looks that have a «cast» picture: where the wand tip is (share of width, height)
+for (const k of Object.keys(CAST_POSES)) { const im = new Image(); im.src = `assets/creatures/${k}_cast.png?v=1`; sprites[k + '_cast'] = im; }
+function lessonSparks(F, a, s, z, h, w, fl) {   // star sparkles from the wand tip while the paw is up
+  const now = F.T; a._fx ||= []; const P = a._fx;
+  if (window.__fxProbe) { const m = ctx.getTransform(); window.__fxProbe[a.id] = [m.a * s.x + m.c * (s.y - z) + m.e, m.b * s.x + m.d * (s.y - z) + m.f, m.a * h]; }   // test hook: the feet on the canvas
+  if (F.castIm && F.tip) {
+    const tx = s.x + (fl ? -1 : 1) * (F.tip[0] - 0.5) * w, ty = s.y - z - h + F.tip[1] * h;
+    if (!a._fxLast || now - a._fxLast > 0.06) { a._fxLast = now; for (let k = 0; k < 3; k++) P.push({ x: tx, y: ty, vx: (Math.random() - 0.5) * h * 1.1, vy: (-Math.random() * 0.9 - 0.25) * h * 0.8, t0: now, life: 0.6 + Math.random() * 0.5, c: FX_COLS[Math.floor(Math.random() * FX_COLS.length)], r: h * (0.05 + Math.random() * 0.05) }); }
+    if (typeof glowSprite === 'function') { const gs = h * 0.45; ctx.globalAlpha = 0.85; ctx.drawImage(glowSprite('255,225,150'), tx - gs / 2, ty - gs / 2, gs, gs); ctx.globalAlpha = 1; }
+  }
+  for (let k = P.length - 1; k >= 0; k--) { const q = P[k], u = now - q.t0; if (u > q.life || u < 0) { P.splice(k, 1); continue; }
+    star4(q.x + q.vx * u, q.y + q.vy * u + u * u * h * 0.6, q.r * (1 - u / q.life * 0.5), q.c, 1 - u / q.life); }
+  if (P.length > 50) P.splice(0, P.length - 50);
+}
 function lessonFx(a) {
   if (!LESSON_FX || a.state !== 'study' || !CLASSES[a.c] || !LESSON_FX[CLASSES[a.c].id] || !SPECIES.includes(a.sp)) return null;
   const T = performance.now() / 1000 + (a.id || 0) * 0.613, P = 2.6, ph = (T % P) / P;   // one cast every 2.6 s, students out of step
   const flick = ph > 0.5 && ph < 0.62 ? Math.sin((ph - 0.5) / 0.12 * Math.PI) : 0;      // the quick swing of the wand
-  return { T, ph, flick, kind: CLASSES[a.c].id };
+  const look = a.sp + ((a.rk || 0) ? '_t' + Math.min(4, a.rk) : ''), CP = !a.back && CAST_POSES[look], ci = CP && sprites[look + '_cast'];
+  const castOn = !!(ci && ci.complete && ci.naturalWidth) && ph > 0.42 && ph < 0.8;   // the paw is up for about a second of every cast
+  return { T, ph, flick, kind: CLASSES[a.c].id, castIm: castOn ? ci : null, tip: CP };
 }
 function lessonBody(F, s, z, h) {   // breathing, a slow sway, a little hop and lean into the cast; feet stay on the floor
   const br = 1 + 0.025 * Math.sin(F.T * 2.4), sw = Math.sin(F.T * 1.3) * 0.03 + F.flick * 0.06, hop = F.flick * h * 0.05;
@@ -4549,10 +4565,11 @@ function drawCreature(a, x, y, h, extra) {
   if (SP_GLOW[sp0] && !a._ghost) { ctx.globalAlpha = 0.32; const gs = h * 1.5; ctx.drawImage(glowSprite('185,205,255'), s.x - gs / 2, s.y - bob - z - h * 0.55 - gs / 2, gs, gs); ctx.globalAlpha = 1; }   // rim light: dark creatures stay visible in the cave
   const FXL = lessonFx(a); if (FXL) { ctx.save(); lessonBody(FXL, s, z, h); }   // lesson effect pilot (?anim=fx)
   if (AP) drawPilot(AP, s, h, bob, z, fl, a, walking);
+  else if (FXL && FXL.castIm) { const ci = FXL.castIm, w = h * ci.naturalWidth / ci.naturalHeight, sm = sized(ci, h * scale * dpr); ctx.drawImage(fl ? flipped(sm) : sm, s.x - w / 2, s.y - bob - z - h, w, h); FXL.w = w; }   // the casting pose
   else if (im && im.complete && im.naturalWidth) { const w = h * im.naturalWidth / im.naturalHeight; const sm = sized(im, h * scale * dpr); ctx.drawImage(fl ? flipped(sm) : sm, s.x - w * sx / 2, s.y - bob - z - h * sy, w * sx, h * sy); 
     if (sp0 === 'mossmole' && !a._tierImg) { const lg = glowSprite('255,240,170'), r = h * 0.32; ctx.globalAlpha = 0.75; for (const fx of [0.1, 0.9]) ctx.drawImage(lg, s.x - w / 2 + w * (a.flip ? 1 - fx : fx) - r / 2, s.y - bob - z - h * 0.985 - r / 2, r, r); ctx.globalAlpha = 1; } }   // the lanterns on its antennae glow   // no save/restore per creature, a small copy of the sprite (build 207)
   else { ctx.fillStyle = '#ffd6e8'; ctx.beginPath(); ctx.ellipse(s.x, s.y - bob - z - h / 2, h / 2.6, h / 2.2, 0, 0, Math.PI * 2); ctx.fill(); }
-  if (FXL) { ctx.restore(); lessonWand(FXL, a, s, z, h, a.flip); }
+  if (FXL) { ctx.restore(); lessonSparks(FXL, a, s, z, h, FXL.w || h, fl); }   // the student casts by itself (no floating wand)
   if (rk === 5) {   // twinkling sparks of the element orbit a master: rarity you can see from afar
     const T = performance.now() / 1000 + (a.ph || 0), c = ELEMS[a.el || 0].col;
     for (let k = 0; k < 3; k++) {
@@ -7413,5 +7430,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=522').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=523').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
