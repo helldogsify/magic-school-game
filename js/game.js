@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=546';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=547';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=546';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=546';
-import { initMinigame } from './minigame.js?v=546';
-import { initChests } from './chests.js?v=546';
-import { initValley } from './valley.js?v=546';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=546';
-import { initLore } from './lore.js?v=546';
-import { initAvatar } from './avatar.js?v=546';
+} from './data.js?v=547';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=547';
+import { initMinigame } from './minigame.js?v=547';
+import { initChests } from './chests.js?v=547';
+import { initValley } from './valley.js?v=547';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=547';
+import { initLore } from './lore.js?v=547';
+import { initAvatar } from './avatar.js?v=547';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 546;   // keep equal to the ?v= number in index.html
+const BUILD = 547;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2544,7 +2544,8 @@ function tkGain(op) {   // extra coins per minute; op = { act, i, k } as in the 
       case 'cantup': return rel(tkTry(inc(cantUp(), op.k)));
       case 'beds': { const g = gate(); return g.b > 0.05 ? R * Math.min(0.3, g.b) * 0.05 : 0; }   // the dorm full: newcomers turned away at the gate
       case 'dir': return op.k === 'refund' && WORLD === 1 ? (S.outEma || 0) * 60 * 0.1 / Math.max(0.1, refundRate()) : null;   // refunds to leavers: -10 points per level
-      case 'formlvl': { const n = Math.max(1, FORM_KEYS.filter((k) => formSt(k).seen).length); return R * 0.05 / (1 + 0.05 * (formSt(op.k).lvl - 1)) * 3 / n; }
+      case 'formlvl': { const all = inSchool().filter((a) => SPECIES.includes(a.sp)), n = all.filter((a) => formOf(a) === op.k).length; if (!all.length) return 0;   // the share of students in school with this card
+        return R * 0.05 / (1 + 0.05 * (formSt(op.k).lvl - 1)) * (n / all.length) * RANK_MUL[formRank(op.k)] / 1.5; }
     }
   } catch (e) { /* the model never breaks the game */ }
   return null;
@@ -2639,25 +2640,25 @@ function drawTikhonBadge(p) {   // a scroll over his head while he has something
 // choice). He names WHAT is wrong in the school, never which button fixes it; the player finds the place and picks the upgrade.
 const TK_TIP_N = 3, TK_WISE_SHARE = 0.15;   // a wise purchase: Tikhon pays back 15% of its price (Maria: smaller, the game must not go much faster) (level quests pay 30%, but pick at random)
 let tkTipCache = null, tkTipAt = 0;
-function tkWhy(o, s0) {   // [family, emoji, title, riddle]
-  const slow = o.i !== undefined && o.i !== null && o.i === s0.b;
+function tkWhy(o, s0) {   // [family, emoji, title, riddle with a clue where to look, hint = the place]
+  const slow = o.i !== undefined && o.i !== null && o.i === s0.b, cn = o.i !== undefined && o.i !== null ? `Это класс «${CLASSES[o.i].name}».` : '';
   let top = -1, mx = 0; for (let j = 0; j < CLASSES.length; j++) if (isOpen(j) && tuition(j) > mx) { mx = tuition(j); top = j; }
-  const cap = () => (slow ? ['cap', '🚪', 'Где-то тесно', 'Ученики толпятся у дверей одного из классов и ждут свободного места. Найди этот класс и придумай, как учить там больше учеников.']
-    : ['cap', '⏳', 'Медленный класс', 'Один класс учит чуть медленнее остальных, и за ним копится очередь. Загляни в классы: где урок длинный или мало парт?']);
-  const pay = () => (o.i === top ? ['pay', '🪙', 'Самый дорогой урок', 'Один урок в школе стоит дороже всех. Если сделать его ещё дороже — заплатит каждый ученик.']
-    : ['pay', '🪙', 'Плата за урок', 'В одном из классов плату за урок сейчас выгодно поднять. Сравни, сколько платят в разных классах.']);
+  const cap = () => (slow ? ['cap', '🚪', 'Где-то тесно', 'Посмотри на таблички классов на карте: у какого класса ждёт больше всего учеников? Там нужно учить больше учеников сразу — парты, урок покороче, учитель.', cn]
+    : ['cap', '⏳', 'Медленный класс', 'Один класс учит медленнее остальных. Загляни в классы и сравни: где урок длиннее, а парт меньше?', cn]);
+  const pay = () => (o.i === top ? ['pay', '🪙', 'Самый дорогой урок', 'Найди самый дорогой урок в школе (плата видна в каждом классе вверху) и сделай его ещё дороже: учитель и предметы с «+8% платы».', cn]
+    : ['pay', '🪙', 'Плата за урок', 'Сравни плату в классах: в одном из них поднять плату сейчас особенно выгодно — учитель или предметы с «+8% платы».', cn]);
   switch (o.act) {
     case 'desk': case 'time': case 'expand': return cap();
     case 'teacher': return slow ? cap() : pay();
     case 'item': return CLASSES[o.i].items[o.k].kind === 'tuition' || overflow(o.i) > 0 ? pay() : cap();
-    case 'rec': return ['rec', '🛎️', 'Очередь у входа', 'Новички долго ждут, пока их запишут в школу. Кто у нас этим занимается?'];
-    case 'ads': return ['ads', '📣', 'Мало новичков', 'Школа могла бы учить больше учеников, но новички приходят редко. Как бы о нас узнали?'];
-    case 'beds': return ['beds', '🛏️', 'Негде подождать', 'Новичков разворачивают у ворот: в школе им негде подождать своей очереди.'];
-    case 'shopup': return ['shop', '🍭', 'Сладкоежки', 'После уроков ученики хотят потратить монетки, а в лавке не всё ладно.'];
-    case 'cantup': return ['cant', '🍲', 'Голодные ученики', 'После уроков ученики хотят есть. В столовой можно кое-что наладить.'];
-    case 'dir': return ['dir', '💸', 'Казна худеет', 'Ушедшим ученикам школа возвращает слишком много монет. Кто пишет правила?'];
-    case 'exlvl': case 'xpllvl': return ['rank', '🌟', 'Звания', 'Ученик со званием платит больше за каждый урок. В одном из классов можно помочь ученикам быстрее получать звания.'];
-    case 'formlvl': return ['form', '🎓', 'Альбом', 'В альбоме учеников есть карточка, которую уже выгодно улучшить.'];
+    case 'rec': return ['rec', '🛎️', 'Очередь у входа', 'Новички долго ждут, пока их запишут в школу. Кто у нас этим занимается?', 'Это секретарь в приёмной.'];
+    case 'ads': return ['ads', '📣', 'Мало новичков', 'Школа могла бы учить больше учеников, но новички приходят редко. Как бы о нас узнали?', 'Это объявления в приёмной.'];
+    case 'beds': return ['beds', '🛏️', 'Негде подождать', 'Новичков разворачивают у ворот: в школе им негде подождать своей очереди.', 'Это кровати в спальне.'];
+    case 'shopup': return ['shop', '🍭', 'Сладкоежки', 'После уроков ученики хотят потратить монетки, а в лавке не всё ладно.', 'Это лавка.'];
+    case 'cantup': return ['cant', '🍲', 'Голодные ученики', 'После уроков ученики хотят есть. В столовой можно кое-что наладить.', 'Это столовая.'];
+    case 'dir': return ['dir', '💸', 'Казна худеет', 'Ушедшим ученикам школа возвращает слишком много монет. Кто пишет правила?', 'Это кабинет директора.'];
+    case 'exlvl': case 'xpllvl': return ['rank', '🌟', 'Звания', 'Ученик со званием платит больше за каждый урок. Звания дают в классах: в каждом классе есть раздел про звание. В каком классе помочь ученикам?', cn];
+    case 'formlvl': return ['form', '🎓', 'Альбом', 'Открой альбом 🎓 и улучши карточку тех учеников, которых в школе больше всего: каждый из них станет платить больше.', `Это карточка «${formName(o.k)}».`];
   }
   return null;
 }
@@ -2687,7 +2688,7 @@ function tkTips() {   // [{key, emo, title, text, g, mins, go}] best first; cach
       const used = new Set();
       for (const v of tkRank()) {
         const w = tkWhy(v.o, s0); if (!w || used.has(w[0])) continue; used.add(w[0]);
-        out.push({ key: w[0] + ':' + w[2], emo: w[1], title: w[2], text: w[3] });
+        out.push({ key: w[0] + ':' + w[4], emo: w[1], title: w[2], text: w[3], hint: w[4] });
         if (out.length >= TK_TIP_N) break;
       }
     }
@@ -2704,7 +2705,8 @@ function tkBadge() {   // tips not seen yet + Tikhon's urgent reports
 function tkTipsBlock() {
   const tips = tkTips(); tips.forEach((t) => { tkSeen()[t.key] = 1; });
   if (!tips.length) return '';
-  return `<h3>🔎 Загадки Тихона</h3><p class="muted">Найди сам, что улучшить. Угадаешь одно из самых выгодных улучшений — я доплачу 🦉${S.stats.wise ? ` · мудрых решений: ${S.stats.wise}` : ''}</p>` + tips.map((t) => `<div class="card up tktip"><span class="remoji">${t.emo}</span><div class="grow"><b>${t.title}</b><div class="muted">${t.text}</div></div></div>`).join('');
+  return `<h3>🔎 Загадки Тихона</h3><p class="muted">Найди сам, что улучшить. Угадаешь одно из самых выгодных улучшений — я доплачу 🦉${S.stats.wise ? ` · мудрых решений: ${S.stats.wise}` : ''}</p>` + tips.map((t) => { const open = !!(S.tkHint && S.tkHint[t.key]);
+    return `<div class="card up tktip"><span class="remoji">${t.emo}</span><div class="grow"><b>${t.title}</b><div class="muted">${t.text}</div>${t.hint && open ? `<div class="tkhint">💡 ${t.hint}</div>` : ''}</div>${t.hint && !open ? `<button class="btn small ghost" data-tkhint="${t.key}">Подсказка</button>` : ''}</div>`; }).join('');
 }
 function tkStyle() {
   if (document.getElementById('tk-style')) return;
@@ -2712,6 +2714,7 @@ function tkStyle() {
   st.textContent = `#tkbtn{position:absolute;left:calc(50% + 43px);bottom:calc(var(--safe-b) + 14px);z-index:4;padding:0}
 #tkbtn img{width:56px;height:56px;border-radius:50%;object-fit:cover;display:block}
 .tktip{border:2px solid #f3d27a}
+.tkhint{margin-top:4px;font-weight:800;color:#7b5cd6}
 .tknote{background:#fff7dd;border-radius:14px;padding:8px 10px;margin:0 0 8px;font-size:13px;display:flex;gap:8px;align-items:center}
 .tknote>img{height:44px;width:auto;flex:none}.tknote span img{height:1.15em;width:auto;vertical-align:-0.2em}.tknote .btn{display:block;margin:6px 0 0 auto}`;
   document.head.appendChild(st);
@@ -6504,6 +6507,7 @@ document.addEventListener('click', (e) => {
   if (d.war !== undefined) { openWar(); return; }
   if (qClick(d)) return;
   if (d.tikhon !== undefined) { openPanel(tikhonPanel); renderTkBtn(); return; }
+  if (d.tkhint !== undefined) { (S.tkHint ||= {})[d.tkhint] = 1; save(); refreshPanel(); return; }
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.rumble !== undefined) { const s = slotOf(guardsIdx()); if (panel) closePanel(); if (s) focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2); return; }
@@ -7660,5 +7664,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=546').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=547').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
