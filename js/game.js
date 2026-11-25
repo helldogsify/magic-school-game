@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=562';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=563';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=562';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=562';
-import { initMinigame } from './minigame.js?v=562';
-import { initChests } from './chests.js?v=562';
-import { initValley } from './valley.js?v=562';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=562';
-import { initLore } from './lore.js?v=562';
-import { initAvatar } from './avatar.js?v=562';
+} from './data.js?v=563';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=563';
+import { initMinigame } from './minigame.js?v=563';
+import { initChests } from './chests.js?v=563';
+import { initValley } from './valley.js?v=563';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=563';
+import { initLore } from './lore.js?v=563';
+import { initAvatar } from './avatar.js?v=563';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -38,7 +38,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 562;   // keep equal to the ?v= number in index.html
+const BUILD = 563;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -759,10 +759,13 @@ function pondPt(u, v) {   // a point of the scene picture (u, v = shares of its 
   return { x: m.x + f * (u - 0.489) * w, y: m.y + (v - 0.629) * h, k: w / (2 * Math.hypot(POND.rx, POND.ry) * HW / 0.677) };
 }
 const pondTile = (q) => { const a = (q.x - OX) / HW, b = (q.y - OY) / HH; return { x: (a + b) / 2, y: (b - a) / 2 }; };
-function drawPondPath() {   // flagstones from the reception's side door (its top-right corner) down and along to the pier's land end
-  const pt = isoPat(ctx, 'path', 3); if (!pt) return; const x0 = POND.x0, y0 = POND.y0, e = pondTile(pondPt(0.2, 0.43)), ey = Math.max(y0 + 1, Math.round(e.y)), ex = Math.round(e.x);
-  const R = [[x0, y0, x0 + 2, ey + 1]]; if (ex > x0 + 2) R.push([x0 + 2, ey - 1, ex + 1, ey + 1]); else if (ex < x0) R.push([ex, ey - 1, x0, ey + 1]); R.push([Math.min(ex, x0), ey, Math.max(ex + 1, x0 + 2), ey + 2]);   /* the last step reaches the pier */
-  ctx.save(); ctx.fillStyle = pt; for (const [a, b, c, d] of R) { poly(ctx, [P(a, b), P(c, b), P(c, d), P(a, d)]); ctx.fill(); } ctx.restore();
+function drawPondPath() {   // flagstones from the entrance path (below the reception's front) across the lawn to the pier's land end
+  const pt = isoPat(ctx, 'path', 3); if (!pt) return; const r = SLOTS.REC, e = pondTile(pondPt(0.2, 0.43)), ex = Math.round(e.x), ey = Math.round(e.y), gx = Math.round(GATE_TILE.x + 2.5), yr = Math.max(r.y1 + 2, ey);   // a strip of grass between the wall and the path
+  if (ex <= gx) return; const R = [[gx, yr - 1, ex + 1, yr + 1]]; if (ey < yr - 1) R.push([ex - 1, ey, ex + 1, yr]);
+  const done = new Set(); ctx.save(); ctx.fillStyle = pt; ctx.beginPath();
+  for (const [a, b, c, d] of R) for (let x = a; x < c; x++) for (let y = b; y < d; y++) { const k = x + ',' + y, g = regAt(x, y); if (done.has(k) || (g && SLOTS[g])) continue; done.add(k);   // never on a room's floor
+    const q = [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)]; ctx.moveTo(q[0].x, q[0].y); for (let j = 1; j < 4; j++) ctx.lineTo(q[j].x, q[j].y); ctx.closePath(); }
+  ctx.fill(); ctx.restore();
 }
 const POND_LAMPS = [[0.297, 0.056], [0.304, 0.114], [0.369, 0.131], [0.47, 0.138], [0.256, 0.177], [0.492, 0.176], [0.327, 0.18], [0.354, 0.191], [0.417, 0.194], [0.437, 0.197], [0.245, 0.239], [0.4, 0.247], [0.476, 0.274], [0.434, 0.276], [0.273, 0.278], [0.231, 0.294], [0.322, 0.319], [0.209, 0.329]];   // the willow's paper lanterns (measured on pond.webp)
 const POND_FISH = [[0.51, 0.52, '255,205,110'], [0.575, 0.535, '255,205,110'], [0.625, 0.42, '200,160,255'], [0.655, 0.43, '170,220,255'], [0.405, 0.665, '255,205,110'], [0.445, 0.68, '200,160,255'], [0.525, 0.69, '255,190,120'], [0.47, 0.71, '170,210,255'], [0.585, 0.7, '170,230,255']];
@@ -7840,5 +7843,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => POND && pondBox(), entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=562').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=563').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
