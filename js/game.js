@@ -1,17 +1,17 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=518';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=519';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=518';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=518';
-import { initMinigame } from './minigame.js?v=518';
-import { initChests } from './chests.js?v=518';
-import { initValley } from './valley.js?v=518';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=518';
-import { initLore } from './lore.js?v=518';
-import { initAvatar } from './avatar.js?v=518';
+} from './data.js?v=519';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=519';
+import { initMinigame } from './minigame.js?v=519';
+import { initChests } from './chests.js?v=519';
+import { initValley } from './valley.js?v=519';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=519';
+import { initLore } from './lore.js?v=519';
+import { initAvatar } from './avatar.js?v=519';
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -37,7 +37,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 518;   // keep equal to the ?v= number in index.html
+const BUILD = 519;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -6410,7 +6410,7 @@ async function topPush(force) {   // our line in the table (only with a school n
   try {
     const A = await anonToken();
     const I = (v) => ({ integerValue: String(Math.round(v || 0)) });
-    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), ...(myAl() ? { al: { stringValue: myAl() } } : {}), w: I(WORLD), lv: I(Math.max(1, Math.min(1000, schoolLevel()))), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), ...qTopFields(I), mg: I(MG.weekBest()), mw: I(MG.weekKey()), ...(MG.prevBest() ? { pm: I(MG.prevBest()), pw: I(MG.weekKey() - 1) } : {}), fl: I(MG.flightBest()), flw: I(MG.weekKey()), ...(MG.flightPrev() ? { fpm: I(MG.flightPrev()), fpw: I(MG.weekKey() - 1) } : {}), ...(G3_ON && WORLD === 2 ? { g3: I(MG.gBest()), g3w: I(MG.weekKey()), ...(MG.gPrev() ? { g3pm: I(MG.gPrev()), g3pw: I(MG.weekKey() - 1) } : {}) } : {}), build: I(BUILD), updated: I(Date.now()) } };   // mg/mw: «Зельеварка» best of this week
+    const body = { fields: { name: { stringValue: schoolName() }, ...(playerNick() ? { nick: { stringValue: playerNick() } } : {}), ...(myAl() ? { al: { stringValue: myAl() } } : {}), w: I(WORLD), lv: I(Math.max(1, Math.min(1000, schoolLevel()))), r: { doubleValue: Math.max(0, Math.min(5, +R.v.toFixed(3))) }, n: I(R.n), g: I(S.stats.graduated), gold: I(R.gold), ...qTopFields(I), mg: I(MG.weekBest()), mw: I(MG.weekKey()), ...(MG.prevBest() ? { pm: I(MG.prevBest()), pw: I(MG.weekKey() - 1) } : {}), fl: I(MG.flightBest()), flw: I(MG.weekKey()), ...(MG.flightPrev() ? { fpm: I(MG.flightPrev()), fpw: I(MG.weekKey() - 1) } : {}), ...(G3_ON ? { g3: I(MG.gBest()), g3w: I(MG.weekKey()), ...(MG.gPrev() ? { g3pm: I(MG.gPrev()), g3pw: I(MG.weekKey() - 1) } : {}) } : {}), build: I(BUILD), updated: I(Date.now()) } };   // mg/mw: «Зельеварка» best of this week
     const r = await fetch(`${TOP_URL}/${A.uid}_w${WORLD}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + A.tok }, body: JSON.stringify(body) });
     if (r.ok) topSentKey = key;
   } catch (e) { /* offline: next time */ }
@@ -6787,7 +6787,7 @@ const MG_GAMES = {
   p: { cur: 'mg', w: 'mw', pm: 'pm', pw: 'pw', title: WORLD === 2 ? 'Огранка самоцветов' : 'Зельеварка', icon: WORLD === 2 ? '💎' : '🧪', mark: ' 🏆', best: () => MG.weekBest(), prev: () => MG.prevBest(), due: () => MG.prizeDue(), claim: () => MG.claim() },
   f: { cur: 'fl', w: 'flw', pm: 'fpm', pw: 'fpw', title: WORLD === 2 ? 'Вагонетка в штольне' : 'Полёт через кольца', icon: WORLD === 2 ? '⛏️' : '🪽', mark: WORLD === 2 ? ' ⛏️' : ' 🪽', best: () => MG.flightBest(), prev: () => MG.flightPrev(), due: () => MG.flightPrizeDue(), claim: () => MG.claimFlight() },
 };
-if (WORLD === 2) MG_GAMES.g = { cur: 'g3', w: 'g3w', pm: 'g3pm', pw: 'g3pw', title: 'Башня из руды', icon: '🏗️', mark: ' 🏗️', best: () => MG.gBest(), prev: () => MG.gPrev(), due: () => MG.gPrizeDue(), claim: () => MG.claimG() };   // the third game's weekly table (fields g3*)
+MG_GAMES.g = { cur: 'g3', w: 'g3w', pm: 'g3pm', pw: 'g3pw', title: WORLD === 2 ? 'Башня из руды' : 'Рыбалка', icon: WORLD === 2 ? '🏗️' : '🎣', mark: WORLD === 2 ? ' 🏗️' : ' 🎣', best: () => MG.gBest(), prev: () => MG.gPrev(), due: () => MG.gPrizeDue(), claim: () => MG.claimG() };   // the third game's weekly table (fields g3*)
 const G3_ON = true;   // Firestore rules allow g3 / g3w / g3pm / g3pw
 let mgSub = 'p';
 function mgLastWeek(g = 'p') {   // last week's table of this world: an entry still in that week or already moved on (previous-week fields)
@@ -7374,5 +7374,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=518').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=519').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }

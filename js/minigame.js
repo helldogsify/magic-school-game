@@ -6,7 +6,7 @@
 
 const N = 7;                      // board 7x7
 const ROUND = 90;                 // seconds per round (the same for everybody: fair for a weekly tournament)
-const CH_MAX = 3, CH_MS = 60 * 60000;   // +1 rewarded attempt per hour (was 20 min), one pool for both worlds (her «Очень много попыток, еще и двух мирах»)
+const CH_MAX = 6, CH_MS = 60 * 60000;   // build 516: 6 tries per world (her «минимум 4 ... лучше наверное 6»), still +1 per hour;   // +1 rewarded attempt per hour (was 20 min), one pool for both worlds (her «Очень много попыток, еще и двух мирах»)
 const CH_KEY = 'magicschool.mgch';
 const STAR = [2700, 4700, 7300];   // build 4xx: tiers raise scores ~1/3 (tools/mg_sim.mjs: random 3260, average 4470, good 6130, fast 7850); was 2000/3500/5500  // score for 1/2/3 stars (calibrated with tools/mg_sim.mjs)
 const MAX_MIN = 10;               // the best round pays 10 minutes of the school's income
@@ -15,7 +15,8 @@ const BOOST_CAP_MIN = 60;         // same cap as gifts (BOOST_MAX_MIN in game.js
 import { runFlight, loadFlightArt } from './flight.js?v=5';   // bump when flight.js changes
 import { runCart } from './cart.js?v=1';
 import { runGem, loadGemArt } from './gem.js?v=1';
-import { runTower, loadTowerArt } from './tower.js?v=2';   // world 2: «Башня из руды»   // world 2: «Огранка самоцветов»   // world 2: «Вагонетка в штольне» (bump when cart.js changes)
+import { runTower, loadTowerArt } from './tower.js?v=2';
+import { runFish, loadFishArt } from './fish.js?v=1';   // world 1: «Рыбалка»   // world 2: «Башня из руды»   // world 2: «Огранка самоцветов»   // world 2: «Вагонетка в штольне» (bump when cart.js changes)
 const W2 = () => !!(A && A.world && A.world() === 2);
 // the flight's words in world 2 (the cart uses the same shell, records and weekly table)
 const cw = (t) => (W2() ? String(t).replace(/искорки \+1 очко/, 'руда +1 очко').replace(/искорки \+1/, 'руда +1').replace(/искорок/g, 'руды').replace(/золотые перья вдвое чаще/, 'каски вдвое чаще').replace(/защитой пера|защита пера/, 'с каской').replace(/огненный щит/, 'каска').replace(/щит и реже задевает тучки/, 'каска и реже задевает завалы').replace(/ветер не страшен/, 'видит в темноте').replace(/обычный полёт/, 'обычная поездка').replace(/Перо с собой/, 'Каска с собой').replace(/Магнит искорок/, 'Магнит руды') : t);
@@ -365,7 +366,7 @@ export function open() {
   root.addEventListener('click', onClick);
   emaSnap = (A.rate ? A.rate() : st().ema) || 0;   // build audit 2026-11-24: the steady rate: a reward right before no longer multiplies the next one   // prices and rewards use the income of the moment the mini-game was opened
   A.onOpen && A.onOpen();
-  loadFlightArt(); if (W2()) { loadGemArt(); loadTowerArt(); }
+  loadFlightArt(); if (W2()) { loadGemArt(); loadTowerArt(); } else loadFishArt();
   showChooser();
 }
 function showChooser() {   // the 🧪 pill: choose a mini-game (tries are shared)
@@ -373,7 +374,7 @@ function showChooser() {   // the 🧪 pill: choose a mini-game (tries are share
   root.innerHTML = A.emojiHtml(`<div class="mg-card">
     <h2>Мини-игры</h2>
     <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : n > CH_MAX ? '<br><span class="muted">выигранные попытки сверх 3 тоже твои</span>' : ''}<br><span class="muted">общие для всех мини-игр этого мира</span></p>
-    ${W2() ? `<button class="mg-pick" data-mgpick="gem"><span class="mg-pi">${sgImg('gem')}</span><span><b>Огранка самоцветов</b><br><span class="muted">режь камни, не трогай проклятые · рекорд недели ${num(m.wb || 0)}</span></span></button><button class="mg-pick" data-mgpick="tower"><span class="mg-pi">${sgImg('tower')}</span><span><b>Башня из руды</b><br><span class="muted">строй башню как можно выше · рекорд недели ${num(g3().wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button>`}
+    ${W2() ? `<button class="mg-pick" data-mgpick="gem"><span class="mg-pi">${sgImg('gem')}</span><span><b>Огранка самоцветов</b><br><span class="muted">режь камни, не трогай проклятые · рекорд недели ${num(m.wb || 0)}</span></span></button><button class="mg-pick" data-mgpick="tower"><span class="mg-pi">${sgImg('tower')}</span><span><b>Башня из руды</b><br><span class="muted">строй башню как можно выше · рекорд недели ${num(g3().wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button><button class="mg-pick" data-mgpick="fish"><span class="mg-pi">${sgImg('fish')}</span><span><b>Рыбалка</b><br><span class="muted">лови рыбу на лесном озере · рекорд недели ${num(g3().wb || 0)}</span></span></button>`}
     ${W2() ? `<button class="mg-pick" data-mgpick="f"><span class="mg-pi">${CART_ICON}</span><span><b>Вагонетка в штольне</b><br><span class="muted">мчись по рельсам до первого завала · рекорд недели ${num(f.wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=2" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>`}
     <button class="btn wide ghost" data-mgback>В школу</button>
   </div>`);
@@ -853,6 +854,10 @@ const SG = {
     desc: 'Из шахты вылетают камни — проводи по ним пальцем, чтобы разрезать. Из каждого выпадает самоцвет. Камень, который упал обратно целым, отнимает жизнь (их три). Чёрный проклятый камень резать нельзя!',
     more: 'Камень +10, золотая жеода +30, три и больше камней одним взмахом — серия и бонус. Камни летят всё чаще.',
     res: (r) => `самоцветов: ${r.rings || 0} · жеод: ${r.sparks || 0}`, lost: 'Ой, проклятый камень!', win: 'Отличная огранка!', go: 'Резать', more1: 'Ещё огранка', cont: '💎 Ещё жизнь' },
+  fish: { title: 'Рыбалка', icon: '🎣', stars: [50, 120, 220], run: runFish, rec: () => g3(),
+    desc: 'Нажми — закинешь удочку. Когда поплавок нырнёт и появится «Клюёт!», сразу нажми, чтобы подсечь. Потом держи палец — тянешь рыбу, отпусти — леска ослабнет. Держи натяжение в зелёной зоне: слишком сильно — леска лопнет, слишком слабо — рыба уйдёт.',
+    more: 'Голубая рыбка +10, карп +20, волшебная рыба +40, золотая рыбка +80, а иногда попадается старый ботинок. Раунд — 60 секунд.',
+    res: (r) => `рыб: ${r.rings || 0} · редких: ${r.sparks || 0}`, lost: 'Время вышло!', win: 'Отличный улов!', go: 'Рыбачить', more1: 'Ещё рыбалка', cont: '⏳ +15 секунд' },
   tower: { title: 'Башня из руды', icon: '🏗️', stars: [120, 300, 550], run: runTower, rec: () => g3(),
     desc: 'Кран раскачивает глыбу руды. Нажми — и она упадёт на башню. Что свисает за край, отваливается, и следующая глыба становится уже. Промахнёшься мимо башни — конец.',
     more: 'Каждый этаж +10. Точно в край — «Идеально!» и бонус, три идеальных подряд возвращают ширину. Каждый десятый этаж — кристальный, +20. Кран раскачивается всё быстрее.',
