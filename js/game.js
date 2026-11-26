@@ -1,18 +1,18 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=572';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=573';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=572';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=572';
-import { initMinigame } from './minigame.js?v=572';
-import { initChests } from './chests.js?v=572';
-import { initValley } from './valley.js?v=572';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=572';
-import { initLore } from './lore.js?v=572';
-import { initAvatar } from './avatar.js?v=572';
-import { initStats } from './stats.js?v=572';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=573';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=573';
+import { initMinigame } from './minigame.js?v=573';
+import { initChests } from './chests.js?v=573';
+import { initValley } from './valley.js?v=573';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=573';
+import { initLore } from './lore.js?v=573';
+import { initAvatar } from './avatar.js?v=573';
+import { initStats } from './stats.js?v=573';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -40,7 +40,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 572;   // keep equal to the ?v= number in index.html
+const BUILD = 573;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -89,7 +89,7 @@ const BAL = { ...BAL_NEW };   // live since build 153 (tuned with the pacing sim
 const buildCost = (i) => (WORLD <= 2 && BAL.build[i] !== undefined ? BAL.build[i] : CLASSES[i].build);
 const buildTime = (i) => (WORLD <= 2 && BAL.buildTime[i] !== undefined ? BAL.buildTime[i] : CLASSES[i].buildTime);
 const cls = (id) => S.classes[CLASSES.findIndex((c) => c.id === id)];
-const isOpen = (i) => S.classes[i].built && Date.now() >= S.classes[i].buildEnd;
+const isOpen = (i) => S.classes[i].built && Date.now() >= S.classes[i].buildEnd && !S.classes[i].bs;   // bs: a staged build in progress (M2)
 const kindSum = (i, kind) => CLASSES[i].items.reduce((a, it, k) => a + (it.kind === kind ? S.classes[i].items[k] : 0), 0);
 const rawSuccess = (i) => BAL.chance0 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kindSum(i, 'success');
 const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
@@ -2422,6 +2422,7 @@ function stepWorld(dt, live = false) {
   concPlace(); stepConcierge(dt); if (NEWDORM) stepConcierge2(dt);
   wakeSleepers();
   if (cantBuilt() && S.cant.end && Date.now() >= S.cant.end) { S.cant.end = 0; toast(WORLD === 2 ? '🍖 Пиршественный зал открыт!' : '🍽️ Столовая открыта!'); dirtyPanel = true; staticKey = ''; }
+  stepStages(live);
   S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; STATS.ev('built', { c: CLASSES[i].id }); toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; staticKey = ''; } });
   stepAgents(dt, live);
   stepTower(dt);
@@ -2815,7 +2816,7 @@ function tkCrowded() {   // the class with the most students really waiting (doo
 }
 function tkRank() {   // [{o, g, r}] the upgrades the model values, best gain per coin first (affordable within ~30 min of income)
   const R = tkInc(), budget = (S.coins || 0) + R * 30, val = [];
-  for (const o of window.__sim.options()) { if ((o.stars && schoolStars() < o.stars) || o.act === 'build' || o.cost > budget) continue; const g = tkGain(o); if (g > 0) val.push({ o, g, r: g / o.cost }); }
+  for (const o of window.__sim.options()) { if ((o.stars && schoolStars() < o.stars) || o.act === 'build' || o.act === 'bstage' || o.cost > budget) continue; const g = tkGain(o); if (g > 0) val.push({ o, g, r: g / o.cost }); }
   return val.sort((a, b) => b.r - a.r);
 }
 function tkWiseOf(d, i) {   // before a purchase: one of the 3 best upgrades now, or a good answer to a riddle on screen (the player's own choice)
@@ -3447,7 +3448,7 @@ function stonesAdd(n, key, why) {   // key: a one-time source (never paid twice)
 }
 const ST_ACH = [   // big one-time goals, per world (key wN_id; the second world's opening once), amounts in stones
   { id: 'grad1k', t: '1 000 выпускников', n: 5, ok: () => S.stats.graduated >= 1000 },
-  { id: 'allbuilt', t: 'Все классы построены', n: 20, ok: () => S.classes.every((c) => c.built) },
+  { id: 'allbuilt', t: 'Все классы построены', n: 20, ok: () => S.classes.every((c, i) => isOpen(i)) },
   { id: 'master', t: WORLD === 2 ? 'Первый Хранитель' : 'Первый Мастер', n: 20, ok: () => ((S.stats.ranks || [])[5] || 0) > 0 },
   { id: 'grad100k', t: '100 000 выпускников', n: 15, ok: () => S.stats.graduated >= 100000 },
   { id: 'w2', t: 'Открыт второй мир', n: 15, ok: () => (stMeta().unlocked || []).includes(2) },
@@ -4226,7 +4227,7 @@ function layExtra(i, s, add) {   // sprites added in the editor
 }
 function editState() {   // the editor's school: every class built, at the chosen size, all items at the chosen stage, full desks
   freshState(); noSave = true;
-  S.classes.forEach((c, i) => { c.built = true; c.buildEnd = 0; c.teacher = 10; if (!CLASSES[i].final) c.size = EDIT.size; c.items = c.items.map(() => EDIT.stage); });
+  S.classes.forEach((c, i) => { c.built = true; c.buildEnd = 0; delete c.bs; c.teacher = 10; if (!CLASSES[i].final) c.size = EDIT.size; c.items = c.items.map(() => EDIT.stage); });
   S.classes.forEach((c, i) => { c.desks = maxDesksOf(i); }); S.tourDone = true;   // no intro tour over the room
   S.cant = { built: true, end: 0, cook: 1, tables: 1, menu: 1 }; S.shop = { built: true, end: 0, seller: 1, shelves: 1, goods: 1 }; S.tower = { built: true, end: 0, cap: 0, res: [], wait: [] };   /* every building stands in the editor */
   S.dirBuilt = true; S.dirEnd = 0; S.dormUp.room2 = true; S.dormUp.room2End = 0;
@@ -4821,7 +4822,7 @@ function siteGround(c, L, B, R, F, center) {
   fenceEdge(c, L, F); fenceEdge(c, F, R);
 }
 const BUILD_T0 = {};   // other buildings: the time left when first seen gives the bar its length
-function buildFx(key, s, left, total) {
+function buildFx(key, s, left, total, lab = null) {
   const now = performance.now() / 1000, cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2;
   if (!total) { BUILD_T0[key] = Math.max(BUILD_T0[key] || 0, left); total = BUILD_T0[key]; }
   const prog = Math.max(0, Math.min(1, 1 - left / Math.max(1, total)));
@@ -4844,9 +4845,9 @@ function buildFx(key, s, left, total) {
   // the board: «Строится» + progress bar + time left
   const c = at(cx, cy); ctx.fillStyle = '#8a5f38'; ctx.fillRect(c.x - 2.5, c.y - 4, 5, 20);
   ctx.fillStyle = '#f3dcb2'; rr(c.x - 46, c.y - 34, 92, 34, 7); ctx.fill(); ctx.strokeStyle = '#a5744a'; ctx.lineWidth = 2; ctx.stroke();
-  text(`Строится · ${Math.round(prog * 100)}%`, c.x, c.y - 25, 9, '#5d4a3a');
+  text(lab ? lab[0] : `Строится · ${Math.round(prog * 100)}%`, c.x, c.y - 25, lab ? 8 : 9, '#5d4a3a');
   ctx.fillStyle = '#e2c79c'; rr(c.x - 38, c.y - 18, 76, 7, 3.5); ctx.fill(); ctx.fillStyle = '#7b5cd6'; rr(c.x - 38, c.y - 18, Math.max(7, 76 * prog), 7, 3.5); ctx.fill();
-  text(left >= 3600 ? `${Math.floor(left / 3600)} ч ${Math.floor((left % 3600) / 60)} мин` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, c.x, c.y - 5, 9.5, '#5a3fb0');
+  text(lab ? lab[1] : left >= 3600 ? `${Math.floor(left / 3600)} ч ${Math.floor((left % 3600) / 60)} мин` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, c.x, c.y - 5, 9.5, '#5a3fb0');
 }
 function drawPlot(c, s, ci, L, B, R, F, center) {
   const next = S.classes.findIndex((q) => !q.built) === ci;
@@ -5371,8 +5372,8 @@ function render() {
     const st = S.classes[i]; if (!st.built) continue;
     const s = slotOf(i);
     if (!isOpen(i)) {
-      const c = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), left = Math.max(0, Math.ceil((st.buildEnd - Date.now()) / 1000));
-      add((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, () => buildFx('c' + i, s, left, buildTime(i)));   // magic construction (her «Да» 2026-11-25)
+      const b = st.bs, left = b ? bsLeft(st) : Math.max(0, Math.ceil((st.buildEnd - Date.now()) / 1000));
+      add((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, () => buildFx('c' + i, s, left, b ? buildTime(i) * BS[b.n - 1].t : buildTime(i), b ? bsLabel(i) : null));   // magic construction (her «Да» 2026-11-25)
       continue;
     }
     const tp = teacherWalk(i);   // the teacher strolls along the front of the class as if explaining (her wish 2026-11-21)
@@ -5629,6 +5630,7 @@ const nnC = (label, a, b, mx) => { const f = fmt(a) === fmt(b) && a !== b ? (v) 
 function classPanel(i) {
   return () => {
     const C = CLASSES[i], st = S.classes[i];
+    if (st.bs) return bsHtml(i);
     if (!isOpen(i)) {
       const left = Math.max(0, Math.ceil((st.buildEnd - Date.now()) / 1000));
       return `<div class="sh-head"><span class="remoji big">🏗️</span><div><h2>${C.name}</h2><div class="muted">Идёт стройка: ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</div></div><button class="x" data-close>✕</button></div>`;
@@ -5754,9 +5756,84 @@ function receptionPanel() {
     <p class="muted">Сейчас школа принимает ~${perMin(1 / Math.max(1e-6, (S.rt && S.rt.enrolled) || 0))} новичков в минуту${adsFull() ? ', больше не помещается' : ''}.</p>
     <p class="muted">Всего поступило: ${S.stats.enrolled} · выпускников: ${S.stats.graduated} · ушли расстроенными: ${S.stats.left || 0}</p>`;
 }
+// ======================= staged construction (mechanics rework M2, Maria 2026-11-26 «Да, всё хорошо. Делай.») =======================
+// st.bs = { n: stage 1..3, end: when the stage's timer ends, g0: graduates at the foundation, gn: graduates the walls need, told }
+const staged = (i) => buildTime(i) >= 3600 && !CLASSES[i].final;
+const BS = [{ n: 'Фундамент', e: '🧱', c: 0.6, t: 0.3 }, { n: 'Стены', e: '🏗️', c: 0.4, t: 0.35 }, { n: 'Крыша и магия', e: '✨', c: 0, t: 0.35 }];
+const bsDur = (i, n) => buildTime(i) * BS[n - 1].t * 1000;
+const bsCost = (i, n) => Math.round(buildCost(i) * BS[n - 1].c);
+const bsLeft = (st) => Math.max(0, Math.ceil(((st.bs.end || 0) - Date.now()) / 1000));
+const bsSkipPrice = (st) => Math.max(1, Math.ceil(bsLeft(st) / 900));
+const tLeft = (x) => (x >= 3600 ? `${Math.floor(x / 3600)} ч ${Math.floor((x % 3600) / 60)} мин` : `${Math.floor(x / 60)}:${String(x % 60).padStart(2, '0')}`);
+function bsNext(i) {   // what the next stage needs; null while a stage is being built or after the last one
+  const st = S.classes[i], b = st.bs; if (!b || bsLeft(st) > 0 || b.n >= 3) return null;
+  const n = b.n + 1;
+  return { n, cost: bsCost(i, n), stars: n === 3 ? starsNeed(i) : 0, grads: n === 2 ? b.gn : 0, gHave: n === 2 ? Math.max(0, Math.min(S.stats.graduated - b.g0, b.gn)) : 0 };
+}
+const bsReady = (i) => { const r = bsNext(i); return !!r && r.gHave >= r.grads && schoolStars() >= r.stars && S.coins >= r.cost; };
+function bsStart(i) {   // the foundation is laid (paid by the click handler)
+  const st = S.classes[i];
+  st.built = true; st.buildEnd = 0; st.bs = { n: 1, end: Date.now() + bsDur(i, 1), g0: S.stats.graduated, gn: Math.max(5, Math.round(S.stats.graduated * 0.02)), told: 1 };
+  STATS.ev('stage', { n: 1, c: i }); toast(`🧱 Фундамент заложен: ${CLASSES[i].name}`);
+}
+function bsAdvance(i) {
+  const st = S.classes[i], r = bsNext(i); if (!r) return;
+  if (r.gHave < r.grads) { toast(`Нужно ещё 🎓 ${fmt(r.grads - r.gHave)} выпускников`); return; }
+  if (r.stars && schoolStars() < r.stars) { toast(`Нужно ⭐ ${r.stars} звёзд школы`); return; }
+  if (r.cost && !spend(r.cost)) return;
+  if (r.stars) spendStars(r.stars);
+  st.bs.n = r.n; st.bs.end = Date.now() + bsDur(i, r.n); st.bs.told = r.n; STATS.ev('stage', { n: r.n, c: i });
+  toast(`${BS[r.n - 1].e} ${BS[r.n - 1].n}: стройка пошла!`); save();
+}
+function bsSkip(i) {
+  const st = S.classes[i]; if (!st.bs || bsLeft(st) <= 0) return;
+  const pr = bsSkipPrice(st); if (stones() < pr) { toast(`Нужно ${ST_ICON} ${pr}`); return; }
+  if (!stonesAdd(-pr, '', 'bskip')) { toast('Не получилось сохранить покупку'); return; }
+  st.bs.end = Date.now(); save(); toast(`${ST_ICON} Этап «${BS[st.bs.n - 1].n}» готов!`);
+}
+let bsShow = -1;
+function stepStages(live) {   // stage timers: tell once when the next stage can start, open the class after the roof
+  S.classes.forEach((c, i) => {
+    const b = c.bs; if (!b || Date.now() < (b.end || 0)) return;
+    if (b.n >= 3) { delete c.bs; STATS.ev('built', { c: CLASSES[i].id }); dirtyPanel = true; staticKey = '';
+      if (live && !ffwd && !panel) { bsShow = i; openPanel(bsDonePanel); } else toast(`✨ Построено: ${CLASSES[i].name}!`); return; }
+    if (b.told !== b.n + 10) { b.told = b.n + 10; dirtyPanel = true; staticKey = ''; if (live && !ffwd) toast(`${BS[b.n - 1].e} ${BS[b.n - 1].n} готов: ${CLASSES[i].name} — пора дальше!`); }
+  });
+}
+function bsDonePanel() {
+  const C = CLASSES[bsShow];
+  return `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>🎉 Готово: ${C.name}!</h2><div class="muted">Новый класс открыт</div></div><button class="x" data-close>✕</button></div>
+    ${WORLD === 1 ? `<div class="card up" style="align-items:center">${tikhonPic(56)}<div class="grow">«Запишу в летопись: в школе новый класс. Ученики уже толпятся у двери, директор.»</div></div>` : ''}
+    <p>Ученики будут приходить сюда после предыдущего урока. Плата за урок: <b>🪙${fmt(C.tuition)}</b>.</p>
+    <button class="btn hot wide" data-close>Ура! ➜</button>`;
+}
+function bsLabel(i) {   // the two lines of the board on the map (plain text: the canvas draws no emoji here)
+  const st = S.classes[i], b = st.bs, left = bsLeft(st), top = `${['Фундамент', 'Стены', 'Крыша'][b.n - 1]} · этап ${b.n}/3`;
+  if (left > 0) return [top, tLeft(left)];
+  const r = bsNext(i); if (!r) return [top, 'готово!'];
+  if (r.gHave < r.grads) return ['Нужны выпускники', `${fmt(r.gHave)} из ${fmt(r.grads)}`];
+  if (r.stars && schoolStars() < r.stars) return ['Нужны звёзды школы', `${schoolStars()} из ${r.stars}`];
+  return ['Можно строить дальше!', 'нажми на стройку'];
+}
+function bsHtml(i) {
+  const C = CLASSES[i], st = S.classes[i], b = st.bs, left = bsLeft(st), r = bsNext(i);
+  const steps = BS.map((x, k) => { const n = k + 1, done = n < b.n || (n === b.n && left === 0), cur = n === b.n && left > 0;
+    return `<div class="q ${cur ? 'ok' : ''}" style="${!done && !cur ? 'opacity:.55' : ''}"><span class="qi">${done ? '✅' : x.e}</span><span class="qt"><b>${n}. ${x.n}</b>${cur ? ` <span class="qp">${tLeft(left)}</span>` : ''}</span></div>`; }).join('');
+  let act = '';
+  if (left > 0) act = `<p class="muted">Этап строится сам — можно заниматься школой. Не хочется ждать — этап можно закончить сразу.</p><button class="btn ghost wide" data-act="bskip" data-i="${i}">Закончить этап сейчас ${ST_IMG(16)} ${bsSkipPrice(st)}</button>`;
+  else if (r) { const X = BS[r.n - 1], need = [];
+    if (r.grads) need.push(`🎓 Выпускники: <b>${fmt(r.gHave)}/${fmt(r.grads)}</b> — ученики помогают строить стены`);
+    if (r.stars) need.push(`⭐ Звёзды школы: <b>${Math.min(schoolStars(), r.stars)}/${r.stars}</b> — их дают проверки инспектора 🧐${calm() ? ' (выключи спокойный режим в ⚙️, чтобы он приходил)' : ''}`);
+    act = `${need.length ? `<p class="muted">${need.join('<br>')}</p>` : ''}<button class="btn wide ${bsReady(i) ? 'hot' : ''}" data-cost="${r.cost}" data-act="bstage" data-i="${i}" ${r.gHave >= r.grads && schoolStars() >= r.stars ? '' : 'disabled'}>${X.e} ${r.n === 2 ? 'Возвести стены' : 'Накрыть крышу'} <span class="cost">${r.cost ? '🪙' + fmt(r.cost) : ''}${r.stars ? ' ⭐' + r.stars : ''}</span></button>`; }
+  return `<div class="sh-head"><span class="remoji big">🏗️</span><div><h2>${C.name}</h2><div class="muted">Стройка: этап ${b.n} из 3</div></div><button class="x" data-close>✕</button></div><div class="qbar">${steps}</div>${act}`;
+}
 function buildPanel(i) {
   return () => {
     const C = CLASSES[i];
+    if (staged(i)) return `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">Новый класс</div></div><button class="x" data-close>✕</button></div>
+      <p>Ученики будут приходить сюда после предыдущего урока. Плата за урок: <b>🪙${fmt(C.tuition)}</b>.</p>
+      <p class="muted">Стройка идёт в 3 этапа: 🧱 фундамент → 🏗️ стены → ✨ крыша и магия, всего около ${+(buildTime(i) / 3600).toFixed(1)} ч. Для стен понадобятся выпускники и 🪙${fmt(bsCost(i, 2))}${starsNeed(i) ? `, для крыши — ⭐ ${starsNeed(i)} звёзд школы` : ''}.</p>
+      <button class="btn wide" data-cost="${bsCost(i, 1)}" data-act="build" data-i="${i}">🧱 Заложить фундамент <span class="cost">🪙${fmt(bsCost(i, 1))}</span></button>`;
     return `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">Новый класс</div></div><button class="x" data-close>✕</button></div>
       <p>Ученики будут приходить сюда после предыдущего урока. Плата за урок: <b>🪙${fmt(C.tuition)}</b>.</p>
       <p class="muted">Стройка займёт ${buildTime(i) >= 3600 ? +(buildTime(i) / 3600).toFixed(1) + ' ч' : buildTime(i) >= 60 ? Math.round(buildTime(i) / 60) + ' мин' : buildTime(i) + ' с'}.</p>
@@ -6857,6 +6934,9 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'libspeed') { if (libUp().speed < MAX_LIB_LVL && spend(libSpeedCost())) libUp().speed++; }
   else if (d.act === 'libbonus') { if (libUp().bonus < MAX_LIB_LVL && spend(libBonusCost())) libUp().bonus++; }
   else if (d.act === 'conc') { if (dormUp().conc < MAX_CONC && spend(concCost())) dormUp().conc++; }
+  else if (d.act === 'build' && staged(i)) { if (!st.built && spend(bsCost(i, 1))) { bsStart(i); panel = classPanel(i); } }
+  else if (d.act === 'bstage') bsAdvance(i);
+  else if (d.act === 'bskip') bsSkip(i);
   else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= buildCost(i) && spendStars(starsNeed(i)) && spend(buildCost(i))) { st.built = true; st.buildEnd = Date.now() + buildTime(i) * 1000; panel = classPanel(i); } }
   else return;
   if (tkW && S.coins < tkC0) { if (tkW.rest) toast('🦉 Эта загадка уже разгадана — загляни в другие мои загадки'); else if (tkW.miss) tkMiss(tkW.miss); else tkWisePay(tkC0 - S.coins, tkW.share, tkW.title, tkW.fam); tkFrozen = null; }
@@ -7845,7 +7925,8 @@ window.__sim = {
     const o = [], add = (act, cost, x = {}) => o.push({ act, cost, ...x });
     CLASSES.forEach((C, i) => {
       const st = S.classes[i];
-      if (!st.built) { add('build', buildCost(i), { i, stars: starsNeed(i) }); return; }
+      if (!st.built) { add('build', staged(i) ? bsCost(i, 1) : buildCost(i), { i, stars: staged(i) ? 0 : starsNeed(i) }); return; }
+      if (st.bs) { const r = bsNext(i); if (r && r.gHave >= r.grads) add('bstage', r.cost, { i, stars: r.stars }); return; }
       if (!isOpen(i)) return;
       if (st.teacher < MAX_TEACHER_LEVEL) add('teacher', teacherCost(i), { i });
       if (st.desks < maxDesksOf(i)) add('desk', deskCost(i), { i });
@@ -7913,5 +7994,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=572').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=573').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
