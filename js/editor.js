@@ -4,7 +4,7 @@
 // Save = draft on the PC (editor API through lazy.vazuza.love) + this device; Publish = the PC commits layouts/layouts.json as a build.
 export function initEditor(A) {
   const E = A.EDIT, $ = (s, r = document) => r.querySelector(s);
-  const RMS = [{ id: 'REC', name: 'Приёмная', emoji: '🛎️' }, { id: 'DORM', name: 'Спальня', emoji: '🛏️' }, { id: 'DORM2', name: 'Спальня 2', emoji: '🛏️' }, { id: 'CANT', name: 'Столовая', emoji: '🍽️' }, { id: 'LIB', name: 'Библиотека', emoji: '📚' }, ...(A.pond && A.pond() ? [{ id: 'POND', name: 'Пруд', emoji: '🎣' }] : [])], RM = RMS.find((r) => r.id === E.cls);   /* rooms that are not classes */
+  const RMS = [{ id: 'REC', name: 'Приёмная', emoji: '🛎️' }, { id: 'DORM', name: 'Спальня', emoji: '🛏️' }, { id: 'DORM2', name: 'Спальня 2', emoji: '🛏️' }, { id: 'CANT', name: 'Столовая', emoji: '🍽️' }, { id: 'LIB', name: 'Библиотека', emoji: '📚' }, { id: 'TOWER', name: 'Башня мастеров', emoji: '🏰' }, ...(A.pond && A.pond() ? [{ id: 'POND', name: 'Пруд', emoji: '🎣' }] : [])], RM = RMS.find((r) => r.id === E.cls);   /* rooms that are not classes */
   const ci = RM ? -1 : Math.max(0, A.CLASSES.findIndex((c) => c.id === E.cls)), C = RM || A.CLASSES[ci], cid = C.id, s = RM ? (RM.id === 'POND' ? A.pond() : A.SLOTS[RM.id]) : A.slotOf(ci);   /* the pond is not a slot: its box (game.js pondBox) */
   const KEY_LS = 'magicschool.editor.key', DRAFT_LS = 'magicschool.editor.draft';
   const q = new URLSearchParams(location.search); if (q.get('key')) { localStorage.setItem(KEY_LS, q.get('key')); const u = new URL(location.href); u.searchParams.delete('key'); history.replaceState(null, '', u); }   // the key stays on this device, not in the address
