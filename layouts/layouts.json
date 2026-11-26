@@ -1550,15 +1550,6 @@
    },
    "add": [
     {
-     "src": "canteen/bench",
-     "h": 32,
-     "ax": "x0",
-     "ay": "y1",
-     "x": 0.5,
-     "y": 1.2,
-     "flip": true
-    },
-    {
      "src": "canteen/iso_menu",
      "h": 32,
      "ax": "x0",
