@@ -327,13 +327,21 @@ function facts() {
     master: (sp) => Object.keys(f.forms).some((k) => k.startsWith(sp + ':5') && f.forms[k].seen) };
 }
 const CH_DATE = (t) => (t ? new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
-function minePages(f) {   // facts().chron = [{ n, t, title, e, built, g }] written by game.js when a chapter closes
+const TD_MONTH = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+function dayPages(f) {   // s7 «☀️ Сегодня»: every closed day is a line of the book, one page per month (game.js facts().tdays = [{ t, th, x }])
+  const by = {}; for (const x of f.tdays || []) { const d = new Date(x.t), id = `td${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`; (by[id] ||= { d, L: [] }).L.push(x); }
+  return Object.keys(by).sort().map((id) => { const { d, L } = by[id], n = L.length, k = n % 10, m = n % 100, w = m > 10 && m < 20 ? 'хороших дней' : k === 1 ? 'хороший день' : k >= 2 && k <= 4 ? 'хороших дня' : 'хороших дней';
+    return { id, mine: 1, hand: 1, title: `Хорошие дни · ${TD_MONTH[d.getMonth()]} ${d.getFullYear()}`, icon: '☀️', sub: `${n} ${w}`,
+      layers: L.map((x) => ({ t: `${new Date(x.t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} · ${x.th}`, x: `${x.x ? x.x + ' ' : ''}Хороший был день.\n\n— летописец Тихон` })) }; });
+}
+function minePages(f) { return minePages0(f).concat(dayPages(f)); }
+function minePages0(f) {   // facts().chron = [{ n, t, title, e, built, g }] written by game.js when a chapter closes
   return (f.chron || []).slice().sort((a, b) => a.n - b.n).map((c) => ({ id: 'ch' + c.n, mine: 1, hand: 1, title: `Глава ${c.n}. ${c.title}`, icon: c.e || '📖', sub: CH_DATE(c.t),
     layers: [{ t: 'Запись Тихона', x: `Глава «${c.title}» окончена.${c.built ? ` В школе открылось новое: ${c.built}.` : ''}${c.g ? ` Выпускников к этому дню: ${c.g.toLocaleString('ru-RU')}.` : ''}${f.school ? ` Школа «${f.school}».` : ''}
 
 Записал летописец Тихон.` }] }));
 }
-const mineUnread = (f) => minePages(f).filter((p) => !(LS().seen[p.id] >= 1)).length;
+const mineUnread = (f) => minePages(f).filter((p) => openN(p, f) > (LS().seen[p.id] || 0)).length;   // s7: a month page of days gets new lines
 const openN = (p, f) => p.layers.filter((l) => !l.need || l.need(f)).length;
 const LS = () => { const s = S(); return (s.lore ||= { seen: {} }); };
 const unread = (f = facts()) => PAGES.reduce((n, p) => n + (openN(p, f) > (LS().seen[p.id] || 0) ? 1 : 0), 0) + mineUnread(f);
@@ -346,7 +354,7 @@ function pic(p, locked) { return p.img ? `<img class="lo-pic${locked ? ' lock' :
 function listHtml(f) {
   const tabs = CHAPTERS.map(([k, ic, nm]) => { const n = k === 'mine' ? mineUnread(f) : PAGES.filter((p) => p.ch === k && openN(p, f) > (LS().seen[p.id] || 0)).length;
     return `<button class="lo-tab${k === chap ? ' on' : ''}" data-lochap="${k}">${(QS()[k] || {}).done ? '🎓' : ic} ${nm}${n ? `<span class="lo-dot">${n}</span>` : ''}</button>`; }).join('');
-  if (chap === 'mine') { const L = minePages(f); return `<div class="lo-tabs">${tabs}</div><div class="lo-list">${L.length ? L.map((p) => `<button class="lo-card" data-lopage="${p.id}">${pic(p)}<div class="lo-ct"><b>${esc(p.title)}</b>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div>${LS().seen[p.id] >= 1 ? '' : '<span class="lo-new">новое</span>'}</button>`).join('') : '<div class="lo-card locked"><span class="lo-ico">📖</span><div class="lo-ct"><b>Здесь будет история твоей школы</b><small>Каждая дописанная глава ляжет сюда страницей</small></div></div>'}</div>`; }
+  if (chap === 'mine') { const L = minePages(f); return `<div class="lo-tabs">${tabs}</div><div class="lo-list">${L.length ? L.map((p) => `<button class="lo-card" data-lopage="${p.id}">${pic(p)}<div class="lo-ct"><b>${esc(p.title)}</b>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div>${openN(p, f) > (LS().seen[p.id] || 0) ? '<span class="lo-new">новое</span>' : ''}</button>`).join('') : '<div class="lo-card locked"><span class="lo-ico">📖</span><div class="lo-ct"><b>Здесь будет история твоей школы</b><small>Каждая дописанная глава ляжет сюда страницей</small></div></div>'}</div>`; }
   const secN = chap === 'secrets' ? `<div class="lo-cnt" style="margin:0 0 8px">🔮 Найдено тайн: ${PAGES.filter((p) => p.ch === 'secrets' && openN(p, f) > 0).length} из ${PAGES.filter((p) => p.ch === 'secrets').length}</div>` : '';
   const cards = secN + PAGES.filter((p) => p.ch === chap).map((p) => { const n = openN(p, f), all = p.layers.length, fresh = n > (LS().seen[p.id] || 0);
     if (!n) return `<div class="lo-card locked${p.secret ? ' secret' : ''}">${pic(p, true)}<div class="lo-ct"><b>???</b><small>🔒 ${p.secret ? '' : 'Откроется, '}${esc(p.layers[0].hint || '')}</small></div></div>`;

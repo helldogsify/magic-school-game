@@ -1,20 +1,23 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=590';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=591';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=590';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=590';
-import { initMinigame } from './minigame.js?v=590';
-import { initChests } from './chests.js?v=590';
-import { initValley } from './valley.js?v=590';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=590';
-import { initLore } from './lore.js?v=590';
-import { initAvatar } from './avatar.js?v=590';
-import { initStats } from './stats.js?v=590';
-import { initStudents } from './students.js?v=590';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initAnnex } from './annex.js?v=590';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=591';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=591';
+import { initMinigame } from './minigame.js?v=591';
+import { initChests } from './chests.js?v=591';
+import { initValley } from './valley.js?v=591';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=591';
+import { initLore } from './lore.js?v=591';
+import { initAvatar } from './avatar.js?v=591';
+import { initStats } from './stats.js?v=591';
+import { initStudents } from './students.js?v=591';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes } from './heroes.js?v=591';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=591';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=591';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=591';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -39,7 +42,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
   music: { on: () => musicOn(), pause: () => music.pause(), resume: () => musicStart() },
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; }, onClose: () => { renderInsp(); updateHud(); },   // «Летопись» (her wish 2026-11-23)
   facts: () => ({ allBuilt: S.classes.every((c, i) => isOpen(i)), grads: S.stats.graduated || 0, masters: (S.stats.ranks || [])[5] || 0, forms: S.forms || {},
-    ch: CHAPTERS.filter((c, k) => chapDone(k)).length, chron: S.chron || [], school: schoolName(),   // rework step 4: the book knows the chronicle
+    ch: CHAPTERS.filter((c, k) => chapDone(k)).length, chron: S.chron || [], tdays: TODAY.book(), /* s7: day lines of «Сегодня» */ school: schoolName(),   // rework step 4: the book knows the chronicle
     cls: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return i < 0 ? { built: false, lvl: 0 } : { built: isOpen(i), lvl: S.classes[i].teacher || 1 }; },
     has: (id) => (id === 'dorm2' ? NEWDORM && dorm2Built() : id === 'cant' ? cantBuilt() : id === 'shop' ? shopOpen() : id === 'dir' ? dirBuilt() : id === 'tower' ? towerOpen() : true) }) });
 
@@ -62,16 +65,37 @@ const STU = initStudents({ S: () => S, gate: () => gate(), species: () => SPECIE
   signK: () => signK(), onScreen: (x, y, mx, my) => onScreen(x, y, mx, my), gateTile: () => GATE_TILE, gateH: () => OUT_H.gate_big, fmt: (n) => fmt(n),
   formImg: (a) => formImg(formOf(a)), moodFace: (m) => moodFace(m), status: (a) => statusOf0(a),
   rankName: (a) => ((a.rk || 0) === 5 && SPECIES.includes(a.sp) ? 'Мастер ' + ELEMS[a.el || 0].name : RANKS[a.rk || 0]), rankNameRk: (r) => RANKS[r] || '', rankNameAt: (i) => RANKS[RANK_AT(i)] || '', rankAt: (i) => RANK_AT(i),
-  examChance: (a, i) => Math.max(0.05, Math.min(0.95, success(i) + (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + moodBonus(a) + STU.examB(a, i))),
+  examChance: (a, i) => Math.max(0.05, Math.min(0.95, success(i) + (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + moodBonus(a) + STU.examB(a, i) + HERO.examB(i))),
   rankNext: (a, i) => { const T = RANK_AT(i); return T && SPECIES.includes(a.sp) && (a.rk || 0) === T - 1 ? { name: RANKS[T], p: rankChance(i) } : null; },
   isOpen: (i) => i >= 0 && i < CLASSES.length && isOpen(i), rtPrice: (i, n) => paced(tuition(i) * n, 1),
   spend: (c) => { spendAct = 'retake'; return spend(c); }, addCoins: (c) => { S.coins += c; },
   retakeNow: (a) => { const g = a.goal; if (!g || g.t !== 'c' || !(g.i >= 0) || a.desk >= 0) return false; const L = waitList[g.i], k = L.indexOf(a); if (k >= 0) { L.splice(k, 1); pullWaiting(g.i); } goClass(a, g.i); return true; } });
+// rework step 7 (js/today.js): the daily bar «☀️ Сегодня» — deeds of the day, Tikhon's day theme, streak, the book line, lanterns
+const TODAY = initToday({ S: () => S, world: () => WORLD, classes: () => CLASSES, isOpen: (i) => isOpen(i), shopOpen: () => shopOpen(), cantOpen: () => cantOpen(),
+  obsBuilt: () => ANNEX.sfOff(), anxBuilt: (id) => !!(S && S.annex && S.annex[id] && S.annex[id].b), anxEv: () => ['greenh', 'obs', 'mirror'].some((id) => !!(S && S.annex && S.annex[id] && S.annex[id].b)),
+  gradN: () => lvN(20, 10), fmt: (n) => fmt(n), nice: (x) => nice(x), perMin: () => qPerMin(), moonNight: () => moonNight(), daylight: () => daylight(),
+  inspOn: () => !calm() && (!CHAPTERS.length || chapDone(0)), ch1: () => !CHAPTERS.length || chapDone(0), mates: () => Math.max(0, allyMates()), mgAny: () => ANNEX.mgAny(),
+  chestDone: () => { const c = S.chest; return !!c && c.day === qDay() && (c.k > 0 || c.done || c.dead); },
+  bonus: (n) => bonus(n), war: (k) => (k === 'day' ? warAdd('day', WAR_PTS.day) : warAdd('dq', WAR_PTS.dq)), stats: (n, x) => STATS.ev(n, x), toast: (t) => toast(t), save: () => save(),
+  refresh: () => { dirtyPanel = true; }, meta: () => stMeta(), metaPut: (m) => { try { localStorage.setItem('magicschool.meta', JSON.stringify(m)); } catch (e) { /* full storage */ } },
+  stones: (n, key) => stonesAdd(n, key), glog: (k, t) => glog(k, t, WORLD), iq: (pr, key, fn, opt) => iqWin(pr, key, fn, opt), hasIq: (k) => iqHas(k),
+  openPanel: (fn) => openPanel(fn), closePanel: () => closePanel(), qStyle: () => qStyle(), stImg: (n) => ST_IMG(n), tikhonPic: (h) => tikhonPic(h), emojiHtml: (h) => emojiHtml(h),
+  loreOn: () => WORLD === 1, book: (id) => LORE.openAt('mine', id), ffwd: () => ffwd, edit: () => !!EDIT, annexBal: () => ANNEX_BAL, glow: (rgb) => glowSprite(rgb), court: () => (WORLD === 1 && COURT ? courtC() : null),
+  go: ([k, i]) => { if (k === 'cls') goTarget([CLASS_SLOT[i], '[data-act="item"]']); else if (k === 'shop') goTarget(['SHOP', null]); else if (k === 'cant') goTarget(['CANT', null]);
+    else if (k === 'obs' || k === 'orchard') goTarget(['@anx:' + k, null]); else if (k === 'grad') goTarget(missionGo({ type: 'grad' }) || ['REC', null]); else if (k === 'moon') qGo(['@moon', null]);
+    else if (k === 'chest') qGo(['@chest', null]); else if (k === 'quests') { qTab = 'lvl'; openPanel(missionsPanel); } else if (k === 'ally') goTarget(['@ally', null]); else if (k === 'mg') goTarget(['@mg', null]); } });
+// heroes 8b (js/heroes.js): tower residents become heroes (roll, levels, skills, gear chest, posts: mentors, council, squads)
+const HERO = initHeroes({ S: () => S, towerUp: () => towerUp(), towerOpen: () => towerOpen(), towerCap: () => towerCap(), classes: () => CLASSES, isOpen: (i) => i >= 0 && i < CLASSES.length && isOpen(i),
+  nextId: () => S.nextId++, ffwd: () => ffwd, edit: () => !!EDIT, toast: (t) => toast(t), toastBig: (t) => toastBig(t), glog: (k, t) => glog(k, t, WORLD), stats: (n, x) => STATS.ev(n, x),
+  iq: (pr, key, fn) => iqWin(pr, key, fn), openPanel: (fn) => openPanel(fn), openTower: () => openPanel(towerPanel), refresh: () => { dirtyPanel = true; refreshPanel(); }, save: () => save(), sfx: (k) => sfx(k),
+  stones: () => stones(), stonesAdd: (n, why) => stonesAdd(n, '', why), fmt: (n) => fmt(n), resTitle: (r) => resTitle(r), spName: (sp) => SP_NAMES[sp] || '', elemName: (e) => ELEMS[e || 0].name, towerIn: () => TW.inN, world: () => WORLD, masterWord: () => TW.master,
+  pic: (r) => `<div class="fpic${r.rk === 5 ? ' master' : ''}"${r.rk === 5 ? ` style="--ec:rgb(${ELEMS[r.el || 0].col})"` : ''}><img src="${formImg(fkey(r.sp, r.rk, r.el || 0))}">${r.rk === 5 ? `<em>${ELEMS[r.el || 0].emo}</em>` : ''}</div>`,
+  slotOf: (i) => slotOf(i), teacherPos: (i) => teacherPos(i), drawCreature: (a, x, y, h, ex) => drawCreature(a, x, y, h, ex), emoji: (e, x, y, sz) => emoji(e, x, y, sz) });
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 590;   // keep equal to the ?v= number in index.html
+const BUILD = 591;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -127,7 +151,7 @@ const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
 const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance above the cap is not wasted: each 1% gives +2% tuition
 const W2_PAY = 0.5;   // build audit 2026-11-24: was 0.7; caravans now bring ~1/4 of world-2 income (w2_report.md). World 2 pays less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
 let FAME_K = 1; const FAME_STEP = 0.1;   // «Слава школы» (M8): +10 % per world whose chronicle is finished, set by fameUpd()
-const tuition = (i) => Math.round(FAME_K * CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY * relicK() : 1) * boostK() * (WORLD === 1 && S && S.lore && S.lore.prize ? 1.1 : 1));   // «Последняя ночь» prize   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
+const tuition = (i) => Math.round(FAME_K * CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY * relicK() : 1) * boostK() * (WORLD === 1 && S && S.lore && S.lore.prize ? 1.1 : 1) * TODAY.k('cls', i));   // s7: class day +10 %, graduation day +5 %   // «Последняя ночь» prize   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time) * (loreQ('teachers') ? 0.97 : 1);
 const itemCost = (i, k) => { const raw = CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, Math.min(25, S.classes[i].items[k])) * Math.pow(BAL.itemHi, Math.max(0, S.classes[i].items[k] - 25)); return Math.round(Math.max(raw, paced(raw, S.classes[i].items[k] + 1) * itemW(i))); };
 // build audit 2026-11-24: Herbology earns ~1/100 of Elements per lesson, but the pace floor priced its items like Elements' ones
@@ -157,7 +181,7 @@ const PRICE_FROZEN = new Map(); let PRICE_AT = 0;   // build audit 2026-11-24 (s
 // gets a new floor only when its own level changes (new key); all floors are renewed at most every 10 min, and only when a panel opens
 const paceFloor = (price, n) => { const k = Math.round(price) + '|' + n; let f = PRICE_FROZEN.get(k); if (f === undefined) { f = paceInc() * paceMin(n); PRICE_FROZEN.set(k, f); } return f; };
 const paced = (price, n) => Math.round(Math.max(price, paceFloor(price, n)));
-const arrivalInterval = () => 5 * Math.pow(0.9, adsLvl() - 1) / bossArrK();   // bossArrK: the director's contract tariff and ad campaigns (build 238, tester Ruslan's idea)
+const arrivalInterval = () => 5 * Math.pow(0.9, adsLvl() - 1) / bossArrK() / HERO.arrK();   // 8b: council   // bossArrK: the director's contract tariff and ad campaigns (build 238, tester Ruslan's idea)
 const recCost = () => paced(20 * Math.pow(BAL.rec, S.reception.level - 1), S.reception.level);
 const adsCost = () => paced(30 * Math.pow(BAL.ads, S.reception.ads - 1), S.reception.ads);
 
@@ -175,7 +199,7 @@ const shopOpen = () => WORLD <= 2 && !!(S && bReady(S.shop));
 const shopChance = () => 0.12 + 0.03 * (shopUp().shelves - 1);                 // share of students who drop in after a lesson
 const shopTime = () => 2.2 * Math.pow(0.88, shopUp().seller - 1);              // seconds to serve one
 const loreQ = (k) => !!(WORLD === 1 && S && S.lore && S.lore.quiz && S.lore.quiz[k] && S.lore.quiz[k].done);   // Tikhon's exam passed for chapter k (js/lore.js)
-const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1)) * (1 + 0.03 * (shopUp().seller - 1)) * (loreQ('school') ? 1.05 : 1)));   // build audit 2026-11-24: the seller also sells +3% dearer per level (his speed alone did nothing while the line was short)
+const shopPrice = () => Math.max(5, Math.round(fee() * (0.5 + 0.15 * (shopUp().goods - 1)) * (1 + 0.03 * (shopUp().seller - 1)) * (loreQ('school') ? 1.05 : 1) * TODAY.k('shop')));   // build audit 2026-11-24: the seller also sells +3% dearer per level (his speed alone did nothing while the line was short)
 const shopCost = (k) => paced(SHOP_COST * 0.4 * Math.pow(1.9, shopUp()[k] - 1), shopUp()[k]);
 const SHOP_SPOTS = (s) => [0, 1, 2, 3, 4, 5].map((k) => ({ x: s.x0 + 2.75, y: s.y0 + 1.6 + k * 0.62 }));   // a line in front of the counter: the first is served, the rest wait (her ask)
 // ---- the canteen (her choices 2026-11-22: its own house on the lawn between Charms and the masters' tower; a snack after a lesson
@@ -188,7 +212,7 @@ const cantOpen = () => cantBuilt() && Date.now() >= (S.cant.end || 0);
 const cantChance = () => 0.15 + 0.03 * (cantUp().tables - 1);              // share of students who go to eat after a lesson
 const cantServe = () => 2.0 * Math.pow(0.88, cantUp().cook - 1);           // seconds the cook needs to fill one tray
 const CANT_EAT = 4;                                                         // seconds at the table
-const cantPrice = () => Math.max(5, Math.round(fee() * (0.6 + 0.15 * (cantUp().menu - 1)) * (1 + 0.03 * (cantUp().cook - 1)) * (loreQ('school') ? 1.05 : 1)));   // build audit 2026-11-24: the cook: +3% per level, as the seller
+const cantPrice = () => Math.max(5, Math.round(fee() * (0.6 + 0.15 * (cantUp().menu - 1)) * (1 + 0.03 * (cantUp().cook - 1)) * (loreQ('school') ? 1.05 : 1) * TODAY.k('cant')));   // build audit 2026-11-24: the cook: +3% per level, as the seller
 const cantMood = () => 20 + 2 * (cantUp().menu - 1);
 const FED_BONUS = 0.05;                                                     // a fed student: +5% on the next exam
 const cantCost = (k) => paced(CANT_COST * 0.4 * Math.pow(1.9, cantUp()[k] - 1), cantUp()[k]);
@@ -1544,7 +1568,7 @@ function freeDesk(i) { for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc
 function seat(a, i, d) {
   const p = seatPos(i, d);
   deskOcc[i][d] = a.id; a.desk = d; a.c = i; a.state = 'walk'; a.goal = { t: 's', i, d };
-  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1) * (a.rest > 0 ? REST_K : 1) * ANNEX.lessonK(i);   /* 5c: greenhouse herbs */ faceTeacher(a, i); });   // a rested student learns faster (dorm roles)   // the teacher is at the back wall: the whole class sits with its back to us   // face the teacher
+  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1) * (a.rest > 0 ? REST_K : 1) * ANNEX.lessonK(i) * HERO.lessonK(i);   /* 5c: greenhouse herbs */ faceTeacher(a, i); });   // a rested student learns faster (dorm roles)   // the teacher is at the back wall: the whole class sits with its back to us   // face the teacher
 }
 // ======================= world 2: ore -> goods -> caravans (her «Супер, делай» 2026-11-22) =======================
 // Every passed lesson in the mine (Штольня) brings ore to the store (capacity grows with the store upgrade); every passed
@@ -1774,8 +1798,8 @@ function finishLesson(a) {
   const dream = (a.dream && CLASSES[i].final ? DREAM_BONUS : 0) + (CLASSES[i].final && loreQ('world') ? 0.03 : 0);   // + Tikhon's exam «Мир»
   if (CLASSES[i].final) a.dream = false;   // dorm roles: slept before the Final (build audit 2026-11-24: this sat inside the comment above, the bonus never wore off)
   a.les = (a.les || 0) + 1; if (a.rest > 0) a.rest--;   // dorm roles: tiredness grows with every lesson, the rest wears off
-  const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + dream + ANNEX.examB(i);   /* 5c: potion pantry jars */ a.prepared = false; a.fed = false; a.luck = 0;   // a meal in the canteen helps one exam
-  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a) + STU.examB(a, i)))) { S.stats.passed++; STU.ev(a, 'pass', i); passAt[i] = performance.now(); formXp(a, i); if (ANNEX.xpX(i)) formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i) * ANNEX.payK(i)), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); STU.rankAfter(a, i); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
+  const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + dream + ANNEX.examB(i) + HERO.examB(i);   /* 8b: mentor */   /* 5c: potion pantry jars */ a.prepared = false; a.fed = false; a.luck = 0;   // a meal in the canteen helps one exam
+  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a) + STU.examB(a, i)))) { S.stats.passed++; STU.ev(a, 'pass', i); passAt[i] = performance.now(); formXp(a, i); if (ANNEX.xpX(i)) formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i) * ANNEX.payK(i) * HERO.payK(i)), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); STU.rankAfter(a, i); a.mood = Math.min(100, moodOf(a) + 8 + HERO.moodB(i)); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
   else { S.stats.failed++; (window.__failAt ||= {})[i] = performance.now(); mailFail(a, i); STU.ev(a, 'fail', i); popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
@@ -2509,7 +2533,7 @@ const FORM_BASE = [10000, 40000, 250000, 1200000, 6000000, 30000000];   // first
 const MAX_EX_LVL = 20, MAX_XPL_LVL = 10, FORM_MAX = 20;
 const exLvl = (i) => S.classes[i].ex || 0, xplLvl = (i) => S.classes[i].xpl || 0;
 const ratingK = () => 1 + 0.05 * Math.max(0, Math.min(4, Math.floor(((ratingVal() || 0) - 3) / 0.5 + 1e-9)));   // rework step 5: a good name brings abler students: +5 % per 0.5★ above 3
-const rankChance = (i) => (RANK_BASE[RANK_AT(i)] + RANK_STEP[RANK_AT(i)] * exLvl(i) + helpBonus(i)) * ratingK();
+const rankChance = (i) => (RANK_BASE[RANK_AT(i)] + RANK_STEP[RANK_AT(i)] * exLvl(i) + helpBonus(i) + HERO.rankB(i)) * ratingK();   // 8b: + mentor skill
 const exCost = (i) => paced(CLASSES[i].tuition * 300 * Math.pow(2.0, exLvl(i)), exLvl(i) + 1);
 const xplCost = (i) => paced(CLASSES[i].tuition * 200 * Math.pow(1.8, xplLvl(i)), xplLvl(i) + 1);
 const fkey = (sp, rk, el) => sp + ':' + rk + (rk === 5 ? ':' + el : '');
@@ -2597,7 +2621,7 @@ function speciesPanel() {   // 🎓 album (own button at the bottom; her ruling 
 // Elder mages (rank 4) and masters (rank 5) who pass the final exam do not fly away: they move into the tower, live there
 // and bring coins every second (also while the game is closed). Few places; more are bought. When the tower is full the
 // newcomer waits by the door (up to TOWER_WAIT); the player frees a place by letting a resident go for a big reward.
-const TOWER_BASE = 4, TOWER_MAXUP = 16, TOWER_WAIT = 3;
+const TOWER_BASE = 4, TOWER_MAXUP = 18, TOWER_WAIT = 3;   // 8b: 22 places = 7 mentors + 3 council + 3 squads × 4 (was 20)
 const TW = WORLD === 2 ? { name: 'Чертог Хранителей', emo: '🗝️', inN: 'в Чертоге Хранителей', inS: 'в Чертоге', elder: 'Старший мастер', elders: 'Старшие мастера', eldersD: 'Старшим мастерам', elderI: 'Старшим мастером', master: 'Хранитель', masterA: 'Хранителя', masters: 'Хранители', mastersG: 'Хранителей', masterTitle: 'Хранитель ', mage: 'Умелец', helpers: 'Помощники-умельцы', craft: 'своё ремесло' }
   : { name: 'Башня мастеров', emo: '🏰', inN: 'в Башне мастеров', inS: 'в башне', elder: 'Старший маг', elders: 'Старшие маги', eldersD: 'Старшим магам', elderI: 'Старшим магом', master: 'Мастер', masterA: 'Мастера', masters: 'Мастера', mastersG: 'Мастеров', masterTitle: 'Мастер ', mage: 'Маг', helpers: 'Помощники-маги', craft: 'магию' };   // tower texts per world
 const towerUp = () => (S.tower ||= { built: false, cap: 0, res: [], wait: [] });
@@ -2607,7 +2631,7 @@ const towerCost = () => BAL.tower;
 // build audit 2026-11-24: places grew x2.3 each (12th 6.8B, 20th 5.33T, never paid back); x1.45: all 20 cost ~25B in total
 const towerCapCost = () => paced(BAL.tower * 0.4 * Math.pow(1.45, towerUp().cap), towerUp().cap + 1);
 const RES_K = { 4: 0.015, 5: 0.05 };   // coins per second = tuition of the last class x this
-const resRate = (r) => { const li = NCLS - 1; return isOpen(li) ? tuition(li) * (RES_K[r.rk] || 0) : 0; };
+const resRate = (r) => { const li = NCLS - 1; return isOpen(li) ? tuition(li) * (RES_K[r.rk] || 0) * HERO.incK(r) : 0; };   // 8b: × hero level/skills/set (level 1 = ×1)
 const towerRate = () => (towerOpen() ? towerUp().res.reduce((n, r) => n + resRate(r), 0) : 0);
 const mastersLiving = () => (towerOpen() ? towerUp().res.filter((r) => r.rk === 5).length : 0);
 const resTitle = (r) => (r.rk === 5 ? TW.masterTitle + ELEMS[r.el || 0].name : RANKS[r.rk]);
@@ -2619,21 +2643,24 @@ function towerAdmit(a) {   // the graduate walks from the garden into the tower 
   if (T.res.length < towerCap()) {
     a.state = 'walk'; a.goal = { t: 'tw' };
     T.res.push(r);   // the place is taken at once (a reload while walking keeps the resident); the walk is only for the eye
+    HERO.enter(r, a);   // 8b: he becomes a hero (free roll, card-flip reveal through the window queue)
     walk(a, s.x0 + 1.5 + Math.random() * 3, s.y0 + 1.5 + Math.random() * 3, () => { a.gone = true; popup(TW.emo, a.x, a.y, '#7b5cd6', 44); });
     if (!ffwd) toast(`${TW.emo} ${STU.full(a)} (${resTitle(r)}) поселился ${TW.inN}`);
   } else if (T.wait.length < TOWER_WAIT) {
-    T.wait.push(r); a.state = 'walk'; a.goal = { t: 'tw' };
+    T.wait.push(r); HERO.enter(r, a); a.state = 'walk'; a.goal = { t: 'tw' };
     walk(a, s.x0 + 2.4 + (T.wait.length - 1) * 0.7, s.y0 - 0.5, () => { a.gone = true; });
     if (!ffwd) toast(`${TW.emo} ${WORLD === 2 ? 'Чертог полон' : 'Башня полна'}: ${STU.full(a)} (${resTitle(r)}) ждёт у двери`);
   } else return false;
   return true;
 }
+window.__s8bAdmit = (o) => towerAdmit({ id: S.nextId++, x: SLOTS.GARDEN.x0 + 2, y: SLOTS.GARDEN.y0 + 2, z: 0, path: [], speed: 2.5, ...o });   // test hook (8b): a graduate at the tower door
 function towerPull() { const T = towerUp(); while (T.wait.length && T.res.length < towerCap()) T.res.push(T.wait.shift()); }
 let towerT = 0;
 let retakeAcc = 0;
 function stepTower(dt) {
   if (WORLD <= 2) { retakeAcc += dt; if (retakeAcc >= 1) { retakeAcc -= 1; stepRetake(1); stepMasterClass(1); } }   // helpers retake even without the tower
   if (!towerOpen()) return;
+  HERO.step(dt);   // 8b: passive hero XP; old saves' residents rolled once
   towerT += dt; if (towerT < 1) return;
   const n = towerRate() * towerT; towerT = 0;
   if (n > 0) { S.coins += n; S.stats.earned = (S.stats.earned || 0) + n; S.stats.tower = (S.stats.tower || 0) + n; earnedThisSec += n; }
@@ -2689,7 +2716,7 @@ function stepMasterClass(dt) {
   for (let k = 1; k <= 4; k++) { const e = (mcLastEl + k + 4) % 4, l = pool.filter(([, r]) => (r.el || 0) === e); if (l.length) { pick = l; break; } }   // the next element in turn that has a master free
   const [ci, r] = pick[Math.floor(Math.random() * pick.length)];
   mcLastEl = r.el || 0;
-  r.id ||= S.nextId++; r.mc = true;
+  r.id ||= S.nextId++; r.mc = true; HERO.xp(r, 'mc');   // 8b: a master-class gives hero XP
   const [d] = ci < 0 ? SLOTS.TOWER.door : slotOf(ci).door;
   const a = { id: S.nextId++, sp: r.sp, rk: 5, el: r.el || 0, name: r.name, x: d[0] + 0.5, y: d[1] + 0.5, z: 0, path: [], speed: 2.5, state: 'walk', onArrive: null, flip: false, t: 0, dur: MC_DUR, c: -1, mcC: i, desk: -1, ph: Math.random() * 6, mood: 100, paid: 0, mcls: r.id, mcHome: ci };
   agents.push(a);
@@ -2714,7 +2741,7 @@ function retakeHome(a) {   // back from the exam hall: update the resident, walk
     const k = l.findIndex((x) => x.id === a.retake); if (k < 0) continue;
     const h = l[k]; h.rk = a.rk || 4; h.el = a.el || 0; h.away = false;
     if (h.rk === 5 && towerOpen() && T.res.length < towerCap()) {   // a new master moves into the tower, his helper place is free again
-      l.splice(k, 1); T.res.push({ sp: h.sp, rk: 5, el: h.el, name: h.name, t: Date.now(), id: h.id });
+      l.splice(k, 1); T.res.push({ sp: h.sp, rk: 5, el: h.el, name: h.name, t: Date.now(), id: h.id }); HERO.enter(T.res[T.res.length - 1], h);
       if (!ffwd) toast(`${TW.emo} ${h.name} (${resTitle(h)}) переехал ${TW.inN}`);
       break;
     }
@@ -2722,7 +2749,7 @@ function retakeHome(a) {   // back from the exam hall: update the resident, walk
     walk(a, dh[0] + 0.5, dh[1] + 0.5, () => { a.gone = true; });
     return;
   }
-  if (r) { r.rk = a.rk || 4; r.el = a.el || 0; r.away = false; }
+  if (r) { HERO.retake(r, a.rk || 4); r.rk = a.rk || 4; r.el = a.el || 0; r.away = false; }   // 8b: XP; a new Мастер = promotion
   a.c = -1; a.state = 'walk'; a.goal = { t: 'tw' };
   walk(a, s.x0 + 1.5 + Math.random() * 3, s.y0 + 1.5 + Math.random() * 3, () => { a.gone = true; });
 }
@@ -2741,8 +2768,9 @@ function towerPanel() {
     <p>${TW.elders} и ${TW.masters} после финального экзамена не ${W2T ? 'уходят' : 'улетают'}, а живут здесь. Каждый жилец приносит монеты каждую секунду — даже когда игра закрыта. ${TW.masters} ещё и поднимают плату в зале «${LC.name}» на 3% каждый.</p>
     <p class="muted">Мест сначала ${TOWER_BASE}, потом можно докупить.</p>
     ${isOpen(NCLS - 1) ? `<button class="btn wide" data-cost="${towerCost()}" data-act="towerbuild">Построить <span class="cost">🪙${fmt(towerCost())}</span></button>` : `<p><b>Сначала построй «${LC.name}» ${LC.emoji}</b> — там ученики становятся ${W2T ? 'Старшими мастерами' : 'Старшими магами'}.</p>`}`;
+  { const hx = HERO.tabHtml(head); if (hx) return hx; }   // 8b: tabs «🦸 Герои», «⚔️ Отряды», «🎒 Сундук»
   const pic = (r) => `<div class="fpic${r.rk === 5 ? ' master' : ''}"${r.rk === 5 ? ` style="--ec:rgb(${ELEMS[r.el].col})"` : ''}><img src="${formImg(fkey(r.sp, r.rk, r.el))}">${r.rk === 5 ? `<em>${ELEMS[r.el].emo}</em>` : ''}</div>`;
-  const res = T.res.map((r, k) => `<div class="card up">${pic(r)}<div class="grow"><b>${r.name}</b> <span class="muted">${resTitle(r)}</span><div class="muted">${r.away ? `📜 сейчас пересдаёт экзамен на ${TW.masterA}` : r.mc ? '✨ сейчас ведёт мастер-класс' : `🪙 ${fmt(resRate(r))} в секунду`}</div></div>
+  const res = T.res.map((r, k) => `<div class="card up"${r.h ? ` data-hx="card:${r.id}" style="cursor:pointer"` : ''}>${pic(r)}<div class="grow"><b>${r.name}</b> ${HERO.badge(r)} <span class="muted">${resTitle(r)}</span><div class="muted">${r.away ? `📜 сейчас пересдаёт экзамен на ${TW.masterA}` : r.mc ? '✨ сейчас ведёт мастер-класс' : `🪙 ${fmt(resRate(r))} в секунду`}</div></div>
     ${r.away || r.mc ? '' : `<button class="btn ghost" data-act="towerfree" data-k="${k}">Отпустить <span class="cost">🎁 ${fmt(releaseReward(r))}</span></button>`}</div>`).join('');
   const elders = T.res.filter((r) => r.rk === 4).length, away = T.res.find((r) => r.away);
   const retake = `<h3>Пересдача на ${TW.masterA}</h3><p class="muted">${!elders ? `Когда ${TW.inS} живёт ${TW.elder}, он время от времени ходит ${W2T ? 'в Палату клятв' : 'в Экзаменационный зал'} пересдавать экзамен на ${TW.masterA}.` : away ? `Сейчас <b>${away.name}</b> пересдаёт экзамен.` : `Следующий ${TW.elder} пойдёт на пересдачу через <b>${mmss(Math.max(0, T.rt ?? retakeInterval()))}</b>. Шанс стать ${W2T ? 'Хранителем' : 'Мастером'}: ${(rankChance(CLASSES.findIndex((c) => c.final)) * 100).toFixed(1)}%.`}</p>
@@ -2750,7 +2778,7 @@ function towerPanel() {
       ${retakeLvl() >= RETAKE_MAX ? '<span class="done">макс.</span>' : costBtn('↑', retakeCost(), 'towerprep')}</div>`;
   const wait = T.wait.map((r, k) => `<div class="card up locked">${pic(r)}<div class="grow"><b>${r.name}</b> <span class="muted">${resTitle(r)}</span><div class="muted">ждёт места у двери</div></div>
     <button class="btn ghost" data-act="towerno" data-k="${k}">Не брать</button></div>`).join('');
-  return `${head(`Живут ${T.res.length} из ${towerCap()} · 🪙 ${fmt(towerRate() * 60)} в минуту`)}
+  return `${head(`Живут ${T.res.length} из ${towerCap()} · 🪙 ${fmt(towerRate() * 60)} в минуту`)}${HERO.tabBar()}${HERO.towerSummary()}
     <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Ещё одно место</b> <span class="muted">${towerCap()}/${TOWER_BASE + TOWER_MAXUP}</span><div class="muted">${TW.inS} смогут жить больше ${TW.mastersG}</div></div>
       ${T.cap >= TOWER_MAXUP ? '<span class="done">макс.</span>' : costBtn('+1', towerCapCost(), 'towercap')}</div>
     <div class="card up"><span class="remoji">🚪</span><div class="grow"><b>Принимать только ${TW.mastersG}</b><div class="muted">${T.onlyM ? `включено: ${TW.eldersD} ${W2T ? 'Чертог отказывает сам' : 'башня отказывает сама'}, они просто выпускаются` : `выключено: ${W2T ? 'в Чертог' : 'в башню'} просятся и ${TW.elders}`}</div></div>
@@ -3926,7 +3954,7 @@ function stepStones(dt) {   // checks the goals every 5 s (also during the catch
   if (WORLD > 2 || !S) return; stCheckT += dt; if (stCheckT < 5) return; stCheckT = 0;
   for (const a of ST_ACH) if (a.ok() && stonesAdd(a.n, stKey(a)) && !ffwd) toast(`${ST_ICON} +${a.n} лунных камней: ${a.t}!`);
   { const extra = schoolStars() - STAR_STONE_FROM; if (extra > 0 && stonesAdd(extra, 'w' + WORLD + '_starsback') && !ffwd) toast(`⭐ За звёзды сверх ${STAR_STONE_FROM}: ${ST_ICON} +${extra} лунных камней`); }   // once: stars gathered before build 451
-  if (!lvBack) {   // build audit 2026-11-24: levels reached before the level stones existed (build 439) were never paid; the same keys as gainXp, so never twice
+  if (!lvBack && window.__s7OldLv) {   // s7: no level stones any more (was: back-pay)   // build audit 2026-11-24: levels reached before the level stones existed (build 439) were never paid; the same keys as gainXp, so never twice
     lvBack = true; let sum = 0; const L = schoolLevel();
     for (let l = 5; l <= L; l += 5) { const n = 3 + Math.floor(l / 10); if (stonesAdd(n, `w${WORLD}_lv${l}`)) sum += n; }
     if (sum && !ffwd) setTimeout(() => toast(`🌟 За уровни школы до ${L - (L % 5)}: ${ST_ICON} +${sum} лунных камней`), 1500);
@@ -4021,8 +4049,7 @@ function gainXp(a) {
   const before = schoolLevel(); S.xp = schoolXp() + XP_RANK[Math.min(5, a.rk || 0)];
   const now = schoolLevel(); if (now <= before) return;
   S.lvTop = Math.max(S.lvTop || before, now);
-  for (let l = before + 1; l <= now; l++) if (l % 5 === 0) { const n = 3 + Math.floor(l / 10); if (stonesAdd(n, `w${WORLD}_lv${l}`) && !ffwd) setTimeout(() => toast(`🌟 Уровень школы ${l}! ${ST_ICON} +${n} лунных камня`), 600); }
-  if (!ffwd) { toast(`🌟 Уровень школы ${now}!`); updateHud(); }
+  // s7 (D2.14, Ruslan «Я согласен»): the level is hidden: no toast, no stones every 5 levels (stones come from chapters and the «Сегодня» streak)
 }
 function levelPanel() {
   const n = schoolLevel(), x = schoolXp(), a = lvNeed(n), b = lvNeed(n + 1), pct = Math.max(0, Math.min(100, Math.round((x - a) / (b - a) * 100)));
@@ -4054,7 +4081,8 @@ function drawOut(o) {
   if (!drawTreeGrounded(o, im, p, w, h)) ctx.drawImage(o.flip ? flipped(im) : im, p.x - w / 2, p.y + h * 0.05 - h, w, h);
   if (im2 && mix > 0.01) { ctx.save(); ctx.globalAlpha = mix; ctx.drawImage(o.flip ? flipped(im2) : im2, p.x - w / 2, p.y + h * 0.05 - h, w, h); ctx.restore(); }
   if (o.n === 'moontree') drawMoonTree(o, p, w, h);
-  if (zoom >= 1.3 || o.n === 'fountain') outFx(o, p, h);   // the fountain's water shows at every zoom (it grows with its upgrades)   // zoomed out the life is too small to see: save the iPhone's work
+  if (zoom >= 1.3 || o.n === 'fountain') outFx(o, p, h);
+  if (o.n === 'fountain') TODAY.drawFount(ctx, p, h);   // s7: lanterns and rising lights while today's day is closed   // the fountain's water shows at every zoom (it grows with its upgrades)   // zoomed out the life is too small to see: save the iPhone's work
 }
 // ======================= day and night (her pick from the location review, 2026-11-23) =======================
 // The sky follows the phone's clock: day 8-17:30, golden evening, blue night 22-5, pink dawn. Night = one multiply fill over the
@@ -5928,9 +5956,10 @@ function render() {
     const i = +ci; if (!slotOf(i) || !isOpen(i)) continue;
     list.forEach((h, k) => { if (h.away || h.mc) return; const p = helperPos(i, k); add(p.x, p.y, () => drawCreature({ sp: h.sp, rk: h.rk || 3, el: h.el || 0, back: p.back, flip: p.flip, path: p.moving ? [1] : [], ph: k + i + performance.now() / 1000 }, p.x, p.y, 30)); });
   }
+  if (WORLD <= 2) HERO.drawMentors(add);   // 8b: hero mentors beside the teachers
   if (towerOpen() && SLOTS.TOWER) {   // residents of the masters' tower stroll; those waiting stand at the door outside
     const T = towerUp();
-    T.res.forEach((r, k) => { if (r.away || r.mc) return; const p = towerPos(k); add(p.x, p.y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: p.flip, path: p.moving ? [1] : [], ph: k * 1.7 + performance.now() / 1000 }, p.x, p.y, 30)); });
+    T.res.forEach((r, k) => { if (r.away || r.mc || HERO.inClass(r)) return; const p = towerPos(k); add(p.x, p.y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: p.flip, path: p.moving ? [1] : [], ph: k * 1.7 + performance.now() / 1000 }, p.x, p.y, 30)); });
     T.wait.forEach((r, k) => { const s = SLOTS.TOWER, x = s.x0 + 2.4 + k * 0.7, y = s.y0 - 0.5; add(x, y, () => drawCreature({ sp: r.sp, rk: r.rk, el: r.el, back: false, flip: true, path: [], ph: k }, x, y, 30, (sx, sy) => emoji('⏳', sx + 12, sy - 34, 12))); });
   }
   for (const id of ['SHOP', 'TRADE', 'EXPED', 'DIR', 'TOWER', 'DORM2']) { const o = bObj(id), s = SLOTS[id]; if (!s || !o || !o.built || Date.now() >= (o.end || 0)) continue;
@@ -6142,7 +6171,7 @@ function classPanel(i) {
     let h = `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">${C.final ? 'Последний шаг: сдал — стал выпускником 🎓, не сдал — в библиотеку' : `Урок ${i + 1} из ${CLASSES.length - 1}`}</div></div><button class="x" data-close>✕</button></div>
       <div class="stats3"><div><span>🪙</span><b>${fmt(tuition(i))}</b><i>плата</i></div><div><span>🎯</span><b>${pct(success(i))}</b><i>сдают экзамен</i></div><div><span>⏱️</span><b>${sec(lessonTime(i))}</b><i>урок</i></div></div>
       ${overflow(i) > 0 ? `<p class="muted">🎯 Шанс уже максимальный (${Math.round(BAL.maxChance * 100)}%). Всё, что сверху (+${Math.round(overflow(i) * 100)}%), превращается в плату: <b>+${Math.round(overflow(i) * 200)}%</b>.</p>` : ''}
-      ${ANNEX.classCard(i)}<p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${cbN(i) ? ` · на скамейках в коридоре: <b>${cbUsed(i)}/${cbN(i) * CB_SEATS}</b>` : ''}${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>${rankSection(i)}${helpersHtml(i)}`;
+      ${ANNEX.classCard(i)}${HERO.classCard(i)}<p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${cbN(i) ? ` · на скамейках в коридоре: <b>${cbUsed(i)}/${cbN(i) * CB_SEATS}</b>` : ''}${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>${rankSection(i)}${helpersHtml(i)}`;
     h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · ${(() => { const mx = st.teacher >= MAX_TEACHER_LEVEL, b = (d) => { st.teacher += d; }; return `${nnC('плата', tuition(i), peek(b, () => tuition(i)), mx)} · ${nn('сдают', pct(success(i)), pct(peek(b, () => success(i))), mx)}`; })()} (+5% платы и +1,5% к экзамену за уровень)</div></div>
       ${st.teacher >= MAX_TEACHER_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', teacherCost(i), 'teacher', `data-i="${i}"`)}</div>`;
     h += `<div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Парты: ${st.desks}/${maxDesksOf(i)}</b><div class="muted">больше учеников за раз</div></div>
@@ -7287,12 +7316,13 @@ function openWorld(w) {
 // Telegram channel, avatar, alliance, invite a friend by code: her «какой-то код выдавать и вводить»). Red counters on tabs with a reward.
 const Q_TG = 'https://t.me/begemoti4ka';   // her channel («Мой тгк пока»)
 const QF_ON = true;   // top fields aw/ag/am/ap/rf: Firestore rules allow them (her «да» 2026-11-24)
-const DQ_STONES = 2, DQ_MIN = 5, AQ_STONES = 3, REF_LV = 5, REF_IN_STONES = 3;
+const DQ_STONES = 2, DQ_MIN = 5, AQ_STONES = 3, REF_LV = 5, REF_G = 30,   // s7: a friend's school counts by graduates (REF_LV only for older clients' top rows)
+  REF_IN_STONES = 3;
 const SP_LIST = [
   { id: 'tg', icon: '📣', t: 'Подпишись на канал разработчика в Telegram', s: 'новости игры и подсказки', n: 5 },
   { id: 'ava', icon: '🖼️', t: 'Поставь аватарку', s: 'засчитается, когда её одобрят', n: 3 },
   { id: 'ally', icon: '🤝', t: 'Вступи в альянс или создай свой', s: '', n: 3 },
-  { id: 'ref', icon: '💌', t: 'Пригласи друга', s: `друг вводит твой код и доводит школу до ${REF_LV}-го уровня (награда — за первого друга)`, n: 10 },
+  { id: 'ref', icon: '💌', t: 'Пригласи друга', s: `друг вводит твой код и выпускает первых ${REF_G} учеников (награда — за первого друга)`, n: 10 },
 ];
 let qTab = '';
 document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('a[data-tglink]')) setTimeout(() => { qMetaSet((q) => { q.tg ||= Date.now(); }); if (panel === missionsPanel) refreshPanel(); }, 1500); });   // a real link: iOS PWAs ignore window.open from a delegated handler
@@ -7358,21 +7388,21 @@ const qTopKey = () => { if (!QF_ON) return ''; const a = aqMine(); return [aqSt(
 // ---- 🎁 special
 const REF_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function myRefCode() { let c = qMeta().my; if (!c) { c = Array.from({ length: 6 }, () => REF_ABC[Math.floor(Math.random() * REF_ABC.length)]).join(''); qMetaSet((q) => { q.my ||= c; }); c = qMeta().my || c; } return c; }
-const refCanEnter = () => !qMeta().rf && WORLD === 1 && schoolLevel() <= REF_LV && !(stMeta().unlocked || []).includes(2);
+const refCanEnter = () => !qMeta().rf && WORLD === 1 && (S.stats.graduated || 0) <= REF_G && !(stMeta().unlocked || []).includes(2);
 const refFriends = () => (topList || []).filter((x) => x.rf && x.rf === qMeta().my && !x.id.startsWith(anonUid() + '_'));
 function spOk(id) {
   switch (id) {
     case 'tg': return !!qMeta().tg;
     case 'ava': return !!AV.img(anonUid());
     case 'ally': return !!myAl();
-    case 'ref': return refFriends().some((x) => x.lv >= REF_LV);
+    case 'ref': return refFriends().some((x) => (x.g || 0) >= REF_G || x.lv >= REF_LV);
   }
   return false;
 }
 const spReady = (s) => spOk(s.id) && !stGot('sp_' + s.id);
 function refEnter(raw) {
   const c = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (!refCanEnter()) { toast(qMeta().rf ? 'Код друга уже введён' : `Код друга вводят только новички (до ${REF_LV}-го уровня школы)`); return false; }
+  if (!refCanEnter()) { toast(qMeta().rf ? 'Код друга уже введён' : `Код друга вводят только новички (пока в школе не больше ${REF_G} выпускников)`); return false; }
   if (!/^[A-Z2-9]{6}$/.test(c)) { toast('Код — это 6 букв и цифр, например ABC234'); return false; }
   if (c === myRefCode()) { toast('Это твой собственный код 🙂'); return false; }
   qMetaSet((q) => { q.rf = c; });
@@ -7390,7 +7420,7 @@ function gemMigrate() {   // once: world 2's potion records go to world 1 (the b
     a.best = 0; a.wb = 0; a.pm = 0; a.gemMig = Date.now(); save(); topPush(true);
   } catch (e) { /* next time */ }
 }
-function qTick() { gemMigrate();   // from renderMission: a code that came with the invite link is applied once the school is loaded
+function qTick() { gemMigrate(); TODAY.tick();   // s7: deeds of the day, rollover at midnight, the morning plate   // from renderMission: a code that came with the invite link is applied once the school is loaded
   if (!S || Date.now() - qTickT < 3000) return; qTickT = Date.now(); try { warTick(); } catch (e) { /* the battle never stops the game */ }
   const r = localStorage.getItem('magicschool.refin'); if (!r) return;
   localStorage.removeItem('magicschool.refin');
@@ -7407,7 +7437,7 @@ function qCounts() {
   const list = missionList(), d = dqList(), A = aqGoals();
   return {
     story: list.filter((m) => m.key === 'f' && m.ok).length,
-    day: d.filter((x) => x.ok && !x.got).length + (dqAllReady() ? 1 : 0),
+    day: 0,   // s7: the deeds of «Сегодня» pay by themselves (the old daily tasks are gone)
     lvl: list.filter((m) => m.key !== 'f' && m.ok).length,
     ally: A ? A.goals.filter((g) => g.ok && !stGot(g.key)).length : 0,
     sp: SP_LIST.filter(spReady).length,
@@ -7415,7 +7445,7 @@ function qCounts() {
 }
 const qReadyAll = () => { try { const c = qCounts(); return c.story + c.day + c.lvl + c.ally + c.sp; } catch (e) { return missionList().filter((m) => m.ok).length; } };
 // ---- the window
-const Q_TABS = [['story', '📖', 'Сюжет'], ['day', '📅', 'Ежедневные'], ['lvl', '🌟', 'По уровню'], ['ally', '🤝', 'Альянс'], ['sp', '🎁', 'Особые']];
+const Q_TABS = [['story', '📖', 'Сюжет'], ['day', '☀️', 'Сегодня'], ['lvl', '⭐', 'Задания'], ['ally', '🤝', 'Альянс'], ['sp', '🎁', 'Особые']];
 function qStyle() {
   if (document.getElementById('qtabs-style')) return;
   const st = document.createElement('style'); st.id = 'qtabs-style';
@@ -7464,9 +7494,9 @@ function qLvlTab(list) {
   const L = q6On() ? q6Rows(list) : list.filter((m) => m.key !== 'f'), lv = schoolLevel(), next = [];
   for (let l = Math.ceil((lv + 1) / 5) * 5; next.length < 3; l += 5) next.push(l);
   const ms = next.map((l) => `<span class="qp" style="margin-right:10px">ур. ${l} → ${ST_IMG(14)} ${3 + Math.floor(l / 10)}</span>`).join('');
-  return `<div class="qnote">${q6On() ? 'Три задания от Тихона: ⭐ главное, что сейчас тормозит школу, 📖 следующий шаг летописи и 💡 ещё одна идея, если захочется.' : `Задания подстраиваются под уровень школы 🌟${lv} и под то, на что хватает монет.`} Сделал одно — сразу появится новое. ${S.mswap !== qDay() ? 'Не нравится задание? 🔄 заменит одно в день.' : 'Замена задания сегодня уже использована.'}</div>
+  return `<div class="qnote">${q6On() ? 'Три задания от Тихона: ⭐ главное, что сейчас тормозит школу, 📖 следующий шаг летописи и 💡 ещё одна идея, если захочется.' : `Задания подстраиваются под силы школы и под то, на что хватает монет.`} Сделал одно — сразу появится новое. ${S.mswap !== qDay() ? 'Не нравится задание? 🔄 заменит одно в день.' : 'Замена задания сегодня уже использована.'}</div>
     <div class="qbar">${L.map(qRow).join('')}</div>
-    <div class="qbig" style="background:#f1eafd;font-weight:700;flex-wrap:wrap">🌟 Лунные камни за уровни школы (приходят сами): ${ms}</div>`;
+`;   // s7: no level stones
 }
 function qAllyTab() {
   if (!myAl()) return `<div class="qnote">Общие цели на неделю есть у каждого альянса: выполняете вместе — награду получает каждый участник.</div>
@@ -7492,8 +7522,8 @@ function qSpTab() {
   const fr = refFriends(), q = qMeta();
   const inv = `<div class="qbig" style="background:#f6f0ff;flex-direction:column;align-items:stretch;font-weight:700">
       <div>💌 Твой код друга: <span class="qcode">${myRefCode()}</span></div>
-      <div class="qsub">Друг вводит его у себя в «Заданиях» → «Особые» (или просто открывает игру по твоей ссылке) и получает ${REF_IN_STONES} лунных камня. Когда его школа дойдёт до ${REF_LV}-го уровня, ты получишь ${SP_LIST[3].n}. Чтобы друг был виден, ему нужно дать школе имя в «Топе».</div>
-      ${fr.length ? `<div class="qsub">Пришли по твоему коду: ${fr.map((x) => `${escTxt(x.name)} (🌟${x.lv})`).join(', ')}</div>` : ''}
+      <div class="qsub">Друг вводит его у себя в «Заданиях» → «Особые» (или просто открывает игру по твоей ссылке) и получает ${REF_IN_STONES} лунных камня. Когда его школа выпустит ${REF_G} учеников, ты получишь ${SP_LIST[3].n}. Чтобы друг был виден, ему нужно дать школе имя в «Топе».</div>
+      ${fr.length ? `<div class="qsub">Пришли по твоему коду: ${fr.map((x) => `${escTxt(x.name)} (🎓${fmt(x.g || 0)})`).join(', ')}</div>` : ''}
       <button class="btn wide" data-refshare style="margin-top:6px">📤 Поделиться приглашением</button>
       ${refCanEnter() ? `<button class="btn ghost wide" data-refin style="margin-top:4px">🔑 Меня пригласил друг — ввести его код (${ST_IMG(14)} ${REF_IN_STONES})</button>` : q.rf ? `<div class="qsub" style="margin-top:4px">Ты пришёл по коду друга ${escTxt(q.rf)} ✓</div>` : ''}
     </div>`;
@@ -7506,7 +7536,7 @@ function missionsPanel() {
   if (qTab === 'ally' && myAl() && (!topList || Date.now() - topLoadedAt > 60000) && !missionsPanel.loading) { missionsPanel.loading = true; topPush(true).finally(() => topLoad().finally(() => { missionsPanel.loading = false; if (panel === missionsPanel) refreshPanel(); })); }
   if (qTab === 'sp' && (!topList || Date.now() - topLoadedAt > 120000) && !missionsPanel.loading) { missionsPanel.loading = true; Promise.all([topLoad(), AV.load()]).finally(() => { missionsPanel.loading = false; if (panel === missionsPanel) refreshPanel(); }); }
   const tabs = Q_TABS.map(([k, ic, nm]) => `<button class="qtab ${qTab === k ? 'on' : ''}" data-qtab="${k}"><span class="remoji">${ic}</span>${nm}${c[k] ? `<span class="qb">${c[k]}</span>` : ''}</button>`).join('');
-  const body = qTab === 'story' ? qStoryTab(list) : qTab === 'day' ? qDayTab() : qTab === 'lvl' ? qLvlTab(list) : qTab === 'ally' ? qAllyTab() : qSpTab();
+  const body = qTab === 'story' ? qStoryTab(list) : qTab === 'day' ? TODAY.body() : qTab === 'lvl' ? qLvlTab(list) : qTab === 'ally' ? qAllyTab() : qSpTab();
   return `<div class="sh-head">${tk ? tikhonPic(56) : '<span class="remoji big">📋</span>'}<div><h2>${tk ? 'Задания от Тихона' : 'Задания'}</h2><div class="muted">${tk ? '«Летопись школы пишется твоими делами, директор»' : 'Выполняй и забирай награды'}</div></div><button class="x" data-close>✕</button></div>
     <div class="qtabs">${tabs}</div>${body}`;
 }
@@ -7545,6 +7575,7 @@ function lvBar() {   // «🏫 Уровень 64» and the experience bar across
   if (!$('#topslim')) { const st = document.createElement('style'); st.id = 'topslim';   // her «великовата»: everything a bit lower
     st.textContent = '#top{padding:calc(var(--safe-t) + 4px) 10px 3px;gap:5px;row-gap:0}#top .res{padding:3px 9px 3px 5px;font-size:15px}#top .res .ico{font-size:16px}#top .gear{width:32px;height:32px;font-size:17px}#lvbar{padding:2px 6px 0 !important;font-size:12px !important}#lvbar>span:nth-of-type(2){height:6px !important}@media (min-width:1400px){#sheet{zoom:1.25}#top{zoom:1.2}#insp{zoom:1.2}#menugrid{zoom:1.2}}';   // big monitors: bigger windows and text (her pick «5»)
     document.head.appendChild(st); }
+  if (!window.__s7OldLv) { if (el) el.remove(); TODAY.hud(top); return; }   // s7 (D2.14): the school level is no longer a scale on screen
   if (!el) { top.style.flexWrap = 'wrap'; el = document.createElement('button'); el.id = 'lvbar'; el.dataset.level = ''; el.setAttribute('aria-label', 'Уровень школы');
     el.style.cssText = 'flex:1 0 100%;display:flex;align-items:center;gap:8px;background:none;border:0;padding:4px 6px 0;color:#fff;font:800 13px ui-rounded,"Nunito",sans-serif;text-shadow:0 1px 2px #3a2a7a66'; top.appendChild(el); }
   const n = schoolLevel(), x = schoolXp(), a = lvNeed(n), b = lvNeed(n + 1), pct = Math.max(0, Math.min(100, Math.floor((x - a) / (b - a) * 100))), h = `🌟 Уровень ${n}|${pct}`;
@@ -7674,7 +7705,7 @@ function openRoom(id) {
     { const o = bObj(id); if (o && o.built && Date.now() < (o.end || 0)) { toast(`🏗️ Идёт стройка: ещё ${mmss((o.end - Date.now()) / 1000)}`); return; } }
     if (id === 'SHOP') { openPanel(shopPanel); return; }
     if (id === 'CANT') { openPanel(cantPanel); return; }
-    if (id === 'TOWER') { openPanel(towerPanel); return; }
+    if (id === 'TOWER') { HERO.tabReset(); openPanel(towerPanel); return; }
     if (id === 'TRADE') { openPanel(tradePanel); return; }
     if (id === 'EXPED') { openPanel(expedPanel); return; }
     if (id === 'DORM' || id === 'DORM2') { openPanel(dormPanel); return; }
@@ -7691,6 +7722,7 @@ document.addEventListener('click', (e) => {
   if (AV.click(d)) return;   // avatar buttons
   if (d.war !== undefined) { openWar(); return; }
   if (qClick(d)) return;
+  if (TODAY.click(d)) return;   // s7: the bar, its window, «Прочитать в летописи»
   if (insClick(d)) return;   // 6b-6d: inspector card, open lesson
   if (d.tikhon !== undefined) { tkOpen(); renderTkBtn(); return; }
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
@@ -7795,7 +7827,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'towerbuild') { if (!(S.tower && S.tower.built) && isOpen(NCLS - 1) && spend(towerCost())) { towerUp().built = true; S.tower.end = Date.now() + BTIME.TOWER * 1000; staticKey = ''; toast(WORLD === 2 ? '🗝️ Чертог Хранителей построен!' : '🏰 Башня мастеров построена!'); panel = towerPanel; } }
   else if (d.act === 'towerprep') { if (retakeLvl() < RETAKE_MAX && spend(retakeCost())) { towerUp().prep = retakeLvl() + 1; towerUp().rt = Math.min(towerUp().rt ?? 1e9, retakeInterval()); } }
   else if (d.act === 'towercap') { if (towerUp().cap < TOWER_MAXUP && spend(towerCapCost())) { towerUp().cap++; towerPull(); } }
-  else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && !r.away && confirm(`Отпустить ${r.name} (${resTitle(r)})? Школа получит 🎁 ${fmt(releaseReward(r))}.`)) { bonus(releaseReward(r)); T.res.splice(+d.k, 1); towerPull(); toast(`🎁 ${r.name} отправился в большое путешествие`); } }
+  else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && !r.away && confirm(`Отпустить ${r.name} (${resTitle(r)})? Школа получит 🎁 ${fmt(releaseReward(r))}.`)) { bonus(releaseReward(r)); HERO.leave(r); T.res.splice(+d.k, 1); towerPull(); toast(`🎁 ${r.name} отправился в большое путешествие`); } }
   else if (d.act === 'towerno') { towerUp().wait.splice(+d.k, 1); }
   else if (d.act === 'toweronly') { const T = towerUp(); T.onlyM = !T.onlyM; if (T.onlyM) { const n = T.wait.length; T.wait = T.wait.filter((r) => r.rk === 5); if (n > T.wait.length) toast(`${TW.emo} Отказано ${TW.eldersD} у двери: ${n - T.wait.length}`); } }
   else if (d.act === 'cantbuild') { if (!cantBuilt() && isOpen(CANT_NEED) && spend(CANT_COST)) { const u = cantUp(); u.built = true; u.end = Date.now() + CANT_TIME * 1000; staticKey = ''; toast(WORLD === 2 ? '🏗️ Пиршественный зал строится!' : '🏗️ Столовая строится!'); panel = cantPanel; } }
@@ -7815,7 +7847,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'bskip') bsSkip(i);
   else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= buildCost(i) && spend(buildCost(i))) { st.built = true; st.buildEnd = Date.now() + buildTime(i) * 1000; panel = classPanel(i); } }
   else return;
-  q6C = null; if (S.coins < tkC0) q6Buy(d.act, i, d.k); if (tkW && S.coins < tkC0) { tkWisePay(tkC0 - S.coins, tkW.share, '', tkW.fam); tkFrozen = null; }   // 6a: the quests see the purchase at once
+  q6C = null; if (S.coins < tkC0) { q6Buy(d.act, i, d.k); TODAY.buy(d.act, i); /* s7: the class day counts upgrades of its class */ } if (tkW && S.coins < tkC0) { tkWisePay(tkC0 - S.coins, tkW.share, '', tkW.fam); tkFrozen = null; }   // 6a: the quests see the purchase at once
   refreshPanel(); save();
 });
 $('#sheet-bg').addEventListener('click', closePanel);
@@ -8128,7 +8160,7 @@ function openAlly() { openPanel(allyPanel); Promise.all([allyLoad(), topLoad(), 
 // Every member's points travel in his top entry: wp (this week, week = aw), wpp / wpw (last week's total and its week) so the last
 // week can be ranked after members already started the new one. Places 1-3 pay 15 / 10 / 5 moonstones to every member (key
 // war_<wk>_wN, from 15 min after the week ends); the winner wears «🏆 Чемпион недели» in the alliance top for the next week.
-const WAR_PRIZE = [15, 10, 5], WAR_CAP = { dq: 4, mg: 10 }, WAR_PTS = { dq: 10, gift: 3, lv: 20 };
+const WAR_PRIZE = [15, 10, 5], WAR_CAP = { dq: 4, mg: 10 }, WAR_PTS = { dq: 10, gift: 3, lv: 20, day: 20 };   // s7: lv no longer paid; day = a closed «Сегодня»
 function warSt() {
   const wk = MG.weekKey(), day = qDay();
   if (!S.war) S.war = { wk, pts: 0, lv: schoolLevel() };
@@ -8145,7 +8177,7 @@ function warAdd(kind, n) {   // points for the alliance (only while in one); dai
 let warPrizeT = 0, warLoadAsked = 0;
 function warTick() {   // from qTick (every 3 s): school levels -> points; last week's prize once the table is known
   const w = warSt(), L = schoolLevel();
-  if (L > (w.lv || 0)) { if (myAl()) w.pts += WAR_PTS.lv * (L - (w.lv || L)); w.lv = L; }
+  if (L > (w.lv || 0)) w.lv = L;   // s7 (D2.14): no points for levels; the closed day gives WAR_PTS.day
   if (w.pwk !== w.wk - 1 || !w.pal || stGot(`war_${w.pwk}_w${WORLD}`)) return;
   const start = ((w.wk * 7) - 3) * 86400000; if (Date.now() - start < 15 * 60000) return;   // members push their last points first
   if (!topList || Date.now() - topLoadedAt > 600000) { if (Date.now() - warLoadAsked > 120000) { warLoadAsked = Date.now(); topLoad(); } return; }
@@ -8174,7 +8206,7 @@ function warPanel() {
   const champ = warChamp(), ca = champ && allyOf(champ);
   const head = `<div class="sh-head"><span class="remoji big">⚔️</span><div><h2>Битва альянсов</h2><div class="muted">Неделя битвы: до конца ${dd} д ${hh} ч</div></div><button class="x" data-close>✕</button></div>`;
   const prize = `<div class="qbig" style="flex-wrap:wrap;font-weight:700">🏆 Награда каждому участнику: 1-е место ${ST_IMG(16)} ${WAR_PRIZE[0]} · 2-е ${ST_IMG(16)} ${WAR_PRIZE[1]} · 3-е ${ST_IMG(16)} ${WAR_PRIZE[2]}</div>`;
-  const how = `<h3>Как заработать очки</h3><div class="muted" style="line-height:1.5">📅 дело из «Ежедневных» — +${WAR_PTS.dq} (до 4 в день)<br>🧪 раунд мини-игры — +5 и ещё +5 за каждую звезду (до 10 в день)<br>🎁 подарок союзнику — +${WAR_PTS.gift}<br>🌟 новый уровень школы — +${WAR_PTS.lv}<br>Очки считаются, только пока ты в альянсе.</div>`;
+  const how = `<h3>Как заработать очки</h3><div class="muted" style="line-height:1.5">☀️ дело из «Сегодня» — +${WAR_PTS.dq} (до 4 в день)<br>🧪 раунд мини-игры — +5 и ещё +5 за каждую звезду (до 10 в день)<br>🎁 подарок союзнику — +${WAR_PTS.gift}<br>☀️ удачный день (4 дела «Сегодня») — +${WAR_PTS.day}<br>Очки считаются, только пока ты в альянсе.</div>`;
   const last = ca ? `<p class="muted">🏆 Чемпион прошлой недели: <b>${ca.emo} ${escTxt(ca.name)}</b></p>` : '';
   const rows = T.length ? T.slice(0, 20).map((x, k) => `<div class="card up" style="padding:7px 10px${x.id === myAl() ? ';border:2px solid #e8b923;background:#fff8dc' : ''}"><span style="font-weight:900;min-width:26px">${k < 3 ? ['🥇', '🥈', '🥉'][k] : k + 1 + '.'}</span><span class="remoji">${x.a.emo}</span><div class="grow"><b>${escTxt(x.a.name)}</b>${x.id === myAl() ? ' <span class="muted">(твой)</span>' : ''}<div class="muted">школ: ${x.m.length}</div></div><b>${fmt(x.pts)}</b></div>`).join('')
     : '<p class="muted">На этой неделе очков пока нет ни у кого — начни первым!</p>';
@@ -8244,7 +8276,7 @@ function allyTopRows() {   // the top of alliances by strength = the SUM of its 
   const champ = warChamp();
   return '<p class="muted">Нажми на альянс, чтобы увидеть его школы.</p>' + rows.slice(0, 30).map((x, k) => `<button class="card up" data-allyshow="${x.id}" style="width:100%;text-align:left;font:inherit;cursor:pointer${x.id === myAl() ? ';border:2px solid #e8b923;background:#fff8dc' : ''}"><span class="remoji">${x.a.emo}</span><div class="grow"><b>${k + 1}. ${escTxt(x.a.name)}</b>${x.id === champ ? ' <span style="color:#c58a00;font-weight:800">🏆 Чемпион недели</span>' : ''}${x.id === myAl() ? ' <span class="muted">(твой)</span>' : ''}<div class="muted">💪 сила ${r2(x.s)} · средний 🏅 ${r2(x.r)} · школ ${x.m.length} · 🎓 ${fmt(x.g)} выпускников</div></div><span class="muted">${allyShown === x.id ? '▲' : '▼'}</span></button>${allyShown === x.id ? allyMembersHtml(x) : ''}`).join('');
 }
-let topTab = 's';
+let topTab = 's';   // s7: the «🌟 Уровень» tab is gone (D2.14)
 function openTop() { topPush(true).finally(() => Promise.all([topLoad(), allyLoad()]).finally(() => { if (panel === topPanel) refreshPanel(); })); openPanel(topPanel); }
 function lvTopHtml(all, mine) {   // schools by level (all named schools of this world, no review minimum); older builds sent no level
   const l = all.filter((x) => x.lv > 0).sort((a, b) => b.lv - a.lv || b.g - a.g);
@@ -8262,7 +8294,7 @@ function topPanel() {
   return `<div class="sh-head"><span class="remoji big">🏆</span><div><h2>Топ школ</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'} · по рейтингу 🏅</div></div><button class="x" data-close>✕</button></div>
     ${schoolName() ? `<p>Твоя школа «<b>${escTxt(schoolName())}</b>»${playerNick() ? ` (👤 ${escTxt(playerNick())})` : ''}: рейтинг 🏅 ${ratingTxt()}${myPlace >= 0 ? `, <b>${myPlace + 1}-е место</b>` : rating().n < TOP_MIN ? ` — в топ попадёт после ${TOP_MIN} отзывов (сейчас ${fmt(rating().n)})` : ''}.</p>` : '<p><b>Придумай название школы</b> и впиши своё имя, чтобы школа появилась в топе. Их увидят все игроки.</p>'}
     ${nameBox}${AV.myBox()}${AV.modBox()}
-    <div style="display:flex;gap:6px;margin:10px 0"><button class="btn ${topTab === 's' ? '' : 'ghost'}" data-toptab="s">🏫 Школы</button><button class="btn ${topTab === 'l' ? '' : 'ghost'}" data-toptab="l">🌟 Уровень</button><button class="btn ${topTab === 'a' ? '' : 'ghost'}" data-toptab="a">🤝 Альянсы</button><button class="btn ${topTab === 'm' ? '' : 'ghost'}" data-toptab="m">🎮 Игры</button></div>
+    <div style="display:flex;gap:6px;margin:10px 0"><button class="btn ${topTab === 's' ? '' : 'ghost'}" data-toptab="s">🏫 Школы</button><button class="btn ${topTab === 'a' ? '' : 'ghost'}" data-toptab="a">🤝 Альянсы</button><button class="btn ${topTab === 'm' ? '' : 'ghost'}" data-toptab="m">🎮 Игры</button></div>
     ${topTab === 'l' ? lvTopHtml(all, mine) : topTab === 'm' ? mgTopHtml(mine) : topTab === 'a' ? '<h3>Лучшие альянсы</h3><p class="muted">Место альянса — по силе 💪: это сумма рейтингов всех его школ. Каждая школа добавляет альянсу силы.</p>' + allyTopRows() : topErr ? `<p class="muted">${topErr}</p>` : !topList ? '<p class="muted">Загружаю топ…</p>' : rows ? '<h3>Лучшие школы</h3>' + rows : '<p class="muted">Пока в топе никого нет — стань первой школой!</p>'}
     ${topTab === 'm' || topTab === 'l' ? '' : wait.length ? `<p class="muted">Ещё набирают отзывы: ${wait.length} ${wait.length === 1 ? 'школа' : 'школ'}.</p>` : ''}
     ${topTab === 'm' || topTab === 'l' ? '' : `<p class="muted">Места — по рейтингу 🏅 с точностью до сотых; при равном рейтинге выше та школа, у которой больше золотых отзывов. В топ попадают школы, у которых не меньше ${TOP_MIN} отзывов. Рейтинг обновляется раз в минуту, пока игра открыта.</p>`}`;
@@ -8625,7 +8657,7 @@ function catchUpSlice(dt, budget = catchMs()) {
   if (catchExtra > 0 && catchSimT > 0) {   // rework bug fix: those hours also graduate students and grow the school level, at the same rate
     const g = Math.round(catchGrad / catchSimT * catchExtra), xp = Math.round(catchXp / catchSimT * catchExtra), lv0 = schoolLevel();
     if (g > 0) S.stats.graduated += g;
-    if (xp > 0) { S.xp = schoolXp() + xp; const lv1 = schoolLevel(); if (lv1 > lv0) { S.lvTop = Math.max(S.lvTop || lv0, lv1); for (let l = lv0 + 1; l <= lv1; l++) if (l % 5 === 0) stonesAdd(3 + Math.floor(l / 10), `w${WORLD}_lv${l}`); } }
+    if (xp > 0) { S.xp = schoolXp() + xp; const lv1 = schoolLevel(); if (lv1 > lv0) { S.lvTop = Math.max(S.lvTop || lv0, lv1); /* s7: no level stones */ } }
   }
   catchExtra = 0;
   updateHud(); dirtyPanel = true;
@@ -8656,7 +8688,7 @@ function bootFrame(now) {
   if (catchLeft > 0 || (imgP < 1 && now - bootT0 < BOOT_MAX_MS)) return true;
   if (bootDrawn < 2) { render(); bootDrawn++; if (bar) bar.style.transform = 'scaleX(1)'; return true; }   // the map is baked under the curtain
   bootOn = false; window.__ready = performance.now(); glog('app', `запуск игры, сборка ${BUILD}, мир ${WORLD}`, WORLD);
-  if (!STATS.pid) try { STATS = initStats({ build: BUILD, world: WORLD, off: !!EDIT, away: catchReal || 0, snap: statSnap }); } catch (e) { /* statistics never break the game */ }
+  if (!STATS.pid) try { STATS = TODAY.tap(initStats({ build: BUILD, world: WORLD, off: !!EDIT, away: catchReal || 0, snap: statSnap })); /* s7: the deeds of «Сегодня» hear the game's events */ } catch (e) { /* statistics never break the game */ }
   const el = document.getElementById('boot'); if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; setTimeout(() => el.remove(), 450); }
   return false;
 }
@@ -8880,5 +8912,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=590').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=591').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
