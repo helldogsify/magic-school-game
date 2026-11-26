@@ -1,19 +1,20 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=588';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=589';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=588';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=588';
-import { initMinigame } from './minigame.js?v=588';
-import { initChests } from './chests.js?v=588';
-import { initValley } from './valley.js?v=588';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=588';
-import { initLore } from './lore.js?v=588';
-import { initAvatar } from './avatar.js?v=588';
-import { initStats } from './stats.js?v=588';
-import { initAnnex } from './annex.js?v=588';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=589';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=589';
+import { initMinigame } from './minigame.js?v=589';
+import { initChests } from './chests.js?v=589';
+import { initValley } from './valley.js?v=589';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=589';
+import { initLore } from './lore.js?v=589';
+import { initAvatar } from './avatar.js?v=589';
+import { initStats } from './stats.js?v=589';
+import { initStudents } from './students.js?v=589';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initAnnex } from './annex.js?v=589';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -51,11 +52,26 @@ const ANNEX = initAnnex({ MISSIONS, CLASSES, WORLD, glog: (k, t, w) => glog(k, t
   spend: (c) => { spendAct = 'annex'; return spend(c); }, quiet: () => quietNow(), idle: () => idleNow(), tour: () => tourStep >= 0, edit: () => !!EDIT,
   stats: (n, x) => STATS.ev(n, x), storyCur: () => (S && S.story ? storyCur() : null), chapters: () => CHAPTERS, storyReward: (m) => storyReward(m), lore: (k) => LORE.event(k),
   openMg: (g) => { MG.open(); const b = document.querySelector(`#mg [data-mgpick="${g}"]`); if (b) b.click(); } });
+// student path 1-3 (js/students.js): names, student card, favourites, gifted newcomers, the gate crowd, favourites' retakes
+const STU = initStudents({ S: () => S, gate: () => gate(), species: () => SPECIES, names: () => NAMES, spNames: () => SP_NAMES, classes: () => CLASSES, world: () => WORLD,
+  inSchool: () => inSchool(), agents: () => agents, isStudent: (a) => SPECIES.includes(a.sp) && !a.mcls && !a.retake,
+  save: () => save(), toast: (t) => toast(t), toastBig: (t) => toastBig(t), stats: (n, x) => STATS.ev(n, x), stats0: () => S.stats, glog: (k, t) => glog(k, t, WORLD),
+  ffwd: () => ffwd, edit: () => !!EDIT, rating: () => ratingVal(), entryFee: () => entryFee(), gatePend: () => gatePend(), overfull: () => overfull(), recRoom: () => queue.length < queueCap(),
+  fullClass: () => fullClass(), fullGo: (i) => fullGo(i), goTarget: (go) => goTarget(go), openPanel: (fn) => openPanel(fn), refresh: () => { dirtyPanel = true; refreshPanel(); },
+  drawCreature: (a, x, y, h, ex) => drawCreature(a, x, y, h, ex), ctx: () => ctx, P: (x, y) => P(x, y), star4: (x, y, r, c, al) => star4(x, y, r, c, al), emoji: (e, x, y, sz) => emoji(e, x, y, sz),
+  signK: () => signK(), onScreen: (x, y, mx, my) => onScreen(x, y, mx, my), gateTile: () => GATE_TILE, gateH: () => OUT_H.gate_big, fmt: (n) => fmt(n),
+  formImg: (a) => formImg(formOf(a)), moodFace: (m) => moodFace(m), status: (a) => statusOf0(a),
+  rankName: (a) => ((a.rk || 0) === 5 && SPECIES.includes(a.sp) ? 'Мастер ' + ELEMS[a.el || 0].name : RANKS[a.rk || 0]), rankNameRk: (r) => RANKS[r] || '', rankNameAt: (i) => RANKS[RANK_AT(i)] || '', rankAt: (i) => RANK_AT(i),
+  examChance: (a, i) => Math.max(0.05, Math.min(0.95, success(i) + (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + moodBonus(a) + STU.examB(a, i))),
+  rankNext: (a, i) => { const T = RANK_AT(i); return T && SPECIES.includes(a.sp) && (a.rk || 0) === T - 1 ? { name: RANKS[T], p: rankChance(i) } : null; },
+  isOpen: (i) => i >= 0 && i < CLASSES.length && isOpen(i), rtPrice: (i, n) => paced(tuition(i) * n, 1),
+  spend: (c) => { spendAct = 'retake'; return spend(c); }, addCoins: (c) => { S.coins += c; },
+  retakeNow: (a) => { const g = a.goal; if (!g || g.t !== 'c' || !(g.i >= 0) || a.desk >= 0) return false; const L = waitList[g.i], k = L.indexOf(a); if (k >= 0) { L.splice(k, 1); pullWaiting(g.i); } goClass(a, g.i); return true; } });
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 588;   // keep equal to the ?v= number in index.html
+const BUILD = 589;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -88,7 +104,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !a.mcls && !(a.goal && a.goal.t === 'tw')).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed, les: a.les, rest: a.rest, dream: a.dream, pk: a.pk, slp: a.slp })),
+    agents: agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !a.mcls && !(a.goal && a.goal.t === 'tw')).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed, les: a.les, rest: a.rest, dream: a.dream, pk: a.pk, slp: a.slp, fn: a.fn, gift: a.gift, rt: a.rt, rtp: a.rtp, rtd: a.rtd, rto: a.rto })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -208,10 +224,10 @@ const careK = (l) => 1 - 0.06 * l;                         // mood drop x1 -> x0
 // full) waits at the gate (up to GATE_PEND newcomers) and comes in as soon as there is room, instead of being thrown away while only
 // a very fast arrival timer caught the short moments of room; one more arrival is turned away. When more than 25% are turned away
 // more ads change nothing, so they stop selling (back on below 10%) and the panel says what to upgrade instead
-const GATE_PEND = 6, gate = () => (S.gate ||= { q: 0, b: 0, full: 0, pend: 0, lastQ: 1 });
-function gateArrive() { const g = gate(), w = 0.03, away = g.pend >= GATE_PEND; if (!away) g.pend++; g.q = g.q * (1 - w) + (away && !g.lastQ ? w : 0); g.b = g.b * (1 - w) + (away && g.lastQ ? w : 0); const blk = g.q + g.b; if (blk > 0.25) g.full = 1; else if (blk < 0.1) g.full = 0; }
+const GATE_PEND = 12, gate = () => (S.gate ||= { q: 0, b: 0, full: 0, pend: 0, lastQ: 1 });
+function gateArrive() { const g = gate(), w = 0.03, away = g.pend >= GATE_PEND; if (!away) { g.pend++; STU.join(); } g.q = g.q * (1 - w) + (away && !g.lastQ ? w : 0); g.b = g.b * (1 - w) + (away && g.lastQ ? w : 0); const blk = g.q + g.b; if (blk > 0.25) g.full = 1; else if (blk < 0.1) g.full = 0; }
 const gatePend = () => gate().pend > 0;
-function gateLet(okQ, okB) { const g = gate(); g.lastQ = okQ ? 1 : 0; if (!(okQ && okB)) return false; g.pend--; return true; }
+function gateLet(okQ, okB) { const g = gate(); g.lastQ = okQ ? 1 : 0; if (!(okQ && okB)) return false; g.pend--; STU.admit(); return true; }
 const adsFull = () => !!(S && S.gate && S.gate.full);
 const adsWhy = () => (gate().q > gate().b ? '🚦 Новички приходят чаще, чем секретарь успевает их оформлять: больше объявлений не помогут, сначала улучшай секретаря.' : `🚪 Школа переполнена: новички приходят чаще, чем классы успевают учить, и все места ожидания (${WORLD === 2 ? 'очереди у залов и кельи' : 'очередь у двери, скамейки в коридоре, двор и спальня'}) заняты. Больше объявлений не помогут: ставь парты и сокращай уроки в самом загруженном классе.`);   // waiting places 5b
 // waiting places 5b (Ruslan: «Почему ученики не могут прийти в школу из-за того, что там мало кроватей?»): world 1 admits a newcomer
@@ -300,7 +316,7 @@ const mailTxt = (c) => (MAIL_KINDS[c.k] || MAIL_KINDS.sad).t(mailCls(c));
 const mailEmo = (c) => (MAIL_KINDS[c.k] || MAIL_KINDS.sad).e;
 const parentName = (n) => `Родители ученика ${n}`;
 function mailEv(k, i = -1, n = '') { if (!bossOn() || ffwd) return; const B = boss(); B.ev ||= {}; B.ev[k] = { i, n, at: Date.now() }; }   // a real event a letter may be about
-function mailFail(a, i) { if (WORLD !== 1 || ffwd) return; a.fl = a.flc === i ? (a.fl || 0) + 1 : 1; a.flc = i; if (a.fl >= 2) mailEv('fail', i, a.name || ''); }   // the same student failed twice in a row in one class
+function mailFail(a, i) { if (WORLD !== 1 || ffwd) return; a.fl = a.flc === i ? (a.fl || 0) + 1 : 1; a.flc = i; if (a.fl >= 2) mailEv('fail', i, STU.full(a)); }   // the same student failed twice in a row in one class
 let mailWT = 0;
 function mailWatch(dt) {   // looks for real events every 2 s of screen time
   mailWT -= dt; if (mailWT > 0) return; mailWT = 2;
@@ -406,7 +422,7 @@ function stepBoss(dt, live) {
   M.t -= dt; if (M.t > 0) return;
   const ev = mailPick(); if (!ev) { M.t = 10; return; }   // nothing happened worth a letter: look again soon
   M.t = MAIL_MIN + Math.random() * (MAIL_MAX - MAIL_MIN);
-  M.cur = { k: ev.k, i: ev.i, name: ev.n || rnd(NAMES), t: 0 };
+  M.cur = { k: ev.k, i: ev.i, name: ev.n || STU.anyName(ev.i), t: 0 };
   try { navigator.vibrate?.(60); } catch (e) { /* no vibration */ }
   iqWin('news', 'mail', mailPanel, { imp: `✉️ Письмо от родителей ученика ${M.cur.name}`, cond: () => !!(bossOn() && boss().mail.cur) });
   dirtyPanel = true;
@@ -1167,6 +1183,7 @@ function spawn() {
   if (EDIT) return;   // the editor shows empty rooms
   const a = { id: S.nextId++, sp: rnd(SPECIES), name: rnd(NAMES), x: GATE_TILE.x, y: GATE_TILE.y, z: 0,
     path: [], speed: 2.3 + Math.random() * 0.4, state: 'walk', onArrive: null, flip: false, t: 0, dur: 1, c: -1, desk: -1, ph: Math.random() * 6, mood: Math.min(100, planOf().mood + ((campNow() || {}).mood || 0)), pk: planOf().sad };
+  STU.dress(a);   // s8a: the newcomer who waited at the gate (species, two-part name, gifted)
   agents.push(a); queue.push(a); goQueue(a);
 }
 function goQueue(a) { const p = queueSlot(queue.indexOf(a)); a.goal = { t: 'q' }; a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'queue'; }); }
@@ -1309,7 +1326,7 @@ function stepConcierge(dt) {
 }
 function leaveSchool(a) {   // no room anywhere: the student is upset and goes home — and the school pays its fee back with a penalty
   if (a.retake) { retakeHome(a); return; }   // an elder on a retake never leaves the school: he just goes back to the tower
-  S.stats.left = (S.stats.left || 0) + 1; review(a, leaverStars());
+  S.stats.left = (S.stats.left || 0) + 1; STU.ev(a, 'left'); review(a, leaverStars());
   const want = Math.min(S.coins, Math.round((a.paid || fee()) * refundRate())), back = Math.max(0, Math.min(want, Math.floor(S.refBud ?? refundCap())));   // build 275: the refund cap
   if (back > 0) { S.refBud = (S.refBud ?? refundCap()) - back; spendOut(back, 'refunded'); popup(`−${fmt(back)}`, a.x, a.y, '#e0245e', 60); }
   if (want > back) S.stats.unpaid = (S.stats.unpaid || 0) + (want - back);   // the till is empty this minute: he leaves without (all of) his money
@@ -1502,6 +1519,7 @@ function stepCourt(a, dt) {
   courtAct(a);
 }
 function goClass(a, i) {
+  i = STU.rtGo(a, i);   // s8a stage 3: a paid retake turns the student back to its class
   if (i < 0) { goGraduate(a); return; }
   const [, h] = slotOf(i).door;
   a.c = i; a.state = 'walk'; a.goal = { t: 'c', i };
@@ -1757,8 +1775,8 @@ function finishLesson(a) {
   if (CLASSES[i].final) a.dream = false;   // dorm roles: slept before the Final (build audit 2026-11-24: this sat inside the comment above, the bonus never wore off)
   a.les = (a.les || 0) + 1; if (a.rest > 0) a.rest--;   // dorm roles: tiredness grows with every lesson, the rest wears off
   const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + dream + ANNEX.examB(i);   /* 5c: potion pantry jars */ a.prepared = false; a.fed = false; a.luck = 0;   // a meal in the canteen helps one exam
-  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); if (ANNEX.xpX(i)) formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i) * ANNEX.payK(i)), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
-  else { S.stats.failed++; (window.__failAt ||= {})[i] = performance.now(); mailFail(a, i); popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
+  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a) + STU.examB(a, i)))) { S.stats.passed++; STU.ev(a, 'pass', i); passAt[i] = performance.now(); formXp(a, i); if (ANNEX.xpX(i)) formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i) * ANNEX.payK(i)), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); STU.rankAfter(a, i); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
+  else { S.stats.failed++; (window.__failAt ||= {})[i] = performance.now(); mailFail(a, i); STU.ev(a, 'fail', i); popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
 let LS = SLOTS.LIB;
@@ -1872,7 +1890,7 @@ function review(a, stars, gold, txt0) {   // txt0: own text (6c parents' reviews
   R.v = R.n ? R.v + (stars - R.v) * Math.min(1, w / Math.min(RATE_N, R.n + w)) : stars; R.n += w;
   if (gold) R.gold = (R.gold || 0) + 1; if (stars <= 1) R.bad = (R.bad || 0) + 1;
   const txt = txt0 || rnd(REVIEW_TXT[Math.round(stars)]);
-  R.last.unshift({ n: a.name || '', s: stars, g: gold ? 1 : 0, t: txt }); if (R.last.length > 8) R.last.length = 8;
+  R.last.unshift({ n: STU.full(a) || '', s: stars, g: gold ? 1 : 0, t: txt }); if (R.last.length > 8) R.last.length = 8;
 }
 function reviewGraduate(a) {
   const rk = a.rk || 0, m = moodOf(a);
@@ -1908,7 +1926,7 @@ function goGraduate(a) {
   if (a.retake) { retakeHome(a); return; }   // an elder from the tower after his retake: not a new graduate
   const tx = WORLD === 1 ? g.x0 + 3 + (Math.random() - 0.5) * 0.4 : WORLD === 2 ? g.x0 + 3.55 + (Math.random() - 0.5) * 0.3 : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 3 + (Math.random() - 0.5) * 0.4 : WORLD === 2 ? g.y0 + 4.3 + (Math.random() - 0.5) * 0.2 : g.y0 + 1 + Math.random() * 4;   // world 2: in front of the great crystal of the hall of glory   // into the gazebo (her wish: they vanish there, like through a magic fireplace)
   walk(a, tx, ty, () => {
-    S.stats.graduated++; reviewGraduate(a); w2Seeker(); gainXp(a);
+    S.stats.graduated++; STU.ev(a, 'grad'); reviewGraduate(a); w2Seeker(); gainXp(a);
     if (helperAdmit(a)) return;                       // mages and elder mages stay as teachers' helpers (elders replace mages)
     if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower                       // mages stay as teachers' helpers (two per class, different kinds)
     popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
@@ -2283,7 +2301,7 @@ function inspEnd(m, ol) {   // the end of a visit: a check (m from the measure) 
     I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; (I.med ||= {})[m] = (I.med[m] || 0) + 1;
     if (I.stars > STAR_STONE_FROM && stonesAdd(1)) r.stone++;
     r.coins = Math.round(income * INSP_PAY[m] * (1 + 0.1 * ties)); S.coins += r.coins; S.stats.earned = (S.stats.earned || 0) + r.coins;
-    if (m === 'g') { if (stonesAdd(INSP_GOLD_STONES)) r.stone += INSP_GOLD_STONES; for (let k = 0; k < INSP_GOLD_REVIEWS; k++) review({ name: parentName(rnd(NAMES)) }, 5, false, rnd(['Инспектор дал школе золото — мы гордимся!', 'Спасибо школе, ребёнок счастлив! 💖', 'Лучшая школа магии ✨'])); cheerAll(10, '💖'); r.thanks = 1; glog('imp', '💌 Родители благодарят школу за золото инспектора', WORLD); }
+    if (m === 'g') { if (stonesAdd(INSP_GOLD_STONES)) r.stone += INSP_GOLD_STONES; for (let k = 0; k < INSP_GOLD_REVIEWS; k++) review({ name: parentName(STU.anyName()) }, 5, false, rnd(['Инспектор дал школе золото — мы гордимся!', 'Спасибо школе, ребёнок счастлив! 💖', 'Лучшая школа магии ✨'])); cheerAll(10, '💖'); r.thanks = 1; glog('imp', '💌 Родители благодарят школу за золото инспектора', WORLD); }
   } else I.failed = (I.failed || 0) + 1;
   I.last = m || 'f';
   if (S.calmAfter) { S.calmAfter = 0; setCalm(true); }   // calm mode asked for during the check
@@ -2459,7 +2477,7 @@ function drawWalkers() {
 window.__s6 = {   // test hooks (6b-6d)
   visit: (why = 'plan') => { const I = insp(); I.cur = null; I.v = null; iqDrop('insp'); inspCall(why); },
   plan: (sec) => { insp().t = sec; }, kind: (k) => { inspForceKind = k; }, cur: () => insp().cur, I: () => insp(), norm: () => norm(),
-  complaint: (k = 'mood', i = -1) => addComplaint(k, i, 'тест'), mail: (k, i = -1) => { mailEv(k, i, 'Тест'); boss().mail.t = 0; },
+  complaint: (k = 'mood', i = -1) => addComplaint(k, i, 'тест'), mail: (k, i = -1) => { mailEv(k, i, STU.anyName(i)); boss().mail.t = 0; },
   iq: () => IQ.map((q) => `${q.key}:${q.pr}`), card: () => icardKey, gap: () => { iqLastBig = -1e9; }, push: (pr, key, txt) => iqWin(pr, key, () => `<div class="sh-head"><h2>${txt}</h2><button class="x" data-close>✕</button></div>`),
   care: () => ({ on: CT.on, job: CT.job, x: CT.x, y: CT.y, path: CT.path.length }), inw: () => ({ on: INW.on, x: INW.x, y: INW.y }), bell: () => bellN(),
   fix: (i) => fixIncident(i), toast: (t) => toast(t), ffw: (sec) => { const n0 = incAwayN, c0 = S.coins, g0 = S.stats.graduated; fastForward(sec); return { inc: incAwayN - n0, coins: Math.round(S.coins - c0), grads: S.stats.graduated - g0, open: Object.keys(S.inc || {}).length }; },
@@ -2520,11 +2538,11 @@ let ffwd = false;   // true while fastForward() lives through the time the game 
 function rankTry(a, i, p) {   // the rank exam right after a passed lesson
   const T = RANK_AT(i);
   if (!T || !SPECIES.includes(a.sp) || (a.rk || 0) !== T - 1) return;
-  S.classes[i].rkTry = (S.classes[i].rkTry || 0) + 1;
-  if (Math.random() >= rankChance(i) * ANNEX.rankK()) return;   // 5c: observatory star maps
+  S.classes[i].rkTry = (S.classes[i].rkTry || 0) + 1; a._rkT = i;   // s8a: tried here (STU.rankAfter sees a failure)
+  if (Math.random() - STU.rankB(a) >= rankChance(i) * ANNEX.rankK()) return;   // 5c: observatory star maps
   a.rk = T; if (T === 5) a.el = Math.floor(Math.random() * 4);
   S.classes[i].rkPass = (S.classes[i].rkPass || 0) + 1;
-  S.stats.ranks ||= [0, 0, 0, 0, 0, 0]; S.stats.ranks[T]++;
+  S.stats.ranks ||= [0, 0, 0, 0, 0, 0]; S.stats.ranks[T]++; a._rkT = -1; STU.ev(a, 'rank', i);
   popup(`🌟 ${T === 5 ? 'Мастер ' + ELEMS[a.el].name + '!' : RANKS[T] + '!'}`, p.x + 0.4, p.y - 0.6, '#b8860b', 80);
   const k = formOf(a), f = formSt(k);
   if (!f.seen) {
@@ -2596,17 +2614,17 @@ const resTitle = (r) => (r.rk === 5 ? TW.masterTitle + ELEMS[r.el || 0].name : R
 const releaseReward = (r) => Math.round(resRate(r) * 3600);   // one hour of what it brings
 function towerCandidate(a) { return towerOpen() && SPECIES.includes(a.sp) && (a.rk || 0) >= (towerUp().onlyM ? 5 : 4); }   // onlyM (her request 2026-11-22): elder mages are refused automatically and graduate as usual
 function towerAdmit(a) {   // the graduate walks from the garden into the tower (or waits at its door)
-  const T = towerUp(), r = { sp: a.sp, rk: a.rk, el: a.el || 0, name: a.name, t: Date.now() };
+  const T = towerUp(), r = { sp: a.sp, rk: a.rk, el: a.el || 0, name: STU.full(a), t: Date.now() };
   const s = SLOTS.TOWER;
   if (T.res.length < towerCap()) {
     a.state = 'walk'; a.goal = { t: 'tw' };
     T.res.push(r);   // the place is taken at once (a reload while walking keeps the resident); the walk is only for the eye
     walk(a, s.x0 + 1.5 + Math.random() * 3, s.y0 + 1.5 + Math.random() * 3, () => { a.gone = true; popup(TW.emo, a.x, a.y, '#7b5cd6', 44); });
-    if (!ffwd) toast(`${TW.emo} ${a.name} (${resTitle(r)}) поселился ${TW.inN}`);
+    if (!ffwd) toast(`${TW.emo} ${STU.full(a)} (${resTitle(r)}) поселился ${TW.inN}`);
   } else if (T.wait.length < TOWER_WAIT) {
     T.wait.push(r); a.state = 'walk'; a.goal = { t: 'tw' };
     walk(a, s.x0 + 2.4 + (T.wait.length - 1) * 0.7, s.y0 - 0.5, () => { a.gone = true; });
-    if (!ffwd) toast(`${TW.emo} ${WORLD === 2 ? 'Чертог полон' : 'Башня полна'}: ${a.name} (${resTitle(r)}) ждёт у двери`);
+    if (!ffwd) toast(`${TW.emo} ${WORLD === 2 ? 'Чертог полон' : 'Башня полна'}: ${STU.full(a)} (${resTitle(r)}) ждёт у двери`);
   } else return false;
   return true;
 }
@@ -2778,10 +2796,10 @@ function helperAdmit(a) {
   if (i < 0) return false;
   const list = (helpersAll()[i] ||= []);
   if (k >= 0) { const old = list.splice(k, 1)[0]; if (!ffwd) toast(`🎓 ${old.name} (${TW.mage}) уступил место: пришёл ${TW.elder}, а он выпустился`); }
-  list.push({ sp: a.sp, name: a.name, rk: a.rk, el: 0, id: S.nextId++ });   // taken at once; the walk back to the class is for the eye
+  list.push({ sp: a.sp, name: STU.full(a), rk: a.rk, el: 0, id: S.nextId++ });   // taken at once; the walk back to the class is for the eye
   const [, h] = slotOf(i).door; a.state = 'walk'; a.goal = { t: 'tw' };
   walk(a, h[0] + 0.5, h[1] + 0.5, () => { a.gone = true; });
-  if (!ffwd) toast(`🪄 ${a.name} (${RANKS[a.rk]}) остался помогать: ${CLASSES[i].emoji} ${CLASSES[i].name}`);
+  if (!ffwd) toast(`🪄 ${STU.full(a)} (${RANKS[a.rk]}) остался помогать: ${CLASSES[i].emoji} ${CLASSES[i].name}`);
   return true;
 }
 const helpPaths = {};
@@ -2904,7 +2922,7 @@ function stepWorld(dt, live = false) {
   stepExped();
   stepRumble(dt, live);
   arrivalT -= dt;
-  if (arrivalT <= 0) { arrivalT = arrivalInterval(); gateArrive(); } if (gatePend() && gateLet(queue.length < queueCap(), !overfull())) spawn(); fullStep(dt);   // waiting places 5b: closed only when every waiting place is taken   // world 1 too: nobody new comes while the court and the dorm are (almost) full   // world 2: nobody new comes while every line and every bed is taken
+  if (arrivalT <= 0) { arrivalT = arrivalInterval(); gateArrive(); } if (gatePend() && gateLet(queue.length < queueCap(), !overfull())) spawn(); fullStep(dt); STU.step(dt, live);   // waiting places 5b: closed only when every waiting place is taken   // world 1 too: nobody new comes while the court and the dorm are (almost) full   // world 2: nobody new comes while every line and every bed is taken
   startNextProcess(live);
   if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime()) finishProcess(); }
   concPlace(); stepConcierge(dt); if (NEWDORM) stepConcierge2(dt);
@@ -5432,6 +5450,7 @@ function drawCreature(a, x, y, h, extra) {
       ctx.beginPath(); ctx.moveTo(px, py - r * 1.6); ctx.lineTo(px + r * 0.45, py - r * 0.45); ctx.lineTo(px + r * 1.6, py); ctx.lineTo(px + r * 0.45, py + r * 0.45); ctx.lineTo(px, py + r * 1.6); ctx.lineTo(px - r * 0.45, py + r * 0.45); ctx.lineTo(px - r * 1.6, py); ctx.lineTo(px - r * 0.45, py - r * 0.45); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
     }
   }
+  if (!a0._ghost) STU.over(a0, s.x, s.y - z, h);   // s8a: 💗 favourite, ✨ gifted
   if (extra) extra(s.x, s.y - z);
 }
 function ring(x, y, frac, color = '#3fbf6f') {
@@ -5821,6 +5840,7 @@ function render() {
   const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
+  if (WORLD <= 2) STU.drawCrowd(add);   // s8a: newcomers waiting outside the gate
   ANNEX.draw(add, list);   // 5c
   if (WORLD === 1 && POND) { const r = SLOTS.REC, b = POND_GEO.tallBase, k = r.x1 + b[0] + r.y1 + b[1]; list.push({ k1: -1e9, k2: 1, draw: drawPondFx }); list.push({ k1: k, k2: k, draw: drawPondTall }); }   // ripples + bobber on the painted water; the willow and hut sorted
   if (WORLD <= 2) { layoutCorridor(); for (const o of CORR) add(o.x, o.y, () => drawCorr(o)); }
@@ -6016,7 +6036,8 @@ function render() {
   drawWalkers();   // 6b/6c
   if (WORLD === 2) drawShades();
   if (WORLD === 1 && POND) drawPondFish();
-  if (WORLD <= 2) drawFullSign();   // 5b
+  if (WORLD <= 2) STU.drawGate();   // s8a: small counter, the plate only after a sustained jam (was drawFullSign)
+  if (window.__s8aOldSign) drawFullSign();   // 5b
   drawMail();
   if (tourStep >= 0 && tourList[tourStep] && tourAt(tourList[tourStep])) { const ta = tourAt(tourList[tourStep]), f = P(ta[0], ta[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
   for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
@@ -6236,7 +6257,7 @@ function receptionPanel() {
     <div class="stats3"><div><span>🪙</span><b>${entryFee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${perMin(procTime())}</b><i>оформляют в минуту</i></div><div><span>🚶</span><b>${perMin(arrivalInterval())}</b><i>приходят в минуту</i></div></div>
     <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${recLvl()}/${MAX_REC_LVL}</span><div class="muted">${(() => { const mx = S.reception.level >= MAX_REC_LVL, b = (d) => { S.reception.level += d; }; return `${nn('оформляют в минуту', perMin(procTime()), perMin(peek(b, procTime)), mx)}${peek(b, entryFee) !== entryFee() ? ' · ' + nnC('взнос', entryFee(), peek(b, entryFee), mx) : mx ? ' · взнос 🪙' + fmt(entryFee()) : ''}`; })()}</div></div>${S.reception.level >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', recCost(), 'rec')}</div>
     <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${adsLvl()}/${MAX_REC_LVL}</span><div class="muted">${nn('приходят в минуту', perMin(arrivalInterval()), perMin(peek((d) => { S.reception.ads += d; }, arrivalInterval)), S.reception.ads >= MAX_REC_LVL)}${adsFull() && S.reception.ads < MAX_REC_LVL ? '<br>' + adsWhy() : ''}</div></div>${S.reception.ads >= MAX_REC_LVL ? '<span class="done">макс.</span>' : adsFull() ? '<span class="done">хватает</span>' : costBtn('↑', adsCost(), 'ads')}</div>
-    ${fullNow() ? fullCard() : ''}
+    ${fullNow() ? fullCard() : ''}${STU.recCard()}
     <p class="muted">Настроение учеников: <b>${moodFace(avgMood())} ${Math.round(avgMood())}%</b>. Долгие очереди огорчают, уроки и библиотека радуют. Весёлые сдают экзамен лучше, а совсем грустные уходят домой (ушли от тоски: ${S.stats.gaveUp || 0}).</p>
     <p class="muted">Сейчас школа принимает ~${perMin(1 / Math.max(1e-6, (S.rt && S.rt.enrolled) || 0))} новичков в минуту${adsFull() ? ', больше не помещается' : ''}.</p>
     <p class="muted">Всего поступило: ${S.stats.enrolled} · выпускников: ${S.stats.graduated} · ушли расстроенными: ${S.stats.left || 0}</p>`;
@@ -7604,6 +7625,7 @@ scroller.addEventListener('click', (e) => {
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
   if (ANNEX.tap(wx, wy)) return;   // 5c: annex signs, bodies, orchard trees and holes
+  if (STU.tapTop(wx, wy)) return;   // s8a: the counter/plate over the gate, a newcomer outside it
   const mr = mailRect; if (mr && performance.now() - mr.t < 600 && wx >= mr.x0 && wx <= mr.x1 && wy >= mr.y0 && wy <= mr.y1) { openPanel(mailPanel); return; }   // the envelope over the office opens the letter (build 311)
   { const h = sfHits.find((q) => Math.hypot(wx - q.x, wy - q.y) < q.r); if (h) { h.st.caught = 1; sfBursts.push({ x: h.x, y: h.y, t: performance.now(), r: Math.random() }); S.stardust = (S.stardust || 0) + 1; popup('+1 ✨', h.x, h.y, '#f4d35e', 26); save(); LORE.event('star'); return; } }   /* secret «Звездопад»: a caught star */
   if (pukh && !pukh.caught && pukhHit && Math.hypot(wx - pukhHit.x, wy - pukhHit.y) < pukhHit.r) { pukh.caught = performance.now(); pukh.cx = pukhHit.x; pukh.cy = pukhHit.y; LORE.event('pukh'); return; }   // secret «Совёнок Пух»
@@ -7622,6 +7644,7 @@ scroller.addEventListener('click', (e) => {
     const a = (wx - OX) / HW, b = (wy + lift - OY) / HH, tx = (a + b) / 2, ty = (b - a) / 2, c = courtC();
     if (Math.abs(tx - c.x) < 2 && Math.abs(ty - c.y) < 2) { if (!LORE.event('fount')) openPanel(fountainPanel); return; }
   }
+  if (STU.tapStudent(wx, wy)) return;   // s8a: a student right under the finger -> his card (seated in class: only a favourite or a gifted one)
   // a tap inside a room (floor, or walls/sprites just above it) always opens the room
   for (const lift of [0, 20, 40]) {
     const a = (wx - OX) / HW, b = (wy + lift - OY) / HH;
@@ -7632,7 +7655,7 @@ scroller.addEventListener('click', (e) => {
   }
   // in the corridors a tap on a creature tells what it is doing
   const who = creatureAt(e.clientX, e.clientY);
-  if (who) toast(`${who.name}: ${statusOf(who)}`);
+  if (who) STU.open(who);   // s8a: the student card (was a toast «name: status»)
 });
 function openRoom(id) {
   { const ci = CLASS_SLOT.indexOf(id); if (ci >= 0 && incOf(ci)) { fixIncident(ci); return; } }   // a tap on a class in trouble fixes it
@@ -8857,5 +8880,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=588').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=589').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
