@@ -269,6 +269,7 @@ export function crownHint() {   // the lion's hint about the crown on his desk (
   if (takenToday()) t = 'Тихон сегодня и так исписал полкниги. Хватит на сегодня тайн, отдохни.';
   else if (!(QS().world || {}).done) t = 'Когда я вернулся сюда после долгих лет в пути, Тихон первым делом усадил меня за летопись. Сначала пройди испытание «Мир», а потом поговорим.';
   else if (!isMorning()) t = 'Каждое утро я люблю здороваться с каждым учеником — и на тебя найдётся минутка.';
+  else if (canFind(4)) t = 'Доброе утро! Взгляни-ка на мой стол — кажется, там что-то давно тебя дожидается.';
   if (t) crHintAt = now; return t;
 }
 export const crown = () => !!(S() && A.on() && (LS().prize || (crownWanted() && isMorning() && (QS().world || {}).done && canFind(4))));
