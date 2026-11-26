@@ -328,7 +328,14 @@ function facts() {
 }
 const CH_DATE = (t) => (t ? new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
 const TD_MONTH = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
-function dayPages(f) {   // s7 «☀️ Сегодня»: every closed day is a line of the book, one page per month (game.js facts().tdays = [{ t, th, x }])
+function dayPages(f) { return dayPages0(f).concat(lifePages(f)); }   // s8c: + «Истории школы»
+function lifePages(f) {   // s8c: mini-stories and named moments, one page per month (game.js facts().life = [{ t, x }])
+  const by = {}; for (const x of f.life || []) { const d = new Date(x.t), id = `lf${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`; (by[id] ||= { d, L: [] }).L.push(x); }
+  return Object.keys(by).sort().map((id) => { const { d, L } = by[id];
+    return { id, mine: 1, hand: 1, title: `Истории школы · ${TD_MONTH[d.getMonth()]} ${d.getFullYear()}`, icon: '📜', sub: `${L.length}`,
+      layers: L.map((x) => ({ t: new Date(x.t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }), x: `${x.x}\n\n— летописец Тихон` })) }; });
+}
+function dayPages0(f) {   // s7 «☀️ Сегодня»: every closed day is a line of the book, one page per month (game.js facts().tdays = [{ t, th, x }])
   const by = {}; for (const x of f.tdays || []) { const d = new Date(x.t), id = `td${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`; (by[id] ||= { d, L: [] }).L.push(x); }
   return Object.keys(by).sort().map((id) => { const { d, L } = by[id], n = L.length, k = n % 10, m = n % 100, w = m > 10 && m < 20 ? 'хороших дней' : k === 1 ? 'хороший день' : k >= 2 && k <= 4 ? 'хороших дня' : 'хороших дней';
     return { id, mine: 1, hand: 1, title: `Хорошие дни · ${TD_MONTH[d.getMonth()]} ${d.getFullYear()}`, icon: '☀️', sub: `${n} ${w}`,

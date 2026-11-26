@@ -540,6 +540,7 @@ export function initHeroes(api) {
     return s;
   }
   function bio(r) {
+    if (window.STU_BIO) { const t = window.STU_BIO(r); if (t) return t; }   // s8c: biography from the life log (js/students.js); old residents keep this line
     const d = new Date(r.t || r.h.at), C = api.classes(), fc = FAV_CLASS[r.sp] ? C.find((c) => c.id === FAV_CLASS[r.sp]) : null;
     return `${esc(r.name)} пришёл в школу новичком${r.h.gift ? ' — одарённым' : ''}${fc ? `, больше всего любил «${esc(fc.name)}»` : ''}, вырос до звания «${esc(api.resTitle(r))}» и поселился ${api.towerIn()} ${d.toLocaleDateString('ru-RU')}.`;
   }

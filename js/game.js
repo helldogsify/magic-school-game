@@ -1,24 +1,24 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=593';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=594';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=593';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=593';
-import { initMinigame } from './minigame.js?v=593';
-import { initChests } from './chests.js?v=593';
-import { initValley } from './valley.js?v=593';
-import { initValley2 } from './valley2.js?v=593';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=593';
-import { initLore } from './lore.js?v=593';
-import { initAvatar } from './avatar.js?v=593';
-import { initStats } from './stats.js?v=593';
-import { initStudents } from './students.js?v=593';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initHeroes, HERO_BAL } from './heroes.js?v=593';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
-import { initAnnex } from './annex.js?v=593';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
-import { ANNEX_BAL } from './annex.js?v=593';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
-import { initToday } from './today.js?v=593';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
+} from './data.js?v=594';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=594';
+import { initMinigame } from './minigame.js?v=594';
+import { initChests } from './chests.js?v=594';
+import { initValley } from './valley.js?v=594';
+import { initValley2 } from './valley2.js?v=594';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=594';
+import { initLore } from './lore.js?v=594';
+import { initAvatar } from './avatar.js?v=594';
+import { initStats } from './stats.js?v=594';
+import { initStudents } from './students.js?v=594';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes, HERO_BAL } from './heroes.js?v=594';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=594';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=594';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=594';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -62,7 +62,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
   music: { on: () => musicOn(), pause: () => music.pause(), resume: () => musicStart() },
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; }, onClose: () => { renderInsp(); updateHud(); },   // «Летопись» (her wish 2026-11-23)
   facts: () => ({ allBuilt: S.classes.every((c, i) => isOpen(i)), grads: S.stats.graduated || 0, masters: (S.stats.ranks || [])[5] || 0, forms: S.forms || {},
-    ch: CHAPTERS.filter((c, k) => chapDone(k)).length, chron: S.chron || [], tkj: S.tkj || [], fw: (S.heroFw && S.heroFw.L) || [], tdays: TODAY.book(), /* s7: day lines of «Сегодня» */ school: schoolName(),   // rework step 4: the book knows the chronicle
+    ch: CHAPTERS.filter((c, k) => chapDone(k)).length, chron: S.chron || [], tkj: S.tkj || [], fw: (S.heroFw && S.heroFw.L) || [], tdays: TODAY.book(), /* s7: day lines of «Сегодня» */ school: schoolName(), life: STU.book(), /* s8c: stories and named moments */   // rework step 4: the book knows the chronicle
     cls: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return i < 0 ? { built: false, lvl: 0 } : { built: isOpen(i), lvl: S.classes[i].teacher || 1 }; },
     has: (id) => (id === 'dorm2' ? NEWDORM && dorm2Built() : id === 'cant' ? cantBuilt() : id === 'shop' ? shopOpen() : id === 'dir' ? dirBuilt() : id === 'tower' ? towerOpen() : true) }) });
 
@@ -77,7 +77,13 @@ const ANNEX = initAnnex({ MISSIONS, CLASSES, WORLD, glog: (k, t, w) => glog(k, t
   wild: () => (WORLD === 1 ? OUTDOOR.filter((o) => o.n === 'goldtree').map(wildKey) : []),   // the map's orange trees (audit_fixes)
   openMg: (g) => { MG.open(); const b = document.querySelector(`#mg [data-mgpick="${g}"]`); if (b) b.click(); } });
 // student path 1-3 (js/students.js): names, student card, favourites, gifted newcomers, the gate crowd, favourites' retakes
-const STU = initStudents({ S: () => S, gate: () => gate(), species: () => SPECIES, names: () => NAMES, spNames: () => SP_NAMES, classes: () => CLASSES, world: () => WORLD,
+const STU = initStudents({ S: () => S,
+  // s8c (tools/_patch/students_s8c.py): students screen, album lines, biographies, stories, master of the week, alumni book
+  tower: () => towerUp(), towerOpen: () => towerOpen(), towerCap: () => towerCap(), helpers: () => (S.helpers || {}), resTitle: (r) => resTitle(r), mcMasters: () => mcMasters(), mcClass: () => mcClass(),
+  retakeIn: () => (towerUp().rt ?? retakeInterval()), heroCard: (id) => HERO.openCard(id), heroBadge: (r) => HERO.badge(r), openTower: () => { HERO.tabReset(); openPanel(towerPanel); }, TW: () => TW,
+  elemName: (e) => ELEMS[e || 0].name, formPic: (sp, rk, el) => formImg(fkey(sp, rk, el || 0)), closePanel: () => closePanel(), iq: (pr, key, fn, opt) => iqWin(pr, key, fn, opt),
+  focus: (x, y) => focusTile(x, y, true), openPeople: () => openPanel(peoplePanel), emojiHtml: (h) => emojiHtml(h),
+  peopleRows: () => peopleRows(), avgMood: () => avgMood(), incOf: (i) => !!incOf(i), dark: (i) => hallDark(i), albumHtml: () => albumBody(), gate: () => gate(), species: () => SPECIES, names: () => NAMES, spNames: () => SP_NAMES, classes: () => CLASSES, world: () => WORLD,
   inSchool: () => inSchool(), agents: () => agents, isStudent: (a) => SPECIES.includes(a.sp) && !a.mcls && !a.retake,
   save: () => save(), toast: (t) => toast(t), toastBig: (t) => toastBig(t), stats: (n, x) => STATS.ev(n, x), stats0: () => S.stats, glog: (k, t) => glog(k, t, WORLD),
   ffwd: () => ffwd, edit: () => !!EDIT, rating: () => ratingVal(), entryFee: () => entryFee(), gatePend: () => gatePend(), overfull: () => overfull(), recRoom: () => queue.length < queueCap(),
@@ -119,7 +125,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 593;   // keep equal to the ?v= number in index.html
+const BUILD = 594;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -139,8 +145,8 @@ function migrate() {   // classes added to the game later (the final exam) appea
 }
 function load() {
   if (EDIT) { editState(); return; }
-  try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { S = JSON.parse(raw); migrate(); migrateForms(); return; } } catch (e) { /* fresh */ }
-  freshState();
+  try { const raw = localStorage.getItem(SAVE_KEY); if (raw) { S = JSON.parse(raw); migrate(); migrateForms(); migrateForms2(); return; } } catch (e) { /* fresh */ }
+  freshState(); S.formsV2 = 1;   // s8c: a new save starts on the new album scale
 }
 let noSave = false;
 function save() {
@@ -152,7 +158,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !a.mcls && !(a.goal && a.goal.t === 'tw')).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed, les: a.les, rest: a.rest, dream: a.dream, pk: a.pk, slp: a.slp, fn: a.fn, gift: a.gift, rt: a.rt, rtp: a.rtp, rtd: a.rtd, rto: a.rto })),
+    agents: agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !a.mcls && !(a.goal && a.goal.t === 'tw')).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed, les: a.les, rest: a.rest, dream: a.dream, pk: a.pk, slp: a.slp, fn: a.fn, gift: a.gift, rt: a.rt, rtp: a.rtp, rtd: a.rtd, rto: a.rto, lg: a.lg, fr: a.fr })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -1981,10 +1987,10 @@ function goGraduate(a) {
   if (a.retake) { retakeHome(a); return; }   // an elder from the tower after his retake: not a new graduate
   const tx = WORLD === 1 ? g.x0 + 3 + (Math.random() - 0.5) * 0.4 : WORLD === 2 ? g.x0 + 3.55 + (Math.random() - 0.5) * 0.3 : g.x0 + 1 + Math.random() * 4, ty = WORLD === 1 ? g.y0 + 3 + (Math.random() - 0.5) * 0.4 : WORLD === 2 ? g.y0 + 4.3 + (Math.random() - 0.5) * 0.2 : g.y0 + 1 + Math.random() * 4;   // world 2: in front of the great crystal of the hall of glory   // into the gazebo (her wish: they vanish there, like through a magic fireplace)
   walk(a, tx, ty, () => {
-    S.stats.graduated++; STU.ev(a, 'grad'); reviewGraduate(a); w2Seeker(); gainXp(a);
+    S.stats.graduated++; STU.ev(a, 'grad'); reviewGraduate(a); STU.grad(a, rating().last[0]); w2Seeker(); gainXp(a);
     if (helperAdmit(a)) return;                       // mages and elder mages stay as teachers' helpers (elders replace mages)
     if (towerCandidate(a) && towerAdmit(a)) return;   // rare graduates stay in the masters' tower                       // mages stay as teachers' helpers (two per class, different kinds)
-    popup('🎓 ⭐+1', a.x, a.y, '#7b5cd6', 46);
+    popup(`🎓 ${a.name || ''} 🏅`, a.x, a.y, '#7b5cd6', 46);   // s8c: named; the review icon (C5.2, no school star is given)
     if (WORLD <= 2) { a.state = 'vanish'; a.t = 0; return; }   // world 2 (hall of glory): they vanish in the crystal's light   // a swirl of magic light in the gazebo and the graduate is gone
     a.state = 'fly'; a.t = 0; a.vx = (Math.random() < 0.5 ? -1 : 1) * 0.6;
   });
@@ -2561,7 +2567,8 @@ const RANK_BASE = [0, 0.30, 0.20, 0.12, 0.05, 0.025];    // chance at upgrade le
 const RANK_STEP = [0, 0.01, 0.01, 0.01, 0.01, 0.004];   // + per «Шанс экзамена» level
 const RANK_MUL = [1, 1.3, 1.7, 2.2, 3, 5];              // a student in that rank pays this much more for every lesson
 const FORM_BASE = [10000, 40000, 250000, 1200000, 6000000, 30000000];   // first card level price per rank
-const MAX_EX_LVL = 20, MAX_XPL_LVL = 10, FORM_MAX = 20;
+const MAX_EX_LVL = 20, MAX_XPL_LVL = 10, FORM_MAX = 10;   // s8c: album 10 levels, XP only (was 20 levels with coins)
+const FORM_STEP = 0.95 / 9;   // s8c: +10.56 % pay per card level: level 10 = ×1.95 = the old level 20
 const exLvl = (i) => S.classes[i].ex || 0, xplLvl = (i) => S.classes[i].xpl || 0;
 const ratingK = () => 1 + 0.05 * Math.max(0, Math.min(4, Math.floor(((ratingVal() || 0) - 3) / 0.5 + 1e-9)));   // rework step 5: a good name brings abler students: +5 % per 0.5★ above 3
 const RANK_MAX = 0.95;   // audit F16: rating ×1.2, helpers, mentors, observatory ×1.25 and the gifted +10 % could pass 100 %
@@ -2575,9 +2582,9 @@ const formOf = (a) => fkey(a.sp, a.rk || 0, a.el || 0);
 const formRank = (k) => +k.split(':')[1];
 const formTitle = (k) => { const [, rk, el] = k.split(':'); return +rk === 5 ? 'Мастер ' + ELEMS[el].name : RANKS[rk]; };
 const formName = (k) => `${SP_NAMES[k.split(':')[0]]} — ${formTitle(k)}`;
-const formNeed = (l) => Math.round(25 * Math.pow(1.6, l - 1));
-const formCost = (k) => paced(FORM_BASE[formRank(k)] * Math.pow(2.1, formSt(k).lvl - 1), formSt(k).lvl);
-const payMul = (a) => (SPECIES.includes(a.sp) ? RANK_MUL[a.rk || 0] * (1 + 0.05 * (formSt(formOf(a)).lvl - 1)) : 1);
+const formNeed = (l) => Math.round(100 * Math.pow(2.56, l - 1));   // s8c: ~ two old levels of XP per new level (total to 10: ~302k, old to 20: ~314k); starting constant
+const formCost = (k) => 0;   // s8c: card levels cost no coins any more (Ruslan step 8: «уровень карточки растёт только от опыта»); FORM_BASE kept for reference
+const payMul = (a) => (SPECIES.includes(a.sp) ? RANK_MUL[a.rk || 0] * (1 + FORM_STEP * (formSt(formOf(a)).lvl - 1)) : 1);
 const formReady = (k) => { const f = formSt(k); return f.seen && f.lvl < FORM_MAX && f.xp >= formNeed(f.lvl); };
 function migrateForms() {   // build 149: the old per-species levels (builds 143-148) move into the album, nothing is lost
   if (!S || S.formsV) return;
@@ -2585,9 +2592,14 @@ function migrateForms() {   // build 149: the old per-species levels (builds 143
   const OLD_TIERS = [1, 5, 10, 15, 20];
   for (const [sp, o] of Object.entries(S.spl || {})) {
     if (!SPECIES.includes(sp) || !o) continue;
-    const f = formSt(fkey(sp, 0)); f.lvl = Math.min(FORM_MAX, Math.max(f.lvl, o.lvl || 1)); f.xp = Math.max(f.xp, o.xp || 0); f.seen = true;
+    const f = formSt(fkey(sp, 0)); f.lvl = Math.min(20, Math.max(f.lvl, o.lvl || 1));   /* old 20-level scale; migrateForms2 maps it */ f.xp = Math.max(f.xp, o.xp || 0); f.seen = true;
     OLD_TIERS.forEach((v, t) => { if (t > 0 && (o.lvl || 1) >= v) formSt(fkey(sp, t)).seen = true; });   // outfits already earned stay open in the album
   }
+}
+function migrateForms2() {   // s8c: 20 levels with coins -> 10 levels XP only; old level L -> 1 + ceil((L-1) × 0.05 / FORM_STEP): the pay bonus is never lower;
+  // banked XP is capped at one ready level (the old card showed only min(xp, need), the rest waited behind the coin price)
+  if (!S || S.formsV2) return; S.formsV2 = 1;
+  for (const f of Object.values(S.forms || {})) { if (!f) continue; const L = f.lvl || 1; f.lvl0 = L; f.lvl = Math.min(FORM_MAX, 1 + Math.ceil((L - 1) * 0.05 / FORM_STEP - 1e-9)); f.xp = Math.min(f.xp || 0, f.lvl < FORM_MAX ? formNeed(f.lvl) : 0); }
 }
 function formXp(a, i) { if (SPECIES.includes(a.sp)) formSt(formOf(a)).xp += (1 + xplLvl(i)) * (loreQ('races') ? 1.05 : 1); }
 let ffwd = false;   // true while fastForward() lives through the time the game was closed
@@ -2599,7 +2611,7 @@ function rankTry(a, i, p) {   // the rank exam right after a passed lesson
   a.rk = T; if (T === 5) a.el = Math.floor(Math.random() * 4);
   S.classes[i].rkPass = (S.classes[i].rkPass || 0) + 1;
   S.stats.ranks ||= [0, 0, 0, 0, 0, 0]; S.stats.ranks[T]++; a._rkT = -1; STU.ev(a, 'rank', i);
-  popup(`🌟 ${T === 5 ? 'Мастер ' + ELEMS[a.el].name + '!' : RANKS[T] + '!'}`, p.x + 0.4, p.y - 0.6, '#b8860b', 80);
+  popup(`🌟 ${a.name ? a.name + ': ' : ''}${T === 5 ? 'Мастер ' + ELEMS[a.el].name + '!' : RANKS[T] + '!'}`, p.x + 0.4, p.y - 0.6, '#b8860b', 80);
   const k = formOf(a), f = formSt(k);
   if (!f.seen) {
     f.seen = true;
@@ -2632,23 +2644,24 @@ function formCounts() {   // how many of each form are in the school now: studen
   return c;
 }
 let FC = {};
-function formCard(k) {
+function formCard(k) {   // s8c: a level is opened by a tap when its XP is there (no coins)
   const f = formSt(k), rk = formRank(k), el = +(k.split(':')[2] || 0), need = formNeed(f.lvl);
   const pic = `<div class="fpic${f.seen ? '' : ' sil'}${rk === 5 ? ' master' : ''}"${rk === 5 ? ` style="--ec:rgb(${ELEMS[el].col})"` : ''}><img src="${formImg(k)}">${rk === 5 && f.seen ? `<em>${ELEMS[el].emo}</em>` : ''}</div>`;
   if (!f.seen) return `<div class="card up locked">${pic}<div class="grow"><b>${formTitle(k)}</b><div class="muted">${rk === 5 ? 'сдай экзамен на Мастера в Экзаменационном зале' : `ещё никто не стал ${RANKS_TO[rk]}`}</div></div><span class="muted">❔</span></div>`;
   return `<div class="card up">${pic}<div class="grow"><b>${formTitle(k)}</b> <span class="muted">ур. ${f.lvl}/${FORM_MAX}</span>
-    <div class="muted">плата за урок ×${+(RANK_MUL[rk] * (1 + 0.05 * (f.lvl - 1))).toFixed(2)} · в школе сейчас: <b>${FC[k] || 0}</b></div>
+    <div class="muted">плата за урок ×${+(RANK_MUL[rk] * (1 + FORM_STEP * (f.lvl - 1))).toFixed(2)} · в школе сейчас: <b>${FC[k] || 0}</b></div>
     ${f.lvl < FORM_MAX ? `<div class="lvbar"><i style="width:${Math.min(100, f.xp / need * 100)}%"></i></div><div class="muted">опыт ${fmt(Math.min(f.xp, need))}/${fmt(need)}</div>` : ''}</div>
-    ${f.lvl >= FORM_MAX ? '<span class="done">макс.</span>' : f.xp >= need ? costBtn('↑', formCost(k), 'formlvl', `data-k="${k}"`) : '<span class="muted">копит опыт</span>'}</div>`;
+    ${f.lvl >= FORM_MAX ? '<span class="done">макс.</span>' : f.xp >= need ? `<button class="btn" data-act="formlvl" data-k="${k}">✨ Ур. ${f.lvl + 1}</button>` : '<span class="muted">копит опыт</span>'}</div>`;
 }
-function speciesPanel() {   // 🎓 album (own button at the bottom; her ruling 2026-11-22: it levels the student IN THAT OUTFIT)
+function albumBody() {   // s8c: the «📖 Альбом» tab of the students screen (was its own panel speciesPanel)
   const seen = FORM_KEYS.filter((k) => formSt(k).seen).length; FC = formCounts();
   const tabs = SPECIES.map((sp) => `<button class="chip${sp === albumSp ? ' on' : ''}${FORM_KEYS.some((k) => k.startsWith(sp + ':') && formReady(k)) ? ' dot' : ''}" data-alb="${sp}"><img src="assets/creatures/${sp}.png"></button>`).join('');
-  return `<div class="sh-head"><span class="remoji big">🎓</span><div><h2>Альбом учеников</h2><div class="muted">Открыто карточек: ${seen} из ${FORM_KEYS.length}</div></div><button class="x" data-close>✕</button></div>
-    <div class="chips">${tabs}</div><h3>${SP_NAMES[albumSp]}</h3>
+  return `<p class="muted">Открыто карточек: ${seen} из ${FORM_KEYS.length}</p><div class="chips">${tabs}</div><h3>${SP_NAMES[albumSp]}</h3>
     ${FORM_KEYS.filter((k) => k.startsWith(albumSp + ':')).map(formCard).join('')}
-    <p class="muted">Звание ученик получает сам, сдав экзамен после урока. Каждый сданный урок даёт опыт карточке его вида и наряда. Накопился опыт — улучши карточку: все такие ученики платят на 5% больше.</p>`;
+    ${STU.albumLines(albumSp)}
+    <p class="muted">Звание ученик получает сам, сдав экзамен после урока. Каждый сданный урок даёт опыт карточке его вида и наряда. Накопился опыт — открой новый уровень карточки (бесплатно): все такие ученики платят больше, а об их виде открывается новая строчка.</p>`;
 }
+function speciesPanel() { return peoplePanel(); }   // s8c: old name kept; every opener sets the album tab first
 // ======================= the masters' tower (her choice 2026-11-22: rare graduates must not vanish) =======================
 // Elder mages (rank 4) and masters (rank 5) who pass the final exam do not fly away: they move into the tower, live there
 // and bring coins every second (also while the game is closed). Few places; more are bought. When the tower is full the
@@ -2693,10 +2706,11 @@ function towerAdmit(a) {   // the graduate walks from the garden into the tower 
     a.state = 'walk'; a.goal = { t: 'tw' };
     T.res.push(r);   // the place is taken at once (a reload while walking keeps the resident); the walk is only for the eye
     HERO.enter(r, a);   // 8b: he becomes a hero (free roll, card-flip reveal through the window queue)
+    STU.carry(a, r, 't');   // s8c: his life log goes with him (biography)
     walk(a, s.x0 + 1.5 + Math.random() * 3, s.y0 + 1.5 + Math.random() * 3, () => { a.gone = true; popup(TW.emo, a.x, a.y, '#7b5cd6', 44); });
     if (!ffwd) toast(`${TW.emo} ${STU.full(a)} (${resTitle(r)}) поселился ${TW.inN}`);
   } else if (T.wait.length < TOWER_WAIT) {
-    T.wait.push(r); HERO.enter(r, a); a.state = 'walk'; a.goal = { t: 'tw' };
+    T.wait.push(r); HERO.enter(r, a); STU.carry(a, r, 't'); a.state = 'walk'; a.goal = { t: 'tw' };
     walk(a, s.x0 + 2.4 + (T.wait.length - 1) * 0.7, s.y0 - 0.5, () => { a.gone = true; });
     if (!ffwd) toast(`${TW.emo} ${WORLD === 2 ? 'Чертог полон' : 'Башня полна'}: ${STU.full(a)} (${resTitle(r)}) ждёт у двери`);
   } else return false;
@@ -2763,6 +2777,7 @@ function stepMasterClass(dt) {
   mcGap = MC_GAP;
   let pick = pool;
   for (let k = 1; k <= 4; k++) { const e = (mcLastEl + k + 4) % 4, l = pool.filter(([, r]) => (r.el || 0) === e); if (l.length) { pick = l; break; } }   // the next element in turn that has a master free
+  { const wk = STU.mcWeek(pool); if (wk) pick = [wk]; }   // s8c: the master of the week leads whenever he is free
   const [ci, r] = pick[Math.floor(Math.random() * pick.length)];
   mcLastEl = r.el || 0;
   r.id ||= S.nextId++; r.mc = true; HERO.xp(r, 'mc');   // 8b: a master-class gives hero XP
@@ -2788,9 +2803,9 @@ function retakeHome(a) {   // back from the exam hall: update the resident, walk
   const T = towerUp(), r = T.res.find((x) => x.id === a.retake), s = SLOTS.TOWER;
   if (!r) for (const [ci, l] of Object.entries(S.helpers || {})) {
     const k = l.findIndex((x) => x.id === a.retake); if (k < 0) continue;
-    const h = l[k]; h.rk = a.rk || 4; h.el = a.el || 0; h.away = false;
+    const h = l[k]; STU.promo(h, a.rk || 4, a.el || 0); h.rk = a.rk || 4; h.el = a.el || 0; h.away = false;
     if (h.rk === 5 && towerOpen() && T.res.length < towerCap()) {   // a new master moves into the tower, his helper place is free again
-      l.splice(k, 1); T.res.push({ sp: h.sp, rk: 5, el: h.el, name: h.name, t: Date.now(), id: h.id }); HERO.enter(T.res[T.res.length - 1], h);
+      l.splice(k, 1); T.res.push({ sp: h.sp, rk: 5, el: h.el, name: h.name, t: Date.now(), id: h.id }); HERO.enter(T.res[T.res.length - 1], h); if (h.lg) { T.res[T.res.length - 1].lg = h.lg; T.res[T.res.length - 1].gift = h.gift; }   /* s8c */
       if (!ffwd) toast(`${TW.emo} ${h.name} (${resTitle(h)}) переехал ${TW.inN}`);
       break;
     }
@@ -2798,7 +2813,7 @@ function retakeHome(a) {   // back from the exam hall: update the resident, walk
     walk(a, dh[0] + 0.5, dh[1] + 0.5, () => { a.gone = true; });
     return;
   }
-  if (r) { HERO.retake(r, a.rk || 4); r.rk = a.rk || 4; r.el = a.el || 0; r.away = false; }   // 8b: XP; a new Мастер = promotion
+  if (r) { STU.promo(r, a.rk || 4, a.el || 0); HERO.retake(r, a.rk || 4); r.rk = a.rk || 4; r.el = a.el || 0; r.away = false; }   // 8b: XP; a new Мастер = promotion
   a.c = -1; a.state = 'walk'; a.goal = { t: 'tw' };
   walk(a, s.x0 + 1.5 + Math.random() * 3, s.y0 + 1.5 + Math.random() * 3, () => { a.gone = true; });
 }
@@ -2874,7 +2889,7 @@ function helperAdmit(a) {
   if (i < 0) return false;
   const list = (helpersAll()[i] ||= []);
   if (k >= 0) { const old = list.splice(k, 1)[0]; if (!ffwd) toast(`🎓 ${old.name} (${TW.mage}) уступил место: пришёл ${TW.elder}, а он выпустился`); }
-  list.push({ sp: a.sp, name: STU.full(a), rk: a.rk, el: 0, id: S.nextId++ });   // taken at once; the walk back to the class is for the eye
+  list.push({ sp: a.sp, name: STU.full(a), rk: a.rk, el: 0, id: S.nextId++ }); STU.carry(a, list[list.length - 1], 'h', i);   // s8c: life log   // taken at once; the walk back to the class is for the eye
   const [, h] = slotOf(i).door; a.state = 'walk'; a.goal = { t: 'tw' };
   walk(a, h[0] + 0.5, h[1] + 0.5, () => { a.gone = true; });
   if (!ffwd) toast(`🪄 ${STU.full(a)} (${RANKS[a.rk]}) остался помогать: ${CLASSES[i].emoji} ${CLASSES[i].name}`);
@@ -2914,7 +2929,8 @@ function helpersHtml(i) {
   const h = helpersOf(i);
   return `<div class="card up"><span class="remoji">🪄</span><div class="grow"><b>${TW.helpers}: ${h.length}/${HELP_MAX}</b><div class="muted">${h.length ? h.map((x) => `${x.name} (${RANKS[x.rk || 3]}, ${SP_NAMES[x.sp]})${x.away ? ` — пересдаёт на ${TW.masterA}` : ''}`).join(', ') : `выпускник со званием «${TW.mage}» останется помогать, если здесь нет помощника его вида`} · +${HELP_BONUS * 100}% к экзамену на звание за каждого. ${TW.elder} сменяет ${WORLD === 2 ? 'Умельца' : 'Мага'} и время от времени ходит пересдавать на ${TW.masterA}</div></div></div>`;
 }
-function peoplePanel() {
+function peoplePanel() { return STU.screen(); }   // s8c: one students screen «👥 Ученики» with 3 tabs (js/students.js)
+function peopleRows() {   // the counters of «Сейчас в школе»
   const l = inSchool(), n = (f) => l.filter(f).length;
   const rows = [
     ['🛎️', 'в приёмной', n((a) => queue.includes(a))],
@@ -2927,9 +2943,7 @@ function peoplePanel() {
     ...(cantOpen() ? [['🍽️', 'в столовой', n((a) => a.goal && a.goal.t === 'cant')]] : []),
     ['🚶', 'идут по школе', n((a) => a.state === 'walk' && !queue.includes(a) && !(a.goal && (a.goal.t === 'd' || a.goal.t === 'l')))],
   ];
-  return `<div class="sh-head"><span class="remoji big">👥</span><div><h2>Ученики в школе: ${l.length}</h2><div class="muted">Настроение ${moodFace(avgMood())} ${Math.round(avgMood())}% · всего выпустилось 🎓 ${fmt(S.stats.graduated)}</div></div><button class="x" data-close>✕</button></div>
-    ${rows.map(([e, t, v]) => `<div class="card up"><span class="remoji">${e}</span><div class="grow"><b>${v}</b> ${t}</div></div>`).join('')}
-`;
+  return rows;
 }
 function renderInsp() {
   const el = $('#insp'); if (!el || !S) return;
@@ -3275,7 +3289,7 @@ function tkGain(op) {   // extra coins per minute; op = { act, i, k } as in the 
       case 'beds': { const g = gate(); return g.b > 0.05 ? R * Math.min(0.3, g.b) * 0.05 : 0; }   // the dorm full: newcomers turned away at the gate
       case 'dir': return op.k === 'refund' && WORLD === 1 ? (S.outEma || 0) * 60 * 0.1 / Math.max(0.1, refundRate()) : null;   // refunds to leavers: -10 points per level
       case 'formlvl': { const all = inSchool().filter((a) => SPECIES.includes(a.sp)), n = all.filter((a) => formOf(a) === op.k).length; if (!all.length) return 0;   // the share of students in school with this card
-        return R * 0.05 / (1 + 0.05 * (formSt(op.k).lvl - 1)) * (n / all.length) * RANK_MUL[formRank(op.k)] / 1.5; }
+        return R * FORM_STEP / (1 + FORM_STEP * (formSt(op.k).lvl - 1)) * (n / all.length) * RANK_MUL[formRank(op.k)] / 1.5; }
     }
   } catch (e) { /* the model never breaks the game */ }
   return null;
@@ -6189,6 +6203,7 @@ function render() {
   drawWalkers();   // 6b/6c
   if (WORLD === 2) drawShades();
   if (WORLD === 1 && POND) drawPondFish();
+  if (WORLD <= 2) STU.drawFavs();   // s8c: favourites' name plates over everything
   if (WORLD <= 2) STU.drawGate();   // s8a: small counter, the plate only after a sustained jam (was drawFullSign)
   if (window.__s8aOldSign) drawFullSign();   // 5b
   drawMail();
@@ -7347,7 +7362,7 @@ function goTarget(go) {   // open a room and light up the button that helps (mis
   closePanel();
   if (ANNEX.go(id)) return;   // 5c: an annex request / panel
   if (id === '@mg') { MG.open(); return; }
-  if (id === '@top') openTop(); else if (id === '@ally') openAlly(); else if (id === '@insp') openPanel(inspPanel); else if (id === '@album') { const sp = /data-k="([a-z]+):/.exec(sel || ''); if (sp && SPECIES.includes(sp[1])) albumSp = sp[1]; openPanel(speciesPanel); }   // 6a: a card quest opens its creature's page
+  if (id === '@top') openTop(); else if (id === '@ally') openAlly(); else if (id === '@insp') openPanel(inspPanel); else if (id === '@album') { const sp = /data-k="([a-z]+):/.exec(sel || ''); if (sp && SPECIES.includes(sp[1])) albumSp = sp[1]; STU.setTab('album'); openPanel(peoplePanel); }   // 6a: a card quest opens its creature's page
   else if (id === 'FOUNT') { if (!COURT) return; openPanel(fountainPanel); const c = courtC(); setTimeout(() => focusTile(c.x, c.y), 60); }
   else openRoom(id);
   if (s) setTimeout(() => focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), 60);   // after the panel is up: the room goes above it
@@ -7825,7 +7840,7 @@ function openRoom(id) {
       return;
     }
     if (id === 'REC') { openPanel(receptionPanel); return; }
-    if (id === 'GARDEN') { toast(`🎓 Выпускников: ${S.stats.graduated}`); return; }
+    if (id === 'GARDEN') { STU.book8c(); return; }   // s8c: the alumni book (was a toast with the count)
     if (id === 'LIB') { openPanel(libPanel); return; }
     if (id === 'DIR') { openPanel(WORLD === 2 ? (dirBuilt() ? thronePanel : throneBuildPanel) : dirBuilt() ? dirPanel : dirBuildPanel); return; }
     { const o = bObj(id); if (o && o.built && Date.now() < (o.end || 0)) { toast(`🏗️ Идёт стройка: ещё ${mmss((o.end - Date.now()) / 1000)}`); return; } }
@@ -7855,11 +7870,11 @@ document.addEventListener('click', (e) => {
   if (d.hub !== undefined) { openHub(); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.rumble !== undefined) { const s = slotOf(guardsIdx()); if (panel) closePanel(); if (s) focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2); return; }
-  if (d.people !== undefined) { openPanel(peoplePanel); return; }
+  if (d.people !== undefined) { STU.setTab('now'); openPanel(peoplePanel); return; }
   if (d.rating !== undefined) { openPanel(ratingPanel); return; }
   if (d.cash !== undefined) { openPanel(cashPanel); return; }
   if (d.w2res !== undefined) { const mi = CLASSES.findIndex((c) => c.id === 'mine'); if (mi >= 0 && isOpen(mi)) openPanel(classPanel(mi)); else toast('⛏️ Руду добывают в Штольне — построй её'); return; }
-  if (d.species !== undefined) { openPanel(speciesPanel); return; }
+  if (d.species !== undefined) { STU.setTab('album'); openPanel(peoplePanel); return; }   // s8c: the 🎓 button opens the album tab
   if (d.alb !== undefined) { albumSp = d.alb; refreshPanel(); return; }
   if (d.sfx !== undefined) { setSfx(d.sfx === '1'); if (panel === settingsPanel) { openPanel(settingsPanel); drawFbPics(); } return; }
   if (d.music !== undefined) { setMusic(d.music === '1'); if (panel === settingsPanel) { openPanel(settingsPanel); drawFbPics(); } return; }
@@ -7937,7 +7952,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
   else if (d.act === 'dormexp') { const k = +d.k; if (dormSize(k) < 3 && spend(dormExpandCost(k))) { dormUp()['size' + k] = dormSize(k) + 1; relayout(); toast('📐 Спальня расширена!'); } }
   else if (d.act === 'dorm2') { if (!(S.dormUp && S.dormUp.room2) && spend(DORM2_COST)) { dormUp().room2 = true; dormUp().room2End = Date.now() + BTIME.DORM2 * 1000; staticKey = ''; toast('✨ Вторая спальня построена!'); } }
-  else if (d.act === 'formlvl') { const f = formSt(d.k); if (formReady(d.k) && spend(formCost(d.k))) { f.xp -= formNeed(f.lvl); f.lvl++; toast(`✨ ${formName(d.k)}: уровень ${f.lvl}!`); } }
+  else if (d.act === 'formlvl') { const f = formSt(d.k); if (formReady(d.k)) { f.xp -= formNeed(f.lvl); f.lvl++; const ln = STU.albumLvl(d.k.split(':')[0], f.lvl); if (ln) toastBig(`📖 ${formName(d.k)}: уровень ${f.lvl}! ${ln}`); else toast(`✨ ${formName(d.k)}: уровень ${f.lvl}!`); } }   // s8c: free, opens a species line
   else if (d.act === 'thronebuild') { const gi = guardsIdx(); if (!throne().built && gi >= 0 && isOpen(gi) && spend(THRONE_COST)) { throne().built = true; throne().end = Date.now() + BTIME.DIR * 1000; staticKey = ''; toast('👑 Трон старейшины готов! Слушайте гул из глубин'); } }
   else if (d.act === 'throneup') { const k = d.k; if ((throne()[k] || 0) < THRONE_MAX && spend(thCost(k))) throne()[k] = (throne()[k] || 0) + 1; }
   else if (d.act === 'expedbuild') { const gi = CLASSES.findIndex((c) => c.id === EXPED_NEED); if (!exped().built && gi >= 0 && isOpen(gi) && spend(EXPED_COST)) { exped().built = true; exped().end = Date.now() + BTIME.EXPED * 1000; corrKey = ''; staticKey = ''; toast('🕳️ Врата глубин открыты! Выпускники станут искателями'); } }
@@ -9039,5 +9054,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=593').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=594').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
