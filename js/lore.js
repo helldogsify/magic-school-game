@@ -27,9 +27,9 @@ const PAGES = [
     { img: 'assets/staff/dir_think.png', t: 'Любимая фраза', x: '«Ну что ж… за работу! ТИХОН! Вы там опять пишете обо мне?..»', need: (f) => f.has('dir') && f.masters >= 1, hint: 'когда в школе появится первый Мастер' },
   ] }),
   P({ id: 'director', ch: 'world', title: 'Исчезнувший директор', icon: '🌙', layers: [
-    { img: 'assets/lore/note.webp', wide: 1, t: 'Та ночь', x: 'Прежний директор школы исчез в одну звёздную ночь. Он не попрощался и ничего не взял с собой — оставил только записку на столе. Записка оказалась загадкой.', need: (f) => f.masters >= 1, hint: 'когда в школе появится первый Мастер' },
-    { img: 'assets/lore/lion.webp', wide: 1, t: 'Новый директор', x: 'На место директора пришли кандидаты из разных краёв. Победил Арсений Львович — когда-то он сам учился в этой школе. Тихон записал этот день очень подробно. Пожалуй, даже слишком подробно.', need: (f) => f.masters >= 1 && f.has('dir'), hint: 'когда в школе появится первый Мастер и будет построен Кабинет директора' },
-    { riddle: 1, t: 'Загадка записки', x: 'Записка директора — загадка из пяти строк. Тихон спрятал их по разным страницам летописи, и каждая проступает только за особое событие в твоей школе. Собери все пять — и узнаешь, куда исчез директор.', need: (f) => f.masters >= 1, hint: 'когда в школе появится первый Мастер' },   // her «Мы будем разгадывать загадку? Тогда надо как то это указать»: the riddle is named plainly; lines come in the next stage
+    { img: 'assets/lore/note.webp', wide: 1, t: 'Та ночь', x: 'Прежний директор школы исчез в одну звёздную ночь. Он не попрощался и ничего не взял с собой — оставил только записку на столе. Записка оказалась загадкой.', need: (f) => f.masters >= 1 || f.ch >= 5, hint: 'когда будет дописана пятая глава летописи' },
+    { img: 'assets/lore/lion.webp', wide: 1, t: 'Новый директор', x: 'На место директора пришли кандидаты из разных краёв. Победил Арсений Львович — когда-то он сам учился в этой школе. Тихон записал этот день очень подробно. Пожалуй, даже слишком подробно.', need: (f) => (f.masters >= 1 || f.ch >= 5) && f.has('dir'), hint: 'когда будет дописана пятая глава летописи и построен Кабинет директора' },
+    { riddle: 1, t: 'Загадка записки', x: 'Записка директора — загадка из пяти строк. Тихон спрятал их по разным страницам летописи, и каждая проступает только за особое событие в твоей школе. Собери все пять — и узнаешь, куда исчез директор.', need: (f) => f.masters >= 1 || f.ch >= 5, hint: 'когда будет дописана пятая глава летописи' },   // her «Мы будем разгадывать загадку? Тогда надо как то это указать»: the riddle is named plainly; lines come in the next stage
   ] }),
   P({ id: 'lastnight', ch: 'world', title: 'Последняя ночь', icon: '⭐', night: 1, layers: [
     { t: 'Тихон', x: 'Я обещал звезде только записывать. Я держал это обещание много лет. Сегодня я впервые записываю то, о чём молчал.', need: (f) => nFound() >= 5, hint: 'когда будут найдены все пять строчек записки' },
@@ -150,7 +150,7 @@ PAGES.push(
     { img: 'assets/lore/star_4.webp', wide: 1, t: 'Письмо целиком', x: '«Помню всех, кто смотрел на меня снизу. И того, кто нашёл меня в лесу и пообещал ничего не менять. И того, кто сейчас держит мою пыль. Ты ловишь мои письма быстрее всех. Значит, они твои. Смотри вверх. Я ещё напишу».\n\nВот и всё. Столько лет я думал, что она пишет мне. А она писала тебе. Не обижаюсь. Почти. Пыль оставь себе — она твоя.', need: () => !!SEC().star && (S().stardust || 0) >= 150, hint: 'когда соберёшь 150 звёздной пыли' },
   ] }),
 );
-const CHAPTERS = [['world', '🏰', 'Мир'], ['races', '🌸', 'Расы'], ['teachers', '🧙', 'Учителя'], ['school', '📖', 'Школа'], ['secrets', '🔮', 'Тайны']];
+const CHAPTERS = [['mine', '🏫', 'Твоя школа'], ['world', '🏰', 'Мир'], ['races', '🌸', 'Расы'], ['teachers', '🧙', 'Учителя'], ['school', '📖', 'Школа'], ['secrets', '🔮', 'Тайны']];
 
 // ---- the director's note (stage 3)
 const RIDDLE = ['Не ищите меня на дорогах — ищите над холмами.', 'Я оставил вам больше, чем ушло со мной.', 'То, что я не успел сказать, хранит тот, кто молчит.',
@@ -311,7 +311,7 @@ function answer(i) {
   A.save();
 }
 function quizBlock(f) {
-  if (chap === 'secrets') return '';   // no exam for the secrets
+  if (chap === 'secrets' || chap === 'mine') return '';   // no exam for the secrets and for the player's own pages
   const st = QS()[chap] || {}, name = (CHAPTERS.find((c) => c[0] === chap) || [])[2];
   if (st.done) return `<div class="lo-seal">🎓 Сдано · <i>подпись: Тихон</i><small>${esc(REWARD[chap])}</small></div>`;
   if (!chapterRead(chap, f)) return `<div class="lo-exam lock">🎓 Экзамен Тихона по главе «${name}»<small>Откроется, когда все страницы главы будут открыты и прочитаны целиком.</small></div>`;
@@ -326,9 +326,17 @@ function facts() {
   return { ...f, days: Math.floor((Date.now() - l.t0) / DAY), rank: (sp, rk) => Object.keys(f.forms).some((k) => k.startsWith(sp + ':') && +k.split(':')[1] >= rk && f.forms[k].seen),
     master: (sp) => Object.keys(f.forms).some((k) => k.startsWith(sp + ':5') && f.forms[k].seen) };
 }
+const CH_DATE = (t) => (t ? new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+function minePages(f) {   // facts().chron = [{ n, t, title, e, built, g }] written by game.js when a chapter closes
+  return (f.chron || []).slice().sort((a, b) => a.n - b.n).map((c) => ({ id: 'ch' + c.n, mine: 1, hand: 1, title: `Глава ${c.n}. ${c.title}`, icon: c.e || '📖', sub: CH_DATE(c.t),
+    layers: [{ t: 'Запись Тихона', x: `Глава «${c.title}» окончена.${c.built ? ` В школе открылось новое: ${c.built}.` : ''}${c.g ? ` Выпускников к этому дню: ${c.g.toLocaleString('ru-RU')}.` : ''}${f.school ? ` Школа «${f.school}».` : ''}
+
+Записал летописец Тихон.` }] }));
+}
+const mineUnread = (f) => minePages(f).filter((p) => !(LS().seen[p.id] >= 1)).length;
 const openN = (p, f) => p.layers.filter((l) => !l.need || l.need(f)).length;
 const LS = () => { const s = S(); return (s.lore ||= { seen: {} }); };
-const unread = (f = facts()) => PAGES.reduce((n, p) => n + (openN(p, f) > (LS().seen[p.id] || 0) ? 1 : 0), 0);
+const unread = (f = facts()) => PAGES.reduce((n, p) => n + (openN(p, f) > (LS().seen[p.id] || 0) ? 1 : 0), 0) + mineUnread(f);
 export const badge = () => (S() && A.on() ? unread() : 0);
 
 // ---- view
@@ -336,9 +344,11 @@ const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const para = (t) => esc(t).split('\n\n').map((x) => `<p>${x.replace(/~~(.+?)~~/g, '<s class="lo-strike">$1</s>').replace(/\[\[blot\]\]/g, '<span class="lo-blot"></span>').replace(/\[\[empty\]\]/g, '<span class="lo-empty"></span><span class="lo-empty"></span><span class="lo-empty"></span>')}</p>`).join('');   // ~~crossed out~~, [[blot]] ink blot, [[empty]] empty lines
 function pic(p, locked) { return p.img ? `<img class="lo-pic${locked ? ' lock' : ''}" src="${p.img}" alt="">` : `<span class="lo-ico">${p.icon || '📜'}</span>`; }
 function listHtml(f) {
-  const tabs = CHAPTERS.map(([k, ic, nm]) => { const n = PAGES.filter((p) => p.ch === k && openN(p, f) > (LS().seen[p.id] || 0)).length;
+  const tabs = CHAPTERS.map(([k, ic, nm]) => { const n = k === 'mine' ? mineUnread(f) : PAGES.filter((p) => p.ch === k && openN(p, f) > (LS().seen[p.id] || 0)).length;
     return `<button class="lo-tab${k === chap ? ' on' : ''}" data-lochap="${k}">${(QS()[k] || {}).done ? '🎓' : ic} ${nm}${n ? `<span class="lo-dot">${n}</span>` : ''}</button>`; }).join('');
-  const cards = PAGES.filter((p) => p.ch === chap).map((p) => { const n = openN(p, f), all = p.layers.length, fresh = n > (LS().seen[p.id] || 0);
+  if (chap === 'mine') { const L = minePages(f); return `<div class="lo-tabs">${tabs}</div><div class="lo-list">${L.length ? L.map((p) => `<button class="lo-card" data-lopage="${p.id}">${pic(p)}<div class="lo-ct"><b>${esc(p.title)}</b>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div>${LS().seen[p.id] >= 1 ? '' : '<span class="lo-new">новое</span>'}</button>`).join('') : '<div class="lo-card locked"><span class="lo-ico">📖</span><div class="lo-ct"><b>Здесь будет история твоей школы</b><small>Каждая дописанная глава ляжет сюда страницей</small></div></div>'}</div>`; }
+  const secN = chap === 'secrets' ? `<div class="lo-cnt" style="margin:0 0 8px">🔮 Найдено тайн: ${PAGES.filter((p) => p.ch === 'secrets' && openN(p, f) > 0).length} из ${PAGES.filter((p) => p.ch === 'secrets').length}</div>` : '';
+  const cards = secN + PAGES.filter((p) => p.ch === chap).map((p) => { const n = openN(p, f), all = p.layers.length, fresh = n > (LS().seen[p.id] || 0);
     if (!n) return `<div class="lo-card locked${p.secret ? ' secret' : ''}">${pic(p, true)}<div class="lo-ct"><b>???</b><small>🔒 ${p.secret ? '' : 'Откроется, '}${esc(p.layers[0].hint || '')}</small></div></div>`;
     return `<button class="lo-card${p.secret ? ' secret' : ''}" data-lopage="${p.id}">${pic(p)}<div class="lo-ct"><b>${esc(p.title)}</b>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}<small>Открыто ${n} из ${all}</small></div>${fresh ? '<span class="lo-new">новое</span>' : ''}</button>`; }).join('');
   return `<div class="lo-tabs">${tabs}</div><div class="lo-list">${cards}</div>${quizBlock(f)}`;
@@ -353,7 +363,7 @@ function pageHtml(p, f) {
   return `<button class="lo-back" data-loback>‹ Назад</button><div class="lo-pg${p.hand ? ' hand' : ''}${p.night ? ' night' : ''}${p.secret ? ' secret' : ''}"><div class="lo-head">${pic(p)}<div>${p.secret ? '<div class="lo-ribbon">🔮 Тайна раскрыта</div>' : ''}<h3>${esc(p.title)}</h3>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</div></div>${secs}${p.night && LS().prize ? '</div><div class="lo-reward">🎁 Награда: звезда директора навсегда горит над холмами, его корона лежит на столе в кабинете, плата за уроки +10% навсегда.</div>' : '</div>'}`;
 }
 function html() {
-  const f = facts(), body = quiz ? quizHtml() : page ? pageHtml(PAGES.find((p) => p.id === page), f) : listHtml(f);
+  const f = facts(), pg = page && (PAGES.find((p) => p.id === page) || minePages(f).find((p) => p.id === page)), body = quiz ? quizHtml() : pg ? pageHtml(pg, f) : listHtml(f);
   return `<div id="lore"><div class="lo-top"><h2>📜 Летопись Мотыльковых холмов</h2><button class="lo-x" data-loclose>✕</button></div>
     <div class="lo-sub">${page ? '' : 'Записи летописца Тихона. Новые страницы открываются, пока растёт твоя школа.'}</div><div class="lo-body">${body}</div></div>`;
 }
@@ -513,8 +523,10 @@ function onClick(e) {
   if (d.loclose !== undefined) { quiz = null; close(); }
   else if (d.loback !== undefined) { page = null; redraw(); }
   else if (d.lochap) { chap = d.lochap; page = null; quiz = null; redraw(); }
-  else if (d.lopage) { page = d.lopage; if (page === 'director' && facts().masters >= 1 && !RD().start) { RD().start = Date.now(); A.save(); } const p = PAGES.find((q) => q.id === page); LS().seen[page] = Math.max(LS().seen[page] || 0, openN(p, facts())); A.save(); redraw(); root.querySelector('.lo-body').scrollTop = 0; }
+  else if (d.lopage) { page = d.lopage; if (page === 'director' && (facts().masters >= 1 || facts().ch >= 5) && !RD().start) { RD().start = Date.now(); A.save(); } const p = PAGES.find((q) => q.id === page) || minePages(facts()).find((q) => q.id === page); LS().seen[page] = Math.max(LS().seen[page] || 0, openN(p, facts())); A.save(); redraw(); root.querySelector('.lo-body').scrollTop = 0; }
 }
+export function openAt(c, id) { if (!S() || !A.on()) return; if (!root) open(); chap = c; page = id || null; const p = id && (PAGES.find((q) => q.id === id) || minePages(facts()).find((q) => q.id === id)); if (p) { LS().seen[p.id] = Math.max(LS().seen[p.id] || 0, openN(p, facts())); A.save(); } redraw(); }
+export function startRiddle() { const r = RD(); if (r.start) return false; r.start = Date.now(); A.save(); return true; }
 export function initLore(api) {
   A = api;
   document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-lore]')) open(); });
@@ -526,5 +538,5 @@ export function initLore(api) {
   setTimeout(reg, 0);
   setInterval(riddleTick, 5000);
   window.__lore = { open, close, PAGES, facts, unread, loreTune, LORE_DB, event, crown, dew, RD };
-  return { open, close, badge, isOpen: () => !!root, event, crown, dew };
+  return { open, close, badge, isOpen: () => !!root, event, crown, dew, openAt, startRiddle };
 }

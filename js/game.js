@@ -1,18 +1,18 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=582';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=583';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=582';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=582';
-import { initMinigame } from './minigame.js?v=582';
-import { initChests } from './chests.js?v=582';
-import { initValley } from './valley.js?v=582';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=582';
-import { initLore } from './lore.js?v=582';
-import { initAvatar } from './avatar.js?v=582';
-import { initStats } from './stats.js?v=582';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=583';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=583';
+import { initMinigame } from './minigame.js?v=583';
+import { initChests } from './chests.js?v=583';
+import { initValley } from './valley.js?v=583';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=583';
+import { initLore } from './lore.js?v=583';
+import { initAvatar } from './avatar.js?v=583';
+import { initStats } from './stats.js?v=583';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -34,6 +34,7 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
   music: { on: () => musicOn(), pause: () => music.pause(), resume: () => musicStart() },
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; }, onClose: () => { renderInsp(); updateHud(); },   // «Летопись» (her wish 2026-11-23)
   facts: () => ({ allBuilt: S.classes.every((c, i) => isOpen(i)), grads: S.stats.graduated || 0, masters: (S.stats.ranks || [])[5] || 0, forms: S.forms || {},
+    ch: CHAPTERS.filter((c, k) => chapDone(k)).length, chron: S.chron || [], school: schoolName(),   // rework step 4: the book knows the chronicle
     cls: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return i < 0 ? { built: false, lvl: 0 } : { built: isOpen(i), lvl: S.classes[i].teacher || 1 }; },
     has: (id) => (id === 'dorm2' ? NEWDORM && dorm2Built() : id === 'cant' ? cantBuilt() : id === 'shop' ? shopOpen() : id === 'dir' ? dirBuilt() : id === 'tower' ? towerOpen() : true) }) });
 
@@ -41,7 +42,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 582;   // keep equal to the ?v= number in index.html
+const BUILD = 583;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -6074,9 +6075,17 @@ function chapBackPay() {   // once per start: chapters closed before this build 
   if (chapBack || !S) return; fameUpd();
   if (!CHAPTERS.length) { chapBack = true; return; }
   if (!S.story) return; chapBack = true; let sum = 0;
+  if (WORLD === 1) CHAPTERS.forEach((c, i) => { if (chapDone(i)) chronWrite(i, 0); });   // pages of chapters closed before build 583, without a date
+  if (WORLD === 1 && CHAPTERS.filter((c, k) => chapDone(k)).length >= 5) LORE.startRiddle();
   if (WORLD === 1 && w1ChDone() >= CH_W1.length && w1Finish() && !ffwd) setTimeout(() => toast('⛏️ Летопись дописана — открыт новый мир! Загляни на карту миров 🗺️'), 4000);
   CHAPTERS.forEach((c, i) => { if (chapDone(i) && stonesAdd(CH_STONES, 'w' + WORLD + '_ch' + (i + 1))) sum += CH_STONES; });
   if (sum && !ffwd) setTimeout(() => toast(`📖 За главы летописи: ${ST_ICON} +${sum} лунных камней`), 2500);
+}
+function chronWrite(i, t) {   // the player's own page of chapter i (0-based) in the book
+  S.chron ||= []; if (S.chron.some((x) => x.n === i + 1)) return;
+  const c = CHAPTERS[i], last = c.ids[c.ids.length - 1], b = STORY.find((m) => m.id === last), ci = b && b.build ? CLASSES.findIndex((q) => q.id === b.build) : -1;
+  const built = ci >= 0 ? CLASSES[ci].name : { dir: 'кабинет директора', cant: 'столовая', tower: 'Башня мастеров' }[last] || '';
+  S.chron.push({ n: i + 1, t, title: c.t, e: c.e, built, g: t ? S.stats.graduated : 0 });
 }
 function chapterPanel() {
   qStyle();   // the chapter card uses the quest styles (also when the quests window was never opened)
@@ -6085,6 +6094,7 @@ function chapterPanel() {
     <div class="card up" style="align-items:center"><div class="grow">«Записал в летопись, директор: глава «${c.t}» окончена. Хорошая вышла глава.${i === 0 ? ' Ученики будут учиться и без тебя — возвращайся, посмотришь, сколько выпустилось.' : ''}»</div></div>
     <div class="qbig ok">${ST_IMG(24)}<span style="flex:1">+${CH_STONES} лунных камней за главу</span></div>
     ${nx ? `<div class="qnote">Дальше — глава ${i + 2} ${nx.e} «${nx.t}»${first ? `. Первое дело: ${first.text}` : ''}</div>` : WORLD === 1 ? `<div class="qnote"><b>Летопись Школы магии дописана!</b> ⛏️ ${chapW2New ? 'Открыт новый мир' : 'Тебя ждёт мир'} — «Подземное королевство гномов». А слава школы теперь даёт <b>+${Math.round(FAME_STEP * 100)}% к плате за уроки во всех мирах</b>. Эта школа никуда не денется: она работает и копит монеты, пока ты в другом мире.</div><button class="btn hot wide" data-world="2" style="margin-top:8px">⛏️ В новый мир</button>` : '<div class="qnote">Это была последняя глава этого мира. Новые главы появятся с обновлениями.</div>'}
+    <button class="btn wide" data-lorepage="ch${i + 1}" style="margin-top:8px">📜 Прочитать страницу в летописи</button>
     <button class="btn ${nx ? 'hot ' : 'ghost '}wide" data-close style="margin-top:8px">${nx ? 'Дальше ➜' : 'Остаться в этой школе'}</button>`;
 }
 // story chain: S.story = ids of claimed missions; old saves kept an index S.mission into the 13 first (v1) ones
@@ -6402,6 +6412,7 @@ function claimMission(key) {
   toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); save();
   if (key === 'f' && S.ftue === 1 && closed < 0) { const nx = storyCur(); if (nx && chapOf(nx.id) === 0) { STATS.ev('ftue', { k: 'step_' + nx.id }); setTimeout(() => goMission('f'), 700); } }
   if (closed === 0 && S.ftue === 1) { S.ftue = 2; STATS.ev('ftue', { k: 'ch1' }); }
+  if (closed >= 0 && WORLD === 1) { chronWrite(closed, Date.now()); if (closed === 4 && LORE.startRiddle()) setTimeout(() => toast('📜 В летописи открылась страница «Исчезнувший директор»'), 2600); }
   if (closed >= 0) { stonesAdd(CH_STONES, 'w' + WORLD + '_ch' + (closed + 1)); STATS.ev('chapter', { n: closed + 1 }); chapShow = closed; if (WORLD === 1 && closed === CHAPTERS.length - 1) chapW2New = w1Finish(); setTimeout(() => openPanel(chapterPanel), 400); }
 }
 
@@ -6921,6 +6932,7 @@ document.addEventListener('click', (e) => {
   if (d.backupRestore !== undefined) { restoreBackup(); return; }
   if (d.cloudCopy !== undefined) { navigator.clipboard?.writeText(cloudCode()).then(() => toast('Код скопирован'), () => window.prompt('Твой код:', cloudCode())); return; }
   if (d.cloudOff !== undefined) { if (confirm('Отключить облако на этом устройстве? Прогресс здесь останется, просто перестанет сохраняться в облако.')) { localStorage.removeItem(CODE_KEY); localStorage.setItem('magicschool.cloudOff', '1'); cloudState = ''; openPanel(settingsPanel); } return; }
+  if (d.lorepage !== undefined) { closePanel(); LORE.openAt('mine', d.lorepage); return; }
   if (d.tourAgain !== undefined) { closePanel(); tourList = WORLD === 2 ? TOUR_W2 : TOUR_W1; showTour(0); return; }   // the full old card list as a reference
   if (d.tourNext !== undefined) { showTour(tourStep + 1); return; }
   if (d.tourBack !== undefined) { showTour(tourStep - 1); return; }
@@ -8039,5 +8051,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=582').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=583').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
