@@ -30,8 +30,9 @@ const cellAt = (q, r) => cells().find((c) => c.q === q && c.r === r);
 const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
 const nbs = (c) => DIRS.map(([a, b]) => cellAt(c.q + a, c.r + b)).filter(Boolean);
 const myAl = () => (st && st.me ? st.me.al : '');
+const freeCastle = (c) => c.t === 'castle' && !c.o;   // an unclaimed castle: the server keeps it for a new alliance (tester №49eo5hgg: the tip sent him there and «Занять» did nothing)
 function reach(c) {
-  if (!myAl() || c.t === 'lake') return false;
+  if (!myAl() || c.t === 'lake' || freeCastle(c)) return false;
   const h = st.me.castle; if (h && h[0] === c.q && h[1] === c.r) return true;
   return nbs(c).some((x) => x.o === myAl());
 }
@@ -139,6 +140,7 @@ function cardHtml() {
   n = Math.max(1, Math.min(n, st.me.left || 1));
   let act = '';
   if (c.t === 'lake') act = '';
+  else if (freeCastle(c)) act = '<div class="vl-muted" style="margin-top:6px">🏰 Этот замок пока ничей: его получит новый альянс, когда придёт в долину. Захватить можно только замки других альянсов — а этот пока обходи стороной.</div>';
   else if (mine) act = `<div class="vl-act"><div class="vl-step"><button data-vn="-1">−</button><span>${n}</span><button data-vn="1">+</button></div><button class="btn" data-vgo ${st.me.left ? '' : 'disabled'}>🛡 Укрепить</button></div>`
     + (c.t === 'ruins' ? `<div class="vl-act"><button class="btn ghost" data-vruin ${st.me.ruins.includes(c.q + ',' + c.r) ? 'disabled' : ''}>🏚 Обыскать руины (лунный камень)</button></div>` : '');
   else if (can) act = `<div class="vl-act"><div class="vl-step"><button data-vn="-1">−</button><span>${n}</span><button data-vn="1">+</button></div><button class="btn hot" data-vgo ${st.me.left ? '' : 'disabled'}>⚔️ ${c.o ? 'Напасть' : 'Занять'}</button></div><div class="vl-muted" style="margin-top:4px">Чтобы взять с одного раза, нужно отрядов: <b>${need}</b> · у тебя сегодня: <b>${st.me.left}</b>${st.me.left < st.me.troops ? ` · новые ${st.me.troops} через ${refillTxt()}` : ''}</div>`;
