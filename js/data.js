@@ -164,5 +164,5 @@ export const MISSIONS = WORLD === 2 ? [
   { id: 'elements', v1: 1, text: 'Построй Магию стихий', reward: 60000, build: 'elements', check: (g) => g.built('elements') },
   { id: 'master', text: 'Вырасти первого Мастера 🌟', reward: 100000, check: (g) => g.masters() >= 1, go: ['#final', '[data-act="exlvl"]'] },
   { id: 'tower', text: 'Построй Башню мастеров 🏰', reward: 5000000, check: (g) => g.tower(), go: ['TOWER', '[data-act="towerbuild"]'] },
-  { id: 'mgStar3', text: 'Набери 5 500 очков в Зельеварке (3 звезды) 🧪', reward: 50000, check: (g) => (g.mg().best || 0) >= 5500, prog: (g) => [g.mg().best || 0, 5500], go: ['@mg', null] },
+  { id: 'mgStar3', text: 'Набери 5 500 очков в Зельеварке 🧪', reward: 50000, check: (g) => (g.mg().best || 0) >= 5500, prog: (g) => [g.mg().best || 0, 5500], go: ['@mg', null] },
 ];

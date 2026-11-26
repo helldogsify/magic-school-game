@@ -283,7 +283,8 @@ const REWARD = { world: '+3% к шансу сдать Финальный экз�
 const RETRY_MS = 3600 * 1000;
 let quiz = null;   // { ch, qs: [{ q, opts: [[text, right]] }], k, wrong, done }
 const QS = () => (LS().quiz ||= {});
-const chapterRead = (ch, f) => PAGES.filter((p) => p.ch === ch).every((p) => openN(p, f) === p.layers.length && (LS().seen[p.id] || 0) >= p.layers.length);
+const chapterRead = (ch, f) => PAGES.filter((p) => p.ch === ch && p.id !== 'lastnight').every(   // rework fix: «Последняя ночь» opens only after all 5 note lines, and line 5 needs this exam -> it cannot be a condition of the exam
+  (p) => openN(p, f) === p.layers.length && (LS().seen[p.id] || 0) >= p.layers.length);
 const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 function startQuiz(ch) { quiz = { ch, k: 0, wrong: 0, qs: shuffle(QUIZ[ch].map(([q, ...o]) => ({ q, opts: shuffle(o.map((t, i) => [t, i === 0])) }))) }; }
 function quizHtml() {

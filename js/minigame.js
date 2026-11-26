@@ -373,7 +373,7 @@ function showChooser() {   // the 🧪 pill: choose a mini-game (tries are share
   const n = charges(), m = mg(), f = fl();
   root.innerHTML = A.emojiHtml(`<div class="mg-card">
     <h2>Мини-игры</h2>
-    <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : n > CH_MAX ? '<br><span class="muted">выигранные попытки сверх 3 тоже твои</span>' : ''}<br><span class="muted">общие для всех мини-игр этого мира</span></p>
+    <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : n > CH_MAX ? '<br><span class="muted">выигранные попытки сверх ' + CH_MAX + ' тоже твои</span>' : ''}<br><span class="muted">общие для всех мини-игр этого мира</span></p>
     ${W2() ? `<button class="mg-pick" data-mgpick="gem"><span class="mg-pi">${sgImg('gem')}</span><span><b>Огранка самоцветов</b><br><span class="muted">режь камни, не трогай проклятые · рекорд недели ${num(m.wb || 0)}</span></span></button><button class="mg-pick" data-mgpick="tower"><span class="mg-pi">${sgImg('tower')}</span><span><b>Башня из руды</b><br><span class="muted">строй башню как можно выше · рекорд недели ${num(g3().wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button><button class="mg-pick" data-mgpick="fish"><span class="mg-pi">${sgImg('fish')}</span><span><b>Рыбалка</b><br><span class="muted">лови рыбу на лесном озере · рекорд недели ${num(g3().wb || 0)}</span></span></button>`}
     ${W2() ? `<button class="mg-pick" data-mgpick="f"><span class="mg-pi">${CART_ICON}</span><span><b>Вагонетка в штольне</b><br><span class="muted">мчись по рельсам до первого завала · рекорд недели ${num(f.wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=2" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>`}
     ${A.tester && A.tester() ? '<button class="btn wide ghost" data-mgtest>🧪 +20 попыток (тест, видно только тебе)</button>' : ''}
@@ -624,7 +624,7 @@ function loop(now) {
   else if (R.state === 'idle') {
     R.idleT += dt;
     if (R.go && R.idleT > 5 && !R.hint && R.left > 0) R.hint = findMove(R.g);
-    if (R.left <= 0 && R.live && !R.offer) { if (!R.noCont && (R.cont || 0) < CONT_PRICE.length) { R.offer = true; snd('end'); contCard('p', R.cont || 0); } else finish(false); }
+    if (R.left <= 0 && R.live && !R.offer) { if (R.rewarded && !R.noCont && (R.cont || 0) < CONT_PRICE.length) { R.offer = true; snd('end'); contCard('p', R.cont || 0); } else finish(false); }
   }
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const t = R.g[r] && R.g[r][c]; if (t && t.born) { t.born += dt / 0.25; if (t.born >= 1) t.born = 0; } }
   R.beams = R.beams.filter((b) => (b.t += dt) < 0.42); R.shake = Math.max(0, R.shake - dt);
@@ -781,7 +781,7 @@ function startFlight() {
 }
 function flEnd(res, silent) {
   if (!FL || !FL.live) return;
-  if (!silent && !FL.noCont && !FL.offer && (FL.cont || 0) < CONT_PRICE.length) { FL.offer = true; FL.res = res; snd('end'); contCard('f', FL.cont || 0); return; }   // continue for moonstones first
+  if (!silent && FL.rewarded && !FL.noCont && !FL.offer && (FL.cont || 0) < CONT_PRICE.length) { FL.offer = true; FL.res = res; snd('end'); contCard('f', FL.cont || 0); return; }   // continue for moonstones first
   if (FL.offer) { FL.offer = false; root.querySelectorAll('.mg-cont').forEach((x) => x.remove()); }
   FL.live = false;
   const S = st(), f = fl(), score = res.score || 0, stars = score >= F_STAR[2] ? 3 : score >= F_STAR[1] ? 2 : score >= F_STAR[0] ? 1 : 0;
@@ -890,7 +890,7 @@ function startSimple(id) {
 }
 function sgEnd(res, silent) {
   if (!SGR || !SGR.live) return;
-  if (!silent && !SGR.noCont && !SGR.offer && (SGR.cont || 0) < CONT_PRICE.length) { SGR.offer = true; SGR.res = res; snd('end'); contCard('s', SGR.cont || 0); return; }
+  if (!silent && SGR.rewarded && !SGR.noCont && !SGR.offer && (SGR.cont || 0) < CONT_PRICE.length) { SGR.offer = true; SGR.res = res; snd('end'); contCard('s', SGR.cont || 0); return; }
   if (SGR.offer) { SGR.offer = false; root.querySelectorAll('.mg-cont').forEach((x) => x.remove()); }
   SGR.live = false;
   const g = SG[SGR.id], S = st(), m = g.rec(), score = res.score || 0, stars = score >= g.stars[2] ? 3 : score >= g.stars[1] ? 2 : score >= g.stars[0] ? 1 : 0;

@@ -1,18 +1,18 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=577';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=578';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=577';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=577';
-import { initMinigame } from './minigame.js?v=577';
-import { initChests } from './chests.js?v=577';
-import { initValley } from './valley.js?v=577';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=577';
-import { initLore } from './lore.js?v=577';
-import { initAvatar } from './avatar.js?v=577';
-import { initStats } from './stats.js?v=577';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=578';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=578';
+import { initMinigame } from './minigame.js?v=578';
+import { initChests } from './chests.js?v=578';
+import { initValley } from './valley.js?v=578';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=578';
+import { initLore } from './lore.js?v=578';
+import { initAvatar } from './avatar.js?v=578';
+import { initStats } from './stats.js?v=578';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -40,7 +40,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 577;   // keep equal to the ?v= number in index.html
+const BUILD = 578;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2843,9 +2843,9 @@ const TK_REST = 30 * 60000;   // a solved riddle rests 30 min: the next ones get
 function tkWisePay(paid, share = TK_WISE_SHARE, title = '', fam = '') {
   const bonus = Math.max(1, nice(paid * share)); S.coins += bonus; S.stats.wise = (S.stats.wise || 0) + 1;
   S.tkLast = { title, bonus, t: Date.now() }; if (fam) { (S.tkRest ||= {})[fam] = Date.now() + TK_REST; tkTipCache = null; }
-  toast(`🦉 ${title ? `Загадка «${title}» разгадана!` : 'Мудрое решение, директор!'} Тихон доплатил 🪙${fmt(bonus)}`); updateHud();
+  toast(`🐢 ${title ? `Загадка «${title}» разгадана!` : 'Мудрое решение, директор!'} Тихон доплатил 🪙${fmt(bonus)}`); updateHud();
 }
-function tkMiss(title) { toast(`🦉 «${title}»: польза есть, но можно выгоднее. Сравни цены — или открой подсказку`); }
+function tkMiss(title) { toast(`🐢 «${title}»: польза есть, но можно выгоднее. Сравни цены — или открой подсказку`); }
 function tkTips() {   // [{key, emo, title, text, g, mins, go}] best first; cached 3 s
   if (tkTipCache && performance.now() - tkTipAt < 3000) return tkTipCache;
   const out = [];
@@ -6968,7 +6968,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'bskip') bsSkip(i);
   else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= buildCost(i) && spendStars(starsNeed(i)) && spend(buildCost(i))) { st.built = true; st.buildEnd = Date.now() + buildTime(i) * 1000; panel = classPanel(i); } }
   else return;
-  if (tkW && S.coins < tkC0) { if (tkW.rest) toast('🦉 Эта загадка уже разгадана — загляни в другие мои загадки'); else if (tkW.miss) tkMiss(tkW.miss); else tkWisePay(tkC0 - S.coins, tkW.share, tkW.title, tkW.fam); tkFrozen = null; }
+  if (tkW && S.coins < tkC0) { if (tkW.rest) toast('🐢 Эта загадка уже разгадана — загляни в другие мои загадки'); else if (tkW.miss) tkMiss(tkW.miss); else tkWisePay(tkC0 - S.coins, tkW.share, tkW.title, tkW.fam); tkFrozen = null; }
   refreshPanel(); save();
 });
 $('#sheet-bg').addEventListener('click', closePanel);
@@ -7741,14 +7741,14 @@ function fastForward(sec) {   // live through the time the game was closed or in
 // dozen ms per frame with the world on screen. Before, the whole catch-up ran before the first frame (her save, 2 h away:
 // 7-8.7 s of a blank screen at 4x CPU throttling). Same step size as before: a coarser step changes the economy (2 h on her
 // save: 420M coins at 0.5 s, 308M at 1 s, 167M at 2 s). Real time that passes meanwhile is added to the rest.
-var catchLeft = 0, catchDt = 0.25, catchAll = 0, catchAway = 0, catchGain = 0, catchBox = null, catchReal = 0, catchLeft0 = 0, catchOut = 0, catchExtra = 0, catchSimT = 0;   // build audit 2026-11-24: real time away (uncapped), leavers and refunds of the catch-up, time paid without living it through
+var catchLeft = 0, catchDt = 0.25, catchAll = 0, catchAway = 0, catchGain = 0, catchBox = null, catchReal = 0, catchLeft0 = 0, catchOut = 0, catchExtra = 0, catchSimT = 0, catchGrad = 0, catchXp = 0;   // build audit 2026-11-24: real time away (uncapped), leavers and refunds of the catch-up, time paid without living it through
 const catchMs = () => Math.max(45, Math.min(250, 3 * renderMs));   // simulation time per frame: ~3/4 of the main thread, the picture still moves
 // offline limit 4 h (Maria 2026-11-24): the first 2 h are lived through step by step as before; the rest is paid at the rate those 2 h
 // earned (living through all 4 h held the loading screen ~1.7x longer: 9.4 s instead of 5.5 s on the PC, far more on a phone)
 const CATCH_SIM = 2 * 3600;
 function catchUp(sec) {
   const real = sec; sec = Math.min(OFFLINE_CAP_SEC, sec); if (sec < 1) return;
-  if (catchLeft <= 0) { catchAll = 0; catchAway = 0; catchGain = 0; catchReal = 0; catchLeft0 = 0; catchOut = 0; catchExtra = 0; catchSimT = 0; }
+  if (catchLeft <= 0) { catchAll = 0; catchAway = 0; catchGain = 0; catchReal = 0; catchLeft0 = 0; catchOut = 0; catchExtra = 0; catchSimT = 0; catchGrad = 0; catchXp = 0; }
   catchReal += real;
   const simAdd = Math.min(sec, Math.max(0, CATCH_SIM - catchLeft)); catchExtra = Math.min(OFFLINE_CAP_SEC - CATCH_SIM, catchExtra + sec - simAdd);
   catchLeft += simAdd; catchAway = Math.min(OFFLINE_CAP_SEC, catchAway + sec); catchAll = Math.max(catchAll, catchLeft);
@@ -7757,10 +7757,10 @@ function catchUp(sec) {
 function catchUpSlice(dt, budget = catchMs()) {
   catchLeft += dt;   // the clock keeps going while we catch up
   const keep = popups.splice(0), fx = $('#fx'), fxN = fx.childElementCount, e0 = earnedThisSec, c0 = S.coins, t0 = performance.now();
-  const l0 = leftNow(), p0 = S.stats.passed, f0 = S.stats.failed, er0 = S.stats.earned || 0, o0 = (S.stats.refunded || 0) + (S.stats.fined || 0);
+  const l0 = leftNow(), p0 = S.stats.passed, f0 = S.stats.failed, er0 = S.stats.earned || 0, o0 = (S.stats.refunded || 0) + (S.stats.fined || 0), g0 = S.stats.graduated, x0 = schoolXp();
   ffwd = true;
   try { while (catchLeft > 0 && performance.now() - t0 < budget) { stepWorld(catchDt); catchLeft -= catchDt; catchSimT += catchDt; } } finally { ffwd = false; }
-  popups.length = 0; popups.push(...keep); earnedThisSec = e0; catchGain += S.coins - c0;
+  popups.length = 0; popups.push(...keep); earnedThisSec = e0; catchGain += S.coins - c0; catchGrad += S.stats.graduated - g0; catchXp += schoolXp() - x0;
   catchLeft0 += leftNow() - l0; catchOut += (S.stats.refunded || 0) + (S.stats.fined || 0) - o0;
   { const c = S.insp && S.insp.cur; if (c) { if (c.v !== undefined) c.v += leftNow() - l0; if (c.p !== undefined) { c.p += S.stats.passed - p0; c.f += S.stats.failed - f0; } if (c.e !== undefined) c.e += (S.stats.earned || 0) - er0; } }   // build audit 2026-11-24: time away never counts into a running check   // as fastForward(): no flying coins or toasts from the past
   while (fx.childElementCount > fxN) fx.lastElementChild.remove();
@@ -7772,6 +7772,11 @@ function catchUpSlice(dt, budget = catchMs()) {
   }
   catchLeft = 0; if (catchBox) { catchBox.remove(); catchBox = null; }
   if (catchExtra > 0 && catchSimT > 0 && catchGain > 0) { const x = Math.round(catchGain / catchSimT * catchExtra); S.coins += x; S.stats.earned = (S.stats.earned || 0) + x; catchGain += x; }   // the hours past the lived-through 2 h
+  if (catchExtra > 0 && catchSimT > 0) {   // rework bug fix: those hours also graduate students and grow the school level, at the same rate
+    const g = Math.round(catchGrad / catchSimT * catchExtra), xp = Math.round(catchXp / catchSimT * catchExtra), lv0 = schoolLevel();
+    if (g > 0) S.stats.graduated += g;
+    if (xp > 0) { S.xp = schoolXp() + xp; const lv1 = schoolLevel(); if (lv1 > lv0) { S.lvTop = Math.max(S.lvTop || lv0, lv1); for (let l = lv0 + 1; l <= lv1; l++) if (l % 5 === 0) stonesAdd(3 + Math.floor(l / 10), `w${WORLD}_lv${l}`); } }
+  }
   catchExtra = 0;
   updateHud(); dirtyPanel = true;
   if (panel || tourStep >= 0) { if (catchAway >= 60 && catchGain >= 1) toast(`🪙 +${fmt(catchGain)}: школа жила, пока тебя не было`); } else welcomeBack(catchReal, catchGain);   // never over an open panel or the tour
@@ -8023,5 +8028,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=577').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=578').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
