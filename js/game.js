@@ -1,18 +1,18 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=568';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=569';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=568';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=568';
-import { initMinigame } from './minigame.js?v=568';
-import { initChests } from './chests.js?v=568';
-import { initValley } from './valley.js?v=568';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=568';
-import { initLore } from './lore.js?v=568';
-import { initAvatar } from './avatar.js?v=568';
-import { initStats } from './stats.js?v=568';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=569';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=569';
+import { initMinigame } from './minigame.js?v=569';
+import { initChests } from './chests.js?v=569';
+import { initValley } from './valley.js?v=569';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=569';
+import { initLore } from './lore.js?v=569';
+import { initAvatar } from './avatar.js?v=569';
+import { initStats } from './stats.js?v=569';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -40,7 +40,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 568;   // keep equal to the ?v= number in index.html
+const BUILD = 569;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -6895,7 +6895,7 @@ async function topLoad() {
 // sender can never inflate it. The daily limits are kept on the sender's device.
 const ALLY_URL = 'https://firestore.googleapis.com/v1/projects/magic-school-game-2ae0f/databases/(default)/documents';
 const ALLY_EMOS = ['🦄', '🐉', '🦉', '🌙', '⭐', '🔮', '🌸', '🍄', '🔥', '❄️', '🌈', '👑'];
-const GIFT_DAY = 3, BOOST_DAY = 1, BOOST_MIN = 10, BOOST_MAX_MIN = 60, ALLY_MAX = 6;   // 10 -> 6 (her pick «6 школ»): members above it stay, new ones wait
+const GIFT_DAY = 3, BOOST_DAY = 1, GIFT_POOL = 5, BOOST_POOL = 2, BOOST_MIN = 10, BOOST_MAX_MIN = 60, ALLY_MAX = 6;   // 10 -> 6 (her pick «6 школ»): members above it stay, new ones wait
 let allyList = null, allyGifts = [], allyMsg = '', allyPollT = 5, allyEmo = '🦄', myReqs = [], ownReqs = [];   // join requests (build 268): mine and those to my alliance
 function boostK() { const now = Date.now(); return (S && S.boostEnd && now < S.boostEnd ? 1.1 : 1) * (S && S.goldEnd && now < S.goldEnd ? 2 : 1); }   // build audit 2026-11-24: x2 while «Звёздный час» (moonstones) runs   // «Вдохновение»: +10% to every lesson (a function: tuition() may run before this block)
 const myAl = () => (S && S.al) || '';
@@ -6908,6 +6908,8 @@ function avChanged() {   // re-render the open top / alliance window, keeping wh
   else if (panel === allyPanel) refreshAlly();
 }
 const today = () => qDay();   // build audit 2026-11-24: local midnight like the daily tasks (was UTC)
+const giftUsed = (k) => Object.values(giftLog()[k]).reduce((a, b) => a + b, 0);   // sent today to all allies
+const giftLeft = (k) => Math.max(0, (k === 'b' ? BOOST_POOL : GIFT_POOL) - giftUsed(k));
 function giftLog() { const g = (S.giftLog ||= { day: today(), g: {}, b: {} }); if (g.day !== today()) { g.day = today(); g.g = {}; g.b = {}; } return g; }
 function allyMembers(code) { const a = allyOf(code), k = (a && a.kick) || []; return (topList || []).filter((x) => x.w === WORLD && x.al === code && !k.includes(x.id.replace(/_w\d$/, ''))); }   // kicked schools drop out at once (build 270)
 async function allyLoad() {
@@ -6956,6 +6958,7 @@ const allySending = new Set();   // one send per ally and kind at a time
 async function allySend(toUid, kind) {
   const L = giftLog(), k = kind === 'boost' ? 'b' : 'g', lim = kind === 'boost' ? BOOST_DAY : GIFT_DAY, key = k + toUid;
   if (allySending.has(key)) return;
+  if (!giftLeft(k)) { toast(kind === 'boost' ? 'Вдохновение на сегодня кончилось — завтра будет новое' : 'Подарки на сегодня кончились — завтра будут новые'); return; }
   if ((L[k][toUid] || 0) >= lim) { toast('На сегодня этому союзнику уже всё отправлено'); return; }
   allySending.add(key); L[k][toUid] = (L[k][toUid] || 0) + 1; refreshAlly();   // counted at once: taps during the send cannot pass the limit
   try {
@@ -7177,11 +7180,11 @@ function allyPanel() {
     const a = allyOf(code), mem = allyMembers(code).sort((x, y) => y.r - x.r), L = giftLog();
     const avg = mem.length ? mem.reduce((n, x) => n + x.r, 0) / mem.length : 0;
     h += `<div class="card up"><span class="remoji big">${a ? a.emo : '🤝'}</span><div class="grow"><b>${a ? escTxt(a.name) : 'Альянс'}</b>${a && a.motto ? `<div><i>«${escTxt(a.motto)}»</i></div>` : ''}${a && a.owner === anonUid() ? ' <span class="muted">👑 ты глава</span>' : ''}<div class="muted">код ${code} · ${a && a.open ? '🔓 вход свободный, без заявок' : '🔒 по заявкам'} · школ ${mem.length}/${ALLY_MAX} · сила 💪 ${avg ? r2(avg * mem.length) : '—'} · средний 🏅 ${avg ? r2(avg) : '—'}</div></div><button class="btn small" data-allycopy>Код</button></div>`;
-    h += '<button class="btn wide" data-valley>🚩 Волшебная долина</button><button class="btn wide ghost" data-war>⚔️ Битва альянсов: очки недели</button><h3>Школы альянса</h3>' + (mem.length ? mem.map((x) => {
+    h += '<button class="btn wide" data-valley>🚩 Волшебная долина</button><button class="btn wide ghost" data-war>⚔️ Битва альянсов: очки недели</button><h3>Школы альянса</h3>' + `<div class="card up" style="background:#fff6cf;border:2px solid #f2d06b"><span class="remoji">🎁</span><div class="grow"><b>Сегодня можно подарить: 🎁 ${giftLeft('g')} из ${GIFT_POOL} · ✨ ${giftLeft('b')} из ${BOOST_POOL}</b><div class="muted">Подарки общие на весь альянс — выбери, кому они нужнее. Одному союзнику — до ${GIFT_DAY} 🎁 и ${BOOST_DAY} ✨ в день.</div></div></div>` + (mem.length ? mem.map((x) => {
       const uid = x.id.replace(/_w\d$/, ''), gi = L.g[uid] || 0, bo = L.b[uid] || 0;
-      return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}>${AV.img(x.id)}<div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${r2(x.r)} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY ? 'disabled' : ''}>🎁 ${Math.max(0, GIFT_DAY - gi)}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY ? 'disabled' : ''}>✨ ${Math.max(0, BOOST_DAY - bo)}</button>${a && a.owner === anonUid() ? `<button class="btn small ghost" data-allylead="${uid}" title="Сделать главой">👑</button><button class="btn small ghost" data-allykick="${uid}" title="Выгнать">🚪</button>` : ''}`}</div>`;
+      return `<div class="card up"${x.id === me ? ' style="border:2px solid #e8b923;background:#fff8dc"' : ''}>${AV.img(x.id)}<div class="grow"><b>${escTxt(x.name)}</b>${x.id === me ? ' <span class="muted">(ты)</span>' : ''}${x.nick ? `<div>👤 ${escTxt(x.nick)}</div>` : ''}<div class="muted">🏅 ${r2(x.r)} · 🎓 ${fmt(x.g)}</div></div>${x.id === me ? '' : `<button class="btn small" data-allygift="${uid}" ${gi >= GIFT_DAY || !giftLeft('g') ? 'disabled' : ''}>🎁${gi ? ' ×' + gi : ''}</button><button class="btn small" data-allyboost="${uid}" ${bo >= BOOST_DAY || !giftLeft('b') ? 'disabled' : ''}>✨${bo ? ' ×' + bo : ''}</button>${a && a.owner === anonUid() ? `<button class="btn small ghost" data-allylead="${uid}" title="Сделать главой">👑</button><button class="btn small ghost" data-allykick="${uid}" title="Выгнать">🚪</button>` : ''}`}</div>`;
     }).join('') : '<p class="muted">Загружаю…</p>');
-    h += `<p class="muted">🎁 Волшебный подарок: союзник получит монеты — столько, сколько его школа зарабатывает за 3 минуты. ✨ Вдохновение: +10% к плате за уроки на 10 минут. Каждому союзнику в день — ${GIFT_DAY} подарка и ${BOOST_DAY} вдохновение, у тебя при этом ничего не убывает.</p>`;
+    h += `<p class="muted">🎁 Волшебный подарок: союзник получит монеты — столько, сколько его школа зарабатывает за 3 минуты. ✨ Вдохновение: +10% к плате за уроки на 10 минут. Каждый день у тебя ${GIFT_POOL} подарков и ${BOOST_POOL} вдохновения на весь альянс (одному союзнику — до ${GIFT_DAY} 🎁 и ${BOOST_DAY} ✨), у тебя самого при этом ничего не убывает.</p>`;
     if (a && a.owner === anonUid()) h += '<h3>📩 Заявки на вступление</h3>' + (ownReqs.length ? ownReqs.map((q) => `<div class="card up" style="border:2px solid #b9a4f0"><div class="grow"><b>${escTxt(q.fname)}</b>${q.nick ? `<div>👤 ${escTxt(q.nick)}</div>` : ''}<div class="muted">🏅 ${r2(q.r)}</div></div><button class="btn small hot" data-reqok="${q.id}">Принять</button><button class="btn small ghost" data-reqno="${q.id}">Нет</button></div>`).join('') : '<p class="muted">Новых заявок нет. Заявку может подать любая школа из списка альянсов.</p>');
     if (a && a.owner === anonUid()) h += `<h3>👑 Управление альянсом</h3><p class="muted">У каждой школы: 👑 — передать главенство, 🚪 — выгнать.</p>
       <input id="ally-ename" class="fb" maxlength="24" value="${escTxt(a.name)}" placeholder="Название альянса">
@@ -7846,5 +7849,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=568').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=569').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
