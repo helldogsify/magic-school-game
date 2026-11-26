@@ -71,7 +71,7 @@ let march = null, burst = null, tut = -1, raf = 0, lastDraw = 0;
 const TILES = {};   // painted tiles (art/valley/tiles_v1.jpg, SYNTX banana2, Maria's «Да» 2026-11-25); the code drawing stays as the fallback
 function tileSet() {   // painted tiles of this world, loaded on first use (world 2: dwarven halls, art/valley/tiles_w2_v1.jpg)
   const w = W() === 2 ? 2 : 1; if (TILES[w]) return TILES[w]; const T = (TILES[w] = {});
-  for (const k of ['plain', 'forest', 'mountain', 'lake', 'mine', 'ruins', 'tower', 'castle', 'path']) { const im = new Image(); im.src = `assets/valley/${w === 2 ? 'w2/' : ''}${k}.webp?v=1`; T[k] = im; }
+  for (const k of ['plain', 'forest', 'mountain', 'lake', 'mine', 'ruins', 'tower', 'castle', 'path']) { const im = new Image(); im.src = `assets/valley/${w === 2 ? 'w2/' : ''}${k}.webp?v=${w === 2 ? 2 : 1}`; T[k] = im; }
   return T;
 }
 const tileImg = (c) => { const k = c.t === 'plain' && ((c.q * 7 + c.r * 13) & 3) === 0 ? 'path' : c.t, im = tileSet()[k]; return im && im.complete && im.naturalWidth ? im : null; };
