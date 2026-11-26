@@ -1,24 +1,24 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=599';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=600';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=599';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=599';
-import { initMinigame } from './minigame.js?v=599';
-import { initChests } from './chests.js?v=599';
-import { initValley } from './valley.js?v=599';
-import { initValley2 } from './valley2.js?v=599';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=599';
-import { initLore } from './lore.js?v=599';
-import { initAvatar } from './avatar.js?v=599';
-import { initStats } from './stats.js?v=599';
-import { initStudents } from './students.js?v=599';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initHeroes, HERO_BAL } from './heroes.js?v=599';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
-import { initAnnex } from './annex.js?v=599';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
-import { ANNEX_BAL } from './annex.js?v=599';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
-import { initToday } from './today.js?v=599';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
+} from './data.js?v=600';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=600';
+import { initMinigame } from './minigame.js?v=600';
+import { initChests } from './chests.js?v=600';
+import { initValley } from './valley.js?v=600';
+import { initValley2 } from './valley2.js?v=600';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=600';
+import { initLore } from './lore.js?v=600';
+import { initAvatar } from './avatar.js?v=600';
+import { initStats } from './stats.js?v=600';
+import { initStudents } from './students.js?v=600';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes, HERO_BAL } from './heroes.js?v=600';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=600';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=600';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=600';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -125,7 +125,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 599;   // keep equal to the ?v= number in index.html
+const BUILD = 600;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -594,7 +594,7 @@ const ART = {                                               // room pictures wit
   ...((true) ? { DORM: { src: 'assets/parts/dorm/dm_tree.webp?v=1', L: [60, 669], R: [1090, 519], F: [452, 897], band: 1, fill: 1 }, DORM2: { src: 'assets/parts/dorm/dm_tree_nodoor.webp?v=1', L: [60, 669], R: [1090, 519], F: [452, 897], band: 1, fill: 1 } } : {}),   /* the tree dorms: editor only until her OK */
   CANT: { src: 'assets/parts/canteen/ct_room.webp?v=1', L: [103.5, 715], R: [950, 722.5], F: [525, 970] },   /* the tavern canteen, painted from the approved concept (live since her OK 2026-11-26) */
   LIB: { src: 'assets/parts/library/lb_room.webp?v=1', L: [70.6, 821], R: [946.2, 739.9], F: [441.4, 1045.5], band: 1, fill: 1 },   /* the old sunlit library, painted from the approved concept (live since her OK 2026-11-26) */
-  ...(window.__EDIT ? { TOWER: { src: 'assets/parts/tower/tw_room.webp?v=1', L: [144.4, 482.2], R: [866.7, 482.2], F: [511.1, 709.8], band: 1, fill: 1 } } : {}),   /* the masters' hall, painted from the approved concept: editor only until her OK */
+  TOWER: { src: 'assets/parts/tower/tw_room.webp?v=1', L: [144.4, 482.2], R: [866.7, 482.2], F: [511.1, 709.8], band: 1, fill: 1 },   /* the masters' hall, painted from the approved concept (live since her OK 2026-11-26) */
   REC: { src: 'assets/parts/reception/rc_room.webp?v=1', L: [11, 689], R: [953, 699], F: [502, 952] },   /* the Arrival Hall (live since her OK 2026-11-25) */   /* the Arrival Hall, painted from the approved concept */
 };
 // ---- rooms assembled from parts (any size looks whole): seamless wall + floor textures, wall decor hung
@@ -765,7 +765,7 @@ if (WORLD === 1) THEMES.LIB = { dir: 'assets/parts/library/', wallTiles: 4, floo
   h: { lb_chair: 27, lb_desk: 30, lb_sidetable: 24, lb_candles: 46, lb_books: 24, lb_cart: 32, lb_monstera: 42 },
   extras: (s) => [{ n: 'lb_desk', x: s.x0 + 3, y: s.y1 - 0.45 }, { n: 'lb_candles', x: s.x0 + 0.45, y: s.y0 + 1.4 }, { n: 'lb_cart', x: s.x0 + 0.5, y: s.y0 + 6.2 },
     { n: 'lb_sidetable', x: s.x1 - 0.4, y: s.y0 + 4.2 }, { n: 'lb_books', x: s.x0 + 0.5, y: s.y1 - 0.45 }] };
-if (window.__EDIT && WORLD === 1) THEMES.TOWER = { dir: 'assets/parts/tower/', wallTiles: 4, floorTiles: 3, board: 'masters_art', isoOnly: true, iso: true, mhall: true,   /* redesign 2026-11-26: the masters' hall (walls: the painted picture ART.TOWER) */
+if (WORLD === 1) THEMES.TOWER = { dir: 'assets/parts/tower/', wallTiles: 4, floorTiles: 3, board: 'masters_art', isoOnly: true, iso: true, mhall: true,   /* redesign 2026-11-26: the masters' hall (walls: the painted picture ART.TOWER) */
   decor: [], back: [], side: [], front: [], rug: '',
   h: { tw_bed_fire: 82, tw_bed_water: 82, tw_bed_air: 82, tw_bed_earth: 44, tw_night: 30, tw_shelf: 52, tw_tea: 30, tw_armchair: 37, tw_sphere: 46, tw_plant: 42 },
   extras: (s) => [{ n: 'tw_bed_fire', x: s.x0 + 1.35, y: s.y0 + 0.8 }, { n: 'tw_night', x: s.x0 + 0.35, y: s.y0 + 1.6 }, { n: 'tw_bed_water', x: s.x1 - 0.8, y: s.y0 + 1.35, flip: true }, { n: 'tw_night', x: s.x1 - 1.6, y: s.y0 + 0.35 },
@@ -9065,5 +9065,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=599').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=600').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
