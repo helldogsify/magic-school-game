@@ -1,18 +1,18 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=580';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=581';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=580';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=580';
-import { initMinigame } from './minigame.js?v=580';
-import { initChests } from './chests.js?v=580';
-import { initValley } from './valley.js?v=580';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=580';
-import { initLore } from './lore.js?v=580';
-import { initAvatar } from './avatar.js?v=580';
-import { initStats } from './stats.js?v=580';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=581';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=581';
+import { initMinigame } from './minigame.js?v=581';
+import { initChests } from './chests.js?v=581';
+import { initValley } from './valley.js?v=581';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=581';
+import { initLore } from './lore.js?v=581';
+import { initAvatar } from './avatar.js?v=581';
+import { initStats } from './stats.js?v=581';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -40,7 +40,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 580;   // keep equal to the ?v= number in index.html
+const BUILD = 581;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -5233,11 +5233,19 @@ const TOUR_W2 = [
   { at: clsAt('final'), title: 'Палата клятв и Зал славы 🎓', text: 'В конце — Палата клятв, финальный экзамен. Выпускник идёт в Зал славы и исчезает в свете кристалла.' },
   { at: null, title: 'Последнее 💡', text: 'Вверху ⛏️ ⚒️ 💎 — руда, изделия и самоцветы. Справа внизу 📋 задания ведут по шагам. 🧪 Зельеварка, 🏅 рейтинг, 🏆 топ и 🤝 альянсы работают и здесь. В Школу магии можно вернуться через 🗺️ слева внизу. Обучение повторяется в ⚙️.' },
 ];
-const TOUR = WORLD === 2 ? TOUR_W2 : TOUR_W1;
+const TOUR_W1_START = [{ at: () => [(SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 + 4], title: 'Летописец Тихон 🐢', img: 'assets/staff/tikhon_explain.png?v=1', imgFlip: 1, text: 'Здравствуй, директор! Я Тихон, летописец этой школы. С тех пор как прежний директор исчез, школа почти опустела. Давай вернём ей жизнь: первые ученики уже у ворот. Ученики учатся сами и платят за уроки 🪙, а твоё дело — делать школу лучше. Дела летописи лежат под кнопкой 📋 справа внизу. Первое я тебе сейчас покажу.' }];   // rework step 3: one card, then chapter 1 teaches by doing
+const TOUR = WORLD === 2 ? TOUR_W2 : TOUR_W1_START;
+const tourCards = (...names) => names.map((n) => TOUR_W1.find((t) => t.title.startsWith(n))).filter(Boolean);
 // Short intros of the features added since build 237 (2026-11-23): shown once, when the feature opens, with the camera on it;
 // one at a time, never over a panel, the mini-game or the tour, at least INTRO_GAP s apart. The world-1 tour itself covers 'court'.
 const INTRO_GAP = 60;
 const INTROS = [
+  { key: 'f_rec', when: () => WORLD === 1 && S.ftue && !!(S.story && S.story.herbD3), steps: () => tourCards('Ворота', 'Приёмная') },
+  { key: 'f_class', when: () => WORLD === 1 && S.ftue && S.stats.passed >= 1, steps: () => tourCards('Общий коридор', 'Класс и урок', 'Экзамен') },
+  { key: 'f_lib', when: () => WORLD === 1 && S.ftue && S.stats.failed >= 1, steps: () => tourCards('Библиотека') },
+  { key: 'f_queue', when: () => WORLD === 1 && S.ftue && waitList.some((w) => w && w.length >= 3), steps: () => tourCards('Очередь у класса') },
+  { key: 'f_dorm', when: () => WORLD === 1 && S.ftue && dorm.some(Boolean), steps: () => tourCards('Спальня') },
+  { key: 'f_final', when: () => WORLD === 1 && S.ftue && S.stats.graduated >= 1, steps: () => tourCards('Финальный экзамен', 'Выпускники') },
   { key: 'court', when: () => WORLD === 1 && !!COURT && S.stats.graduated >= 3, steps: () => [TOUR_W1.find((t) => t.title.startsWith('Волшебный двор'))] },
   { key: 'mg', when: () => S.stats.graduated >= 10, steps: () => [WORLD === 2 ? { at: null, title: 'Мини-игры ✨', text: 'Вверху есть кнопка 🧪 — мини-игры этого мира: «Огранка самоцветов», «Башня из руды» и «Вагонетка в штольне». За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждый час.' } : { at: null, title: 'Зельеварка 🧪', text: 'Вверху есть кнопка 🧪 — мини-игра «Зельеварка». Меняй местами ингредиенты, собирай три в ряд и вари зелья по рецепту. За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждые 20 минут.' }] },
   { key: 'dir', when: () => WORLD === 1 && (dirBuilt() || isOpen(2)), steps: () => [
@@ -5261,7 +5269,7 @@ function stepIntros(dt) {   // called from the frame loop while the game is on s
   if (!S.tourDone) return;
   const it = INTROS.find((x) => !S.hints['i_' + x.key] && x.when());
   if (!it) return;
-  S.hints['i_' + it.key] = 1; introT = INTRO_GAP; save();
+  S.hints['i_' + it.key] = 1; introT = INTRO_GAP; save(); if (it.key.startsWith('f_')) STATS.ev('ftue', { k: it.key });
   const steps = it.steps().filter(Boolean); if (!steps.length) return;
   tourList = steps; introKey = it.key; showTour(0);
 }
@@ -5279,10 +5287,10 @@ function showTour(i) {
   if (EDIT) { tourStep = -1; $('#tour').classList.add('hidden'); return; }   /* the room editor: no intro cards, no camera jumps */
   tourStep = i;
   const el = $('#tour');
-  if (i < 0 || i >= tourList.length) { el.classList.add('hidden'); tourStep = -1; if (tourList === TOUR) { S.tourDone = true; S.hints ||= {}; S.hints[WORLD === 1 ? 'i_court' : 'i_trade'] = 1; } tourList = TOUR; introKey = ''; save(); return; }
+  if (i < 0 || i >= tourList.length) { el.classList.add('hidden'); tourStep = -1; if (tourList === TOUR) { S.tourDone = true; S.hints ||= {}; S.hints[WORLD === 1 ? 'i_court' : 'i_trade'] = 1; if (WORLD === 1 && !S.ftue) { S.ftue = 1; STATS.ev('ftue', { k: 'go' }); setTimeout(() => goMission('f'), 500); } } tourList = TOUR; introKey = ''; save(); return; }
   const st = tourList[i];
   el.innerHTML = emojiHtml(`<div class="tour-card"><div class="tour-top"><b>${st.title}</b>${tourList.length > 1 ? `<span class="muted">${i + 1}/${tourList.length}</span>` : ''}</div>
-    <p>${st.text}</p><div class="tour-btns">${tourList.length > 1 ? '<button class="btn ghost small" data-tour-skip>Пропустить</button>' : ''}
+    ${st.img ? `<img src="${st.img}" alt="" style="float:left;height:150px;width:auto;margin:2px 10px 4px -4px${st.imgFlip ? ';transform:scaleX(-1)' : ''}">` : ''}<p>${st.text}</p><div class="tour-btns" style="clear:both">${tourList.length > 1 ? '<button class="btn ghost small" data-tour-skip>Пропустить</button>' : ''}
     ${i > 0 ? '<button class="btn ghost small" data-tour-back>← Назад</button>' : ''}<button class="btn small" data-tour-next>${i === tourList.length - 1 ? 'Понятно!' : 'Дальше →'}</button></div></div>`);
   el.classList.remove('hidden');
   const at = tourAt(st); if (at) requestAnimationFrame(() => focusTile(at[0], at[1]));
@@ -6073,7 +6081,7 @@ function chapterPanel() {
   qStyle();   // the chapter card uses the quest styles (also when the quests window was never opened)
   const i = chapShow, c = CHAPTERS[i], nx = CHAPTERS[i + 1], first = nx && STORY.find((m) => m.id === nx.ids[0]);
   return `<div class="sh-head">${tikhonPic(56)}<div><h2>📖 Глава ${i + 1} закрыта!</h2><div class="muted">${c.e} «${c.t}»</div></div><button class="x" data-close>✕</button></div>
-    <div class="card up" style="align-items:center"><div class="grow">«Записал в летопись, директор: глава «${c.t}» окончена. Хорошая вышла глава.»</div></div>
+    <div class="card up" style="align-items:center"><div class="grow">«Записал в летопись, директор: глава «${c.t}» окончена. Хорошая вышла глава.${i === 0 ? ' Ученики будут учиться и без тебя — возвращайся, посмотришь, сколько выпустилось.' : ''}»</div></div>
     <div class="qbig ok">${ST_IMG(24)}<span style="flex:1">+${CH_STONES} лунных камней за главу</span></div>
     ${nx ? `<div class="qnote">Дальше — глава ${i + 2} ${nx.e} «${nx.t}»${first ? `. Первое дело: ${first.text}` : ''}</div>` : WORLD === 1 ? `<div class="qnote"><b>Летопись Школы магии дописана!</b> ⛏️ ${chapW2New ? 'Открыт новый мир' : 'Тебя ждёт мир'} — «Подземное королевство гномов». А слава школы теперь даёт <b>+${Math.round(FAME_STEP * 100)}% к плате за уроки во всех мирах</b>. Эта школа никуда не денется: она работает и копит монеты, пока ты в другом мире.</div><button class="btn hot wide" data-world="2" style="margin-top:8px">⛏️ В новый мир</button>` : '<div class="qnote">Это была последняя глава этого мира. Новые главы появятся с обновлениями.</div>'}
     <button class="btn ${nx ? 'hot ' : 'ghost '}wide" data-close style="margin-top:8px">${nx ? 'Дальше ➜' : 'Остаться в этой школе'}</button>`;
@@ -6391,6 +6399,8 @@ function claimMission(key) {
   let closed = -1;
   if (key === 'f') { const c = storyCur(); if (c) { S.story[c.id] = 1; if (c.v1) S.mission = (S.mission || 0) + 1; const ci = chapOf(c.id); if (ci >= 0 && chapDone(ci)) closed = ci; } } else S.dynList.splice(+key.slice(1), 1);
   toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); save();
+  if (key === 'f' && S.ftue === 1 && closed < 0) { const nx = storyCur(); if (nx && chapOf(nx.id) === 0) { STATS.ev('ftue', { k: 'step_' + nx.id }); setTimeout(() => goMission('f'), 700); } }
+  if (closed === 0 && S.ftue === 1) { S.ftue = 2; STATS.ev('ftue', { k: 'ch1' }); }
   if (closed >= 0) { stonesAdd(CH_STONES, 'w' + WORLD + '_ch' + (closed + 1)); STATS.ev('chapter', { n: closed + 1 }); chapShow = closed; if (WORLD === 1 && closed === CHAPTERS.length - 1) chapW2New = w1Finish(); setTimeout(() => openPanel(chapterPanel), 400); }
 }
 
@@ -6910,7 +6920,7 @@ document.addEventListener('click', (e) => {
   if (d.backupRestore !== undefined) { restoreBackup(); return; }
   if (d.cloudCopy !== undefined) { navigator.clipboard?.writeText(cloudCode()).then(() => toast('Код скопирован'), () => window.prompt('Твой код:', cloudCode())); return; }
   if (d.cloudOff !== undefined) { if (confirm('Отключить облако на этом устройстве? Прогресс здесь останется, просто перестанет сохраняться в облако.')) { localStorage.removeItem(CODE_KEY); localStorage.setItem('magicschool.cloudOff', '1'); cloudState = ''; openPanel(settingsPanel); } return; }
-  if (d.tourAgain !== undefined) { closePanel(); tourList = TOUR; showTour(0); return; }
+  if (d.tourAgain !== undefined) { closePanel(); tourList = WORLD === 2 ? TOUR_W2 : TOUR_W1; showTour(0); return; }   // the full old card list as a reference
   if (d.tourNext !== undefined) { showTour(tourStep + 1); return; }
   if (d.tourBack !== undefined) { showTour(tourStep - 1); return; }
   if (d.tourSkip !== undefined) { showTour(-1); return; }
@@ -8028,5 +8038,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=580').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=581').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
