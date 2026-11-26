@@ -1,18 +1,18 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=573';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=574';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=573';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=573';
-import { initMinigame } from './minigame.js?v=573';
-import { initChests } from './chests.js?v=573';
-import { initValley } from './valley.js?v=573';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=573';
-import { initLore } from './lore.js?v=573';
-import { initAvatar } from './avatar.js?v=573';
-import { initStats } from './stats.js?v=573';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=574';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=574';
+import { initMinigame } from './minigame.js?v=574';
+import { initChests } from './chests.js?v=574';
+import { initValley } from './valley.js?v=574';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=574';
+import { initLore } from './lore.js?v=574';
+import { initAvatar } from './avatar.js?v=574';
+import { initStats } from './stats.js?v=574';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -40,7 +40,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 573;   // keep equal to the ?v= number in index.html
+const BUILD = 574;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -95,7 +95,8 @@ const rawSuccess = (i) => BAL.chance0 + 0.015 * (S.classes[i].teacher - 1) + 0.0
 const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
 const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance above the cap is not wasted: each 1% gives +2% tuition
 const W2_PAY = 0.5;   // build audit 2026-11-24: was 0.7; caravans now bring ~1/4 of world-2 income (w2_report.md). World 2 pays less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
-const tuition = (i) => Math.round(CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY * relicK() : 1) * boostK() * (WORLD === 1 && S && S.lore && S.lore.prize ? 1.1 : 1));   // «Последняя ночь» prize   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
+let FAME_K = 1; const FAME_STEP = 0.1;   // «Слава школы» (M8): +10 % per world whose chronicle is finished, set by fameUpd()
+const tuition = (i) => Math.round(FAME_K * CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY * relicK() : 1) * boostK() * (WORLD === 1 && S && S.lore && S.lore.prize ? 1.1 : 1));   // «Последняя ночь» prize   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time) * (loreQ('teachers') ? 0.97 : 1);
 const itemCost = (i, k) => { const raw = CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, Math.min(25, S.classes[i].items[k])) * Math.pow(BAL.itemHi, Math.max(0, S.classes[i].items[k] - 25)); return Math.round(Math.max(raw, paced(raw, S.classes[i].items[k] + 1) * itemW(i))); };
 // build audit 2026-11-24: Herbology earns ~1/100 of Elements per lesson, but the pace floor priced its items like Elements' ones
@@ -6021,7 +6022,7 @@ function masterHint() {
 }
 // ======================= «Летопись»: the story chain in chapters (mechanics rework M1, Maria 2026-11-26 «да, делаем») =======================
 // Each chapter = a few steps and one big build at the end (the last id). World 1 only for now; world 2 keeps the flat chain.
-const CHAPTERS = WORLD === 1 ? [
+const CH_W1 = [
   { t: 'Первые ученики', e: '🌱', ids: ['pots3', 'herbT3', 'herbD3', 'rec3', 'potions'] },
   { t: 'Звёзды над школой', e: '🔭', ids: ['g10', 'mg3', 'item10', 'potD4', 'bench2', 'stars'] },
   { t: 'Своё имя', e: '👑', ids: ['name', 'g100', 'star2', 'dir'] },
@@ -6029,8 +6030,9 @@ const CHAPTERS = WORLD === 1 ? [
   { t: 'Чары', e: '✨', ids: ['mail', 'fount3', 'charms'] },
   { t: 'Крылья', e: '🪽', ids: ['ally', 'flight'] },
   { t: 'Стихии', e: '🔥', ids: ['elements'] },
-  { t: 'Башня мастеров', e: '🏰', ids: ['master', 'mgStar3', 'tower'] },
-] : [];
+  { t: 'Башня мастеров', e: '🏰', ids: ['master', 'tower'] },   // mgStar3 is a bonus step after the chronicle (M8: a skill wall on the main path)
+];
+const CHAPTERS = WORLD === 1 ? CH_W1 : [];
 const CH_STONES = 5;   // moonstones for closing a chapter (a big moment, rule «celebrate in proportion»; the daily set pays 2)
 const STORY = (() => { if (!CHAPTERS.length) return MISSIONS; const by = Object.fromEntries(MISSIONS.map((m) => [m.id, m])), used = new Set();
   const out = []; for (const c of CHAPTERS) for (const id of c.ids) if (by[id] && !used.has(id)) { out.push(by[id]); used.add(id); }
@@ -6043,19 +6045,32 @@ function chapNow() {   // {i, c, done, total} of the current chapter; null when 
   const i = CHAPTERS.findIndex((c, k) => !chapDone(k)); if (i < 0) return null;
   const c = CHAPTERS[i]; return { i, c, done: c.ids.filter((id) => S.story[id]).length, total: c.ids.length };
 }
+const w1Story = () => { if (WORLD === 1) return (S && S.story) || {}; try { return (JSON.parse(localStorage.getItem(saveKeyOf(1))) || {}).story || {}; } catch (e) { return {}; } };
+const w1ChDone = () => { const st = w1Story(); return CH_W1.filter((c) => c.ids.every((id) => st[id])).length; };
+function fameUpd() { FAME_K = 1 + FAME_STEP * (w1ChDone() >= CH_W1.length ? 1 : 0); }   // more worlds join when their chronicles exist
+let chapW2New = false;
+function w1Finish() {   // the world-1 chronicle is written: world 2 opens (true when it was closed before)
+  const m = readMetaLocal(), had = (m.unlocked || []).includes(2);
+  if (!had) { m.unlocked = [...new Set([...(m.unlocked || []), 2])]; localStorage.setItem('magicschool.meta', JSON.stringify(m)); STATS.ev('world', { w: 2 }); }
+  fameUpd(); return !had;
+}
 let chapBack = false, chapShow = -1;
 function chapBackPay() {   // once per start: chapters closed before this build pay their stones (same keys, never twice)
-  if (chapBack || !CHAPTERS.length || !S || !S.story) return; chapBack = true; let sum = 0;
+  if (chapBack || !S) return; fameUpd();
+  if (!CHAPTERS.length) { chapBack = true; return; }
+  if (!S.story) return; chapBack = true; let sum = 0;
+  if (WORLD === 1 && w1ChDone() >= CH_W1.length && w1Finish() && !ffwd) setTimeout(() => toast('⛏️ Летопись дописана — открыт новый мир! Загляни на карту миров 🗺️'), 4000);
   CHAPTERS.forEach((c, i) => { if (chapDone(i) && stonesAdd(CH_STONES, 'w' + WORLD + '_ch' + (i + 1))) sum += CH_STONES; });
   if (sum && !ffwd) setTimeout(() => toast(`📖 За главы летописи: ${ST_ICON} +${sum} лунных камней`), 2500);
 }
 function chapterPanel() {
+  qStyle();   // the chapter card uses the quest styles (also when the quests window was never opened)
   const i = chapShow, c = CHAPTERS[i], nx = CHAPTERS[i + 1], first = nx && STORY.find((m) => m.id === nx.ids[0]);
   return `<div class="sh-head">${tikhonPic(56)}<div><h2>📖 Глава ${i + 1} закрыта!</h2><div class="muted">${c.e} «${c.t}»</div></div><button class="x" data-close>✕</button></div>
     <div class="card up" style="align-items:center"><div class="grow">«Записал в летопись, директор: глава «${c.t}» окончена. Хорошая вышла глава.»</div></div>
     <div class="qbig ok">${ST_IMG(24)}<span style="flex:1">+${CH_STONES} лунных камней за главу</span></div>
-    ${nx ? `<div class="qnote">Дальше — глава ${i + 2} ${nx.e} «${nx.t}»${first ? `. Первое дело: ${first.text}` : ''}</div>` : '<div class="qnote">Это была последняя глава этого мира. Новые главы появятся с обновлениями.</div>'}
-    <button class="btn hot wide" data-close style="margin-top:8px">Дальше ➜</button>`;
+    ${nx ? `<div class="qnote">Дальше — глава ${i + 2} ${nx.e} «${nx.t}»${first ? `. Первое дело: ${first.text}` : ''}</div>` : WORLD === 1 ? `<div class="qnote"><b>Летопись Школы магии дописана!</b> ⛏️ ${chapW2New ? 'Открыт новый мир' : 'Тебя ждёт мир'} — «Подземное королевство гномов». А слава школы теперь даёт <b>+${Math.round(FAME_STEP * 100)}% к плате за уроки во всех мирах</b>. Эта школа никуда не денется: она работает и копит монеты, пока ты в другом мире.</div><button class="btn hot wide" data-world="2" style="margin-top:8px">⛏️ В новый мир</button>` : '<div class="qnote">Это была последняя глава этого мира. Новые главы появятся с обновлениями.</div>'}
+    <button class="btn ${nx ? 'hot ' : 'ghost '}wide" data-close style="margin-top:8px">${nx ? 'Дальше ➜' : 'Остаться в этой школе'}</button>`;
 }
 // story chain: S.story = ids of claimed missions; old saves kept an index S.mission into the 13 first (v1) ones
 function storyCur() {
@@ -6370,7 +6385,7 @@ function claimMission(key) {
   let closed = -1;
   if (key === 'f') { const c = storyCur(); if (c) { S.story[c.id] = 1; if (c.v1) S.mission = (S.mission || 0) + 1; const ci = chapOf(c.id); if (ci >= 0 && chapDone(ci)) closed = ci; } } else S.dynList.splice(+key.slice(1), 1);
   toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); save();
-  if (closed >= 0) { stonesAdd(CH_STONES, 'w' + WORLD + '_ch' + (closed + 1)); STATS.ev('chapter', { n: closed + 1 }); chapShow = closed; setTimeout(() => openPanel(chapterPanel), 400); }
+  if (closed >= 0) { stonesAdd(CH_STONES, 'w' + WORLD + '_ch' + (closed + 1)); STATS.ev('chapter', { n: closed + 1 }); chapShow = closed; if (WORLD === 1 && closed === CHAPTERS.length - 1) chapW2New = w1Finish(); setTimeout(() => openPanel(chapterPanel), 400); }
 }
 
 // missions live behind a round button on the map (bottom right); a red badge shows how many can be claimed
@@ -6389,6 +6404,13 @@ function worldStats(w) {   // {grads, coins} of a world's save
   try { const o = JSON.parse(localStorage.getItem(saveKeyOf(w))); return o ? { grads: o.stats.graduated, coins: o.coins, stars: (o.insp && o.insp.stars) || 0, masters: (o.stats.ranks || [])[5] || 0 } : null; } catch (e) { return null; }
 }
 const worldOpen = (w) => w === 1 || (readMetaLocal().unlocked || []).includes(w);
+function worldWait(w) {   // M8: what piled up in another open world while you are here (its own offline rule: up to the offline cap)
+  try { const o = JSON.parse(localStorage.getItem(saveKeyOf(w))); if (!o || !o.last) return '';
+    const away = Math.max(0, Math.min(OFFLINE_CAP_SEC, (Date.now() - o.last) / 1000)), rate = o.steadyEma ?? o.ema ?? 0, pend = rate * away;
+    if (away < 60 || pend < 1) return '';
+    return `<div class="muted" style="color:#2f9e5a;font-weight:700">Там накопилось примерно 🪙${fmt(pend)}${away >= OFFLINE_CAP_SEC ? ' — копилка полная' : ''}</div>`;
+  } catch (e) { return ''; }
+}
 function worldsPanel() {
   const rows = WORLDS.map((w) => {
     const cur = w.id === WORLD, open = worldOpen(w.id);
@@ -6396,15 +6418,16 @@ function worldsPanel() {
     if (cur) right = '<span class="done">ты здесь</span>';
     else if (w.soon) right = '<span class="muted">скоро</span>';
     else if (open) right = `<button class="btn" data-world="${w.id}">Перейти</button>`;
+    else if (w.id === 2) { right = '<span class="lock">🔒</span>'; w._need = `📖 Открывается, когда допишешь летопись Школы магии: глав ${w1ChDone()} из ${CH_W1.length}`; }
     else {
       const src = worldStats(WORLD === 1 ? 1 : 1) || { grads: 0, coins: 0 }, n = w.need;
       const ok = src.grads >= n.grads && src.coins >= n.coins && (src.stars || 0) >= (n.stars || 0) && (src.masters || 0) >= (n.masters || 0);
       right = ok ? `<button class="btn hot" data-world-open="${w.id}">Открыть 🪙${fmt(n.coins)}</button>` : '<span class="lock">🔒</span>';
       w._need = `🎓 ${fmt(Math.min(src.grads, n.grads))}/${fmt(n.grads)} выпускников · 🪙 ${fmt(Math.min(src.coins, n.coins))}/${fmt(n.coins)}${n.stars ? ` · ⭐ ${Math.min(src.stars || 0, n.stars)}/${n.stars}` : ''}${n.masters ? ` · 🌟 Мастер стихии ${Math.min(src.masters || 0, n.masters)}/${n.masters}` : ''} в Школе магии`;
     }
-    return `<div class="card up world ${cur ? 'cur' : ''}"><span class="remoji big">${w.emoji}</span><div class="grow"><b>${w.name}</b><div class="muted">${w.desc}</div>${w._need && !open ? `<div class="muted">${w._need}</div>` : ''}</div>${right}</div>`;
+    return `<div class="card up world ${cur ? 'cur' : ''}"><span class="remoji big">${w.emoji}</span><div class="grow"><b>${w.name}</b><div class="muted">${w.desc}</div>${w._need && !open ? `<div class="muted">${w._need}</div>` : ''}${open && !cur ? worldWait(w.id) : ''}</div>${right}</div>`;
   }).join('');
-  return `<div class="sh-head"><span class="remoji big">🗺️</span><div><h2>Карта миров</h2><div class="muted">В каждом мире своя школа, свои ученики и свои монеты</div></div><button class="x" data-close>✕</button></div>${rows}`;
+  return `<div class="sh-head"><span class="remoji big">🗺️</span><div><h2>Карта миров</h2><div class="muted">В каждом мире своя школа, свои ученики и свои монеты</div>${FAME_K > 1 ? `<div class="muted">🏆 Слава школы: +${Math.round((FAME_K - 1) * 100)}% к плате за уроки во всех мирах</div>` : ''}</div><button class="x" data-close>✕</button></div>${rows}`;
 }
 function goWorld(w) {
   save(); cloudPush(true);
@@ -7994,5 +8017,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=573').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=574').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
