@@ -1,18 +1,18 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=583';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=584';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=583';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=583';
-import { initMinigame } from './minigame.js?v=583';
-import { initChests } from './chests.js?v=583';
-import { initValley } from './valley.js?v=583';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=583';
-import { initLore } from './lore.js?v=583';
-import { initAvatar } from './avatar.js?v=583';
-import { initStats } from './stats.js?v=583';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=584';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=584';
+import { initMinigame } from './minigame.js?v=584';
+import { initChests } from './chests.js?v=584';
+import { initValley } from './valley.js?v=584';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=584';
+import { initLore } from './lore.js?v=584';
+import { initAvatar } from './avatar.js?v=584';
+import { initStats } from './stats.js?v=584';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -42,7 +42,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 583;   // keep equal to the ?v= number in index.html
+const BUILD = 584;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -75,7 +75,7 @@ function save() {
     arrivalT, procT,
     queue: queue.map((a) => a.id),
     wait: waitList.map((l) => l.map((a) => a.id)),
-    agents: agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !a.mcls && !(a.goal && a.goal.t === 'tw')).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed, les: a.les, rest: a.rest, dream: a.dream, pk: a.pk })),
+    agents: agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !a.mcls && !(a.goal && a.goal.t === 'tw')).map((a) => ({ id: a.id, sp: a.sp, name: a.name, x: a.x, y: a.y, speed: a.speed, state: a.state, c: a.c, desk: a.desk, bed: a.bed, seat: a.seat, prepared: a.prepared, t: a.t, dur: a.dur, goal: a.goal, since: a.since, woke: a.woke, mood: a.mood, paid: a.paid, rk: a.rk, el: a.el, retake: a.retake, fed: a.fed, les: a.les, rest: a.rest, dream: a.dream, pk: a.pk, slp: a.slp })),
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
@@ -200,7 +200,33 @@ function gateArrive() { const g = gate(), w = 0.03, away = g.pend >= GATE_PEND; 
 const gatePend = () => gate().pend > 0;
 function gateLet(okQ, okB) { const g = gate(); g.lastQ = okQ ? 1 : 0; if (!(okQ && okB)) return false; g.pend--; return true; }
 const adsFull = () => !!(S && S.gate && S.gate.full);
-const adsWhy = () => (gate().q > gate().b ? '🚦 Новички приходят чаще, чем секретарь успевает их оформлять: больше объявлений не помогут, сначала улучшай секретаря.' : '🏫 Школа полна: новички приходят чаще, чем освобождаются места (новенький входит, только когда в спальне свободно больше 4 кроватей). Больше объявлений не помогут: ставь парты, расширяй классы, сокращай уроки и покупай кровати.');
+const adsWhy = () => (gate().q > gate().b ? '🚦 Новички приходят чаще, чем секретарь успевает их оформлять: больше объявлений не помогут, сначала улучшай секретаря.' : `🚪 Школа переполнена: новички приходят чаще, чем классы успевают учить, и все места ожидания (${WORLD === 2 ? 'очереди у залов и кельи' : 'очередь у двери, скамейки в коридоре, двор и спальня'}) заняты. Больше объявлений не помогут: ставь парты и сокращай уроки в самом загруженном классе.`);   // waiting places 5b
+// waiting places 5b (Ruslan: «Почему ученики не могут прийти в школу из-за того, что там мало кроватей?»): world 1 admits a newcomer
+// unless the shared waiting places are full: the court and the dorm together keep FULL_SAFE free places, plus one for every student
+// already inside who is headed for a full class (waitNeed), so nobody is let in only to leave upset. Was: more than 4 free
+// beds. World 2 (no court, no corridor benches): every bed taken, as before.
+const FULL_SAFE = 3;
+const waitFree = () => Math.max(0, courtCap() - courtList.length) + freeBeds();
+// students who will need a shared place soon: those headed for a jammed class (no free desk, its door line - standing and walking there -
+// and its bench seats about full): walking to its door, seated in the class before it and about to finish, in the library, shop or
+// canteen, and the reception line when the first class is jammed. Nappers and breakers free their own bed / court place: not counted.
+// Tuned on Maria's save copy and on a fresh school (tools/_cdp_wait_s5b.mjs): the instant count of everyone headed anywhere blocked a big
+// school far too much (−25 % lessons), a bare court + dorm margin let a small school bleed upset leavers.
+const NEED_K = 0.25;   // they do not all arrive at once: the jammed class keeps seating students meanwhile (0.25 kept Maria's lesson count with 0 leavers; 0.5-1 cost 11-12 % of lessons, 0 let 60 leave in 10 min)
+const NEED_T = 4;   // seated students count only in their last seconds of the lesson (the gate re-checks all the time)
+const jammed = (i) => i >= 0 && freeDesksN(i) === 0 && lineCount(i) + cbUsed(i) >= MAX_WAIT - 1 + cbN(i) * CB_SEATS;
+function waitNeed() {   // NEED_K × students inside headed for a jammed class + every newcomer (reception line, walking to the first class) when the first class is jammed
+  const J = CLASSES.map((c, i) => isOpen(i) && jammed(i)); if (!J.some(Boolean)) return 0; const f = nextClass(-1); let n = 0, q = f >= 0 && J[f] ? queue.length : 0;
+  for (const a of agents) { const g = a.goal; if (!g || a.woke) continue; const t = g.t === 'c' || g.t === 'l' ? g.i : g.t === 's' ? (a.state === 'study' && a.dur - a.t > NEED_T ? -1 : nextClass(g.i)) : g.t === 'shop' || g.t === 'cant' ? g.n : -1;
+    if (t >= 0 && J[t]) { if (t === f && g.t === 'c' && !(a.les || 0)) q++; else n++; } }
+  return q + (window.__needK ?? NEED_K) * n; }   // __needK: tuning hook for the tests
+const overfull = () => (WORLD === 2 ? schoolFull() : waitFree() - waitNeed() <= (window.__fullSafe ?? FULL_SAFE));   // __fullSafe: tuning hook for the tests
+const fullNow = () => gatePend() && overfull();   // newcomers really wait outside
+let fullEp = false, fullOffT = 0;
+function fullStep(dt) { if (fullNow()) { fullOffT = 30; if (!fullEp) { fullEp = true; STATS.ev('wait', { k: 'full' }); } } else if (fullEp && (fullOffT -= dt) <= 0) fullEp = false; }   // one event per overfull episode
+function fullClass() { let b = -1, bn = -1; for (let i = 0; i < CLASSES.length; i++) if (isOpen(i)) { const n = waitList[i].length * 1000 + cbUsed(i) * 10 + courtFor(i) + sleepersFor(i); if (n > bn) { bn = n; b = i; } } return b; }   // the class with the longest door line
+const fullGo = (i) => [CLASS_SLOT[i], S.classes[i].desks < maxDesksOf(i) ? '[data-act="desk"]' : '[data-act="time"]'];
+function fullCard() { const b = fullClass(); if (b < 0) return ''; return `<div class="card up" style="border:2px solid #ffb4a8"><span class="remoji">🚪</span><div class="grow"><b>Школа переполнена:</b> классы не успевают учить всех — добавь парт или сократи уроки в классе «${CLASSES[b].name}»<div class="muted">Все места ожидания заняты (${WORLD === 2 ? 'очереди у залов и кельи' : 'очередь у двери, скамейки в коридоре, двор, спальня'}), новички ждут у ворот и войдут, когда освободится место.</div></div><button class="btn small go" data-fullgo="${b}">Открыть</button></div>`; }
 const INC_AUTO_AT = (l) => 600 * (1 - 0.07 * l);           // 10 min -> 3 min
 // ---- director's routine (build 238, tester Ruslan's wish, Maria's pick 2026-11-22: contract tariff, ad campaigns, parents' letters) ----
 // World 1 only, after the office is built. State in S.boss = { plan, camp: { k, end, cd }, mail: { t, cur }, rep }.
@@ -1040,6 +1066,42 @@ function finishProcess() {
 }
 let calmT = 0; const CALM_T = 120;   // build 541: game seconds after a restore (reload, update, new map) in which nobody leaves for lack of room
 const MAX_WAIT = 6;                                   // students allowed to wait in the line of a class
+// ======================= waiting places 5b: corridor benches (Ruslan «Да, всё хорошо. Делай.», tools/_patch/waiting_s5b.py) =======================
+// A student without a free desk waits at the nearest free place: the door line -> the corridor benches by that door -> the court ->
+// the dorm. The bench is next to the class: its sitters are the first to step back into the line, and mood almost holds (−CB_MOOD/s).
+// World 1 only (the court layout's gallery); per class 0..CB_MAX benches of CB_SEATS seats, bought in the class panel.
+const CB_MAX = 3, CB_SEATS = 2, CB_MOOD = 0.1, CB_H = 36;
+const cbOn = () => WORLD === 1 && !!COURT;
+const cbN = (i) => (cbOn() && i >= 0 && S.cbench && S.cbench[i]) || 0;
+const cbCost = (i) => paced(CLASSES[i].tuition * 12 * Math.pow(3, cbN(i)), cbN(i) + 1);   // herbs 120 / 360 / 1 080, elements 12K / 36K / 108K, and never under the pace floor
+const cbSeats = CLASSES.map(() => []);   // agent per corridor seat, per class
+const cbFree = (i) => { if (i < 0) return -1; const n = cbN(i) * CB_SEATS; for (let k = 0; k < n; k++) if (!cbSeats[i][k]) return k; return -1; };
+const cbUsed = (i) => (i >= 0 && cbSeats[i] ? cbSeats[i].reduce((n, a) => n + (a ? 1 : 0), 0) : 0);
+function cbSpots(i) {   // bench places along the class's front wall in the corridor, beside its door, never in front of any door
+  const s = slotOf(i); if (!s || !cbOn()) return [];
+  const key = bfsVer + ':' + s.x0 + ',' + s.y0 + ',' + s.x1 + ',' + s.y1; cbSpots.c ||= []; if (cbSpots.c[i] && cbSpots.c[i].key === key) return cbSpots.c[i].v;
+  const [r, h] = s.door, dx = h[0] - r[0], dy = h[1] - r[1], ax = dy ? 1 : 0, ay = dx ? 1 : 0, doors = [];
+  for (const o of Object.values(SLOTS)) for (const d of [o.door, ...(o.extra || [])]) if (d && d[1]) doors.push(d[1]);
+  const ok = (x, y) => regAt(x, y) === 'hall' && regAt(x - dx, y - dy) !== 'hall' && !inCourt(x, y) && !(GAL_T && GAL_T.has(x * 1000 + y)) && !doors.some((q) => Math.abs(q[0] - x) + Math.abs(q[1] - y) <= 1);
+  const v = [];
+  for (let k = 1; k <= 10 && v.length < CB_MAX; k++) for (const sd of [1, -1]) { const x = h[0] + ax * sd * k, y = h[1] + ay * sd * k; if (v.length < CB_MAX && ok(x, y) && !v.some((o) => Math.abs(o.tx - x) + Math.abs(o.ty - y) < 2)) v.push({ tx: x, ty: y, x: x + 0.5 - dx * 0.1, y: y + 0.5 - dy * 0.1, ax, ay, dx, dy, flip: !!ay }); }
+  cbSpots.c[i] = { key, v }; return v;
+}
+const cbMax = (i) => Math.min(CB_MAX, cbSpots(i).length);   // a class whose corridor has room for fewer benches gets fewer
+function cbSeatPos(i, k) { const o = cbSpots(i)[Math.floor(k / CB_SEATS)]; if (!o) return null; const u = k % CB_SEATS ? 0.24 : -0.24; return { x: o.x + o.ax * u + o.dx * 0.06, y: o.y + o.ay * u + o.dy * 0.06 }; }
+function goCB(a, i, k = cbFree(i)) {   // sit down on a corridor bench by the door of class i
+  const p = cbSeatPos(i, k); if (!p) return false;
+  cbSeats[i][k] = a; a.cb = k; a.goal = { t: 'cb', i }; a.c = -1; a.since = a.since || Date.now(); a.bed = -1;
+  a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'cbench'; const o = cbSpots(i)[Math.floor(k / CB_SEATS)]; a.flip = !(o && o.flip); a.back = false; });
+  return true;
+}
+window.__wait = { overfull: () => overfull(), fullNow: () => fullNow(), free: () => waitFree(), spots: (i) => cbSpots(i), seats: () => cbSeats.map((l) => l.map((a) => (a ? a.id : 0))), fullClass: () => fullClass(), get ep() { return fullEp; } };   // test hook
+function leaveCB(a) { const g = a.goal; if (g && g.t === 'cb' && cbSeats[g.i] && cbSeats[g.i][a.cb] === a) cbSeats[g.i][a.cb] = null; a.cb = -1; }
+function cbHtml(i) {   // the class panel card
+  if (!cbOn() || !(cbN(i) || S.qSeen)) return '';
+  const n = cbN(i);
+  return `<div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Скамейки в коридоре</b> <span class="muted">${n}/${cbMax(i)}</span><div class="muted">🚶 близко к классу, почти не грустят · ${nn('мест', n * CB_SEATS, (n + 1) * CB_SEATS, n >= cbMax(i))}: кому не хватило места в очереди у двери, ждёт здесь и первым встаёт в очередь</div></div>${n >= cbMax(i) ? '<span class="done">макс.</span>' : costBtn(n ? '+1' : 'Купить', cbCost(i), 'corrb', `data-i="${i}"`)}</div>`;
+}
 // line of a class = waiting + already walking there
 const lineCount = (i) => waitList[i].length + agents.reduce((n, a) => n + (a.goal && a.goal.t === 'c' && a.goal.i === i && (a.state === 'walk') ? 1 : 0), 0);
 const classFull = (i) => i >= 0 && waitList[i].length >= MAX_WAIT;   // the line = only those standing at the door
@@ -1109,7 +1171,7 @@ const dorm = Array(DORM_CAP).fill(null);           // agent per bed (only the fi
 const freeBed = () => { for (let b = 0; b < DORM_CAP; b++) if (bedExists(b) && !dorm[b]) return b; return -1; };
 const dormFree = () => freeBed() >= 0;
 function goDorm(a, i, bed = freeBed()) {   // bed is reserved now, the student queues at the concierge first
-  dorm[bed] = a; a.bed = bed; a.goal = { t: 'd', i }; a.c = -1; a.since = Date.now();
+  dorm[bed] = a; a.bed = bed; a.goal = { t: 'd', i }; a.c = -1; a.since = Date.now(); a.slp = 0;
   if (toTwin(a)) { CON2.line.push(a); goLine2(a); } else { dormLine.push(a); goDormLine(a); }
 }
 function goDormLine(a) { const p = dormLineSpot(dormLine.indexOf(a)); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'dline'; }); }
@@ -1139,6 +1201,7 @@ function route(a, i) {   // send a student on to class i, or to the dorm when it
   // her rule 2026-11-22: everybody stands at the door first, the dorm only when the door line is full.
   // Sleepers already woken and walking back keep their places (roomForWaker counts them), so nobody is overtaken.
   if (i < 0 || waitList[i].length < MAX_WAIT) { goClass(a, i); return true; }   // the door line decides, not the walkers (Sonya's report 2026-11-22: dorm full, lines empty)
+  if (cbFree(i) >= 0 && goCB(a, i)) return true;   // waiting places 5b: the corridor bench by the door
   if (courtRoom()) { goCourt(a, i); return true; }   // build 259: the court first (mood rises there), the dorm only when the court is full
   if (!dormFree()) { if (calmT > 0 && COURT) { goCourt(a, i); return true; } leaveSchool(a); return false; }   // build 541: not right after a reload
   popup('😢', a.x, a.y, '#5b7fd6', 44);
@@ -1146,23 +1209,27 @@ function route(a, i) {   // send a student on to class i, or to the dorm when it
   return true;
 }
 function wakeSleepers() {   // the one who has waited longest goes back first
+  if (cbOn() && courtList.length) for (const a of courtList.filter((x) => x.goal && !x.goal.brk && cbFree(x.goal.i) >= 0).sort((p, q) => (p.since || 0) - (q.since || 0))) if (cbFree(a.goal.i) >= 0) { const i = a.goal.i; leaveCourt(a); goCB(a, i); }   // 5b: a freed corridor bench takes the oldest court waiter of its class (closer to the door); dorm sleepers sleep on
   // also those still on their way to the dorm or waiting at the concierge: when the door line has room they turn back
   // at once instead of checking in first (her rule 2026-11-22)
   const sl = []; for (let b = 0; b < DORM_CAP; b++) { const a = dorm[b]; if (a && a.goal && a.goal.t === 'd' && (a.state === 'sleep' || a.state === 'dline' || a.state === 'checkin' || a.state === 'walk')) sl.push(a); }
   for (const a of courtList) if (!a.goal.brk) sl.push(a);   // build 259: those waiting in the court go back the same way (oldest first); a break ends by itself
-  if (!sl.length) return;
   sl.sort((p, q) => (p.since || 0) - (q.since || 0));
+  { const cbl = []; for (const l of cbSeats) for (const a of l) if (a && a.goal && a.goal.t === 'cb') cbl.push(a); cbl.sort((p, q) => (p.since || 0) - (q.since || 0)); sl.unshift(...cbl); }   // waiting places 5b: the bench by the door goes back first
+  if (!sl.length) return;
   let moved = false;
   for (const a of sl) {
     let i = a.goal.i; if (!isOpen(i)) i = nextClass(i - 1);
     if (i >= 0 && !roomForWaker(i)) continue;
     if (a.goal.t === 'k') { leaveCourt(a); a.woke = true; popup('😊', a.x, a.y, '#2f9e7a', 44); goClass(a, i); continue; }
+    if (a.goal.t === 'cb') { leaveCB(a); a.woke = true; goClass(a, i); continue; }
     if (a.state !== 'sleep') {   // not checked in yet (or walking to the bed): leave the concierge line
       const k = dormLine.indexOf(a); if (k >= 0) { dormLine.splice(k, 1); moved = true; }
       if (checkin === a) { checkin = null; checkinT = 0; }
       { const k2 = CON2.line.indexOf(a); if (k2 >= 0) { CON2.line.splice(k2, 1); moved = true; } if (CON2.cur === a) { CON2.cur = null; CON2.t = 0; } }
     }
-    dorm[a.bed] = null; a.bed = -1; a.woke = true; popup('😊', a.x, a.y, '#2f9e7a', 44); goClass(a, i);
+    const rested = a.state === 'sleep' && NAP_ON() && (a.slp || 0) >= NAP_T; if (rested) { a.rest = REST_L; a.les = 0; S.stats.dormRest = (S.stats.dormRest || 0) + 1; }   // waiting places 5b: slept in the dorm -> wakes rested (like a nap)
+    dorm[a.bed] = null; a.bed = -1; a.slp = 0; a.woke = true; popup(rested ? '⚡😊' : '😊', a.x, a.y, '#2f9e7a', 44); goClass(a, i);
   }
   if (moved) { dormLine.forEach((w) => { if (w.state === 'dline' || w.state === 'walk') goDormLine(w); }); CON2.line.forEach((w) => { if (w.state === 'dline' || w.state === 'walk') goLine2(w); }); }   // the line moves up
 }
@@ -1325,13 +1392,14 @@ function arriveClass(a, i) {
   const d = freeDesk(i);
   if (d < 0 && waitList[i].length >= MAX_WAIT) {   // the line filled up while walking here
     a.state = 'walk';
-    if (courtRoom()) goCourt(a, i);   // build 541: the court first, like route() (before, the overflow went to bed or home while the court had room)
+    if (cbFree(i) >= 0 && goCB(a, i)) { /* waiting places 5b: the corridor bench by the door */ }
+    else if (courtRoom()) goCourt(a, i);   // build 541: the court first, like route() (before, the overflow went to bed or home while the court had room)
     else if (dormFree()) { popup('😢', a.x, a.y, '#5b7fd6', 44); goDorm(a, i); }
     else if (calmT > 0 && COURT) goCourt(a, i);   // just after a reload: wait in the court even over its places
     else leaveSchool(a);
     return;
   }
-  if (d < 0) { waitList[i].push(a); const p = waitSpot(i, waitList[i].length - 1); a.state = 'walkwait'; walk(a, p.x, p.y, () => { a.state = 'wait'; }); return; }
+  if (d < 0) { if (!S.qSeen) S.qSeen = 1; waitList[i].push(a); const p = waitSpot(i, waitList[i].length - 1); a.state = 'walkwait'; walk(a, p.x, p.y, () => { a.state = 'wait'; }); return; }
   seat(a, i, d);
 }
 function freeDesk(i) { for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc[i][d]) return d; return -1; }
@@ -1659,7 +1727,7 @@ function pullWaiting(i) {
 // Every graduate leaves a review of 1..5 stars: the higher the rank and the better the mood, the better; a master's review is
 // golden and weighs x3. Everyone who leaves the school upset leaves 1 star. The rating is a moving average over ~300 recent
 // reviews, so a school can climb back. Pure goal for now (no economy effect); a leaderboard of schools comes later.
-const RATE_N = 300, RATE_GOLD_W = 3;
+const RATE_N = 50, RATE_GOLD_W = 3;   // rework step 5: 50 recent reviews (was 300: a mature school's rating could not move)
 const RANK_STARS = [3, 3.5, 4, 4.5, 5, 5];
 const REVIEW_TXT = {
   1: ['Не нашлось места, ушёл домой 😢', 'Очереди огромные, больше не приду', 'Ждал-ждал и ушёл ни с чем'],
@@ -1688,7 +1756,7 @@ function reviewGraduate(a) {
   const rk = a.rk || 0, m = moodOf(a);
   review(a, RANK_STARS[rk] + (m >= 70 ? 0.5 : m < 40 ? -0.5 : 0), rk === 5);
   if (rk === 5 && !ffwd) popup('🏅 золотой отзыв!', a.x, a.y - 0.4, '#b8860b', 70);
-  if (!ffwd && !document.hidden) hintOnce('rating', '🏅', 'Рейтинг школы', 'Теперь у школы есть рейтинг — он слева вверху 🏅. Каждый выпускник оставляет отзыв: чем выше звание и лучше настроение, тем больше звёзд, а Мастера оставляют золотые отзывы. Кто уходит из школы расстроенным, ставит 1 звезду. Поднять рейтинг как можно выше — главная цель школы. Нажми на 🏅, чтобы почитать отзывы.');
+  if (!ffwd && !document.hidden) hintOnce('rating', '🏅', 'Рейтинг школы', 'Теперь у школы есть рейтинг — он слева вверху 🏅. Каждый выпускник оставляет отзыв: чем выше звание и лучше настроение, тем больше звёзд, а Мастера оставляют золотые отзывы. Кто уходит из школы расстроенным, ставит 1 звезду. Чем выше рейтинг, тем способнее приходят ученики: начиная с 3,5 звезды им легче получать звания. Нажми на 🏅, чтобы почитать отзывы.');
 }
 const starRow = (s) => '★'.repeat(Math.round(s)) + '☆'.repeat(5 - Math.round(s));
 function cashPanel() {   // «Казна школы» (build 275): what comes in and goes out per minute
@@ -1704,11 +1772,11 @@ function cashPanel() {   // «Казна школы» (build 275): what comes in
 function ratingPanel() {
   const R = rating();
   const rows = R.last.map((r) => `<div class="card up"><span class="remoji">${r.g ? '🏅' : r.s <= 1 ? '😢' : '🎓'}</span><div class="grow"><b>${r.n}</b> <span style="color:#d49a00">${starRow(r.s)}</span><div class="muted">«${r.t}»</div></div></div>`).join('');
-  return `<div class="sh-head"><span class="remoji big">🏅</span><div><h2>Рейтинг школы: ${ratingTxt()} из 5</h2><div class="muted">Главная цель — поднять его как можно выше</div></div><button class="x" data-close>✕</button></div>
+  return `<div class="sh-head"><span class="remoji big">🏅</span><div><h2>Рейтинг школы: ${ratingTxt()} из 5</h2><div class="muted">${ratingK() > 1 ? `Хорошая слава: ученики приходят способнее — шанс получить звание +${Math.round((ratingK() - 1) * 100)}%` : 'Выше 3 звёзд школа привлекает способных учеников'}</div></div><button class="x" data-close>✕</button></div>
     <div class="center big-txt" style="color:#d49a00">${starRow(ratingVal() || 0)}</div>
     <button class="btn wide" data-top>🏆 Топ школ</button>
     <p>Каждый выпускник оставляет отзыв: чем выше его звание и лучше настроение, тем больше звёзд. Мастера оставляют <b>золотые отзывы</b> 🏅 — они весят втрое больше. Каждый, кто ушёл из школы расстроенным (не нашлось места или загрустил в очереди), ставит 1 звезду.</p>
-    <p class="muted">Рейтинг считается по последним ~300 отзывам, так что его всегда можно поднять. Золотых отзывов: ${fmt(R.gold || 0)} · плохих: ${fmt(R.bad || 0)}.</p>
+    <p class="muted">Рейтинг считается по последним ~50 отзывам, так что его всегда можно поднять. Золотых отзывов: ${fmt(R.gold || 0)} · плохих: ${fmt(R.bad || 0)}.</p>
     <p class="muted">Как поднять: больше парт и кроватей, чтобы никто не уходил; сильные учителя и экзамены на звания; хорошее настроение (библиотека, магазин, столовая, забота директора). Если учеников приходит больше, чем школа успевает учить, выбери у директора «Престижный» договор.</p>
     ${rows ? '<h3>Последние отзывы</h3>' + rows : ''}`;
 }
@@ -1763,7 +1831,7 @@ const WALK_K = 0.8;   // walking a bit slower: the rooms got bigger on screen
 // ======================= mood (her ruling 2026-11-21) =======================
 // Waiting makes students sad, lessons and the library cheer them up. Mood moves the exam chance by up to ±10%;
 // a student whose mood falls very low while waiting gives up and goes home. Mood only falls while the game is open.
-const MOOD_DROP = { queue: 0.5, process: 0, wait: 1.0, walkwait: 1.0, sleep: 0.45, dline: 0.5, checkin: 0 };
+const MOOD_DROP = { queue: 0.5, process: 0, wait: 1.0, walkwait: 1.0, sleep: 0.45, dline: 0.5, checkin: 0, cbench: CB_MOOD };   // cbench: corridor bench (5b)
 const moodOf = (a) => (a.mood ?? 80);
 const moodBonus = (a) => (moodOf(a) - 60) / 400;   // mood 100: +10%, mood 20: -10%
 const moodFace = (m) => (m >= 70 ? '😊' : m >= 40 ? '🙂' : m >= 20 ? '😟' : '😭');
@@ -1771,6 +1839,7 @@ function avgMood() { const l = agents.filter((a) => a.state !== 'fly' && a.state
 function giveUp(a) {   // too sad to keep waiting: frees its place and goes home
   if (a.state === 'wait' || a.state === 'walkwait') { const l = waitList[a.c]; const k = l ? l.indexOf(a) : -1; if (k >= 0) { l.splice(k, 1); pullWaiting(a.c); } }
   else if (a.state === 'sleep') { if (a.bed >= 0 && dorm[a.bed] === a) dorm[a.bed] = null; a.bed = -1; }
+  else if (a.state === 'cbench') leaveCB(a);
   else return;
   S.stats.gaveUp = (S.stats.gaveUp || 0) + 1;
   hintOnce('mood', '😭', 'Ученик ушёл от тоски', 'Ученик слишком долго ждал своей очереди, совсем загрустил и ушёл домой. Ожидание огорчает учеников, уроки и библиотека радуют. Добавляй парты, сокращай уроки и ставь кровати, чтобы очереди были короче. Весёлые ученики к тому же лучше сдают экзамены.');
@@ -1800,7 +1869,7 @@ function stepMood(a, dt, live) {
   else if (MOOD_DROP[a.state] !== undefined) d = -MOOD_DROP[a.state] * (a.state === 'sleep' ? 1 - 0.05 * (dormUp().conc - 1) : 1) * careK(dirLvl('care')) * (a.pk || 1) * fountLineK();   // a better dorm and the director's care keep them calmer
   if (d < 0 && !live) return;
   a.mood = Math.max(0, Math.min(100, moodOf(a) + d * dt));
-  if (live && a.mood < 8 && (a.state === 'wait' || a.state === 'sleep')) giveUp(a);
+  if (live && a.mood < 8 && (a.state === 'wait' || a.state === 'sleep' || a.state === 'cbench')) giveUp(a);
 }
 function stepAgents(dt, live = false) {
   for (const a of agents) {
@@ -1826,6 +1895,7 @@ function stepAgents(dt, live = false) {
     else if (a.state === 'court') stepCourt(a, dt);
     else if (a.state === 'read') { a.t += dt; if (a.t >= a.dur) finishReading(a); }
     else if (a.state === 'nap') { a.t += dt; if (a.t >= a.dur) finishNap(a); }   // dorm roles
+    else if (a.state === 'sleep') a.slp = (a.slp || 0) + dt;   // waiting places 5b: sleep time in the dorm (>= NAP_T -> wakes rested)
     else if (a.state === 'cantbuy') { a.t += dt; if (a.t >= a.dur) cantServed(a); }
     else if (a.state === 'eat') { a.t += dt; if (a.t >= a.dur) finishEating(a); }
     else if (a.state === 'mclass') { a.t += dt; if (a.t >= a.dur) mcHome(a); }
@@ -2014,7 +2084,8 @@ const RANK_MUL = [1, 1.3, 1.7, 2.2, 3, 5];              // a student in that ran
 const FORM_BASE = [10000, 40000, 250000, 1200000, 6000000, 30000000];   // first card level price per rank
 const MAX_EX_LVL = 20, MAX_XPL_LVL = 10, FORM_MAX = 20;
 const exLvl = (i) => S.classes[i].ex || 0, xplLvl = (i) => S.classes[i].xpl || 0;
-const rankChance = (i) => RANK_BASE[RANK_AT(i)] + RANK_STEP[RANK_AT(i)] * exLvl(i) + helpBonus(i);
+const ratingK = () => 1 + 0.05 * Math.max(0, Math.min(4, Math.floor(((ratingVal() || 0) - 3) / 0.5 + 1e-9)));   // rework step 5: a good name brings abler students: +5 % per 0.5★ above 3
+const rankChance = (i) => (RANK_BASE[RANK_AT(i)] + RANK_STEP[RANK_AT(i)] * exLvl(i) + helpBonus(i)) * ratingK();
 const exCost = (i) => paced(CLASSES[i].tuition * 300 * Math.pow(2.0, exLvl(i)), exLvl(i) + 1);
 const xplCost = (i) => paced(CLASSES[i].tuition * 200 * Math.pow(1.8, xplLvl(i)), xplLvl(i) + 1);
 const fkey = (sp, rk, el) => sp + ':' + rk + (rk === 5 ? ':' + el : '');
@@ -2347,6 +2418,7 @@ function peoplePanel() {
     ['🛎️', 'в приёмной', n((a) => queue.includes(a))],
     ['📖', 'на уроках', n((a) => a.state === 'study')],
     ['🚪', 'в очереди у классов', n((a) => a.state === 'wait' || a.state === 'walkwait')],
+    ...(cbOn() ? [['🪑', 'ждут на скамейках в коридоре', n((a) => a.goal && a.goal.t === 'cb')]] : []),   // 5b
     ...(courtCap() ? [['⛲', 'ждут места во дворе', n((a) => a.goal && a.goal.t === 'k' && !a.goal.brk)], ['🌳', 'на перемене во дворе', n((a) => a.goal && a.goal.t === 'k' && a.goal.brk)]] : []),
     ['💤', 'в спальне ждут места', n((a) => a.state === 'sleep' || a.state === 'dline' || a.state === 'checkin' || (a.goal && a.goal.t === 'd'))],
     ['📚', 'в библиотеке', n((a) => a.state === 'read' || (a.goal && a.goal.t === 'l'))],
@@ -2424,7 +2496,7 @@ function stepWorld(dt, live = false) {
   stepExped();
   stepRumble(dt, live);
   arrivalT -= dt;
-  if (arrivalT <= 0) { arrivalT = arrivalInterval(); gateArrive(); } if (gatePend() && gateLet(queue.length < queueCap(), !(WORLD === 2 ? schoolFull() : freeBeds() <= 4))) spawn();   // world 1 too: nobody new comes while the court and the dorm are (almost) full   // world 2: nobody new comes while every line and every bed is taken
+  if (arrivalT <= 0) { arrivalT = arrivalInterval(); gateArrive(); } if (gatePend() && gateLet(queue.length < queueCap(), !overfull())) spawn(); fullStep(dt);   // waiting places 5b: closed only when every waiting place is taken   // world 1 too: nobody new comes while the court and the dorm are (almost) full   // world 2: nobody new comes while every line and every bed is taken
   startNextProcess(live);
   if (processing) { procT = Math.min(procT + dt, procTime()); if (procT >= procTime()) finishProcess(); }
   concPlace(); stepConcierge(dt); if (NEWDORM) stepConcierge2(dt);
@@ -2694,6 +2766,7 @@ function tkGain(op) {   // extra coins per minute; op = { act, i, k } as in the 
       }
       case 'shopup': return rel(tkTry(inc(shopUp(), op.k)));
       case 'cantup': return rel(tkTry(inc(cantUp(), op.k)));
+      case 'corrb': return waitList[op.i].length >= MAX_WAIT ? R * 0.002 * CB_SEATS : 0;   // 5b [J]: seats only matter while the door line is full; worth a small mood bonus at exams
       case 'beds': { const g = gate(); return g.b > 0.05 ? R * Math.min(0.3, g.b) * 0.05 : 0; }   // the dorm full: newcomers turned away at the gate
       case 'dir': return op.k === 'refund' && WORLD === 1 ? (S.outEma || 0) * 60 * 0.1 / Math.max(0.1, refundRate()) : null;   // refunds to leavers: -10 points per level
       case 'formlvl': { const all = inSchool().filter((a) => SPECIES.includes(a.sp)), n = all.filter((a) => formOf(a) === op.k).length; if (!all.length) return 0;   // the share of students in school with this card
@@ -2709,14 +2782,15 @@ function advReport() {   // [{hot, emo, text, go}] — go: [room id, selector] |
   if (advCache && performance.now() - advCacheAt < 2000) return advCache;
   const out = [];
   let b = -1, bn = 0;
-  for (let i = 0; i < CLASSES.length; i++) if (isOpen(i)) { const n = waitList[i].length + sleepersFor(i) + agents.reduce((m, a) => m + (a.goal && a.goal.t === 'k' && a.goal.i === i && !a.goal.brk ? 1 : 0), 0); /* court waiters too (build 259) */ if (n > bn) { bn = n; b = i; } }
+  for (let i = 0; i < CLASSES.length; i++) if (isOpen(i)) { const n = waitList[i].length + cbUsed(i) + sleepersFor(i) + agents.reduce((m, a) => m + (a.goal && a.goal.t === 'k' && a.goal.i === i && !a.goal.brk ? 1 : 0), 0); /* court waiters too (build 259) */ if (n > bn) { bn = n; b = i; } }
   if (b >= 0 && bn >= 12) {
     const desk = S.classes[b].desks < maxDesksOf(b), time = S.classes[b].time < MAX_TIME_LEVEL, nm = CLASSES[b].name;
     if (desk || time) out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}. ${desk ? 'Поставь там ещё парту' : 'Сократи там урок'} — очередь станет короче.`, go: [CLASS_SLOT[b], desk ? '[data-act="desk"]' : '[data-act="time"]'] });
     else if (!prestigeOn()) out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}, а он уже улучшен до предела. Учеников приходит больше, чем школа может выучить: «Престижный» договор приведёт меньше учеников, зато они платят больше.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
     else out.push({ hot: false, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}. Он улучшен до предела, и «Престижный» договор уже выбран — больше тут ничего не сделать. ${bedsLeft() ? 'Пусть ждут в спальне, а не уходят: добавь кроватей.' : 'Ученики подождут во дворе и в спальне.'}`, go: bedsLeft() ? ['DORM', '[data-act="beds"]'] : null });   // her report: «Тихон предлагает престижный договор дважды, но у меня и так престижный договор выбран»
   }
-  if (!dormFree()) out.push({ hot: true, emo: '🛏️', text: 'Все кровати в спальне заняты: новичкам негде подождать, и они уходят домой. Добавь кровати.', go: ['DORM', '[data-act="beds"]'] });
+  if (WORLD === 1 && fullNow()) { const fb = fullClass(); if (fb >= 0) out.push({ hot: false, emo: '🚪', text: `Школа переполнена: все места ожидания заняты, новички ждут у ворот. Классы не успевают учить всех — добавь парт или сократи уроки в классе «${CLASSES[fb].name}».`, go: fullGo(fb) }); }   // waiting places 5b
+  else if (WORLD !== 1 && !dormFree()) out.push({ hot: true, emo: '🛏️', text: 'Все кровати в спальне заняты: новичкам негде подождать, и они уходят домой. Добавь кровати.', go: ['DORM', '[data-act="beds"]'] });
   const lv = advLeft();
   if (lv >= 5 && !prestigeOn()) out.push({ hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. Если учеников приходит больше, чем школа успевает учить, попробуй «Престижный» договор.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
   else if (lv >= 5) { const care = dirLvl('care') < DIR_UP.care.max;
@@ -3000,6 +3074,7 @@ const COURT_POSE_ART = SPECIES.flatMap((sp) => [sp, sp + '_t1', sp + '_t2', sp +
 if (WORLD === 1) for (const k of COURT_POSE_ART) for (const p of Object.values(COURT_POSE)) { const im = new Image(); im.onerror = () => {}; im.src = `assets/creatures/${k}_k_${p}.png?v=2`; sprites[k + '_k_' + p] = im; }
 const COURT_POSE_K = 1.2;   // plan item 6, her pick «1»: students busy in the court are drawn 1.2x bigger (small at the normal zoom)
 function courtPose(a) {   // the pose picture of a student busy in the court, or null (then the usual sprite and the icons)
+  if (a.state === 'cbench') { if (WORLD !== 1 || (a.rk || 0) >= 5) return null; const rk = Math.min(4, a.rk || 0), im = sprites[a.sp + (rk ? '_t' + rk : '') + '_k_sit']; return im && im.complete && im.naturalWidth ? im : null; }   // 5b: sits on a corridor bench
   if (WORLD !== 1 || !a.goal || a.goal.t !== 'k' || !COURT_POSE[a.act]) return null;
   if (!(a.state === 'court' || (a.act === 'tag' && a.path && a.path.length))) return null;
   const rk = Math.min(4, a.rk || 0); if ((a.rk || 0) >= 5) return null;
@@ -3481,7 +3556,7 @@ const ST_SHOP = [
   { k: 'gold', icon: '🌟', name: 'Звёздный час', get txt() { const left = (S.goldEnd || 0) - Date.now(); return `плата за уроки ×2 на ${GOLD_MIN} минут в этом мире${left > 0 ? ` · идёт ещё ${mmss(left / 1000)}` : ''}`; }, price: 10,   // build audit 2026-11-24: a sink in both worlds (her «тратить некуда»)
     can: () => (S.goldEnd || 0) - Date.now() < (GOLD_CAP - GOLD_MIN) * 60000, why: () => `Звёздный час можно копить до ${GOLD_CAP / 60} часов`,
     buy: () => { const now = Date.now(); S.goldEnd = Math.max(now, S.goldEnd || 0) + GOLD_MIN * 60000; } },
-  { k: 'moon', icon: '🌙', name: 'Лунное древо созревает', txt: 'все 3 лунных плода сразу, днём тоже', get price() { return WORLD === 1 ? Math.min(8, 3 * Math.max(1, MOON_MAX - moonSt().f)) : 8; }, can: () => WORLD === 1 && moonSt().f < MOON_MAX, why: () => (WORLD === 1 ? 'плоды уже созрели' : 'Лунное древо растёт в первом мире'),
+  false && { k: 'moon', icon: '🌙', name: 'Лунное древо созревает', txt: 'все 3 лунных плода сразу, днём тоже', get price() { return WORLD === 1 ? Math.min(8, 3 * Math.max(1, MOON_MAX - moonSt().f)) : 8; }, can: () => WORLD === 1 && moonSt().f < MOON_MAX, why: () => (WORLD === 1 ? 'плоды уже созрели' : 'Лунное древо растёт в первом мире'),
     buy: () => { moonSt().f = MOON_MAX; } },
 ];
 const FOUNT_COL = {   // magic water of the court fountain: glow, drops, jet, the floating orbs
@@ -3525,7 +3600,7 @@ function stonesPanel() {
   const n = stones(), got = (stMeta().stones || {}).got || {};
   const ach = ST_ACH.map((a) => { const done = !!got[stKey(a)];
     return `<div class="card up"><span class="remoji">${done ? '✅' : '🎯'}</span><div class="grow"><b>${a.t}</b><div class="muted">${done ? 'получено' : 'цель'}</div></div><b>${ST_IMG()} ${a.n}</b></div>`; }).join('');
-  const shop = ST_SHOP.map((it) => { const ok = it.can();
+  const shop = ST_SHOP.filter(Boolean).map((it) => { const ok = it.can();
     return `<div class="card up"><span class="remoji">${it.icon}</span><div class="grow"><b>${it.name}</b><div class="muted">${ok ? it.txt : it.why()}</div></div><button class="btn small" data-stbuy="${it.k}" ${ok && n >= it.price ? '' : 'disabled'}>${ST_IMG(15)} ${it.price}</button></div>`; }).join('');
   return `<div class="sh-head"><span class="remoji big">${ST_IMG(44)}</span><div><h2>Лунные камни</h2><div class="muted">Редкая волшебная валюта — одна на оба мира</div></div><button class="x" data-close>✕</button></div>
     <div class="card" style="justify-content:center;font-size:22px"><b>${ST_IMG(26)} ${n}</b></div>
@@ -3533,8 +3608,8 @@ function stonesPanel() {
     <h3>Лавка</h3>${shop}
     ${WORLD === 1 ? `<h3>Волшебная вода фонтана</h3><p class="muted">Цвет воды и сияния фонтана во дворе. Купленный цвет остаётся навсегда.</p>${Object.entries(FOUNT_COL).map(([k, f]) => { const ow = (stMeta().stones || {}).own || {}, own = !f.price || ow['fnt_' + k] || (k === 'rainbow' && ow.fnt_gold), cur = fountCol().name === f.name;
       return `<div class="card up"><span class="remoji" style="width:26px;height:26px;border-radius:50%;background:${f.rainbow ? 'conic-gradient(#ff9ad5,#c9a0ff,#8fd3ff,#9ff0c8,#ffe28f,#ff9ad5)' : `rgb(${f.glow})`};display:inline-block"></span><div class="grow"><b>${f.name}</b><div class="muted">${cur ? 'сейчас в фонтане' : own ? 'куплено' : ''}${f.price ? `${cur || own ? ' · ' : ''}цена ${ST_IMG(13)} ${f.price}` : cur ? '' : 'бесплатно'}</div></div>${cur ? '<span class="done">✓</span>' : `<button class="btn small" data-stfnt="${k}" ${own || n >= f.price ? '' : 'disabled'}>${own ? 'Выбрать' : `${ST_IMG(15)} ${f.price}`}</button>`}</div>`; }).join('')}` : ''}
-    <h3>Скоро</h3>${ST_SOON.map(([i, t]) => `<div class="card up" style="opacity:.6"><span class="remoji">${i}</span><div class="grow"><b>${t}</b></div><span class="muted">скоро</span></div>`).join('')}
-    <h3>Наборы камней</h3><p class="muted">Покупка за деньги появится позже.</p>${ST_PACKS.map(([k, pr]) => `<div class="card up" style="opacity:.6"><span class="remoji">${ST_IMG(30)}</span><div class="grow"><b>${k} лунных камней</b></div><button class="btn small" disabled>${pr} · скоро</button></div>`).join('')}`;
+    ${''}${[].map(([i, t]) => `<div class="card up" style="opacity:.6"><span class="remoji">${i}</span><div class="grow"><b>${t}</b></div><span class="muted">скоро</span></div>`).join('')}
+    ${[].map(([k, pr]) => `<div class="card up" style="opacity:.6"><span class="remoji">${ST_IMG(30)}</span><div class="grow"><b>${k} лунных камней</b></div><button class="btn small" disabled>${pr} · скоро</button></div>`).join('')}`;
 }
 function stonesFount(k) {   // buy (once) and choose a fountain water colour
   const f = FOUNT_COL[k]; if (!f) return; const m = stMeta(), st = (m.stones ||= { n: 0, got: {} }); st.own ||= {};
@@ -3542,7 +3617,7 @@ function stonesFount(k) {   // buy (once) and choose a fountain water colour
   st.fnt = k; localStorage.setItem('magicschool.meta', JSON.stringify(m)); save(); toast(`⛲ Вода в фонтане: ${f.name.toLowerCase()}`); dirtyPanel = true;
 }
 function stonesBuy(k) {
-  const it = ST_SHOP.find((x) => x.k === k); if (!it) return;
+  const it = ST_SHOP.filter(Boolean).find((x) => x.k === k); if (!it) return;
   if (!it.can()) { toast(it.why()); return; } if (stones() < it.price) { toast(`Нужно ${ST_ICON} ${it.price}`); return; }
   const price = it.price; if (!stonesAdd(-price, '', 'shop_' + k)) { toast('Не получилось сохранить покупку'); return; }   // build audit 2026-11-24: pay first, then give
   it.buy(); save(); toast(`${it.icon} ${it.name}!`); dirtyPanel = true;
@@ -3824,6 +3899,23 @@ function drawCorr(o) {
   if (zoom >= 1.2) { const rx = Math.min(w * 0.4, h * 0.55); ctx.drawImage(propShadow(), p.x - rx, p.y - rx * 0.42, rx * 2, rx * 0.84); }
   const sm = sized(im, h * scale * dpr); ctx.drawImage(o.flip ? flipped(sm) : sm, p.x - w / 2, p.y + h * 0.06 - h, w, h);
   if (o.n === 'candelabra' && zoom >= 1.2) { const T = fxNow() + o.x; for (const dx of [-0.3, 0, 0.3]) { ctx.save(); ctx.globalAlpha = 0.5 + 0.2 * Math.sin(T * Math.PI * 2 / 2.8 + dx * 9); ctx.drawImage(glowSprite('255,210,130'), p.x + dx * w - 8, p.y - h * 0.97 - 8, 16, 16); ctx.restore(); } }
+}
+function drawCB(o) {   // 5b: a corridor bench (placeholder art until Maria's own: the corridor bench sprite assets/parts/corridor/bench.webp)
+  const im = part('corridor', 'bench'); if (!im) return;
+  const p = P(o.x, o.y), h = CB_H, w = h * im.naturalWidth / im.naturalHeight;
+  if (zoom >= 1.2) { const rx = w * 0.42; ctx.drawImage(propShadow(), p.x - rx, p.y - rx * 0.42, rx * 2, rx * 0.84); }
+  const sm = sized(im, h * scale * dpr); ctx.drawImage(o.flip ? flipped(sm) : sm, p.x - w / 2, p.y + h * 0.1 - h, w, h);
+}
+function drawFullSign() {   // 5b: «🚪 Школа переполнена» over the gate while newcomers wait outside
+  if (!fullNow()) return;
+  const g = P(Math.floor(GATE_TILE.x) + 1, GATE_TILE.y - 1), k = signK(), fs = 10.5 * k, t = 'Школа переполнена';
+  if (!onScreen(g.x, g.y - 80, 300, 300)) return;
+  ctx.save(); ctx.font = `800 ${fs}px ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",sans-serif`;
+  const tw = ctx.measureText(t).width, ew = fs * 1.35, pad = 6 * k, bw = tw + ew + pad * 2.2, bh = fs * 2, bob = Math.sin(performance.now() / 450) * 1.5 * k;
+  const x = g.x - bw / 2, y = g.y - (OUT_H.gate_big || 70) * 0.9 - bh - 4 * k + bob;
+  ctx.fillStyle = '#fff3ea'; ctx.strokeStyle = '#d9534f'; ctx.lineWidth = 1.6 * k; ctx.beginPath(); ctx.roundRect(x, y, bw, bh, 8 * k); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#9b2c2c'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(t, x + pad + ew, y + bh / 2 + 0.5 * k);
+  ctx.restore(); emoji('🚪', x + pad + ew * 0.42, y + bh / 2, fs * 1.1);
 }
 function drawCandles() {   // candles floating over the corridors: each bobs slowly (4 s) with a soft flame glow
   if (zoom < 1.2) return;
@@ -5209,9 +5301,9 @@ const TOUR_W1 = [
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Класс и урок', text: 'В классе ученик садится за парту. Учитель в фиолетовой шляпе ведёт урок. Зелёный кружок над учеником — сколько осталось до конца урока.' },
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Экзамен', text: 'После урока экзамен. Сдал — платит за обучение 🪙 и идёт в следующий класс. Шанс сдать зависит от учителя и обстановки. Нажми на класс: там можно улучшить учителя, добавить парты, сократить урок и купить предметы.' },
   { at: () => [(SLOTS.LIB.x0 + SLOTS.LIB.x1) / 2, (SLOTS.LIB.y0 + SLOTS.LIB.y1) / 2], title: 'Библиотека 📚', text: 'Не сдал экзамен — идёт в библиотеку готовиться (жёлтый кружок). Потом возвращается в класс и пересдаёт. После подготовки урок у него короче, а шанс сдать выше.' },
-  { at: () => { const [, h] = slotOf(1).door; return [h[0] + 0.5, h[1] + 1]; }, title: 'Очередь у класса', text: 'У двери каждого класса может ждать до 6 учеников. Если все места за партами заняты и очередь полная, ученик идёт ждать в Волшебный двор ⛲.' },
+  { at: () => { const [, h] = slotOf(1).door; return [h[0] + 0.5, h[1] + 1]; }, title: 'Очередь у класса', text: 'У двери каждого класса может ждать до 6 учеников. Если все места за партами заняты и очередь полная, ученик садится на скамейку в коридоре у двери 🪑 (там почти не грустят, и он первым встаёт в очередь), а если и там нет места — идёт ждать в Волшебный двор ⛲.' },
   { at: () => (COURT ? [courtC().x, courtC().y] : null), title: 'Волшебный двор ⛲', text: 'Посередине школы — двор с фонтаном. Здесь ждут свободной парты (настроение растёт) и отдыхают на переменах: гуляют, читают, бросают монетку в фонтан. Нажми на фонтан, чтобы поставить больше скамеек и прокачать фонтан.' },
-  { at: () => [(SLOTS.DORM.x0 + SLOTS.DORM.x1) / 2, SLOTS.DORM.y0 + 3], title: 'Спальня и консьержка 🛏️', text: 'Когда и во дворе нет места, ученик идёт в спальню. Консьержка в зелёной шляпе записывает гостя, и он спит 💤, пока в его классе не освободится место. Если и кроватей нет — ученик уходит из школы 💔. Нажми на спальню, чтобы купить кровати.' },
+  { at: () => [(SLOTS.DORM.x0 + SLOTS.DORM.x1) / 2, SLOTS.DORM.y0 + 3], title: 'Спальня и консьержка 🛏️', text: 'Когда и во дворе нет места, ученик идёт в спальню. Консьержка в зелёной шляпе записывает гостя, и он спит 💤, пока в его классе не освободится место. Кто поспал в спальне, просыпается выспавшимся ⚡ и учится быстрее. Когда заняты все места ожидания, школа переполнена: новички ждут у ворот 🚪. Нажми на спальню, чтобы купить кровати.' },
   { at: () => [14.5, SLOTS.EXAM.y0 + 3], title: 'Финальный экзамен 📜', text: 'Кто прошёл все открытые классы, идёт в Экзаменационный зал в самом конце коридора и сдаёт финальный экзамен. Не сдал — готовится в библиотеке и пересдаёт. Нажми на зал, чтобы улучшить экзаменатора и обстановку.' },
   { at: () => [(SLOTS.GARDEN.x0 + SLOTS.GARDEN.x1) / 2, SLOTS.GARDEN.y0 + 3], title: 'Выпускники 🎓', text: 'Сдал финальный экзамен — выпускник! Он идёт в Сад выпускников и исчезает в волшебном огне ✨, а школе оставляет отзыв ⭐ — из отзывов складывается рейтинг школы 🏅. Число выпускников видно вверху экрана.' },
   { at: () => [(slotOf(2).x0 + slotOf(2).x1) / 2, (slotOf(2).y0 + slotOf(2).y1) / 2], title: 'Новые классы', text: 'На пустых местах можно построить новые классы — нажми на табличку с ценой. Чем больше классов, тем больше ученики платят за обучение.' },
@@ -5308,10 +5400,11 @@ function statusOf0(a) {
   if (a.state === 'study' && incOf(a.c)) return `урок остановлен: ${incInfo(a.c)[1]} — нажми на класс!`;
   if (a.state === 'study') return `учится: ${cn(a.c)}, до экзамена ${Math.max(0, Math.ceil(a.dur - a.t))} с${a.rest > 0 ? ' · выспался, учится быстрее' : ''}${a.dream && CLASSES[a.c] && CLASSES[a.c].final ? ' · выспался перед экзаменом 🌙 +10%' : ''}`;
   if (a.state === 'wait' || a.state === 'walkwait') return `ждёт свободной парты: ${cn(a.c)}`;
+  if (g.t === 'cb') return a.state === 'cbench' ? `сидит на скамейке в коридоре у класса ${cn(g.i)}: первым встанет в очередь` : `идёт к скамейке у класса ${cn(g.i)}`;   // 5b
   if (a.state === 'read' || g.t === 'l') return `готовится к пересдаче в библиотеке (${cn(g.i)})`;
   if (g.t === 'k') return `${g.brk ? 'перемена во дворе, потом' : 'ждёт места во дворе:'} ${cn(g.i)} — ${{ bench: 'болтает на скамейке 💬', tag: 'играет в догонялки у фонтана 😆', coin: 'бросает монетку в фонтан 🪙', sparks: 'пробует искры из палочки ✨', birds: 'кормит птичек 🐦', read: 'читает под деревом 📖', fish: 'рыбачит у пруда 🎣' }[a.act] || 'гуляет во дворе'}`;
   if (g.t === 'n') return g.k === 'final' ? `${a.state === 'nap' ? 'высыпается' : 'идёт выспаться'} перед Финальным экзаменом 🌙 (+10% к шансу)` : `устал после уроков и ${a.state === 'nap' ? 'спит' : 'идёт спать'} 💤, потом будет учиться быстрее`;   // dorm roles
-  if (a.state === 'sleep') return `спит в спальне, ждёт места: ${cn(g.i)}`;
+  if (a.state === 'sleep') return `спит в спальне, ждёт места: ${cn(g.i)}${NAP_ON() && (a.slp || 0) >= NAP_T ? ' · выспался ⚡ будет учиться быстрее' : ''}`;
   if (a.state === 'dline' || a.state === 'checkin' || g.t === 'd') return 'записывается в спальню у консьержки';
   if (g.t === 'cant') return a.state === 'eat' ? `обедает в столовой ${a.dish || '🍲'}` : a.state === 'cantbuy' || a.state === 'cantwait' ? 'стоит в очереди к повару' : 'идёт в столовую';
   if (g.t === 'shop') return a.state === 'shopping' ? 'покупает вкусняшку в лавке 🍭' : 'идёт в лавку';
@@ -5363,6 +5456,7 @@ function render() {
   list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
   if (WORLD === 1 && POND) { const r = SLOTS.REC, b = POND_GEO.tallBase, k = r.x1 + b[0] + r.y1 + b[1]; list.push({ k1: -1e9, k2: 1, draw: drawPondFx }); list.push({ k1: k, k2: k, draw: drawPondTall }); }   // ripples + bobber on the painted water; the willow and hut sorted
   if (WORLD <= 2) { layoutCorridor(); for (const o of CORR) add(o.x, o.y, () => drawCorr(o)); }
+  if (cbOn()) for (let i = 0; i < CLASSES.length; i++) if (cbN(i) && isOpen(i)) cbSpots(i).slice(0, cbN(i)).forEach((o) => add(o.x, o.y, () => drawCB(o)));   // 5b: corridor benches
   if (WORLD <= 2 && OUT_ON) { layoutOutdoor(); drawEntrancePath();   // cheap pre-check with the cached screen point before the full add()
     const vx0 = VIEW.x0 - 140, vx1 = VIEW.x1 + 140, vy0 = VIEW.y0 - 20, vy1 = VIEW.y1 + 220;
     const vis = []; for (const o of OUTDOOR) { if (o.px === undefined) { const m = P(o.x, o.y); o.px = m.x; o.py = m.y; } if (o.px < vx0 || o.px > vx1 || o.py < vy0 || o.py > vy1) continue; vis.push(o); }
@@ -5499,6 +5593,7 @@ function render() {
     const pn = panicPos(a), ax = pn ? pn.x : a.x, ay = pn ? pn.y : a.y;
     if (a.state !== 'fly') a.z = !pn && a.state === 'study' && !(a.path && a.path.length) && sitsOn(a.c) ? 9 + (CLASSES[a.c].id === 'flight' && !incOf(a.c) ? flightLift(a.id) : 0) : (a.state === 'read' && !(a.path && a.path.length) && themeOf('LIB') ? 6 : (a.state === 'sleep' || a.state === 'nap') && !(a.path && a.path.length) && themeOf('DORM') ? 4 : 0);   // on a cloud / in an armchair
     if (a.state === 'court' && a.act === 'bench' && courtPose(a)) a.z = 6;   // sits on the bench seat
+    if (a.state === 'cbench' && courtPose(a)) a.z = 7;   // 5b: on the corridor bench seat
     if (a.state === 'court' && a.act === 'swing' && courtPose(a) && !(a.path && a.path.length)) a.z = 26 + 5 * Math.abs(Math.sin(performance.now() / 1000 * 2.6));   // on the swing seat, swinging
     if (pn) { a._panic = true; a.flip = pn.left; a.back = pn.up; } else if (a._panic) { a._panic = false; if (a.state === 'study') faceTeacher(a, a.c); }
     const draw = () => drawCreature(a, ax, ay, 30, (x, y) => {
@@ -5521,7 +5616,7 @@ function render() {
       }
     });
     if (a.state === 'vanish') { add(ax, ay, () => drawVanish(a, ax, ay), 0.3); continue; }
-    if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else if (a.state === 'court' && a.act === 'fish') add(ax + 6, ay + 6, draw); else if (a.state === 'court' && a.spot && (a.act === 'read' || (a.spot.seat && a.act === 'tea'))) add(ax + 0.6, ay + 0.6, draw); else add(ax, ay, draw);   // build 327: every court reader is drawn over the cushions (her «все еще сидят под текстурой подушек»); build 325 put this comment before «else add» and hid every other student (her «Все ученики стали прозрачными!»)   // her «Ученики должны быть выше подушек»: sitters on a cushion / the picnic blanket are drawn over it
+    if (a.state === 'fly') list.push({ k1: 1e9, k2: 0, draw }); else if (a.state === 'court' && a.act === 'fish') add(ax + 6, ay + 6, draw); else if (a.state === 'court' && a.spot && (a.act === 'read' || (a.spot.seat && a.act === 'tea'))) add(ax + 0.6, ay + 0.6, draw); else if (a.state === 'cbench') add(ax + 0.5, ay + 0.5, draw); else add(ax, ay, draw);   // build 327: every court reader is drawn over the cushions (her «все еще сидят под текстурой подушек»); build 325 put this comment before «else add» and hid every other student (her «Все ученики стали прозрачными!»)   // her «Ученики должны быть выше подушек»: sitters on a cushion / the picnic blanket are drawn over it
   }
   list.sort((p, q) => p.k1 - q.k1 || p.k2 - q.k2).forEach((o) => o.draw());
   for (const f of fxTop) f();
@@ -5551,6 +5646,7 @@ function render() {
   drawIncidents();
   if (WORLD === 2) drawShades();
   if (WORLD === 1 && POND) drawPondFish();
+  if (WORLD <= 2) drawFullSign();   // 5b
   drawMail();
   if (tourStep >= 0 && tourList[tourStep] && tourAt(tourList[tourStep])) { const ta = tourAt(tourList[tourStep]), f = P(ta[0], ta[1]), k = 1 + 0.12 * Math.sin(performance.now() / 250); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(f.x, f.y, 46 * k, 28 * k, 0, 0, Math.PI * 2); ctx.stroke(); }
   for (const p of popups) { const s = P(p.x, p.y); ctx.globalAlpha = Math.max(0, 1 - p.t / 1.3); text(p.text, s.x, s.y - p.lift, 12, p.color); ctx.globalAlpha = 1; }
@@ -5655,7 +5751,7 @@ function classPanel(i) {
     let h = `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">${C.final ? 'Последний шаг: сдал — стал выпускником 🎓, не сдал — в библиотеку' : `Урок ${i + 1} из ${CLASSES.length - 1}`}</div></div><button class="x" data-close>✕</button></div>
       <div class="stats3"><div><span>🪙</span><b>${fmt(tuition(i))}</b><i>плата</i></div><div><span>🎯</span><b>${pct(success(i))}</b><i>сдают экзамен</i></div><div><span>⏱️</span><b>${sec(lessonTime(i))}</b><i>урок</i></div></div>
       ${overflow(i) > 0 ? `<p class="muted">🎯 Шанс уже максимальный (${Math.round(BAL.maxChance * 100)}%). Всё, что сверху (+${Math.round(overflow(i) * 100)}%), превращается в плату: <b>+${Math.round(overflow(i) * 200)}%</b>.</p>` : ''}
-      <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>${rankSection(i)}${helpersHtml(i)}`;
+      <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${cbN(i) ? ` · на скамейках в коридоре: <b>${cbUsed(i)}/${cbN(i) * CB_SEATS}</b>` : ''}${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>${rankSection(i)}${helpersHtml(i)}`;
     h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · ${(() => { const mx = st.teacher >= MAX_TEACHER_LEVEL, b = (d) => { st.teacher += d; }; return `${nnC('плата', tuition(i), peek(b, () => tuition(i)), mx)} · ${nn('сдают', pct(success(i)), pct(peek(b, () => success(i))), mx)}`; })()} (+5% платы и +1,5% к экзамену за уровень)</div></div>
       ${st.teacher >= MAX_TEACHER_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', teacherCost(i), 'teacher', `data-i="${i}"`)}</div>`;
     h += `<div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Парты: ${st.desks}/${maxDesksOf(i)}</b><div class="muted">больше учеников за раз</div></div>
@@ -5664,6 +5760,7 @@ function classPanel(i) {
       ${sizeOf(i) >= MAX_SIZE ? '<span class="done">макс.</span>' : costBtn('↑', expandCost(i), 'expand', `data-i="${i}"`)}</div>`}`;
     h += `<div class="card up"><span class="remoji">⏱️</span><div class="grow"><b>Урок короче</b><div class="muted">ур. ${st.time}/${MAX_TIME_LEVEL} · ${nn('урок', sec(lessonTime(i)), sec(peek((d) => { st.time += d; }, () => lessonTime(i))), st.time >= MAX_TIME_LEVEL)} (−8% за уровень)</div></div>
       ${st.time >= MAX_TIME_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', timeCost(i), 'time', `data-i="${i}"`)}</div>`;
+    h += cbHtml(i);   // 5b
     h += lightHtml(i);
     h += w2Section(i);
     h += '<h3>Обстановка класса</h3>';
@@ -5681,7 +5778,7 @@ function fountainPanel() {
   const u = courtUp(), n = courtList.filter((a) => !a.goal.brk).length, b = courtList.length - n;
   return `<div class="sh-head"><span class="remoji big">⛲</span><div><h2>Волшебный двор</h2><div class="muted">Здесь ждут свободной парты и отдыхают на перемене</div></div><button class="x" data-close>✕</button></div>
     <div class="stats3"><div><span>🪑</span><b>${courtList.length}/${courtCap()}</b><i>места во дворе</i></div><div><span>😊</span><b>+${Math.round(COURT_MOOD * fountMoodK() * 60)}</b><i>настроения в минуту</i></div><div><span>🍀</span><b>${coinLuck() ? '+' + (Math.round(coinLuck() * 1000) / 10) + '%' : '—'}</b><i>монетка к экзамену</i></div></div>
-    <div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Больше скамеек</b> <span class="muted">ур. ${u.bench}/${MAX_BENCH}</span><div class="muted">${nn('мест во дворе', courtCap(), peek((d) => { u.bench += d; }, courtCap), u.bench >= MAX_BENCH)} (+3 за уровень): ждут здесь, а не в спальне</div></div>
+    <div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Больше скамеек</b> <span class="muted">ур. ${u.bench}/${MAX_BENCH}</span><div class="muted">${nn('мест во дворе', courtCap(), peek((d) => { u.bench += d; }, courtCap), u.bench >= MAX_BENCH)} (+3 за уровень) · 😊 настроение растёт, пока ждут</div></div>
       ${u.bench >= MAX_BENCH ? '<span class="done">макс.</span>' : costBtn('↑', benchCost(), 'cbench')}</div>
     <div class="card up"><span class="remoji">⛲</span><div class="grow"><b>Волшебный фонтан</b> <span class="muted">ур. ${u.fount}/${MAX_FOUNT}</span><div class="muted">${nn('настроение во дворе', '+' + Math.round(COURT_MOOD * fountMoodK() * 60), '+' + Math.round(COURT_MOOD * peek((d) => { u.fount += d; }, fountMoodK) * 60), u.fount >= MAX_FOUNT)} в минуту (+20% за уровень); в очередях всей школы грустят на ${4 * (u.fount - 1)}% медленнее (−4% за уровень)</div></div>
       ${u.fount >= MAX_FOUNT ? '<span class="done">макс.</span>' : costBtn('↑', fountCost(), 'cfount')}</div>
@@ -5692,9 +5789,9 @@ function fountainPanel() {
 function dormPanel() {
   const u = dormUp(), used = dorm.filter(Boolean).length;
   return `<div class="sh-head"><span class="remoji big">🛏️</span><div><h2>Спальня</h2><div class="muted">${NAP_ON() ? 'Здесь ученики высыпаются и ждут места в классе' : 'Здесь ждут те, кому не хватило места у класса'}</div></div><button class="x" data-close>✕</button></div>
-    ${NAP_ON() ? `<div class="card"><span class="remoji">🌙</span><div class="grow"><b>Сон</b><div class="muted">После ${NAP_N} уроков ученик устаёт 🥱 и ложится поспать, если есть свободная кровать. Выспавшийся следующие ${REST_L} урока учится на ${Math.round((1 - REST_K) * 100)}% быстрее. Перед Финальным экзаменом ученики высыпаются 🌙: +${Math.round(DREAM_BONUS * 100)}% к шансу сдать. ${NAP_KEEP} кровати всегда остаются для тех, кто ждёт места в классе.</div><div>Сейчас спят: устали — <b>${nappers('tired')}</b>, перед экзаменом — <b>${nappers('final')}</b>. Всего выспались: <b>${fmt(S.stats.naps || 0)}</b></div></div></div>` : ''}
+    ${NAP_ON() ? `<div class="card"><span class="remoji">🌙</span><div class="grow"><b>Сон</b><div class="muted">После ${NAP_N} уроков ученик устаёт 🥱 и ложится поспать, если есть свободная кровать. Выспавшийся следующие ${REST_L} урока учится на ${Math.round((1 - REST_K) * 100)}% быстрее. Перед Финальным экзаменом ученики высыпаются 🌙: +${Math.round(DREAM_BONUS * 100)}% к шансу сдать. ${NAP_KEEP} кровати всегда остаются для тех, кто ждёт места в классе. Кто ждал места в спальне и проспал хотя бы ${NAP_T} с, тоже просыпается выспавшимся ⚡.</div><div>Сейчас спят: устали — <b>${nappers('tired')}</b>, перед экзаменом — <b>${nappers('final')}</b>. Всего выспались: <b>${fmt(S.stats.naps || 0)}</b></div></div></div>` : ''}
     <div class="stats3"><div><span>🛏️</span><b>${used}/${bedCount()}</b><i>кровати</i></div><div><span>📝</span><b>${sec(checkinTime())}</b><i>запись</i></div><div><span>💔</span><b>${S.stats.left || 0}</b><i>ушли из школы</i></div></div>
-    <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Больше кроватей</b> <span class="muted">${bedCount()}/${maxBeds()}</span><div class="muted">${bedCount() >= maxBeds() && !dorm2Built() ? 'первая спальня заполнена — построй вторую' : '+1 кровать: меньше зверьков уходит'}</div></div>
+    <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Больше кроватей</b> <span class="muted">${bedCount()}/${maxBeds()}</span><div class="muted">${bedCount() >= maxBeds() && !dorm2Built() ? 'первая спальня заполнена — построй вторую' : '+1 кровать · ⚡ выспавшиеся учатся быстрее'}</div></div>
       ${bedCount() >= maxBeds() ? '<span class="done">макс.</span>' : costBtn('+1', bedsCost(), 'beds')}</div>
     <div class="card up"><span class="remoji">🏗️</span><div class="grow"><b>Вторая спальня</b><div class="muted">${dorm2Built() ? 'построена' : 'сразу +9 кроватей'}</div></div>
       ${dorm2Built() ? '<span class="done">✓ есть</span>' : costBtn('Построить', DORM2_COST, 'dorm2')}</div>
@@ -5769,6 +5866,7 @@ function receptionPanel() {
     <div class="stats3"><div><span>🪙</span><b>${entryFee()}</b><i>взнос</i></div><div><span>⏱️</span><b>${perMin(procTime())}</b><i>оформляют в минуту</i></div><div><span>🚶</span><b>${perMin(arrivalInterval())}</b><i>приходят в минуту</i></div></div>
     <div class="card up"><span class="remoji">🧾</span><div class="grow"><b>Секретарь</b> <span class="muted">ур. ${recLvl()}/${MAX_REC_LVL}</span><div class="muted">${(() => { const mx = S.reception.level >= MAX_REC_LVL, b = (d) => { S.reception.level += d; }; return `${nn('оформляют в минуту', perMin(procTime()), perMin(peek(b, procTime)), mx)}${peek(b, entryFee) !== entryFee() ? ' · ' + nnC('взнос', entryFee(), peek(b, entryFee), mx) : mx ? ' · взнос 🪙' + fmt(entryFee()) : ''}`; })()}</div></div>${S.reception.level >= MAX_REC_LVL ? '<span class="done">макс.</span>' : costBtn('↑', recCost(), 'rec')}</div>
     <div class="card up"><span class="remoji">📣</span><div class="grow"><b>Объявления о школе</b> <span class="muted">ур. ${adsLvl()}/${MAX_REC_LVL}</span><div class="muted">${nn('приходят в минуту', perMin(arrivalInterval()), perMin(peek((d) => { S.reception.ads += d; }, arrivalInterval)), S.reception.ads >= MAX_REC_LVL)}${adsFull() && S.reception.ads < MAX_REC_LVL ? '<br>' + adsWhy() : ''}</div></div>${S.reception.ads >= MAX_REC_LVL ? '<span class="done">макс.</span>' : adsFull() ? '<span class="done">хватает</span>' : costBtn('↑', adsCost(), 'ads')}</div>
+    ${fullNow() ? fullCard() : ''}
     <p class="muted">Настроение учеников: <b>${moodFace(avgMood())} ${Math.round(avgMood())}%</b>. Долгие очереди огорчают, уроки и библиотека радуют. Весёлые сдают экзамен лучше, а совсем грустные уходят домой (ушли от тоски: ${S.stats.gaveUp || 0}).</p>
     <p class="muted">Сейчас школа принимает ~${perMin(1 / Math.max(1e-6, (S.rt && S.rt.enrolled) || 0))} новичков в минуту${adsFull() ? ', больше не помещается' : ''}.</p>
     <p class="muted">Всего поступило: ${S.stats.enrolled} · выпускников: ${S.stats.graduated} · ушли расстроенными: ${S.stats.left || 0}</p>`;
@@ -5798,7 +5896,6 @@ function bsAdvance(i) {
   if (r.gHave < r.grads) { toast(`Нужно ещё 🎓 ${fmt(r.grads - r.gHave)} выпускников`); return; }
   if (r.stars && schoolStars() < r.stars) { toast(`Нужно ⭐ ${r.stars} звёзд школы`); return; }
   if (r.cost && !spend(r.cost)) return;
-  if (r.stars) spendStars(r.stars);
   st.bs.n = r.n; st.bs.end = Date.now() + bsDur(i, r.n); st.bs.told = r.n; STATS.ev('stage', { n: r.n, c: i });
   toast(`${BS[r.n - 1].e} ${BS[r.n - 1].n}: стройка пошла!`); save();
 }
@@ -6413,6 +6510,7 @@ function claimMission(key) {
   if (key === 'f' && S.ftue === 1 && closed < 0) { const nx = storyCur(); if (nx && chapOf(nx.id) === 0) { STATS.ev('ftue', { k: 'step_' + nx.id }); setTimeout(() => goMission('f'), 700); } }
   if (closed === 0 && S.ftue === 1) { S.ftue = 2; STATS.ev('ftue', { k: 'ch1' }); }
   if (closed >= 0 && WORLD === 1) { chronWrite(closed, Date.now()); if (closed === 4 && LORE.startRiddle()) setTimeout(() => toast('📜 В летописи открылась страница «Исчезнувший директор»'), 2600); }
+  if (closed >= 0 && calm()) { insp().stars = (insp().stars || 0) + 1; setTimeout(() => toast('⭐ Глава дописана — у школы новая звезда'), 1800); }   // rework step 5: calm players earn stars by chapters
   if (closed >= 0) { stonesAdd(CH_STONES, 'w' + WORLD + '_ch' + (closed + 1)); STATS.ev('chapter', { n: closed + 1 }); chapShow = closed; if (WORLD === 1 && closed === CHAPTERS.length - 1) chapW2New = w1Finish(); setTimeout(() => openPanel(chapterPanel), 400); }
 }
 
@@ -6888,6 +6986,7 @@ document.addEventListener('click', (e) => {
   if (d.worldOpen !== undefined) { openWorld(+d.worldOpen); return; }
   if (d.mgo !== undefined) { goMission(d.mgo); return; }
   if (d.advgo !== undefined) { advGo(d.advgo); return; }
+  if (d.fullgo !== undefined) { const b = +d.fullgo; if (b >= 0 && b < CLASSES.length) goTarget(fullGo(b)); return; }   // 5b: «Школа переполнена» -> the busiest class
   if (d.mission !== undefined) { claimMission(d.mission); if (panel === missionsPanel) refreshPanel(); return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); drawFbPics(); return; }
   if (d.feedback !== undefined) { sendFeedback(); return; }
@@ -6950,6 +7049,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'rec') { if (S.reception.level < MAX_REC_LVL && spend(recCost())) S.reception.level++; }
   else if (d.act === 'ads') { if (S.reception.ads < MAX_REC_LVL && !adsFull() && spend(adsCost())) S.reception.ads++; }
   else if (d.act === 'cbench') { if (courtUp().bench < MAX_BENCH && spend(benchCost())) { courtUp().bench++; staticKey = ''; toast('🪑 Во дворе поставили новую скамейку!'); } }
+  else if (d.act === 'corrb') { if (cbOn() && cbN(i) < cbMax(i) && spend(cbCost(i))) { (S.cbench ||= {})[i] = cbN(i) + 1; toast(`🪑 В коридоре у класса «${CLASSES[i].name}» поставили скамейку`); } }   // 5b
   else if (d.act === 'cfount') { if (courtUp().fount < MAX_FOUNT && spend(fountCost())) courtUp().fount++; }
   else if (d.act === 'ccoin') { if (courtUp().coin < MAX_COIN && spend(coinCost())) courtUp().coin++; }
   else if (d.act === 'beds') { if (bedCount() < maxBeds() && spend(bedsCost())) dormUp().beds++; }
@@ -6977,7 +7077,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'cantbuild') { if (!cantBuilt() && isOpen(CANT_NEED) && spend(CANT_COST)) { const u = cantUp(); u.built = true; u.end = Date.now() + CANT_TIME * 1000; staticKey = ''; toast(WORLD === 2 ? '🏗️ Пиршественный зал строится!' : '🏗️ Столовая строится!'); panel = cantPanel; } }
   else if (d.act === 'cantup') { const k = d.k; if (cantUp()[k] < CANT_MAX[k] && spend(cantCost(k))) cantUp()[k]++; }
   else if (d.act === 'shopup') { const k = d.k; if (shopUp()[k] < SHOP_MAX && spend(shopCost(k))) shopUp()[k]++; }
-  else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!S.dirBuilt && S.coins >= DIR_COST && spendStars(DIR_STARS) && spend(DIR_COST)) { S.dirBuilt = true; S.dirEnd = Date.now() + BTIME.DIR * 1000; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
+  else if (d.act === 'dirbuild') { if (schoolStars() < DIR_STARS) { toast(`Нужно ⭐ ${DIR_STARS} звезды школы`); return; } if (!S.dirBuilt && S.coins >= DIR_COST && spend(DIR_COST)) { S.dirBuilt = true; S.dirEnd = Date.now() + BTIME.DIR * 1000; staticKey = ''; toast('👑 Кабинет директора построен!'); panel = dirPanel; } }
   else if (d.act === 'plan') { if (PLANS[d.k]) { boss().plan = d.k; toast(`${PLANS[d.k].emo} Договор: ${PLANS[d.k].name}`); } }
   else if (d.act === 'camp') startCamp(d.k);
   else if (d.act === 'mail') { answerMail(d.k); if (panel === mailPanel) refreshPanel(); }
@@ -6989,7 +7089,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'build' && staged(i)) { if (!st.built && spend(bsCost(i, 1))) { bsStart(i); panel = classPanel(i); } }
   else if (d.act === 'bstage') bsAdvance(i);
   else if (d.act === 'bskip') bsSkip(i);
-  else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= buildCost(i) && spendStars(starsNeed(i)) && spend(buildCost(i))) { st.built = true; st.buildEnd = Date.now() + buildTime(i) * 1000; panel = classPanel(i); } }
+  else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= buildCost(i) && spend(buildCost(i))) { st.built = true; st.buildEnd = Date.now() + buildTime(i) * 1000; panel = classPanel(i); } }
   else return;
   if (tkW && S.coins < tkC0) { if (tkW.rest) toast('🐢 Эта загадка уже разгадана — загляни в другие мои загадки'); else if (tkW.miss) tkMiss(tkW.miss); else tkWisePay(tkC0 - S.coins, tkW.share, tkW.title, tkW.fam); tkFrozen = null; }
   refreshPanel(); save();
@@ -7685,7 +7785,7 @@ function relayout() {   // rebuild the map (a class was expanded): creatures kee
   computeBounds(); staticKey = ''; resize();
   if (snap) {
     agents = []; queue = []; processing = null; dormLine = []; checkin = null; CON2.line = []; CON2.cur = null; shopLine.length = 0; cantLine.length = 0; cantSeats.fill(null);
-    deskOcc.forEach((a) => a.fill(null)); waitList.forEach((l) => (l.length = 0)); dorm.fill(null); lib.fill(null); courtList.length = 0;
+    deskOcc.forEach((a) => a.fill(null)); waitList.forEach((l) => (l.length = 0)); dorm.fill(null); lib.fill(null); courtList.length = 0; cbSeats.forEach((l) => (l.length = 0));
     S.world = snap; restoreWorld(true);
   }
 }   // bump when the map changes: old creature positions are dropped
@@ -7708,6 +7808,7 @@ function restoreWorld(teleport = false) {
       else if (g.t === 'l' && a.seat >= 0 && LIB_SPOTS[a.seat]) at(LIB_SPOTS[a.seat]);
       else if (g.t === 'g') { const [, h] = SLOTS.EXAM.door; at({ x: h[0] + 0.5, y: h[1] - 1 }); }
       else if (g.t === 'k' && COURT) { const c = courtC(); at({ x: c.x + 3, y: c.y + 3 }); }
+      else if (g.t === 'cb' && g.i >= 0 && slotOf(g.i)) { const [, h] = slotOf(g.i).door; at({ x: h[0] + 0.5, y: h[1] + 0.5 }); }   // 5b
       else if (g.t === 'q' || a.state === 'queue' || a.state === 'process') at(queueSlot(0));
       else at(GATE_TILE);
     }
@@ -7739,6 +7840,7 @@ function restoreWorld(teleport = false) {
     if (g.t === 'l') { const n = (a.seat >= 0 && a.seat < libSeats() && !lib[a.seat]) ? a.seat : libSeat(); if (n >= 0) { goLibrary(a, g.i, n, a.state === 'read' ? a.t : 0); continue; } a.prepared = true; route(a, g.i); continue; }
     if (g.t === 'x') { a.state = 'walk'; walk(a, GATE_TILE.x, GATE_TILE.y + 1, () => { a.gone = true; }); continue; }
     if (g.t === 'k') { if (courtRoom() && !g.brk) goCourt(a, g.i); else route(a, g.i); continue; }
+    if (g.t === 'cb') { a.cb = -1; if (!(isOpen(g.i) && cbFree(g.i) >= 0 && goCB(a, g.i))) route(a, isOpen(g.i) ? g.i : nextClass(g.i - 1)); continue; }   // 5b: back on a corridor bench
     if (g.t === 'tw') continue;   // was walking into the masters' tower: already counted as a resident
     if (g.t === 'shop') { if (shopOpen() && SLOTS.SHOP) goShop(a, g.n); else route(a, g.n); continue; }
     if (g.t === 'cant') { if (cantOpen() && SLOTS.CANT) goCanteen(a, g.n); else route(a, g.n); continue; }
@@ -8007,6 +8109,7 @@ window.__sim = {
       if (!shopOpen()) add('shopbuild', SHOP_COST); else ['seller', 'shelves', 'goods'].forEach((k) => { if (shopUp()[k] < SHOP_MAX) add('shopup', shopCost(k), { k }); });
       if (!towerOpen()) { if (isOpen(NCLS - 1)) add('towerbuild', towerCost()); } else if (towerUp().cap < TOWER_MAXUP) add('towercap', towerCapCost());
       if (!dirBuilt()) add('dirbuild', DIR_COST, { stars: DIR_STARS }); else Object.keys(DIR_UP).forEach((k) => { if (dirLvl(k) < DIR_UP[k].max) add('dir', dirCost(k), { k }); });
+      if (cbOn()) CLASSES.forEach((C, i) => { if (isOpen(i) && cbN(i) < cbMax(i) && (cbN(i) || S.qSeen)) add('corrb', cbCost(i), { i }); });   // 5b: corridor benches
       if (COURT) { const u = courtUp(); if (u.bench < MAX_BENCH) add('cbench', benchCost()); if (u.fount < MAX_FOUNT) add('cfount', fountCost()); if (u.coin < MAX_COIN) add('ccoin', coinCost()); }   // build audit 2026-11-24: the court was not in the pacing sim
     }
     if (WORLD === 2) {   // pacing sim: the ore store and the trading yard
@@ -8051,5 +8154,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=583').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=584').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
