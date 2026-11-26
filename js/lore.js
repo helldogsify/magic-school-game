@@ -240,13 +240,6 @@ export function event(kind) {   // called by game.js; true = handled (the game d
     if (r.coins >= 10 && canFind(3)) findLine(3); else if (r.coins >= 10) { (r.w ||= [])[3] = 1; A.save(); waitCard('🍀 Все десять счастливых желаний пойманы.'); } else say(`🍀 Поймано счастливое желание: ${r.coins} из 10`, 2500);
     if (root) redraw(); return true;
   }
-  if (kind === 'crownMiss') {   // a tap on the director's office while the crown (note line 5) is still to find
-    if (!r.start || has(4) || LS().prize) return false;
-    if (takenToday()) return tkHint('crDay', '👑 На столе директора что-то спит под тканью… На сегодня летопись дописана — загляни сюда завтра утром.');
-    if (!(QS().world || {}).done) return tkHint('crWorld', '👑 На столе директора что-то лежит под тканью, но не даётся в руки. Наверное, сначала нужно узнать мир — пройди испытание главы «Мир» в летописи Тихона.');
-    if (!isMorning()) return tkHint('crTime', '👑 На столе директора что-то лежит под тканью… Похоже, оно просыпается только утром, с первыми лучами солнца.');
-    return false;
-  }
   if (kind === 'crown') { if (crownWanted() && !LS().prize) { if (isMorning() && (QS().world || {}).done && canFind(4)) { findLine(4); return true; } } return !!LS().prize; }
   if (kind === 'tikhonHome') {   // a tap on Tikhon in his office while the note's line 3 waits
     if (!r.start || has(2)) return false;
@@ -268,6 +261,16 @@ export function event(kind) {   // called by game.js; true = handled (the game d
 }
 const crownWanted = () => !has(4);
 export const dew = () => !!(S() && A.on() && isDawn());   // game.js draws the dew drops
+let crHintAt = 0;
+export function crownHint() {   // the lion's hint about the crown on his desk (note line 5), or ''
+  if (!S() || !A.on()) return ''; const r = RD(); if (!r.start || has(4) || LS().prize) return '';
+  const now = Date.now(); if (now - crHintAt < 60000) return '';
+  let t = '';
+  if (takenToday()) t = 'На сегодня летопись дописана, друг мой. А корона подождёт — приходи ко мне завтра утром.';
+  else if (!(QS().world || {}).done) t = 'Корона на моём столе не даётся тому, кто ещё не знает наш мир. Почитай летопись Тихона — в главе «Мир» есть испытание.';
+  else if (!isMorning()) t = 'Корона? Она спит до утра. Загляни ко мне, когда взойдёт солнце.';
+  if (t) crHintAt = now; return t;
+}
 export const crown = () => !!(S() && A.on() && (LS().prize || (crownWanted() && isMorning() && (QS().world || {}).done && canFind(4))));
 function riddleTick() {   // all classes built -> line 2; every 2 days without a new line Tikhon clarifies one random hint by one step
   if (!S() || !A.on()) return; const r = RD(); if (!r.start) return;
@@ -579,5 +582,5 @@ export function initLore(api) {
   setTimeout(reg, 0);
   setInterval(riddleTick, 5000);
   window.__lore = { open, close, PAGES, facts, unread, loreTune, LORE_DB, event, crown, dew, RD };
-  return { open, close, badge, isOpen: () => !!root, event, crown, dew, openAt, startRiddle };
+  return { open, close, badge, isOpen: () => !!root, event, crown, crownHint, dew, openAt, startRiddle };
 }
