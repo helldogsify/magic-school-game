@@ -1,18 +1,18 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=584';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=585';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=584';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=584';
-import { initMinigame } from './minigame.js?v=584';
-import { initChests } from './chests.js?v=584';
-import { initValley } from './valley.js?v=584';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=584';
-import { initLore } from './lore.js?v=584';
-import { initAvatar } from './avatar.js?v=584';
-import { initStats } from './stats.js?v=584';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=585';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=585';
+import { initMinigame } from './minigame.js?v=585';
+import { initChests } from './chests.js?v=585';
+import { initValley } from './valley.js?v=585';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=585';
+import { initLore } from './lore.js?v=585';
+import { initAvatar } from './avatar.js?v=585';
+import { initStats } from './stats.js?v=585';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -42,7 +42,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 584;   // keep equal to the ?v= number in index.html
+const BUILD = 585;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2718,7 +2718,7 @@ const MISSION_LORE = {
 // leavers of the last 3 minutes: sampled every 10 s of play
 const advLog = []; let advSampleT = 0;
 function stepAdvisor(dt, live) {
-  if (!live || !tikhonOn()) return;
+  if (!live || WORLD !== 1) return;   // 6a: the upset-leavers alarm also works before the Director's office (was tikhonOn())
   advSampleT -= dt; if (advSampleT > 0) return; advSampleT = 10;
   advLog.push(leftNow()); if (advLog.length > 19) advLog.shift();
 }
@@ -2775,35 +2775,26 @@ function tkGain(op) {   // extra coins per minute; op = { act, i, k } as in the 
   } catch (e) { /* the model never breaks the game */ }
   return null;
 }
-window.__tkt = { tips: () => tkTips(), wise: (o) => tkWiseOf({ act: o.act, k: o.k === undefined ? undefined : String(o.k) }, o.i), tuition: (i) => tuition(i), crowded: () => tkCrowded(), forms: () => { const c = {}; inSchool().forEach((a) => { if (SPECIES.includes(a.sp)) c[formOf(a)] = (c[formOf(a)] || 0) + 1; }); return c; }, name: (i) => CLASSES[i].name };   // test hook
+window.__tkt = { wise: (o) => tkWiseOf({ act: o.act, k: o.k === undefined ? undefined : String(o.k) }, o.i), tuition: (i) => tuition(i), rank: () => tkRank(), badge: () => tkBadge(), alarms: () => { advCache = null; return advReport(); }, pages: () => tkNewPages(), forms: () => { const c = {}; inSchool().forEach((a) => { if (SPECIES.includes(a.sp)) c[formOf(a)] = (c[formOf(a)] || 0) + 1; }); return c; }, name: (i) => CLASSES[i].name };   // test hook
 window.__tkm = { snap: tkSnap, gain: tkGain, cap: tkCap, intake: tkIntake };   // test hook
 let advCache = null, advCacheAt = 0;
-function advReport() {   // [{hot, emo, text, go}] — go: [room id, selector] | 'missions' | null
+function advReport() {   // rework 6a: Tikhon's alarms only, real trouble [{hot, emo, text, go, k}] — go: [room id, selector] | 'missions' | null.
+  // Removed (registry B7): the queue card (B7.1, now the quest «Главное сейчас»), incident / letter / ready-quests cards (B7.6-B7.8: their own
+  // badges show them). Upset leavers and low mood work before the Director's office too (then they point at the quest list).
   if (advCache && performance.now() - advCacheAt < 2000) return advCache;
-  const out = [];
-  let b = -1, bn = 0;
-  for (let i = 0; i < CLASSES.length; i++) if (isOpen(i)) { const n = waitList[i].length + cbUsed(i) + sleepersFor(i) + agents.reduce((m, a) => m + (a.goal && a.goal.t === 'k' && a.goal.i === i && !a.goal.brk ? 1 : 0), 0); /* court waiters too (build 259) */ if (n > bn) { bn = n; b = i; } }
-  if (b >= 0 && bn >= 12) {
-    const desk = S.classes[b].desks < maxDesksOf(b), time = S.classes[b].time < MAX_TIME_LEVEL, nm = CLASSES[b].name;
-    if (desk || time) out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}. ${desk ? 'Поставь там ещё парту' : 'Сократи там урок'} — очередь станет короче.`, go: [CLASS_SLOT[b], desk ? '[data-act="desk"]' : '[data-act="time"]'] });
-    else if (!prestigeOn()) out.push({ hot: bn >= 25, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}, а он уже улучшен до предела. Учеников приходит больше, чем школа может выучить: «Престижный» договор приведёт меньше учеников, зато они платят больше.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
-    else out.push({ hot: false, emo: '⏳', text: `У класса «${nm}» ждут ${bn} ${pupils(bn)}. Он улучшен до предела, и «Престижный» договор уже выбран — больше тут ничего не сделать. ${bedsLeft() ? 'Пусть ждут в спальне, а не уходят: добавь кроватей.' : 'Ученики подождут во дворе и в спальне.'}`, go: bedsLeft() ? ['DORM', '[data-act="beds"]'] : null });   // her report: «Тихон предлагает престижный договор дважды, но у меня и так престижный договор выбран»
-  }
-  if (WORLD === 1 && fullNow()) { const fb = fullClass(); if (fb >= 0) out.push({ hot: false, emo: '🚪', text: `Школа переполнена: все места ожидания заняты, новички ждут у ворот. Классы не успевают учить всех — добавь парт или сократи уроки в классе «${CLASSES[fb].name}».`, go: fullGo(fb) }); }   // waiting places 5b
+  const out = [], office = bossOn();
+  if (WORLD === 1 && fullNow()) { const fb = fullClass(); if (fb >= 0) out.push({ k: 'full', hot: false, emo: '🚪', text: `Школа переполнена: все места ожидания заняты, новички ждут у ворот. Классы не успевают учить всех — добавь парт или сократи уроки в классе «${CLASSES[fb].name}».`, go: fullGo(fb) }); }   // waiting places 5b: a calm line, never red (build 584)
   else if (WORLD !== 1 && !dormFree()) out.push({ hot: true, emo: '🛏️', text: 'Все кровати в спальне заняты: новичкам негде подождать, и они уходят домой. Добавь кровати.', go: ['DORM', '[data-act="beds"]'] });
   const lv = advLeft();
-  if (lv >= 5 && !prestigeOn()) out.push({ hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. Если учеников приходит больше, чем школа успевает учить, попробуй «Престижный» договор.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
+  if (lv >= 5 && !office) out.push({ k: 'left', hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. Школа не успевает учить всех: загляни в задание «Главное сейчас».`, go: 'missions' });
+  else if (lv >= 5 && !prestigeOn()) out.push({ k: 'left', hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. Если учеников приходит больше, чем школа успевает учить, попробуй «Престижный» договор.`, go: ['DIR', '[data-act="plan"][data-k="prestige"]'] });
   else if (lv >= 5) { const care = dirLvl('care') < DIR_UP.care.max;
-    out.push({ hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. ${bedsLeft() ? 'Добавь кроватей в спальне, чтобы новичкам было где подождать.' : care ? 'Улучши «Заботу об учениках» — в очередях будут грустить медленнее.' : 'Престижный договор уже выбран, кровати и забота на максимуме — школа делает всё, что может.'}`, go: bedsLeft() ? ['DORM', '[data-act="beds"]'] : care ? ['DIR', '[data-act="dir"][data-k="care"]'] : null }); }
+    out.push({ k: 'left', hot: lv >= 15, emo: '💔', text: `За последние минуты ушли расстроенными ${lv} ${pupils(lv)} — рейтинг школы падает. ${bedsLeft() ? 'Добавь кроватей в спальне, чтобы новичкам было где подождать.' : care ? 'Улучши «Заботу об учениках» — в очередях будут грустить медленнее.' : 'Престижный договор уже выбран, кровати и забота на максимуме — школа делает всё, что может.'}`, go: bedsLeft() ? ['DORM', '[data-act="beds"]'] : care ? ['DIR', '[data-act="dir"][data-k="care"]'] : null }); }
   const m = avgMood();
-  if (m < 50) out.push({ hot: m < 35, emo: '😟', text: `Ученики грустят: настроение ${Math.round(m)}%. Их радуют библиотека, магазин и столовая, а «Забота об учениках» помогает в очередях.`, go: ['DIR', '[data-act="dir"][data-k="care"]'] });
+  if (m < 50) out.push({ k: 'mood', hot: m < 35, emo: '😟', text: office ? `Ученики грустят: настроение ${Math.round(m)}%. Их радуют библиотека, магазин и столовая, а «Забота об учениках» помогает в очередях.` : `Ученики грустят: настроение ${Math.round(m)}%. Долгие очереди огорчают, а уроки и библиотека радуют — загляни в задание «Главное сейчас».`, go: office ? ['DIR', '[data-act="dir"][data-k="care"]'] : 'missions' });
   { const fi = (S.ema || 0) * 60, fo = (S.outEma || 0) * 60;   // build 275: money flowing out
-    if (fi > 0 && fo >= fi * 0.3) out.push({ hot: fo >= fi * 0.45, emo: '📉', text: `${fo >= fi ? 'Школа в минусе!' : 'Казна худеет:'} возвраты ушедшим и штрафы забирают ${Math.round(fo / fi * 100)}% дохода. ${dirLvl('refund') < DIR_UP.refund.max ? 'Улучши «Правила возврата» — ушедшим будем возвращать меньше.' : bedsLeft() ? 'Добавь кроватей, чтобы новички не уходили.' : 'Добавь парт в переполненные классы.'}`, go: dirLvl('refund') < DIR_UP.refund.max ? ['DIR', '[data-act="dir"][data-k="refund"]'] : bedsLeft() ? ['DORM', '[data-act="beds"]'] : null }); }
-  const inc = Object.keys(S.inc || {});
-  if (inc.length) out.push({ hot: true, emo: '💥', text: `В классе «${CLASSES[+inc[0]].name}» происшествие — урок стоит! Нажми на класс, чтобы всё починить.`, go: [CLASS_SLOT[+inc[0]], null] });
-  if (boss().mail.cur) out.push({ hot: true, emo: '✉️', text: 'Пришло письмо от родителей — ответь, когда будет минутка.', go: 'mail' });
-  const ready = missionList().filter((x) => x.ok).length;
-  if (ready) out.push({ hot: false, emo: '🎁', text: `Выполнено заданий: ${ready}. Забери награды!`, go: 'missions' });
+    if (fi > 0 && fo >= fi * 0.3) { const ref = office && dirLvl('refund') < DIR_UP.refund.max;
+      out.push({ k: 'money', hot: fo >= fi * 0.45, emo: '📉', text: `${fo >= fi ? 'Школа в минусе!' : 'Казна худеет:'} возвраты ушедшим и штрафы забирают ${Math.round(fo / fi * 100)}% дохода. ${ref ? 'Улучши «Правила возврата» — ушедшим будем возвращать меньше.' : bedsLeft() ? 'Добавь кроватей, чтобы новички не уходили.' : 'Добавь парт в переполненные классы.'}`, go: ref ? ['DIR', '[data-act="dir"][data-k="refund"]'] : bedsLeft() ? ['DORM', '[data-act="beds"]'] : 'missions' }); } }
   advCacheAt = performance.now(); advCache = out;
   return out;
 }
@@ -2862,98 +2853,62 @@ function drawTikhonBadge(p) {   // a scroll over his head while he has something
   ctx.fillStyle = '#fff3c4'; ctx.beginPath(); ctx.arc(c.x, y, 23 * k, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#e0a100'; ctx.lineWidth = 3; ctx.stroke();
   emoji('📜', c.x, y, 30 * k);
 }
-// ---- Tikhon's riddles (Maria 2026-11-25: «в чем будет отличие от ощущения кликера? ... Вместо того чтобы самостоятельно стратегически
-// подумать что улучшить»; her «Да» to: riddles about the problem instead of the button, no numbers on the buttons, a bonus for a wise
-// choice). He names WHAT is wrong in the school, never which button fixes it; the player finds the place and picks the upgrade.
-const TK_TIP_N = 3, TK_WISE_SHARE = 0.15, TK_WISE_HINT = 0.1;   // 10% when the riddle's «Подсказка» was opened (Maria 2026-11-25);   // a wise purchase: Tikhon pays back 15% of its price (Maria: smaller, the game must not go much faster) (level quests pay 30%, but pick at random)
-let tkTipCache = null, tkTipAt = 0;
-function tkWhy(o) {   // [family, emoji, title, riddle with a clue the player can check on screen, hint = the place]
-  const cn = o.i !== undefined && o.i !== null ? `Это класс «${CLASSES[o.i].name}».` : '';
-  const cap = ['cap', '⏳', 'Медленный класс', 'Один из классов пропускает учеников медленнее остальных. Подсказка назовёт его, а что там улучшить — парту, урок покороче или учителя — выбери сам.', cn];
-  const pay = ['pay', '🪙', 'Плата за урок', 'Подними плату за урок: учитель или предметы, которые прибавляют плату (на карточке написано «+% платы»). Выгоднее там, где плата уже большая (она видна вверху каждого класса), а улучшение недорогое.', cn];
+// ---- rework step 6a (Ruslan «Да, всё хорошо. Делай.», tools/_patch/quests_s6a.py): the riddles «🔎 Загадки Тихона», their hints and the
+// «Пора строить» card are gone (registry B8.1-B8.11, B8.14). The value model above stays: it makes the quest list «По уровню» (one model, so
+// following the quests is good play: bible 10 B4 rule 8, B7 rule 7). Kept and re-based, «Мудрое решение» (B8.12): the player buys ON HIS
+// OWN one of the model's 3 best actions by gain per coin — not the action «Главное сейчас» shows, not within TK_LED after a quest's or
+// Tikhon's pointer led him to that button — and Tikhon praises and pays back TK_WISE_SHARE of the price; the same kind of choice then
+// rests TK_REST (bible 10 B7 rules 8 and 11). Was: 15 % (10 % with a hint) for an answer to an open riddle or a top-3 purchase.
+const TK_WISE_SHARE = 0.15;   // Maria: smaller than the quests' 30 %, the game must not go much faster
+const TK_REST = 30 * 60000, TK_LED = 90000;
+function tkFam(o) {   // the kind of a choice; a praised kind rests TK_REST
   switch (o.act) {
-    case 'desk': case 'time': case 'expand': return cap;
-    case 'teacher': return o.i === tkSnap().b ? cap : pay;
-    case 'item': return CLASSES[o.i].items[o.k].kind === 'tuition' || overflow(o.i) > 0 ? pay : cap;
-    case 'rec': return ['rec', '🛎️', 'Очередь у входа', 'Новички долго ждут, пока их запишут в школу. Загляни в приёмную.', 'Это приёмная: секретарь.'];
-    case 'ads': return ['ads', '📣', 'Мало новичков', 'Школа могла бы учить больше учеников, но новички приходят редко. Загляни в приёмную.', 'Это приёмная: объявления.'];
-    case 'beds': return ['beds', '🛏️', 'Негде подождать', 'Новичков разворачивают у ворот: в школе им негде подождать своей очереди. Загляни в спальню.', 'Это спальня: кровати.'];
-    case 'shopup': return ['shop', '🍭', 'Сладкоежки', 'После уроков ученики хотят потратить монетки. Загляни в лавку — что там можно улучшить?', `Сейчас в лавке выгоднее всего «${{ seller: 'Продавец', shelves: 'Витрины', goods: 'Товары' }[o.k] || 'Товары'}»: ${{ seller: 'ученики быстрее покупают', shelves: 'в лавку заходит больше учеников', goods: 'каждая покупка приносит больше монет' }[o.k] || 'каждая покупка приносит больше монет'}.`];
-    case 'cantup': return ['cant', '🍲', 'Голодные ученики', 'После уроков ученики хотят есть. Загляни в столовую — что там можно улучшить?', `Сейчас в столовой выгоднее всего «${{ cook: 'Повар', tables: 'Столы', menu: 'Меню' }[o.k] || 'Столы'}»: ${{ cook: 'обеды раздают быстрее', tables: 'за столы садится больше учеников', menu: 'каждый обед приносит больше монет' }[o.k] || 'за столы садится больше учеников'}.`];
-    case 'dir': return ['dir', '💸', 'Казна худеет', 'Ушедшим ученикам школа возвращает слишком много монет. Загляни в кабинет директора.', 'Это кабинет директора: правила возврата.'];
-    case 'exlvl': return ['rank', '🌟', 'Звания', 'Ученик со званием платит больше за каждый следующий урок. Поэтому звание выгоднее давать в первых классах школы: впереди ещё много уроков. Улучши «Шанс экзамена» в одном из первых классов — там, где это дешевле.', cn];
-    case 'formlvl': return ['form', '🎓', 'Альбом', 'Открой альбом 🎓. У каждой карточки написано, сколько таких учеников в школе сейчас и сколько стоит улучшение. Выгоднее та, где учеников много, а улучшение недорогое: каждый из них станет платить больше.', `Это карточка «${formName(o.k)}».`];
+    case 'desk': case 'time': case 'expand': case 'corrb': return 'cap';
+    case 'teacher': return o.i === tkSnap().b ? 'cap' : 'pay';
+    case 'item': return CLASSES[o.i].items[o.k].kind === 'tuition' || overflow(o.i) > 0 ? 'pay' : 'cap';
+    case 'exlvl': case 'xpllvl': return 'rank';
+    case 'shopup': return 'shop';
+    case 'cantup': return 'cant';
+    case 'formlvl': return 'form';
   }
-  return null;
+  return o.act;
 }
-const TK_OK = 0.5;   // an answer counts when it is worth at least half of the best upgrade of that kind (per coin); in a room any upgrade counts
-const TK_ROOM = { rec: 1, ads: 1, beds: 1, shop: 1, cant: 1, dir: 1 };
-const tkCapOf = (o) => ['desk', 'time', 'expand', 'teacher', 'item'].includes(o.act) && tkWhy(o) && tkWhy(o)[0] === 'cap';
-function tkCrowded() {   // the class with the most students really waiting (door line + dorm), if it can still be made roomier
-  let b = -1, bn = 0;
-  for (let i = 0; i < CLASSES.length; i++) if (isOpen(i)) { const n = waitList[i].length + sleepersFor(i); if (n > bn) { bn = n; b = i; } }
-  if (b < 0 || bn < 3) return null;
-  const st = S.classes[b], roomy = st.desks < maxDesksOf(b) || st.time < MAX_TIME_LEVEL || (!CLASSES[b].final && sizeOf(b) < MAX_SIZE) || st.teacher < MAX_TEACHER_LEVEL;
-  return roomy ? { i: b, n: bn } : null;
-}
+const tkCapOf = (o) => ['desk', 'time', 'expand', 'teacher', 'item'].includes(o.act) && tkFam(o) === 'cap';   // the class is too slow: more students at once
 function tkRank() {   // [{o, g, r}] the upgrades the model values, best gain per coin first (affordable within ~30 min of income)
   const R = tkInc(), budget = (S.coins || 0) + R * 30, val = [];
   for (const o of window.__sim.options()) { if ((o.stars && schoolStars() < o.stars) || o.act === 'build' || o.act === 'bstage' || o.cost > budget) continue; const g = tkGain(o); if (g > 0) val.push({ o, g, r: g / o.cost }); }
   return val.sort((a, b) => b.r - a.r);
 }
-function tkWiseOf(d, i) {   // before a purchase: one of the 3 best upgrades now, or a good answer to a riddle on screen (the player's own choice)
+let qLed = null;   // the last pointer that led the player to a button (quests, Tikhon's alarms, cards): { go, t }
+function qLedTo(op) {   // that pointer lit this very button a moment ago
+  if (!qLed || !qLed.go || Date.now() - qLed.t > TK_LED) return false;
+  const [room, sel] = qLed.go; if (!sel || !sel.includes(`data-act="${op.act}"`)) return false;
+  if (op.k !== undefined && sel.includes('data-k=') && !sel.includes(`data-k="${op.k}"`)) return false;
+  return op.i === undefined || room === CLASS_SLOT[op.i];
+}
+function tkWiseOf(d, i) {   // before a purchase: { share, fam } when it is the player's own wise choice, else null
   try {
     if (WORLD !== 1 || !d.act || EDIT) return null;
-    const k = d.k === undefined ? undefined : /^\d+$/.test(d.k) ? +d.k : d.k, ii = Number.isFinite(i) ? i : undefined, op = { act: d.act, i: ii, k };
-    const rank = tkRank(), mine = rank.find((x) => x.o.act === d.act && (x.o.i === undefined || x.o.i === ii) && String(x.o.k) === String(k));
-    const w0 = tkWhy(op), tips = tkTips(), hintOf = (t) => !!(t && S.tkHint && S.tkHint[t.key]);
-    if (w0 && S.tkRest && S.tkRest[w0[0]] > Date.now()) return { rest: 1 };   // solved lately: no second bonus for the same kind
-    const tip = w0 && tips.find((t) => t.fam === w0[0] && ((t.place !== null && t.place !== undefined && t.place === ii && tkCapOf(op)) || (mine && (mine.r >= t.r * TK_OK || TK_ROOM[t.fam]))));
-    if (tip) return { share: hintOf(tip) ? TK_WISE_HINT : TK_WISE_SHARE, title: tip.title, fam: tip.fam };
-    const near = w0 && tips.find((x) => x.fam === w0[0]);
-    if (mine && rank.indexOf(mine) < 3) return { share: hintOf(near) ? TK_WISE_HINT : TK_WISE_SHARE, title: near ? near.title : '', fam: near ? near.fam : '' };
-    return near ? { miss: near.title } : null;   // the riddle's kind, but not a good answer: Tikhon says so
+    const k = d.k === undefined ? undefined : /^\d+$/.test(d.k) ? +d.k : d.k, op = { act: d.act, i: Number.isFinite(i) ? i : undefined, k };
+    if (qLedTo(op)) return null;   // led there by a quest or by Tikhon: following, not choosing
+    const q3 = S.q6 && S.q6.s3; if (q3 && q3.kind === 'op' && !q6Done(q3) && opKey(q3) === opKey(op)) return null;   // the action quest 3 shows pays its own reward (q1 is a goal: the player chooses the fix himself)
+    if (!tkRank().slice(0, 3).some((x) => opKey(x.o) === opKey(op))) return null;
+    const fam = tkFam(op); if (S.tkRest && S.tkRest[fam] > Date.now()) return null;   // the same kind was praised lately
+    return { share: TK_WISE_SHARE, fam };
   } catch (e) { return null; }
 }
-const TK_REST = 30 * 60000;   // a solved riddle rests 30 min: the next ones get their turn
 function tkWisePay(paid, share = TK_WISE_SHARE, title = '', fam = '') {
   const bonus = Math.max(1, nice(paid * share)); S.coins += bonus; S.stats.wise = (S.stats.wise || 0) + 1;
-  S.tkLast = { title, bonus, t: Date.now() }; if (fam) { (S.tkRest ||= {})[fam] = Date.now() + TK_REST; tkTipCache = null; }
-  toast(`🐢 ${title ? `Загадка «${title}» разгадана!` : 'Мудрое решение, директор!'} Тихон доплатил 🪙${fmt(bonus)}`); updateHud();
+  S.tkLast = { title, bonus, t: Date.now() }; if (fam) (S.tkRest ||= {})[fam] = Date.now() + TK_REST;
+  STATS.ev('wise', { f: String(fam).slice(0, 12) });
+  toast(`🐢 Мудрое решение, директор! Тихон доплатил 🪙${fmt(bonus)}`); updateHud();
 }
-function tkMiss(title) { toast(`🐢 «${title}»: польза есть, но можно выгоднее. Сравни цены — или открой подсказку`); }
-function tkTips() {   // [{key, emo, title, text, g, mins, go}] best first; cached 3 s
-  if (tkTipCache && performance.now() - tkTipAt < 3000) return tkTipCache;
-  const out = [];
-  try {
-    if (WORLD === 1) {
-      const s0 = tkSnap(), nb = window.__sim.options().some((o) => o.act === 'build' && o.cost <= S.coins && (!o.stars || schoolStars() >= o.stars));
-      if (nb) out.push({ key: 'build', emo: '🏗️', title: 'Пора строить', text: 'Монет уже хватает на что-то большое и новое! Новый урок — новые монеты с каждого ученика.' });
-      const used = new Set(), rank = tkRank();
-      for (const v of rank) {
-        let w = tkWhy(v.o); if (!w || used.has(w[0]) || (S.tkRest && S.tkRest[w[0]] > Date.now())) continue; used.add(w[0]);   // a solved kind rests
-        let place = null;
-        if (w[0] === 'cap') { const c = tkCrowded(); if (c) { place = c.i; w = ['cap', '🚪', 'Где-то тесно', `Посмотри на таблички классов на карте: у какого класса ждёт больше всего учеников? Там нужно учить больше учеников сразу: ещё парта, урок покороче или учитель получше.`, `Это класс «${CLASSES[c.i].name}».`]; } }
-        out.push({ key: w[0] + ':' + w[4], fam: w[0], r: v.r, place, emo: w[1], title: w[2], text: w[3], hint: w[4] });
-        if (out.length >= TK_TIP_N) break;
-      }
-    }
-  } catch (e) { /* tips never break the game */ }
-  tkTipCache = out; tkTipAt = performance.now(); return out;
-}
-const tkSeen = () => (S.tkSeen ||= {});
-function tkBadge() {   // tips not seen yet + Tikhon's urgent reports
+const tkNewPages = () => (WORLD === 1 ? (S.chron || []).filter((c) => !((((S.lore || {}).seen) || {})['ch' + c.n] >= 1)).length : 0);   // own chronicle pages («🏫 Твоя школа») not read yet
+function tkBadge() {   // 6a: hot alarms + unread pages of the player's chronicle (was: unseen riddles + hot reports, lit almost always)
   if (WORLD !== 1) return 0;
-  let n = tkTips().filter((t) => !tkSeen()[t.key]).length;
-  try { n += advReport().filter((r) => r.hot && !(r.go && r.go[0] === 'DIR' && !bossOn())).length; } catch (e) { /* report needs the school */ }
+  let n = tkNewPages();
+  try { n += advReport().filter((r) => r.hot).length; } catch (e) { /* report needs the school */ }
   return n;
-}
-function tkTipsBlock() {
-  const tips = tkTips(); tips.forEach((t) => { tkSeen()[t.key] = 1; });
-  if (!tips.length) return '';
-  const L = S.tkLast && Date.now() - S.tkLast.t < 30 * 60000 ? S.tkLast : null;   // the last solved riddle stays on show for 30 min
-  return `<h3>🔎 Загадки Тихона</h3>${L ? `<div class="tknote">✅ <span>${L.title ? `Загадка «${L.title}» разгадана` : 'Мудрое решение'} — я доплатил 🪙${fmt(L.bonus)}. Вот новые загадки:</span></div>` : ''}<p class="muted">Найди сам, что улучшить. Угадаешь одно из самых выгодных улучшений — я доплачу 🦉 (с подсказкой — чуть меньше)${S.stats.wise ? ` · мудрых решений: ${S.stats.wise}` : ''}</p>` + tips.map((t) => { const open = !!(S.tkHint && S.tkHint[t.key]);
-    return `<div class="card up tktip"><span class="remoji">${t.emo}</span><div class="grow"><b>${t.title}</b><div class="muted">${t.text}</div>${t.hint && open ? `<div class="tkhint">💡 ${t.hint}</div>` : ''}</div>${t.hint && !open ? `<button class="btn small ghost" data-tkhint="${t.key}">Подсказка</button>` : ''}</div>`; }).join('');
 }
 function tkStyle() {
   if (document.getElementById('tk-style')) return;
@@ -2978,15 +2933,17 @@ function renderTkBtn() {   // the round button with Tikhon's head (world 1), bet
   b.classList.toggle('ready', n > 0);
   b.innerHTML = `<img src="assets/staff/tikhon_head.webp?v=1" alt="">${n ? `<span class="badge">${n}</span>` : ''}`;
 }
-const TK_TASK_NOTE = 'За задания я даю награду — это удобно. Но больше монет приносит то, что ты выберешь сам. Разгадай мои загадки: найдёшь самое выгодное улучшение — я доплачу.';
 let advTargets = [];
-function advisorBlock(own = false) {   // top of the director's panel (own: inside Tikhon's own window, no second name card)
-  const rep = advReport().filter((r) => !(r.go && r.go[0] === 'DIR' && !bossOn())); advTargets = rep.map((r) => r.go);
-  const tips = own ? tkTipsBlock() : '';   // the tips' «Показать» buttons go on the end of advTargets
+function advisorBlock(own = false) {   // top of the director's panel (own: Tikhon's own window): his alarms, or the calm line with an idle quote; in his window also his praise and the chronicle
+  const rep = advReport(); advTargets = rep.map((r) => r.go);
   const items = rep.map((r, k) => `<div class="card up"${r.hot ? ' style="border:2px solid #ffb4a8"' : ''}><span class="remoji">${r.emo}</span><div class="grow">${r.text}</div>${r.go ? `<button class="btn small go" data-advgo="${k}">${r.go === 'missions' ? 'Задания' : r.go === 'mail' ? 'Открыть' : 'Показать'}</button>` : ''}</div>`).join('');
   const quote = ADV_QUOTES[Math.floor(Date.now() / 60000) % ADV_QUOTES.length];
+  let extra = '';
+  if (own) { const L = S.tkLast && Date.now() - S.tkLast.t < 30 * 60000 ? S.tkLast : null, np = tkNewPages();
+    extra = `<div class="tknote">🐢 <span>${L ? `Мудрое решение — я доплатил 🪙${fmt(L.bonus)}. ` : ''}Выберешь сам одно из самых выгодных улучшений — я доплачу.${S.stats.wise ? ` Мудрых решений: ${S.stats.wise}.` : ''}</span></div>
+    <button class="btn wide" data-lorepage="">📜 Летопись${np ? ` · новых: ${np}` : ''}</button>`; }
   return `<div class="card up" style="align-items:center">${own ? '' : tikhonPic(70)}<div class="grow">${own ? '' : `<b>${ADV_NAME}</b><div class="muted">советник директора и летописец школы</div>`}<div>«${rep.length ? 'Директор, вот что я заметил:' : 'В школе всё спокойно, директор. ' + quote}»</div></div></div>
-    ${items}${tips}${own ? `<div class="tknote">📋 <span>${TK_TASK_NOTE}</span></div>` : ''}
+    ${items}${extra}
     <button class="btn ghost wide" data-missions>📋 Задания от Тихона</button>`;
 }
 let tkFrozen = null;   // his window's html, kept while it stays open
@@ -2997,7 +2954,7 @@ function tikhonPanel() {   // built once per opening (no jumping text);  his own
 }
 function advGo(k) {
   const g = advTargets[+k]; if (!g) return;
-  if (g === 'missions') { openPanel(missionsPanel); return; }
+  if (g === 'missions') { qTab = 'lvl'; openPanel(missionsPanel); return; }   // 6a: his alarms point at the quest «Главное сейчас»
   if (g === 'mail') { openPanel(mailPanel); return; }
   goTarget(g);
 }
@@ -6363,11 +6320,319 @@ function dynProgress(m) {   // [now, target] for the progress counter
     default: return null;
   }
 }
+// ======================= rework step 6a «Задания и Тихон»: the level quests (Ruslan «Да, всё хорошо. Делай.», tools/_patch/quests_s6a.py) =======================
+// World 1: «🌟 По уровню» is always 3 quests from ONE model of what slows the school — Tikhon's value model (tkGain: extra coins per minute
+// an action brings now; tkRank: affordable within coins + 30 min of income, best gain per coin first). Was: 14 random kinds (registry
+// E6.1-E6.10) that often missed the bottleneck, so following the quests was worse play than thinking (bible 10 B2, B4 rule 8, B7 rule 7).
+// - q1 «Главное сейчас»: the model's best action, phrased through the problem it fixes («У класса «X» очередь: ждут 12 учеников — поставь
+//   ещё парту»); a cheap level track asks a few levels (worth Q6_MIN minutes of income, at most Q6_STEPS). Made again when, untouched for
+//   Q6_STALE, it left the model's top 3.
+// - q2 «К главе»: a staged build waiting for the player (graduates for the walls, stars for the roof, the next stage); else the chronicle
+//   step itself (the same story quest, shown in both tabs, claimed once); after the last chapter the model's second best action.
+// - q3 «Для души»: optional, from existing systems in rotation (rank chance, album card, a mini-game round, court, corridor bench, shop or
+//   canteen), never one of the model's top 3 — nothing the school needs.
+// Rewards (Ruslan «1 ок»): flat REWARD_SHARE 30 % of the price (knobs kept: Q6_FLOOR minutes of income, now 0, capped at Q6_CAP; a goal: 30 % of its cheapest lit fix; final tuning in the economy check), so a cheap step is
+// not a coin press), a stage STORY_MIN minutes of income, a mini-game round like the old counting quest (3 min × TIME_SHARE). 🔄 one swap a
+// day, the yellow plate, the 📋 badge stay; every quest has a go target. World 2 keeps the old generator (no Tikhon there; model tuned on w1).
+const q6On = () => WORLD === 1;
+const Q6_MIN = 5, Q6_STEPS = 5, Q6_FLOOR = 0, Q6_CAP = 0.6, Q6_STALE = 120000;
+const Q6_TAG = { q1: '⭐ Главное сейчас', q2: '📖 Летопись', q3: '💡 Ещё идея' };   // labels by Ruslan 2026-11-26
+const Q6_LK = { desk: 'desk', time: 'time', teacher: 'teacher', item: 'item', expand: 'room', rec: 'rec', ads: 'enroll', beds: 'beds', shopup: 'shop', cantup: 'cant', dir: 'dir', exlvl: 'rank', xpllvl: 'rank', formlvl: 'rank', corrb: 'court', cbench: 'court', cfount: 'court', ccoin: 'court', libseats: 'lib', libspeed: 'read', libbonus: 'read', conc: 'room' };   // MISSION_LORE line
+const Q6_TYPE = { item: 'item', teacher: 'teacher', time: 'time', rec: 'rec', desk: 'desk', beds: 'beds', libseats: 'lib' };   // the yellow plate's wording (missionHintText); the rest «ур. a → b»
+const opKey = (o) => [o.act, o.i ?? '', o.k ?? ''].join(':');
+function opLvl(o) {   // the level / count an action raises; null = not a purchase the quests know
+  const st = o.i !== undefined && o.i !== null ? S.classes[o.i] : null;
+  switch (o.act) {
+    case 'teacher': return st.teacher; case 'desk': return st.desks; case 'time': return st.time; case 'expand': return sizeOf(o.i); case 'item': return st.items[o.k];
+    case 'exlvl': return exLvl(o.i); case 'xpllvl': return xplLvl(o.i); case 'corrb': return cbN(o.i);
+    case 'rec': return S.reception.level; case 'ads': return S.reception.ads; case 'beds': return bedCount();
+    case 'shopup': return shopUp()[o.k]; case 'cantup': return cantUp()[o.k]; case 'dir': return dirLvl(o.k); case 'formlvl': return formSt(o.k).lvl;
+    case 'cbench': return courtUp().bench; case 'cfount': return courtUp().fount; case 'ccoin': return courtUp().coin;
+    case 'libseats': return libSeats(); case 'libspeed': return libUp().speed; case 'libbonus': return libUp().bonus; case 'conc': return dormUp().conc;
+  }
+  return null;
+}
+const Q6_MULTI = {   // level tracks a quest may ask several levels of: [max, set level, price of the next level]
+  teacher: [() => MAX_TEACHER_LEVEL, (o, v) => { S.classes[o.i].teacher = v; }, (o) => teacherCost(o.i)],
+  time: [() => MAX_TIME_LEVEL, (o, v) => { S.classes[o.i].time = v; }, (o) => timeCost(o.i)],
+  item: [() => MAX_ITEM_LEVEL, (o, v) => { S.classes[o.i].items[o.k] = v; }, (o) => itemCost(o.i, o.k)],
+  exlvl: [() => MAX_EX_LVL, (o, v) => { S.classes[o.i].ex = v; }, (o) => exCost(o.i)],
+  xpllvl: [() => MAX_XPL_LVL, (o, v) => { S.classes[o.i].xpl = v; }, (o) => xplCost(o.i)],
+  rec: [() => MAX_REC_LVL, (o, v) => { S.reception.level = v; }, () => recCost()],
+  shopup: [() => SHOP_MAX, (o, v) => { shopUp()[o.k] = v; }, (o) => shopCost(o.k)],
+  cantup: [(o) => CANT_MAX[o.k], (o, v) => { cantUp()[o.k] = v; }, (o) => cantCost(o.k)],
+  dir: [(o) => DIR_UP[o.k].max, (o, v) => { (S.dir ||= {})[o.k] = v; }, (o) => dirCost(o.k)],
+};
+const opOpt = (o) => window.__sim.options().find((x) => opKey(x) === opKey(o));   // the action as the shop offers it now (null: maxed or closed)
+function opSteps(o, from, to) {   // coins for the levels from -> to at today's prices (state restored); other actions: today's price
+  const M = Q6_MULTI[o.act];
+  if (!M) { const x = opOpt(o); return x ? x.cost : -1; }
+  const L0 = opLvl(o); let c = 0;
+  try { for (let L = from; L < to; L++) { M[1](o, L); c += M[2](o); } } finally { M[1](o, L0); }
+  return c;
+}
+function opGo(o) {   // «Выполнить ➜»: the room and the exact button
+  const sel = `[data-act="${o.act}"]${o.k !== undefined && o.k !== null ? `[data-k="${o.k}"]` : ''}`;
+  if (o.i !== undefined && o.i !== null) return [CLASS_SLOT[o.i], sel];
+  const room = { rec: 'REC', ads: 'REC', beds: 'DORM', conc: 'DORM', shopup: 'SHOP', cantup: 'CANT', dir: 'DIR', formlvl: '@album', cbench: 'FOUNT', cfount: 'FOUNT', ccoin: 'FOUNT', libseats: 'LIB', libspeed: 'LIB', libbonus: 'LIB' }[o.act];
+  return room ? [room, sel] : null;
+}
+const q6Wait = (i) => waitList[i].length + cbUsed(i) + sleepersFor(i) + courtFor(i);   // students waiting for class i: door, corridor benches, dorm, court
+const SHOP_NM = { seller: 'Продавец', shelves: 'Витрины', goods: 'Товары' }, CANT_NM = { cook: 'Повар', tables: 'Столы', menu: 'Меню' };
+function q6Text(o, n) {   // the action phrased through the problem it fixes; n = levels asked
+  const C = o.i !== undefined && o.i !== null ? CLASSES[o.i] : null, nm = C ? C.name : '', lv = n > 1 ? ` (+${n} ур.)` : '';
+  const fix = { desk: 'поставь ещё парту', time: 'сократи урок', expand: 'расширь класс', teacher: 'улучши учителя', item: C && o.act === 'item' ? `улучши «${C.items[o.k].name}»` : '', corrb: 'поставь скамейку в коридоре' }[o.act];
+  if (C && fix && (['desk', 'time', 'expand', 'corrb'].includes(o.act) || tkCapOf(o))) {   // the class is too slow
+    const w = q6Wait(o.i);
+    if (fullNow() && fullClass() === o.i) return `Новички ждут у ворот: школа переполнена — ${fix}${lv} в классе «${nm}»`;
+    if (w >= 3) return `У класса «${nm}» очередь: ждут ${w} ${pupils(w)} — ${fix}${lv}`;
+    return `Класс «${nm}» не успевает учить всех — ${fix}${lv}`;
+  }
+  switch (o.act) {
+    case 'teacher': case 'item': return `Ученики платят в классе «${nm}» 🪙${fmt(tuition(o.i))} за урок — ${fix}${lv}: каждый урок принесёт больше`;
+    case 'exlvl': return `Ученик со званием платит больше в каждом следующем классе — улучши «${CUPS.ex.name}»${lv} в классе «${nm}»`;
+    case 'xpllvl': return `Ученик со званием платит больше в каждом следующем классе — улучши «${CUPS.xpl.name}»${lv} в классе «${nm}»`;
+    case 'rec': return `Новички долго ждут, пока их запишут в школу, — улучши секретаря в приёмной${lv}`;
+    case 'ads': return 'Классы могут учить больше, а новички приходят редко — дай ещё объявления о школе 📣';
+    case 'beds': return 'Новичков разворачивают у ворот: им негде подождать — купи кровать в спальне 🛏️';
+    case 'shopup': return `После уроков ученики идут в лавку за сладостями — улучши «${SHOP_NM[o.k] || o.k}»${lv} 🍭`;
+    case 'cantup': return `После уроков ученики хотят есть — улучши «${CANT_NM[o.k] || o.k}»${lv} в столовой 🍲`;
+    case 'dir': return `Ушедшим ученикам школа возвращает много монет — улучши «${DIR_UP[o.k].name}»${lv}`;
+    case 'formlvl': return `Учеников «${formName(o.k)}» в школе много — улучши их карточку в альбоме 🎓`;
+  }
+  return C ? `Класс «${nm}»: ${fix || 'улучши класс'}` : 'Улучши школу';   // not reached: every action the model values is listed above
+}
+const q6Reward = (cost) => Math.max(1, nice(Math.max(cost * REWARD_SHARE, Math.min(cost * (window.__q6cap ?? Q6_CAP), qPerMin() * (window.__q6floor ?? Q6_FLOOR)))));   // __q6cap / __q6floor: tuning hooks for the tests
+let q6RankC = null, q6RankAt = 0, q6C = null, q6CAt = 0;   // caches on Date.now (the pacing sim moves it)
+function q6Rank() { if (!q6RankC || Math.abs(Date.now() - q6RankAt) > 3000) { q6RankAt = Date.now(); q6RankC = tkRank(); } return q6RankC; }
+function q6MakeOp(key, o, text, one) {   // a purchase quest: one step, or a few levels of a cheap level track
+  const l0 = opLvl(o), M = one ? null : Q6_MULTI[o.act], inc = qPerMin(), budget = (S.coins || 0) + tkInc() * 30; let n = 1;
+  if (M) while (n < Q6_STEPS && l0 + n < M[0](o) && opSteps(o, l0, l0 + n) < Q6_MIN * inc && opSteps(o, l0, l0 + n + 1) <= budget) n++;
+  const cost = M ? opSteps(o, l0, l0 + n) : o.cost;
+  return { key, kind: 'op', act: o.act, i: o.i, k: o.k, l0, t: l0 + n, cost, reward: q6Reward(cost), text: text ? text(l0 + n) : q6Text(o, n), at: Date.now() };
+}
+// ---- q1 as an OUTCOME goal (Ruslan 2026-11-26: «Вся игра сводится к однообразному - "Нажать на задание выполнить"», fix approved «Так
+// лучше, да»; bible 10 B1 rule 1: action quests teach, outcome goals are for playing). q1 names the school's worst problem from the same
+// model and a measurable target, never the button: a class's queue, the overfull gate, low mood, a slow class, a low pass rate, low pay,
+// the intake, the rank chance, refunds, the shop / canteen. «Разобраться ➜» opens the room and lights EVERY option that helps; the
+// reward comes when the target is reached (and held a few seconds for the moving ones), whatever the player bought. A goal reached with
+// no purchase (the problem went away by itself) is replaced without a reward; an untouched goal that is no longer the worst problem after
+// Q6_STALE is made again. Targets are what 2 steps of the model's best fix would reach (moving goals: a share of the current value).
+const Q6_HOLD = { line: 5000, mood: 5000, full: 20000 };   // ms the target must hold (state goals count at once)
+const q6Num = (x) => (Math.abs(x) < 10 ? String(Math.round(x * 10) / 10).replace('.', ',') : fmt(Math.round(x)));
+function opApply(o) {   // the action applied to the state for a moment; returns undo or null
+  const M = Q6_MULTI[o.act], st = o.i !== undefined && o.i !== null ? S.classes[o.i] : null;
+  if (M) { const L = opLvl(o); if (L >= M[0](o)) return null; M[1](o, L + 1); return () => M[1](o, L); }
+  if (o.act === 'desk' && st.desks < maxDesksOf(o.i)) { st.desks++; return () => { st.desks--; }; }
+  if (o.act === 'ads' && S.reception.ads < MAX_REC_LVL) { S.reception.ads++; return () => { S.reception.ads--; }; }
+  return null;
+}
+function goalVal(m) {   // the measured value of a goal now
+  const i = m.i;
+  switch (m.act) {
+    case 'line': return q6Wait(i);
+    case 'full': return fullNow() ? 1 : 0;
+    case 'mood': return avgMood();
+    case 'speed': return tkCap(i) * 60;
+    case 'pass': return success(i) * 100;
+    case 'pay': return tuition(i);
+    case 'intake': return tkIntake() * 60;
+    case 'rank': return rankChance(i) * 100;
+    case 'refund': return refundRate() * 100;
+    case 'shop': return shopOpen() ? Math.min(tkSnap().f * shopChance(), 1 / shopTime()) * shopPrice() * 60 : 0;
+    case 'cant': return cantOpen() ? Math.min(tkSnap().f * cantChance(), 1 / cantServe(), cantTables() * 2 / CANT_EAT) * cantPrice() * 60 : 0;
+    case 'beds': return bedCount();
+    case 'form': return formSt(m.k).lvl;
+  }
+  return 0;
+}
+const goalMet = (m) => (m.act === 'full' ? !fullNow() : m.dir < 0 ? goalVal(m) <= m.t + 1e-9 : goalVal(m) >= m.t - 1e-9);
+function goalOf(o) {   // the problem behind the model's best action o: { act: goal kind, i, k, lit: [{act, i, k}], room }
+  const i = o.i, C = i !== undefined && i !== null ? CLASSES[i] : null;
+  const capLit = (j) => [{ act: 'desk', i: j }, { act: 'time', i: j }, { act: 'expand', i: j }, { act: 'teacher', i: j }, ...CLASSES[j].items.map((it, k) => (it.kind === 'success' && success(j) < BAL.maxChance - 1e-6 ? { act: 'item', i: j, k } : null)).filter(Boolean), ...(cbOn() ? [{ act: 'corrb', i: j }] : [])];   // success items only below the cap: above it they turn into pay, not seats
+  const canFix = (j) => { const O = window.__sim.options(); return capLit(j).some((x) => x.act !== 'corrb' && O.some((y) => y.act === x.act && y.i === j && (x.k === undefined || y.k === x.k))); };   // benches alone do not let anyone in
+  if (fullNow() && fullClass() >= 0 && canFix(fullClass())) { const j = fullClass(); return { act: 'full', i: j, lit: capLit(j), room: CLASS_SLOT[j], any: 1 }; }
+  if (avgMood() < 50) return COURT ? { act: 'mood', lit: [{ act: 'cfount' }, { act: 'cbench' }], room: 'FOUNT', any: 1 } : { act: 'mood', lit: [{ act: 'libseats' }, { act: 'libspeed' }], room: 'LIB', any: 1 };
+  if (C && (['desk', 'time', 'expand', 'corrb'].includes(o.act) || tkCapOf(o))) {
+    if (!canFix(i)) return null;   // a class at its limits: no goal the player could reach here
+    if (q6Wait(i) >= 6) return { act: 'line', i, lit: capLit(i), room: CLASS_SLOT[i] };
+    if (o.act === 'item') return { act: 'pass', i, lit: [{ act: 'teacher', i }, ...C.items.map((it, k) => (it.kind === 'success' ? { act: 'item', i, k } : null)).filter(Boolean)], room: CLASS_SLOT[i] };
+    return { act: 'speed', i, lit: capLit(i), room: CLASS_SLOT[i] };
+  }
+  switch (o.act) {
+    case 'teacher': case 'item': return { act: 'pay', i, lit: [{ act: 'teacher', i }, ...C.items.map((it, k) => (it.kind === 'tuition' ? { act: 'item', i, k } : null)).filter(Boolean)], room: CLASS_SLOT[i] };
+    case 'exlvl': case 'xpllvl': return { act: 'rank', i, lit: [{ act: 'exlvl', i }, { act: 'xpllvl', i }], room: CLASS_SLOT[i] };
+    case 'rec': case 'ads': return { act: 'intake', lit: [{ act: 'rec' }, { act: 'ads' }], room: 'REC' };
+    case 'dir': return { act: 'refund', lit: [{ act: 'dir', k: 'refund' }, { act: 'dir', k: 'care' }], room: 'DIR' };
+    case 'shopup': return { act: 'shop', lit: ['seller', 'shelves', 'goods'].map((k) => ({ act: 'shopup', k })), room: 'SHOP' };
+    case 'cantup': return { act: 'cant', lit: Object.keys(CANT_MAX).map((k) => ({ act: 'cantup', k })), room: 'CANT' };
+    case 'beds': return { act: 'beds', lit: [{ act: 'beds' }], room: 'DORM' };
+    case 'formlvl': return { act: 'form', k: o.k, lit: FORM_KEYS.filter((k) => k.split(':')[0] === o.k.split(':')[0]).map((k) => ({ act: 'formlvl', k })), room: '@album' };
+  }
+  return null;
+}
+const litSel = (lit) => lit.map((x) => `[data-act="${x.act}"]${x.k !== undefined ? `[data-k="${x.k}"]` : ''}`).join(',');
+function q6MakeGoal(o) {   // q1: the goal behind o, its target from 2 steps of o (moving goals: from the current value)
+  const g = goalOf(o); if (!g) return null;
+  const m = { key: 'q1', kind: 'goal', ...g, dir: ['line', 'refund'].includes(g.act) ? -1 : 1, buys: 0, since: 0, got: 0, at: Date.now() }, v0 = goalVal(m), nm = g.i !== undefined ? CLASSES[g.i].name : '';
+  if (g.act === 'line') m.t = Math.max(2, Math.round(v0 * 0.35));
+  else if (g.act === 'mood') m.t = Math.min(75, Math.max(55, Math.round(v0) + 12));
+  else if (g.act === 'full') m.t = 0;
+  else if (g.act === 'beds') m.t = v0 + 1;
+  else if (g.act === 'form') m.t = v0 + 1;
+  else {   // what two steps of the model's best fix would reach
+    const undo = []; try { for (let n = 0; n < 2; n++) { const u = opApply(o); if (!u) break; undo.push(u); } m.t = goalVal(m); } finally { undo.reverse().forEach((u) => u()); }
+    if (m.dir > 0 && !(m.t > v0 * 1.02)) m.t = v0 * 1.05; if (m.dir < 0 && !(m.t < v0 - 0.5)) m.t = v0 - 10;
+    m.t = m.dir > 0 ? (m.act === 'pay' ? Math.max(Math.ceil(m.t - 1e-9), v0 + 1) : m.t < 10 ? Math.floor(m.t * 10) / 10 : Math.floor(m.t)) : Math.ceil(m.t);   // tuition is a whole number
+  }
+  const T = q6Num(m.t), V = q6Num(v0), C = () => `классе «${nm}»`;
+  const TX = {
+    line: [`У класса «${nm}» очередь: ждут ${Math.round(v0)} ${pupils(Math.round(v0))} — сократи её до ${m.t}`, 'ждут'],
+    full: [`Школа переполнена: новички ждут у ворот — пусть они снова входят (самая большая очередь — у класса «${nm}»)`, 'новички'],
+    mood: [`Ученики грустят: настроение ${Math.round(v0)}% — подними его до ${m.t}%`, 'настроение, %'],
+    speed: [`Класс «${nm}» учит медленнее всех: ${V} ${pupils(Math.round(v0))} в минуту — ускорь до ${T}`, 'учеников в минуту'],
+    pass: [`В ${C()} экзамен сдают ${Math.round(v0)}% — подтяни до ${Math.floor(m.t)}%`, 'сдают, %'],
+    pay: [`В ${C()} платят 🪙${fmt(v0)} за урок — подними плату до 🪙${fmt(m.t)}`, 'плата за урок'],
+    intake: [`В школу приходит ${V} новичков в минуту — пусть приходит ${T}`, 'новичков в минуту'],
+    rank: [`В ${C()} звание получают ${q6Num(v0)}% — подними шанс до ${T}%`, 'шанс звания, %'],
+    refund: [`Ушедшим ученикам школа возвращает ${Math.round(v0)}% платы — снизь до ${m.t}%`, 'возврат, %'],
+    shop: [`Лавка приносит 🪙${q6Num(v0)} в минуту — подними до 🪙${T}`, 'лавка, в минуту'],
+    cant: [`Столовая приносит 🪙${q6Num(v0)} в минуту — подними до 🪙${T}`, 'столовая, в минуту'],
+    beds: [`Новичкам негде подождать: в спальне ${v0} кроватей — нужно ${m.t}`, 'кроватей'],
+    form: [`Учеников «${g.act === 'form' ? formName(o.k) : ''}» в школе много — подними их карточку до ур. ${m.t}`, 'ур.'],
+  }[g.act];
+  m.text = TX[0]; m.unit = TX[1];
+  const best = q6Rank().find((v) => g.lit.some((x) => x.act === v.o.act && (x.i === undefined || x.i === v.o.i) && (x.k === undefined || String(x.k) === String(v.o.k))));
+  const cheap = window.__sim.options().filter((x) => litHas({ lit: g.lit }, x.act, x.i, x.k)).sort((a, b) => a.cost - b.cost)[0];   // a typical fix: the cheapest lit option (Ruslan «1 ок»)
+  m.cost = Math.max(cheap ? cheap.cost : best ? best.o.cost : o.cost || 0, 1); m.reward = q6Reward(m.cost);
+  return m;
+}
+const litHas = (m, act, i, k) => m.any || (m.lit || []).some((x) => x.act === act && (x.i === undefined || x.i === i) && (x.k === undefined || String(x.k) === String(k)));
+function q6Buy(act, i, k) {   // a purchase while a goal is open: it counts as the player's work on it
+  const m = S.q6 && S.q6.s1; if (!m || m.kind !== 'goal' || m.got || !act) return;
+  const kk = k === undefined ? undefined : /^\d+$/.test(k) ? +k : k;
+  if (litHas(m, act, Number.isFinite(i) ? i : undefined, kk)) m.buys = (m.buys || 0) + 1;
+}
+function goalStep(q) {   // true when the slot changed: latch a reached goal, drop one that solved itself
+  const m = q.s1; if (!m || m.kind !== 'goal' || m.got) return false;
+  if (!goalMet(m)) { m.since = 0; return false; }
+  m.since ||= Date.now(); if (Date.now() - m.since < (Q6_HOLD[m.act] || 0)) return false;
+  if (m.buys > 0) { m.got = 1; return true; }
+  q.s1 = null; return true;   // the problem went away by itself: a new goal, no reward
+}
+function q6Pick(skip) {   // the model's best action not in skip; a new school whose model sees nothing yet: the cheapest class upgrade
+  const gk = (o) => { if (![...skip].some((x) => String(x).startsWith('goal:'))) return ''; const g = goalOf(o); return g ? 'goal:' + g.act + ':' + (g.i ?? '') : ''; };
+  const v = q6Rank().find((x) => !skip.has(opKey(x.o)) && opLvl(x.o) !== null && !((g) => g && skip.has(g))(gk(x.o)));
+  if (v) return v.o;
+  return window.__sim.options().filter((o) => ['desk', 'item', 'teacher', 'time'].includes(o.act) && !skip.has(opKey(o))).sort((a, b) => a.cost - b.cost)[0] || null;
+}
+function q6Stage() {   // q2: a staged build waiting for the player
+  for (let i = 0; i < CLASSES.length; i++) {
+    const st = S.classes[i], r = st.bs ? bsNext(i) : null; if (!r) continue;
+    const nm = CLASSES[i].name, go = [CLASS_SLOT[i], '[data-act="bstage"]'], base = { key: 'q2', kind: 'stage', i, n: r.n, lk: 'build', reward: Math.max(50, nice(qPerMin() * STORY_MIN)), at: Date.now() };
+    if (r.gHave < r.grads) return { ...base, need: 'g', t: r.grads, text: `Стройка «${nm}»: стенам нужны выпускники 🎓`, go };
+    if (r.stars && schoolStars() < r.stars) return { ...base, need: 's', t: r.stars, text: `Стройка «${nm}»: для крыши нужны звёзды школы ⭐`, go: ['@insp', null] };
+    return { ...base, need: 'b', t: r.n, text: `Стройка «${nm}»: ${r.n === 2 ? 'возведи стены 🏗️' : 'накрой крышу ✨'}`, go };
+  }
+  return null;
+}
+const Q3_ROT = ['rank', 'form', 'mg', 'court', 'corr', 'shop'];
+const Q3_FAM = [['exlvl', 'xpllvl'], ['cbench', 'cfount', 'ccoin'], ['shopup', 'cantup'], ['corrb'], ['formlvl']];   // upgrade families as q3's rotation kinds
+function q6Pick3(skip, acts, noMg) {   // q3 «Для души»: the next kind in rotation with an affordable option outside the model's top 3, not the same kind of action as the other quests (a mini-game round fits unless the chronicle step is one)
+  const q = q6St(), top = new Set(q6Rank().slice(0, 3).map((v) => opKey(v.o))), budget = Math.max(S.coins || 0, qPerMin() * 25);
+  const opts = window.__sim.options().filter((o) => o.cost <= budget && !top.has(opKey(o)) && !skip.has(opKey(o)) && !acts.has(o.act) && !(o.stars && schoolStars() < o.stars) && opLvl(o) !== null);
+  const low = (f) => opts.filter(f).sort((a, b) => a.cost - b.cost)[0];
+  const mgQ = () => ({ key: 'q3', kind: 'mg', b: mgRounds(), t: 1, text: 'Сыграй в мини-игру 🧪', lk: 'mg', go: ['@mg', null], reward: Math.max(50, nice(qPerMin() * 3 * TIME_SHARE)), at: Date.now() });
+  for (let j = 0; j < Q3_ROT.length; j++) {
+    const kind = Q3_ROT[((q.r3 || 0) + j) % Q3_ROT.length];
+    if (kind === 'mg' && noMg) continue;
+    if (kind === 'mg') return mgQ();
+    const o = kind === 'rank' ? low((x) => x.act === 'exlvl') : kind === 'form' ? low((x) => x.act === 'formlvl') : kind === 'court' ? low((x) => ['cbench', 'cfount', 'ccoin'].includes(x.act)) : kind === 'corr' ? low((x) => x.act === 'corrb') : low((x) => x.act === 'shopup' || x.act === 'cantup');
+    if (!o) continue;
+    const nm = o.i !== undefined ? CLASSES[o.i].name : '', U = { cbench: UPS.cbench, cfount: UPS.cfount, ccoin: UPS.ccoin }[o.act] || (o.act === 'shopup' ? UPS['shop_' + o.k] : o.act === 'cantup' ? UPS['cant_' + o.k] : null);
+    const text = (t) => (o.act === 'exlvl' ? `Улучши «${CUPS.ex.name}» (${nm}) до ур. ${t}` : o.act === 'formlvl' ? `Улучши карточку «${formName(o.k)}» в альбоме 🎓` : o.act === 'corrb' ? `Поставь скамейку в коридоре у класса «${nm}» 🪑` : `Улучши «${U.name}» до ур. ${t}`);
+    return q6MakeOp('q3', o, text, true);
+  }
+  return mgQ();   // nothing else fits: a round anyway (always three quests)
+}
+function q6St() {   // S.q6 = { s1, s2, s3: the three quests, r3: rotation of «Для души», skip: { key, until } after a swap }; old level quests leave once
+  const q = (S.q6 ||= { r3: 0 });
+  if (S.dynList || S.dyn) {   // saves from before 6a: finished old quests are paid, the rest dropped
+    let back = 0; try { for (const m of S.dynList || []) if (dynDone(m)) back += m.reward || 0; } catch (e) { /* an old kind that no longer exists */ }
+    delete S.dynList; delete S.dyn; delete S.tkHint; delete S.tkSeen;
+    if (back > 0) { S.coins += back; setTimeout(() => toast(`🎁 Награда 🪙${fmt(back)}`), 1500); }
+  }
+  return q;
+}
+function q6Done(m) {
+  try {
+    if (m.kind === 'goal') return !!m.got;
+    if (m.kind === 'op') return opLvl(m) >= m.t;
+    if (m.kind === 'mg') return mgRounds() >= m.b + m.t;
+    if (m.kind === 'stage') { const st = S.classes[m.i]; if (!st.bs || st.bs.n >= m.n) return true; const r = bsNext(m.i);
+      return m.need === 'g' ? !!r && r.gHave >= m.t : m.need === 's' ? schoolStars() >= m.t : false; }
+  } catch (e) { /* a quest of a thing that no longer exists */ }
+  return false;
+}
+function q6Ok(m) {   // still possible (an upgrade maxed or closed meanwhile -> the slot is made again)
+  try {
+    if (m.kind === 'op') { if (opLvl(m) === null || opLvl(m) === undefined) return false; const M = Q6_MULTI[m.act]; return M ? m.t <= M[0](m) : !!opOpt(m); }
+    if (m.kind === 'stage') return !!S.classes[m.i].bs;
+    return m.kind === 'mg' || m.kind === 'goal';
+  } catch (e) { return false; }
+}
+function q6Row(m) {   // the row qRow draws
+  const ok = q6Done(m); let prog = null, need = 0;
+  if (m.kind === 'goal') {   // «12 → 4», «Разобраться ➜» lighting every option that helps
+    const v = goalVal(m), fm = (x) => (['mood', 'pass', 'refund'].includes(m.act) ? String(Math.round(x)) : ['line', 'beds', 'form'].includes(m.act) ? String(Math.round(x)) : m.act === 'pay' ? fmt(x) : q6Num(x));
+    return { key: 'q1', tag: Q6_TAG.q1, type: 'goal', lk: { line: 'desk', full: 'desk', speed: 'desk', pass: 'item', pay: 'item', mood: 'court', intake: 'rec', rank: 'rank', refund: 'dir', shop: 'shop', cant: 'cant', beds: 'beds', form: 'rank' }[m.act], text: m.text, reward: m.reward, ok,
+      prog: m.act === 'full' ? [fullNow() ? 'ждут у ворот' : 'входят', 'входят'] : [fm(v), fm(m.t)], arrow: 1, unit: m.unit || undefined, need: 0, go: [m.room, litSel(m.lit)], btn: 'Разобраться ➜', act: m.act, i: m.i, lit: m.lit }; }
+  if (m.kind === 'op') { const L = opLvl(m); prog = [L, m.t]; if (!ok) { const c = Q6_MULTI[m.act] ? opSteps(m, L, m.t) : (opOpt(m) || {}).cost; need = Math.round(c > 0 ? c : 0); } }
+  else if (m.kind === 'stage' && m.need === 'g') { const r = bsNext(m.i); prog = [r ? r.gHave : m.t, m.t]; }
+  else if (m.kind === 'stage' && m.need === 's') prog = [schoolStars(), m.t];
+  else if (m.kind === 'stage' && !ok) { const r = bsNext(m.i); need = r ? r.cost : 0; }
+  return { key: m.key, tag: Q6_TAG[m.key], type: m.kind === 'op' ? Q6_TYPE[m.act] || 'up' : m.kind, lk: m.lk || Q6_LK[m.act], text: m.text, reward: m.reward, ok, prog, need, go: m.kind === 'op' ? opGo(m) : m.go, noSwap: m.kind === 'stage', act: m.act, i: m.i, k: m.k };
+}
+function q6List(f) {   // world 1: the rows q1, q2, q3 of «По уровню» (no q2 row while it is the chronicle step f itself)
+  if (q6C && Math.abs(Date.now() - q6CAt) < 400) return q6C;
+  const q = q6St(); let made = false;
+  for (const k of ['s1', 's2', 's3']) if (q[k] && !q6Done(q[k]) && !q6Ok(q[k])) { q[k] = null; made = true; }
+  const ch1 = !CHAPTERS.length || chapDone(0);   // Ruslan «2 ок»: no «Главное сейчас» before chapter 1 of the chronicle is closed (the FTUE leads)
+  if (!ch1 && q.s1) { q.s1 = null; made = true; }
+  if (goalStep(q)) made = true;
+  const s1 = q.s1;
+  if (s1 && s1.kind === 'goal' && !s1.got && !s1.buys && Date.now() - s1.at > Q6_STALE) {   // untouched and old: is it still the worst problem?
+    let g = null; const sk = new Set(); for (let n = 0; n < 12 && !g; n++) { const o = q6Pick(sk); if (!o) break; g = goalOf(o); sk.add(opKey(o)); }
+    if (g && g.act === s1.act && g.i === s1.i) s1.at = Date.now(); else { q.s1 = null; made = true; } }
+  if (s1 && s1.kind === 'op') { q.s1 = null; made = true; }   // a q1 made before the goals (test trees only)
+  const skip = new Set(); if (q.skip && q.skip.until > Date.now()) skip.add(q.skip.key);
+  const kOf = (m) => (m && m.kind === 'op' ? opKey(m) : '');
+  if (!q.s1 && ch1) { const sk = new Set([...skip, kOf(q.s2), kOf(q.s3)]);   // the best action whose problem the player can work on
+    for (let n = 0; n < 12 && !q.s1; n++) { const o = q6Pick(sk); if (!o) break; q.s1 = q6MakeGoal(o); sk.add(opKey(o)); }
+    if (q.s1) made = true; }
+  if (!q.s2) { const sg = q6Stage(); if (sg) { q.s2 = sg; made = true; } }
+  const mirror = !q.s2 && f && f.key === 'f' && f.go;
+  if (!q.s2 && !mirror) { const o = q6Pick(new Set([...skip, kOf(q.s1), kOf(q.s3)])); if (o) { q.s2 = q6MakeOp('q2', o); made = true; } }
+  const q3Acts = () => {   // q3 never repeats the upgrade family of q1's goal (any class) or of q2 (coordinator 2026-11-26)
+    const A = new Set(); [q.s1, q.s2].forEach((m) => { if (!m) return; if (m.act) A.add(m.act); (m.lit || []).forEach((x) => A.add(x.act)); });
+    for (const F of Q3_FAM) if (F.some((x) => A.has(x))) F.forEach((x) => A.add(x));
+    return A; };
+  if (q.s3 && q.s3.kind === 'op' && !q6Done(q.s3) && q3Acts().has(q.s3.act)) { q.s3 = null; made = true; }   // q1 changed into q3's family: q3 moves on
+  if (!q.s3) { q.s3 = q6Pick3(new Set([kOf(q.s1), kOf(q.s2)]), q3Acts(), !!(mirror && f.go[0] === '@mg')); made = true; }
+  if (made) save();
+  q6CAt = Date.now(); return (q6C = [q.s1, q.s2, q.s3].filter(Boolean).map(q6Row));
+}
+function q6Rows(list) {   // the tab: [q1, q2 or the chronicle step (the same story quest, tagged «К главе»), q3]
+  const f = list.find((x) => x.key === 'f'), by = (k) => list.find((x) => x.key === k);
+  return [by('q1'), by('q2') || (f && f.go ? { ...f, tag: Q6_TAG.q2 } : null), by('q3')].filter(Boolean);
+}
+window.__q6 = { goal: () => { const m = S.q6 && S.q6.s1; return m && m.kind === 'goal' ? { ...m, v: goalVal(m), met: goalMet(m) } : null; }, list: () => { q6C = null; return missionList(); }, st: () => S.q6, rank: () => q6Rank().map((v) => ({ ...v.o, g: v.g, r: v.r })), fresh: () => { q6C = null; q6RankC = null; }, led: () => qLed };   // test hook
 function missionList() {   // [{key, text, reward, ok, prog}]
   if (S.dyn && !S.dynList) S.dynList = [S.dyn];   // older saves had one generated mission
   S.dynList ||= [];
   const out = [];
   { const m = storyCur(); if (m) out.push({ key: 'f', type: 'f', lk: 'f', text: m.text + storyNote(m), reward: storyReward(m), ok: m.check(G), prog: m.prog ? m.prog(G) : null, go: isMasterStory(m) ? masterGo() : m.go ? storyGo(m.go) : missionGo(null, m.text) }); }
+  if (q6On()) { out.push(...q6List(out[0])); return out; }   // rework 6a: world 1 quests from the model
   let made = false;
   const kindKey = (x) => [x.type, x.i ?? '', x.k ?? ''].join(':');   // one mission per kind at a time
   const seen = new Set(); S.dynList = S.dynList.filter((x) => !seen.has(kindKey(x)) && seen.add(kindKey(x)));
@@ -6441,8 +6706,8 @@ function missionGo(m, text) {
 }
 function goMission(key) {
   const list = missionList(), m = list.find((x) => x.key === key); if (!m || !m.go) return;
-  goTarget(m.go);
-  showMissionHint(key, m.go[1]);
+  goTarget(m.go); if (key === 'q1' && q6On()) qLed = null;   // 6a goal: the player still chooses the fix
+  showMissionHint(key, m.go[1] ? m.go[1].split(',')[0] : m.go[1]);
 }
 // build 265 (her «очень трудно по памяти прожать с какого уровня на какой надо прокачать. Должна быть подсказка что например с 3 -> 7»):
 // while the room opened from a mission stays open, a plate above its panel says what to do: «ур. 3 → 7»; it follows the progress
@@ -6485,23 +6750,28 @@ function updMissionHint() {   // build 267 (her «Оно не в видном м
 setInterval(updMissionHint, 400);
 function goTarget(go) {   // open a room and light up the button that helps (missions and Tikhon's reports)
   const [id, sel] = go, s = SLOTS[id];
+  qLed = { go, t: Date.now() };   // 6a: a purchase right after a pointer is following, not Tikhon's «own wise choice»
   closePanel();
   if (id === '@mg') { MG.open(); return; }
-  if (id === '@top') openTop(); else if (id === '@ally') openAlly(); else if (id === '@insp') openPanel(inspPanel); else if (id === '@album') openPanel(speciesPanel);
+  if (id === '@top') openTop(); else if (id === '@ally') openAlly(); else if (id === '@insp') openPanel(inspPanel); else if (id === '@album') { const sp = /data-k="([a-z]+):/.exec(sel || ''); if (sp && SPECIES.includes(sp[1])) albumSp = sp[1]; openPanel(speciesPanel); }   // 6a: a card quest opens its creature's page
   else if (id === 'FOUNT') { if (!COURT) return; openPanel(fountainPanel); const c = courtC(); setTimeout(() => focusTile(c.x, c.y), 60); }
   else openRoom(id);
   if (s) setTimeout(() => focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), 60);   // after the panel is up: the room goes above it
   if (!sel) return;
   setTimeout(() => {   // light up the button that does it
-    const b = document.querySelector('#sheet ' + sel); if (!b) return;
-    const card = b.closest('.card') || b;
-    card.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    card.classList.remove('pulse'); void card.offsetWidth; card.classList.add('pulse');
+    const L = sel.split(',').flatMap((x) => [...document.querySelectorAll('#sheet ' + x.trim())]); if (!L.length) return;   // 6a: a goal lights every card that helps
+    L.forEach((b, n) => { const card = b.closest('.card') || b; if (!n) card.scrollIntoView({ block: 'center', behavior: 'smooth' }); card.classList.remove('pulse'); void card.offsetWidth; card.classList.add('pulse'); });
   }, 120);
 }
 function claimMission(key) {
   const list = missionList(), m = list.find((x) => x.key === key);
   if (!m || !m.ok) return;
+  if (q6On() && /^q[123]$/.test(key)) {   // rework 6a: one of the three quests of «По уровню»
+    const q = q6St(), sk = 's' + key[1], x = q[sk]; S.coins += m.reward;
+    STATS.ev('quest', { k: key, a: x ? String(x.act || x.kind) : '', r: Math.round(m.reward) });
+    if (key === 'q3') q.r3 = (q.r3 || 0) + 1; q[sk] = null; q6C = null; q6RankC = null;
+    toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); save(); return;
+  }
   S.coins += m.reward;
   { const c0 = key === 'f' ? storyCur() : null; STATS.ev('quest', { k: c0 ? 'story:' + c0.id : 'dyn', r: Math.round(m.reward) }); }
   let closed = -1;
@@ -6721,8 +6991,8 @@ const qBtnGo = (go, attr) => (go ? `<button class="btn small go" ${attr}>Вып�
 function qRow(m) {   // a story / level mission, the same look as before
   const tk = WORLD === 1;
   return `<div class="q ${m.ok ? 'ok' : ''}"><span class="qi">${m.ok ? '🎁' : '📋'}</span>
-      <span class="qt">${m.text}${m.prog && !m.ok ? ` <span class="qp">${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}</span>` : ''}${tk && MISSION_LORE[m.lk || m.type] ? `<span class="muted" style="display:block;font-style:italic;font-size:12px">${MISSION_LORE[m.lk || m.type]}</span>` : ''}</span>
-      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo">${m.key !== 'f' && S.mswap !== qDay() ? `<button class="btn small ghost" data-mswap="${m.key}" title="Заменить задание" style="float:right;margin-left:4px">🔄</button>` : ''}${m.need > 0 ? `<span class="qneed" style="display:block;font-size:12px;font-weight:800;color:${S.coins >= m.need ? '#2f9e5a' : '#d0304e'}">нужно 🪙${fmt(m.need)}</span>` : ''}<span class="qr">🪙${fmt(m.reward)}</span>${qBtnGo(m.go, `data-mgo="${m.key}"`)}</span>`}</div>`;
+      <span class="qt">${m.tag ? `<span class="qsub">${m.tag}</span>` : ''}${m.text}${m.prog && !m.ok ? ` <span class="qp">${m.arrow ? `${m.prog[0]} → ${m.prog[1]}` : `${fmt(Math.min(m.prog[0], m.prog[1]))}/${fmt(m.prog[1])}`}</span>` : ''}${tk && MISSION_LORE[m.lk || m.type] ? `<span class="muted" style="display:block;font-style:italic;font-size:12px">${MISSION_LORE[m.lk || m.type]}</span>` : ''}</span>
+      ${m.ok ? `<button class="btn hot small" data-mission="${m.key}">Забрать 🪙${fmt(m.reward)}</button>` : `<span class="qgo">${m.key !== 'f' && !m.noSwap && S.mswap !== qDay() ? `<button class="btn small ghost" data-mswap="${m.key}" title="Заменить задание" style="float:right;margin-left:4px">🔄</button>` : ''}${m.need > 0 ? `<span class="qneed" style="display:block;font-size:12px;font-weight:800;color:${S.coins >= m.need ? '#2f9e5a' : '#d0304e'}">нужно 🪙${fmt(m.need)}</span>` : ''}<span class="qr">🪙${fmt(m.reward)}</span>${m.btn && m.go ? `<button class="btn small go" data-mgo="${m.key}">${m.btn}</button>` : qBtnGo(m.go, `data-mgo="${m.key}"`)}</span>`}</div>`;
 }
 function qStoryTab(list) {
   const m = list.find((x) => x.key === 'f'), done = MISSIONS.filter((x) => S.story && S.story[x.id]).length, ch = chapNow();
@@ -6750,10 +7020,10 @@ function qDayTab() {
   return `<div class="qnote">Новые дела каждый день в полночь (через ${hh} ч ${mm} мин). За каждое — монеты.</div><div class="qbar">${rows}</div>${prize}`;
 }
 function qLvlTab(list) {
-  const L = list.filter((m) => m.key !== 'f'), lv = schoolLevel(), next = [];
+  const L = q6On() ? q6Rows(list) : list.filter((m) => m.key !== 'f'), lv = schoolLevel(), next = [];
   for (let l = Math.ceil((lv + 1) / 5) * 5; next.length < 3; l += 5) next.push(l);
   const ms = next.map((l) => `<span class="qp" style="margin-right:10px">ур. ${l} → ${ST_IMG(14)} ${3 + Math.floor(l / 10)}</span>`).join('');
-  return `${WORLD === 1 ? `<div class="tknote">${tikhonPic(44)}<span>«${TK_TASK_NOTE}»<button class="btn small go" data-tikhon>Загадки Тихона ➜</button></span></div>` : ''}<div class="qnote">Задания подстраиваются под уровень школы 🌟${lv} и под то, на что хватает монет. Сделал одно — сразу появится новое. ${S.mswap !== qDay() ? 'Не нравится задание? 🔄 заменит одно в день.' : 'Замена задания сегодня уже использована.'}</div>
+  return `<div class="qnote">${q6On() ? 'Три задания от Тихона: ⭐ главное, что сейчас тормозит школу, 📖 следующий шаг летописи и 💡 ещё одна идея, если захочется.' : `Задания подстраиваются под уровень школы 🌟${lv} и под то, на что хватает монет.`} Сделал одно — сразу появится новое. ${S.mswap !== qDay() ? 'Не нравится задание? 🔄 заменит одно в день.' : 'Замена задания сегодня уже использована.'}</div>
     <div class="qbar">${L.map(qRow).join('')}</div>
     <div class="qbig" style="background:#f1eafd;font-weight:700;flex-wrap:wrap">🌟 Лунные камни за уровни школы (приходят сами): ${ms}</div>`;
 }
@@ -6812,6 +7082,11 @@ function qClick(d) {   // true when the button was ours
   if (d.dqc !== undefined) { const x = dqList().find((t) => t.id === d.dqc); if (x && x.ok && !x.got) { S.dq.c[x.id] = 1; S.coins += S.dq.r; STATS.ev('quest', { k: 'day:' + x.id, r: Math.round(S.dq.r) }); warAdd('dq', WAR_PTS.dq); toast(`🎁 Награда 🪙${fmt(S.dq.r)}`); updateHud(); save(); } refreshPanel(); return true; }
   if (d.dqall !== undefined) { if (dqAllReady()) { S.dq.all = 1; if (stonesAdd(DQ_STONES, dqAllKey())) toast(`📅 Все дела дня! ${ST_ICON} +${DQ_STONES} лунных камня`); save(); } refreshPanel(); return true; }
   if (d.mswap !== undefined) {   // build audit 2026-11-24: a stuck level mission can be swapped, once a day
+    if (q6On() && /^q[123]$/.test(d.mswap)) {   // 6a: q1 skips that action for 30 min (the next best comes), q3 moves on in its rotation
+      const q = q6St(), sk = 's' + d.mswap[1], x = q[sk];
+      if (x && !q6Done(x)) { if (S.mswap === qDay()) toast('Заменить задание можно раз в день'); else { S.mswap = qDay(); if (d.mswap === 'q3') q.r3 = (q.r3 || 0) + 1; else if (x.kind === 'op') q.skip = { key: opKey(x), until: Date.now() + 30 * 60000 }; else if (x.kind === 'goal') q.skip = { key: 'goal:' + x.act + ':' + (x.i ?? ''), until: Date.now() + 30 * 60000 }; q[sk] = null; q6C = null; missionList(); save(); toast('🔄 Задание заменено'); } }
+      refreshPanel(); return true;
+    }
     const k = +String(d.mswap).slice(1), m = S.dynList && S.dynList[k];
     if (m && !dynDone(m)) { if (S.mswap === qDay()) toast('Заменить задание можно раз в день'); else { S.mswap = qDay(); S.dynList.splice(k, 1); missionList(); save(); toast('🔄 Задание заменено'); } }
     refreshPanel(); return true;
@@ -6968,7 +7243,6 @@ document.addEventListener('click', (e) => {
   if (d.war !== undefined) { openWar(); return; }
   if (qClick(d)) return;
   if (d.tikhon !== undefined) { tkOpen(); renderTkBtn(); return; }
-  if (d.tkhint !== undefined) { (S.tkHint ||= {})[d.tkhint] = 1; save(); tkFrozen = null; refreshPanel(); return; }
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.rumble !== undefined) { const s = slotOf(guardsIdx()); if (panel) closePanel(); if (s) focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2); return; }
@@ -7091,7 +7365,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'bskip') bsSkip(i);
   else if (d.act === 'build') { if (starsNeed(i) > schoolStars()) { toast(`Нужно ⭐ ${starsNeed(i)} звёзд школы`); return; } if (S.coins >= buildCost(i) && spend(buildCost(i))) { st.built = true; st.buildEnd = Date.now() + buildTime(i) * 1000; panel = classPanel(i); } }
   else return;
-  if (tkW && S.coins < tkC0) { if (tkW.rest) toast('🐢 Эта загадка уже разгадана — загляни в другие мои загадки'); else if (tkW.miss) tkMiss(tkW.miss); else tkWisePay(tkC0 - S.coins, tkW.share, tkW.title, tkW.fam); tkFrozen = null; }
+  q6C = null; if (S.coins < tkC0) q6Buy(d.act, i, d.k); if (tkW && S.coins < tkC0) { tkWisePay(tkC0 - S.coins, tkW.share, '', tkW.fam); tkFrozen = null; }   // 6a: the quests see the purchase at once
   refreshPanel(); save();
 });
 $('#sheet-bg').addEventListener('click', closePanel);
@@ -8129,6 +8403,7 @@ window.__sim = {
   stars: () => schoolStars(),
   gain: (op) => tkGain(op), slotIdx: (id) => CLASS_SLOT.indexOf(id), missions: () => missionList(), claim: (k) => claimMission(k), storyId: () => (storyCur() || {}).id, skipStory: (id) => { S.story[id] = 1; },
   inSchool: () => inSchool().length,
+  q6: () => S.q6, rank: () => tkRank().map((v) => ({ ...v.o, g: v.g, r: v.r })),   // 6a: the quests' model
 };
 window.__pukh = () => { pukhNext = 0; }; window.__starfall = () => { sfNext = 0; };   // test hook: send Pukh now
 window.__test = { P, SLOTS, focusTile, fps: () => ({ ...fpsStat, dpr }), edges: (x0, y0, x1, y1) => EDGES.filter((e) => e.x >= x0 && e.x <= x1 && e.y >= y0 && e.y <= y1).map((e) => `${e.x},${e.y},${e.side},${e.id},${e.tall ? 'T' : 'k'}${e.hallWall ? 'H' : ''}`), vanishDemo: (t) => { const g = SLOTS.GARDEN, src = agents.find((a) => SPECIES.includes(a.sp)); if (!src) return 0; agents.push({ ...src, id: S.nextId++, x: g.x0 + (WORLD === 1 ? 3 : 4.85), y: g.y0 + (WORLD === 1 ? 3 : 1.35), path: [], state: 'vanish', t: t || 0, goal: { t: 'g' }, c: -1, desk: -1 }); return 1; }, reg: (x, y) => regAt(x, y), world: () => ({ WW, WH, GW, GH, MARGIN, SW, SH, HW, HH, GATE: GATE_TILE, GATE_Y, BUILDING }), get renderMs() { return renderMs; }, get staticN() { return staticN; }, get roomBuilds() { return roomBuilds; }, bgOff: (v) => { BG_OFF = !!v; }, get outdoorN() { return OUTDOOR.length; }, outShN: () => Object.keys(outSh).length + '/' + Object.keys(outLo).length, outOn: (v) => { OUT_ON = !!v; }, grassOn: (v) => { GRASS_ON = !!v; staticKey = ''; }, fxDemo: (v) => { FX_DEMO = !!v; }, seal: (i, d) => examSeal(i, d), zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); }, libDbg: () => ({ trip: libTrip, u: libU }), secDbg: () => ({ pose: secretaryPos.lastPose, trip: secTrip, u: secU, w: !!(processing || queue.some((q) => q.state === "queue")), hold: secHold }), get secPose() { return secretaryPos.lastPose; }, get secU() { return secU; }, holdArrivals: () => { arrivalT = 1e9; }, state: (f) => f(S), inspNow: (sec) => { insp().t = sec; }, avgMood: () => avgMood(), incident: (i) => { S.inc ||= {}; S.inc[i] = { k: "c", t: 0 }; }, get inc() { return S.inc; }, openRoom: (id) => openRoom(id), get agents() { return agents; }, get scale() { return scale; }, dbg: () => CLASSES.map((c, i) => ({ c: c.id, open: isOpen(i), desks: S.classes[i].desks, seated: deskOcc[i].filter(Boolean).length, waiting: waitList[i].length, walking: lineCount(i) - waitList[i].length, sleepers: dorm.filter((a) => a && a.goal && a.goal.i === i).length, sleepState: dorm.filter((a) => a && a.goal && a.goal.i === i).map((a) => a.state).join(',') })) };   // test hook: world -> screen
@@ -8154,5 +8429,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=584').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=585').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
