@@ -1,18 +1,18 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=585';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=586';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=585';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=585';
-import { initMinigame } from './minigame.js?v=585';
-import { initChests } from './chests.js?v=585';
-import { initValley } from './valley.js?v=585';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=585';
-import { initLore } from './lore.js?v=585';
-import { initAvatar } from './avatar.js?v=585';
-import { initStats } from './stats.js?v=585';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=586';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=586';
+import { initMinigame } from './minigame.js?v=586';
+import { initChests } from './chests.js?v=586';
+import { initValley } from './valley.js?v=586';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=586';
+import { initLore } from './lore.js?v=586';
+import { initAvatar } from './avatar.js?v=586';
+import { initStats } from './stats.js?v=586';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -25,6 +25,7 @@ const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rat
 // daily chests (js/chests.js, Maria 2026-11-23 «Ежедневные сундучки надо»): a tile in the ✨ menu, own overlay, state S.chest per world
 const VALLEY = initValley({ token: () => anonToken(), world: () => WORLD, emojiHtml, emojiImage, toast: (t) => toast(t), stones: (n, k) => stonesAdd(n, k),
   snd: (k) => { if (k === 'special') sfx('fixed'); }, onWin: () => STATS.ev('valley', { k: 'win' }), onOpen: () => STATS.ev('valley', { k: 'open' }),   // registry G6.21
+  inAlly: () => !!myAl(),   // registry G6.20 (tester_fb1): the ✨ tile asks the valley server only for a school in an alliance
   testTok: () => { try { return localStorage.getItem('magicschool.valleyTok') || ''; } catch (e) { return ''; } } });   // 🗺 alliance strategy (js/valley.js, server lazy /game/valley)
 const CHESTS = initChests({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -42,7 +43,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 585;   // keep equal to the ?v= number in index.html
+const BUILD = 586;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -280,7 +281,7 @@ const repK = () => 1 + 0.05 * (bossOn() ? boss().rep || 0 : 0);   // the school'
 function cheerAll(d, icon) {   // every student in school gets mood d
   for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && a.goal.t === 'x')) { a.mood = Math.max(0, Math.min(100, moodOf(a) + d)); if (icon && Math.random() < 0.35) popup(icon, a.x, a.y, d > 0 ? '#ff6fa3' : '#5b7fd6', 44); }
 }
-function quietNow() { try { return MG.isOpen() || LORE.isOpen(); } catch (e) { return false; } }   // build 557: a mini-game or the chronicle is open: no events
+function quietNow() { try { return !!panel || menuOpen || MG.isOpen() || LORE.isOpen() || CHESTS.isOpen() || VALLEY.isOpen(); } catch (e) { return false; } }   // build 557: a mini-game or the chronicle is open: no events; tester_fb1: any panel, the ✨ menu, the chests or the valley too (a tester lost his feedback text to an incident)
 function stepBoss(dt, live) {
   if (!bossOn()) return;
   const B = boss();
@@ -1492,7 +1493,8 @@ function rumbleChest() { const c = Math.round(Math.max(500, (rateNow() || 1) * 1
 function stepRumble(dt, live) {
   if (!rumbleOn()) return;
   const T = throne(); if (!live) { T.pc = 0; T.rt = 0; return; }   // build audit 2026-11-24: the pass meter only counts live time
-  if (calm() || tourStep >= 0 || quietNow()) { T.pc = 0; T.rt = 0; return; }
+  if (calm() || tourStep >= 0) { T.pc = 0; T.rt = 0; return; }
+  if (quietNow()) return;   // tester_fb1: a window is open: the warning, the attack and the pass-rate window all wait
   T.rt = (T.rt || 0) + dt; if (T.rt >= 60) { const r = (T.pc || 0) / T.rt; T.rate = T.rate ? T.rate * 0.7 + r * 0.3 : r; T.rt = 0; T.pc = 0; }   // build audit 2026-11-24: live guard-hall pass rate
   if (!T.cur) {
     T.t -= dt;
@@ -1514,8 +1516,8 @@ function stepRumble(dt, live) {
 }
 function rumbleLesson(i, p) {   // a passed lesson in the guard hall during the defence beats one shadow
   const T = WORLD === 2 && S.w2 && S.w2.throne; if (!T || CLASSES[i].id !== THRONE_NEED) return;
-  if (!ffwd && rumbleOn()) T.pc = (T.pc || 0) + 1;   // build audit 2026-11-24: counted for the adaptive need
-  if (!T.cur) return;
+  if (!ffwd && rumbleOn() && !quietNow()) T.pc = (T.pc || 0) + 1;   // build audit 2026-11-24: counted for the adaptive need
+  if (!T.cur || quietNow()) return;   // tester_fb1: the defence is frozen while a window is open
   T.cur.got++; if (!ffwd) { popup(`🛡️ ${T.cur.got}/${T.cur.need}`, p.x, p.y - 0.4, '#3b6fd6', 54); const h = shades.find((q) => !q.die); if (h) h.die = performance.now(); }
 }
 // the shadows themselves (build 542): live only while the game is open, not saved; they stand on the guard hall's floor and sway
@@ -1921,7 +1923,7 @@ function hintOnce(key, emo, title, text) {   // a short explanation the first ti
 const idleNow = () => performance.now() - (window.__inputAt || 0) > 120000;
 function stepIncidents(dt, live) {
   S.inc ||= {};
-  if (quietNow()) return;   // build 278 (tester Соня): the school is quiet while the player brews potions
+  if (live && quietNow()) return;   // build 278 (tester Соня): the school is quiet while the player brews potions; tester_fb1: and while any window is open (timers frozen); the catch-up is never frozen
   for (const [i, x] of Object.entries(S.inc)) { x.t = (x.t || 0) + dt; if (x.t > (live && !idleNow() ? INC_AUTO_AT(dirLvl('keeper')) : Math.min(30, INC_AUTO_AT(dirLvl('keeper'))))) delete S.inc[i]; }   // away (catch-up) the caretaker fixes it within 30 s: an incident left open stopped its class for 10 min of the catch-up and emptied the rating (tester О-Дин: 3.9 -> 1.9 after 15 min away)
   if (!live || idleNow() || S.stats.graduated < 5 || tourStep >= 0) return;   // never while the game is closed, nor for a brand-new school, nor while nobody touches it (build audit 2026-11-24)
   incT -= dt; if (incT > 0) return;
@@ -2007,8 +2009,11 @@ function setCalm(on) {
   save(); updateHud(); dirtyPanel = true;
 }
 function stepInspector(dt, live) {
-  if (calm() || !live || idleNow() || quietNow() || S.stats.graduated < 20 || tourStep >= 0) return;   // build audit 2026-11-24: nor while nobody is at the screen   // the inspector waits while the mini-game is open (a running check pauses too)
+  if (calm() || !live || idleNow() || S.stats.graduated < 20 || tourStep >= 0) return;   // build audit 2026-11-24: nor while nobody is at the screen
   const I = insp();
+  // the inspector waits while a window is open (a running check pauses too); tester_fb1: the check's counters skip the quiet time
+  if (quietNow()) { const c = I.cur; if (c && !c.qz) c.qz = { e: S.stats.earned || 0, p: S.stats.passed || 0, f: S.stats.failed || 0, v: leftNow() }; return; }
+  if (I.cur && I.cur.qz) { const c = I.cur, q = c.qz; delete c.qz; if ('e' in c) c.e += (S.stats.earned || 0) - q.e; if ('p' in c) { c.p += (S.stats.passed || 0) - q.p; c.f += (S.stats.failed || 0) - q.f; } if ('v' in c) c.v += leftNow() - q.v; }
   if (!I.cur) {
     I.t -= dt;
     if (I.t <= INSP_WARN && !I.next) { I.next = rnd(Object.keys(INSP_KINDS)); toast(`🧐 Скоро инспектор! Проверит: ${inspNextText(I.next)}`);
@@ -5627,7 +5632,7 @@ function costBtn(label, cost, act, extra = '') { return `<button class="btn" dat
 
 let panel = null; let dirtyPanel = false;
 let panelHtml = '';
-function openPanel(fn) { setTimeout(() => { const h = document.querySelector('#sheet h2'); if (h && panel === fn) glog('open', h.textContent, WORLD); }, 0); if (Date.now() - PRICE_AT > 600000) { PRICE_FROZEN.clear(); PRICE_AT = Date.now(); } $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; panelHtml = emojiHtml(fn()); sh.innerHTML = panelHtml; sh.scrollTop = 0; $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
+function openPanel(fn) { setTimeout(() => { const h = document.querySelector('#sheet h2'); if (h && panel === fn) glog('open', h.textContent, WORLD); }, 0); if (Date.now() - PRICE_AT > 600000) { PRICE_FROZEN.clear(); PRICE_AT = Date.now(); } $('#tour').classList.add('under-panel'); panel = fn; const sh = $('#sheet'); sh.style.transform = ''; panelHtml = emojiHtml(fn()); sh.innerHTML = panelHtml; sh.scrollTop = 0; fbRestore(sh); $('#sheet-wrap').classList.remove('hidden'); updateHud(); }
 function gameLogPanel() {   // the event journal (newest first)
   const L = gentries().slice(-200).reverse();
   return `<div class="sh-head"><span class="remoji big">📜</span><div><h2>Журнал событий</h2><div class="muted">что происходило в игре: сообщения, подсказки, окна, нажатия, события</div></div><button class="x" data-close>✕</button></div>
@@ -5957,6 +5962,12 @@ function shrinkImage(file) {
     im.src = url;
   });
 }
+// tester_fb1: the feedback text survives a closed or redrawn panel (kept on every keystroke, removed after sending)
+function fbRestore(sh) { const t = sh.querySelector('#fb-text'); if (!t) return; try { t.value = localStorage.getItem('magicschool.fbdraft') || ''; } catch (e) { /* private mode */ } }
+document.addEventListener('input', (e) => {
+  const id = e.target && e.target.id;
+  try { if (id === 'fb-text') localStorage.setItem('magicschool.fbdraft', e.target.value); else if (id === 'fb-name') localStorage.setItem('magicschool.name', e.target.value.trim().slice(0, 40)); } catch (er) { /* storage full */ }
+});
 document.addEventListener('change', async (e) => {
   if (e.target.id !== 'fb-file') return;
   for (const f of [...e.target.files].slice(0, 3 - fbPics.length)) { try { fbPics.push(await shrinkImage(f)); } catch (err) { toast('Не получилось открыть картинку'); } }
@@ -6009,7 +6020,7 @@ ${gtail(30)}`;
   const btn = document.querySelector('[data-feedback]'); if (btn) { btn.disabled = true; btn.textContent = 'Отправляю…'; }
   try {
     const r = await fetch(FEEDBACK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, images: fbPics }) });
-    if (r.ok) { localStorage.setItem('magicschool.fbsent', '1'); setTimeout(checkReplies, 60000); $('#fb-text').value = ''; fbPics = []; drawFbPics(); toast('Отзыв отправлен, спасибо! 💜'); if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; } return; }
+    if (r.ok) { localStorage.setItem('magicschool.fbsent', '1'); setTimeout(checkReplies, 60000); $('#fb-text').value = ''; try { localStorage.removeItem('magicschool.fbdraft'); } catch (er) { /* private mode */ } fbPics = []; drawFbPics(); toast('Отзыв отправлен, спасибо! 💜'); if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; } return; }
     if (r.status === 429) { toast('Слишком много отзывов подряд, попробуй через 10 минут'); if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; } return; }
   } catch (e) { /* no network or relay down: fall back to sharing */ }
   if (btn) { btn.disabled = false; btn.textContent = '💌 Отправить отзыв'; }
@@ -8429,5 +8440,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=585').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=586').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }

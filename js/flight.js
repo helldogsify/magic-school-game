@@ -55,7 +55,7 @@ export function runFlight(box, o) {
   for (let k = 0; k < 4; k++) addGate();
 
   // ---- input: hold to rise ----
-  const down = (e) => { e.preventDefault(); if (st.over) return; st.hold = true; if (!st.started) { st.started = true; o.onStart && o.onStart(); } };
+  const down = (e) => { e.preventDefault(); if (st.over) return; st.hold = true; if (!st.started) { st.started = true; st.t0 = st.t; o.onStart && o.onStart(); } };
   const up = () => { st.hold = false; };
   cv.addEventListener('pointerdown', down); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
   cv.style.touchAction = 'none';
@@ -68,7 +68,7 @@ export function runFlight(box, o) {
   }
   function crash() {
     if (st.shield) { st.shield = false; st.shake = 0.3; st.texts.push({ x: 0.28, y: st.y, s: 'Перо спасло!', t: 0, col: '#e0a400' }); o.snd && o.snd('special'); st.vy = -0.6; st.grace = 0.8; return; }
-    st.over = true; st.deadT = 0; st.shake = 0.4; o.snd && o.snd('nope');
+    st.over = true; st.overT = st.t; st.deadT = 0; st.shake = 0.4; o.snd && o.snd('nope');
     for (let k = 0; k < 18; k++) st.fx.push({ x: 0.28, y: st.y * H / W, vx: (Math.random() - 0.5) * 0.8, vy: (Math.random() - 0.7) * 0.8, t: 0, life: 0.9, col: ['#b9a3e6', '#ffffff', '#ffd76a'][k % 3] });
   }
   function step(dt) {
@@ -77,7 +77,7 @@ export function runFlight(box, o) {
     st.fx = st.fx.filter((p) => { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.9 * dt; return p.t < p.life; });
     st.texts = st.texts.filter((p) => (p.t += dt) < 1.1);
     st.shake = Math.max(0, st.shake - dt);
-    if (st.over) { st.deadT += dt; st.vy += G * dt; st.y += st.vy * dt * W / H; if (st.deadT > 1.3 && !st.ended) { st.ended = true; o.onEnd({ score: st.score, rings: st.rings, sparks: st.sparks }); } return; }
+    if (st.over) { st.deadT += dt; st.vy += G * dt; st.y += st.vy * dt * W / H; if (st.deadT > 1.3 && !st.ended) { st.ended = true; o.onEnd({ score: st.score, rings: st.rings, sparks: st.sparks, air: st.t0 === undefined ? 0 : (st.overT ?? st.t) - st.t0 }); } return; }   // air: seconds in the air (tester №73po7zf1)
     if (!st.started) { st.y = 0.45 + Math.sin(st.t * 3) * 0.015; return; }
     st.speed = Math.min(SPEED_MAX, st.speed + SPEED_UP * dt);
     st.vy += (st.hold ? -LIFT : G) * dt; st.vy = Math.max(-VMAX, Math.min(VMAX, st.vy));
@@ -163,7 +163,14 @@ export function runFlight(box, o) {
     cx.globalAlpha = 1; cx.textAlign = 'center'; cx.textBaseline = 'middle';
     for (const p of st.texts) { cx.globalAlpha = Math.min(1, (1.1 - p.t) * 3); cx.font = `900 ${Math.round(18 * dpr)}px ui-rounded, "Nunito", system-ui, sans-serif`; const y = (p.y - p.t * 0.06) * Hp; cx.lineWidth = 5 * dpr; cx.strokeStyle = '#fff'; cx.strokeText(p.s, Math.min(Wp - 90 * dpr, p.x * u + 40 * dpr), y); cx.fillStyle = p.col; cx.fillText(p.s, Math.min(Wp - 90 * dpr, p.x * u + 40 * dpr), y); }
     cx.globalAlpha = 1;
-    if (!st.started) { cx.font = `800 ${Math.round(17 * dpr)}px ui-rounded, "Nunito", system-ui, sans-serif`; cx.lineWidth = 5 * dpr; cx.strokeStyle = '#fff'; const s = 'Нажми и держи — взлетишь, отпусти — опустишься'; cx.strokeText(s, Wp / 2, Hp * 0.78); cx.fillStyle = '#5a3fb0'; cx.fillText(s, Wp / 2, Hp * 0.78); }
+    if (!st.started) {   // tester №73po7zf1: the hint was cut on both sides on a 390 px phone: two lines when it does not fit, shrunk if still too wide
+      let fs = Math.round(17 * dpr); const font = () => `800 ${fs}px ui-rounded, "Nunito", system-ui, sans-serif`; cx.font = font();
+      const full = 'Нажми и держи — взлетишь, отпусти — опустишься', maxW = Wp * 0.92;
+      const L = cx.measureText(full).width <= maxW ? [full] : ['Нажми и держи — взлетишь,', 'отпусти — опустишься'];
+      const mw = Math.max(...L.map((s) => cx.measureText(s).width)); if (mw > maxW) { fs = Math.floor(fs * maxW / mw); cx.font = font(); }
+      cx.lineWidth = 5 * dpr; cx.strokeStyle = '#fff'; cx.fillStyle = '#5a3fb0';
+      L.forEach((s, k) => { const y = Hp * 0.78 + (k - (L.length - 1) / 2) * fs * 1.2; cx.strokeText(s, Wp / 2, y); cx.fillText(s, Wp / 2, y); });
+    }
   }
   let raf = 0, last = performance.now(), alive = true;
   function loop(now) {

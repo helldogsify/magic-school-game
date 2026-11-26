@@ -12,7 +12,7 @@ const STAR = [2700, 4700, 7300];   // build 4xx: tiers raise scores ~1/3 (tools/
 const MAX_MIN = 10;               // the best round pays 10 minutes of the school's income
 const BOOST = [0, 0, 5, 10];      // minutes of «Вдохновение» per stars
 const BOOST_CAP_MIN = 60;         // same cap as gifts (BOOST_MAX_MIN in game.js)
-import { runFlight, loadFlightArt } from './flight.js?v=5';   // bump when flight.js changes
+import { runFlight, loadFlightArt } from './flight.js?v=6';   // bump when flight.js changes
 import { runCart } from './cart.js?v=1';
 import { runGem, loadGemArt } from './gem.js?v=1';
 import { runTower, loadTowerArt } from './tower.js?v=2';
@@ -76,7 +76,7 @@ function pool() {   // the shared pool {ch, t}; first time: the old device-local
   return p;
 }
 const PK = () => (W2() ? 'mgch2' : 'mgch');   // own tries per world (her «И попытки для каждого мира свои»)
-const savePool = (p) => { try { const m = readMeta(); m[PK()] = { ch: p.ch, t: p.t }; localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) { /* storage full */ } };
+const savePool = (p) => { try { const m = readMeta(); m[PK()] = { ch: p.ch, t: p.t, ...(p.run ? { run: p.run } : {}) }; localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) { /* storage full */ } };   // run: a rewarded round is in progress (tester_fb1)
 export function charges() {
   const p = pool(), now = Date.now();
   if (p.ch >= CH_MAX) { p.t = now; savePool(p); return p.ch; }
@@ -85,7 +85,10 @@ export function charges() {
   savePool(p); return p.ch;
 }
 export function addCharges(n = 1) { charges(); const p = pool(); p.ch = (p.ch || 0) + n; if (p.ch > CH_MAX) p.t = Date.now(); savePool(p); }   // won attempts go above 3
-function spendCharge() { const p = pool(); if (p.ch >= CH_MAX) p.t = Date.now(); p.ch = Math.max(0, p.ch - 1); savePool(p); }
+function spendCharge() { const p = pool(); if (p.ch >= CH_MAX) p.t = Date.now(); p.ch = Math.max(0, p.ch - 1); p.run = Date.now(); savePool(p); }   // run = «round in progress» marker (tester_fb1)
+// tester_fb1 (registry F1.x): a rewarded round that never reached its end (the browser closed or crashed mid-round) gives its try back once on the next load
+function runDone() { const p = pool(); if (p.run) { delete p.run; savePool(p); } }
+function runRestore() { try { const p = pool(); if (!p.run) return; delete p.run; savePool(p); addCharges(1); A.toast('🧪 Попытка возвращена: игра закрылась посреди партии'); } catch (e) { /* state not ready */ } }
 const nextIn = () => Math.max(0, pool().t + CH_MS - Date.now());
 const num = (n) => Math.round(n).toLocaleString('ru-RU');   // scores in full: 5 600, not 5,6K
 const mmss = (ms) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
@@ -341,6 +344,22 @@ function css() {
 #mg .fl-w img { width: 60px; height: 60px; object-fit: contain; }
 #mg .fl-w small b { color: #8a5a00; }
 #mg .fl-w small img { width: 11px; height: 11px; vertical-align: -1px; }   /* the coin emoji: the flyer picture rule made it 60 px */
+/* tester №73po7zf1 («Все должно помещаться в один экран»): the flight / cart start card fits a 390x844 phone without scrolling:
+   smaller head, the flyers in one row that scrolls sideways (no hidden second row), tighter boosters */
+#mg .mg-card.fl-st { max-height: 96%; padding: 12px 14px 12px; }
+#mg .mg-card.fl-st .mg-pot .mgi { width: 30px; height: 48px; }
+#mg .mg-card.fl-st h2 { margin: 2px 0 4px; font-size: 20px; }
+#mg .mg-card.fl-st p { margin: 4px 0; font-size: 13.5px; line-height: 1.3; }
+#mg .mg-card.fl-st .muted { font-size: 12px; }
+#mg .mg-card.fl-st .mg-bh { margin: 6px 0 4px; }
+#mg .fl-st .fl-who { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; overflow-y: hidden; max-height: none; padding-bottom: 4px; scroll-snap-type: x proximity; }
+#mg .fl-st .fl-who:has(.fl-w:only-child), #mg .fl-st .fl-who:has(.fl-w:nth-child(3):last-child), #mg .fl-st .fl-who:has(.fl-w:nth-child(2):last-child) { justify-content: center; }
+#mg .fl-st .fl-w { flex: 0 0 76px; width: 76px; padding: 4px 3px; scroll-snap-align: start; }
+#mg .fl-st .fl-w img { width: 44px; height: 44px; }
+#mg .fl-st .fl-w small img { width: 11px; height: 11px; }   /* the coin emoji keeps its size */
+#mg .fl-st .mg-bst { padding: 5px 4px; }
+#mg .fl-st .mg-bst .mg-bi { height: 24px; font-size: 20px; }
+#mg .fl-st .mg-bst .mg-bi img { width: 24px; height: 24px; }
 #mg .fl-w small { font: 600 9.5px ui-rounded, "Nunito", sans-serif; color: #8a7ea0; line-height: 1.1; margin-top: 2px; }
 #mg .fl-box { flex: 1; width: 100%; max-width: 520px; margin-top: 8px; border-radius: 20px; overflow: hidden; min-height: 0; }
 #mg .fl-cv { display: block; touch-action: none; }
@@ -741,7 +760,7 @@ function flyerList() { return (A.flyers && A.flyers()) || []; }
 function showFlightStart() {
   if (FL) { FL.h.stop(); FL = null; }
   const n = charges(), f = fl(), w = flyerList(), cur = w.find((x) => x.k === mg().fly) || w[0];
-  root.innerHTML = A.emojiHtml(`<div class="mg-card">
+  root.innerHTML = A.emojiHtml(`<div class="mg-card fl-st">
     ${W2() ? `<div class="mg-pot">${CART_ICON}</div><h2>Вагонетка в штольне</h2>
     <p>Ученик мчится в вагонетке по трём рельсам в глубь горы. Нажми выше вагонетки — она перескочит на верхний рельс, ниже — на нижний (можно и смахнуть вверх-вниз). Объезжай завалы и провалы: первый — конец поездки.</p>
     <p class="muted">Руда +2, самоцвет +10, каждый проеханный завал +5. Каска спасает от одного удара. В тёмных местах светит только фонарик, а вагонетка всё время разгоняется!</p>
@@ -779,24 +798,26 @@ function startFlight() {
     onScore: (sc, rings) => { const a = root.querySelector('.fl-s'), b = root.querySelector('.fl-r'); if (a) a.textContent = num(sc); if (b) b.textContent = rings; },
     onEnd: (res) => flEnd(res, false) });
 }
+const FALL_FAST = 3;   // tester №73po7zf1 («если упал сразу то попытка не засчитывается»): a rewarded flight that ends within 3 s in the air gives its try back
 function flEnd(res, silent) {
   if (!FL || !FL.live) return;
-  if (!silent && FL.rewarded && !FL.noCont && !FL.offer && (FL.cont || 0) < CONT_PRICE.length) { FL.offer = true; FL.res = res; snd('end'); contCard('f', FL.cont || 0); return; }   // continue for moonstones first
+  const early = !silent && FL.rewarded && !FL.cont && res.air !== undefined && res.air < FALL_FAST;   // no moonstone offer for it either
+  if (!silent && !early && FL.rewarded && !FL.noCont && !FL.offer && (FL.cont || 0) < CONT_PRICE.length) { FL.offer = true; FL.res = res; snd('end'); contCard('f', FL.cont || 0); return; }   // continue for moonstones first
   if (FL.offer) { FL.offer = false; root.querySelectorAll('.mg-cont').forEach((x) => x.remove()); }
-  FL.live = false;
+  FL.live = false; runDone();
   const S = st(), f = fl(), score = res.score || 0, stars = score >= F_STAR[2] ? 3 : score >= F_STAR[1] ? 2 : score >= F_STAR[0] ? 1 : 0;
   const recW = score > (f.wb || 0), recAll = score > (f.best || 0);
   f.wb = Math.max(f.wb || 0, score); f.best = Math.max(f.best || 0, score);
   let coins = 0, boost = 0, refund = 0;
-  if (FL.rewarded && score > 0) {
+  if (FL.rewarded && score > 0 && !early) {
     const min = Math.min(MAX_MIN, MAX_MIN * score / F_STAR[2]);
     coins = Math.max(10, Math.round(Math.max(min * 60 * incomeNow(), min * 30) / 10) * 10);
     A.earn(coins);
     boost = BOOST[stars];
     if (boost) { const now = Date.now(); S.boostEnd = Math.min(now + BOOST_CAP_MIN * 60000, Math.max(now, S.boostEnd || 0) + boost * 60000); }
   } else if (FL.cost) { S.coins += FL.cost; refund = FL.cost; }   // build audit 2026-11-24: nothing won, the bonuses come back
-  if (FL.rewarded && score <= 0) addCharges(1);   // quit at once: the try comes back
-  if (score > 0) f.n = (f.n || 0) + 1;   // only real flights count (daily task, alliance goal)
+  if (FL.rewarded && (score <= 0 || early)) addCharges(1);   // quit or fell at once: the try comes back
+  if (score > 0 && !early) f.n = (f.n || 0) + 1;   // only real flights count (daily task, alliance goal)
   A.save();
   A.onFinish && A.onFinish(score, stars, 'flight');
   if (silent) return;
@@ -807,7 +828,7 @@ function flEnd(res, silent) {
     <div class="mg-stars">${[0, 1, 2].map((k) => `<span class="${k < stars ? '' : 'off'}">⭐</span>`).join('')}</div>
     <div class="mg-big">${num(score)}</div>
     <p class="muted">${W2() ? `руды: ${res.rings || 0} · самоцветов: ${res.sparks || 0}` : `колец: ${res.rings || 0} · искорок: ${res.sparks || 0}`}${recW ? ' · 🏅 рекорд недели!' : ''}${recAll && !recW ? ' · 🏅 рекорд!' : ''}</p>
-    ${FL.rewarded ? `<div class="mg-prize">Награда: 🪙 ${A.fmt(coins)}${boost ? `<br>✨ Вдохновение +${boost} мин (уроки +10%)` : ''}</div>` : `<p class="muted">${W2() ? 'Поездка' : 'Полёт'} без награды — только рекорд.</p>`}${refund ? `<p class="muted">Бонусы вернулись: 🪙 ${A.fmt(refund)}</p>` : ''}
+    ${early ? '<p><b>Попытка не засчитана — упал сразу.</b> Она вернулась, попробуй ещё раз!</p>' : FL.rewarded ? `<div class="mg-prize">Награда: 🪙 ${A.fmt(coins)}${boost ? `<br>✨ Вдохновение +${boost} мин (уроки +10%)` : ''}</div>` : `<p class="muted">${W2() ? 'Поездка' : 'Полёт'} без награды — только рекорд.</p>`}${refund ? `<p class="muted">Бонусы вернулись: 🪙 ${A.fmt(refund)}</p>` : ''}
     <p class="muted">${stars < 3 ? `До ${stars + 1} ⭐ — ${num(F_STAR[stars])} очков. ` : ''}Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}${n < CH_MAX ? `, следующая через ${mmss(nextIn())}` : ''}</p>
     <button class="btn wide" data-mgpick="f">${W2() ? (n > 0 ? '🔁 Ещё поездка (1 попытка)' : '🔁 Ещё поездка без награды') : n > 0 ? '🔁 Ещё полёт (1 попытка)' : '🔁 Ещё полёт без награды'}</button>
     <button class="btn wide ghost" data-mgback>В школу</button>
@@ -892,7 +913,7 @@ function sgEnd(res, silent) {
   if (!SGR || !SGR.live) return;
   if (!silent && SGR.rewarded && !SGR.noCont && !SGR.offer && (SGR.cont || 0) < CONT_PRICE.length) { SGR.offer = true; SGR.res = res; snd('end'); contCard('s', SGR.cont || 0); return; }
   if (SGR.offer) { SGR.offer = false; root.querySelectorAll('.mg-cont').forEach((x) => x.remove()); }
-  SGR.live = false;
+  SGR.live = false; runDone();
   const g = SG[SGR.id], S = st(), m = g.rec(), score = res.score || 0, stars = score >= g.stars[2] ? 3 : score >= g.stars[1] ? 2 : score >= g.stars[0] ? 1 : 0;
   const recW = score > (m.wb || 0), recAll = score > (m.best || 0);
   m.wb = Math.max(m.wb || 0, score); m.best = Math.max(m.best || 0, score);
@@ -924,7 +945,7 @@ function sgEnd(res, silent) {
 // ---- end of round ----
 function finish(silent) {
   if (!R || !R.live) return;
-  R.live = false; R.left = 0;
+  R.live = false; R.left = 0; runDone();
   const S = st(), m = mg(), score = R.score, stars = starsOf(score), wk = weekKey();
   if (m.wk !== wk) { m.wk = wk; m.wb = 0; }
   const recW = score > m.wb, recAll = score > (m.best || 0);
@@ -960,6 +981,7 @@ function finish(silent) {
 export function initMinigame(api) {
   A = api;
   addEventListener('resize', () => { if (R && cv) layout(); });
+  setTimeout(runRestore, 2500);   // after the save is loaded and the screen is up (tester_fb1)
   window.__mg = { open, close, charges, get R() { return R; }, get SGR() { return SGR; }, cart: () => W2(), get FL() { return FL; }, resolveStep, findGroups, findMove, setLeft: (s) => { if (R) R.left = s; }, setScore: (s) => { if (R) R.score = s; }, SND, SND_DB, STAR };
   window.__fl = { get FL() { return FL; }, F_STAR, start: () => { showFlightStart(); startFlight(); } };
   return { open, isOpen, pill, charges, addCharges, weekBest, weekKey, prevBest, prizeDue, claim: () => { mg().claimed = weekKey() - 1; A.save(); },

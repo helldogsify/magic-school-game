@@ -246,6 +246,14 @@ function onClick(e) {
   if (d.vtut !== undefined) { tut++; if (tut >= TUT.length) { tut = -1; try { localStorage.setItem('magicschool.valleyTut', '1'); } catch (e) { /* private */ } } render(); return; }
   if (d.vruin !== undefined) return void ruin();
 }
+const PEEK_MS = 600000;
+let peekAt = 0;
+const inAlly = () => !A.inAlly || A.inAlly();   // game.js tells whether this school is in an alliance (no server call, no anonymous sign-up otherwise)
+const freeTroops = () => (inAlly() && st && st.me && st.me.al ? st.me.left || 0 : 0);   // only for a player in an alliance
+function peek() {
+  if (root || busy || document.hidden || !inAlly() || Date.now() - peekAt < PEEK_MS) return;
+  peekAt = Date.now(); call('state').catch(() => { /* offline or the server is down: the tile simply shows nothing */ });
+}
 export function open() {
   css(); if (root) return; root = document.createElement('div'); root.id = 'vl'; if (W() === 2) root.className = 'w2'; document.body.appendChild(root);
   root.addEventListener('click', onClick); tab = 'map'; sel = null; msg = ''; centred = false; render();
@@ -258,9 +266,12 @@ export function close() { clearInterval(pollT); if (root) root.remove(); root = 
 export function initValley(api) {
   A = api;
   window.addEventListener('resize', () => { if (root && cv) { layout(); draw(); } });
-  const reg = () => { if (!window.schoolMenu) { setTimeout(reg, 50); return; } window.schoolMenu.add({ attr: 'data-valley', icon: W() === 2 ? '⛏️' : '🚩', label: W() === 2 ? 'Чертоги' : 'Долина', sub: () => '' }); };
+  const reg = () => { if (!window.schoolMenu) { setTimeout(reg, 50); return; } window.schoolMenu.add({ attr: 'data-valley', icon: W() === 2 ? '⛏️' : '🚩', label: W() === 2 ? 'Чертоги' : 'Долина', sub: () => { const f = freeTroops(); return f > 0 ? `⚔️ отрядов: ${f}` : ''; }, badge: () => (freeTroops() > 0 ? 1 : 0) }); };
   setTimeout(reg, 0);
+  // registry G6.20 (tester_fb1): the ✨ tile shows the free troops, so nobody opens the valley in vain; a light look at the state on start
+  // and then at most every 10 minutes while the game is on screen (never while the valley itself is open: it polls on its own)
+  setTimeout(peek, 6000); setInterval(peek, 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(peek, 1500); });
   document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-valley]')) open(); });
   window.__valley = { open, close, url: URL0, call: (op) => call(op), get st() { return st; }, sel: (q, r) => { sel = { q, r }; render(); }, setN: (v) => { n = v; }, go: () => go() };   // test hook
-  return { open, close };
+  return { open, close, isOpen: () => !!root };
 }
