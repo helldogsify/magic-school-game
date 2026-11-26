@@ -1,24 +1,24 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=594';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=595';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=594';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=594';
-import { initMinigame } from './minigame.js?v=594';
-import { initChests } from './chests.js?v=594';
-import { initValley } from './valley.js?v=594';
-import { initValley2 } from './valley2.js?v=594';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=594';
-import { initLore } from './lore.js?v=594';
-import { initAvatar } from './avatar.js?v=594';
-import { initStats } from './stats.js?v=594';
-import { initStudents } from './students.js?v=594';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initHeroes, HERO_BAL } from './heroes.js?v=594';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
-import { initAnnex } from './annex.js?v=594';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
-import { ANNEX_BAL } from './annex.js?v=594';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
-import { initToday } from './today.js?v=594';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
+} from './data.js?v=595';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=595';
+import { initMinigame } from './minigame.js?v=595';
+import { initChests } from './chests.js?v=595';
+import { initValley } from './valley.js?v=595';
+import { initValley2 } from './valley2.js?v=595';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=595';
+import { initLore } from './lore.js?v=595';
+import { initAvatar } from './avatar.js?v=595';
+import { initStats } from './stats.js?v=595';
+import { initStudents } from './students.js?v=595';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes, HERO_BAL } from './heroes.js?v=595';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=595';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=595';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=595';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -125,7 +125,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 594;   // keep equal to the ?v= number in index.html
+const BUILD = 595;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -4777,7 +4777,9 @@ const EDIT = window.__EDIT || null;
 let RLAY = { v: 1, rooms: {} }, LAY_VER = 0;
 const LAY_ENT = [], LAY_WALLS = {}, LAY_SEEN = {}, LAY_IMS = {}, texCache = new Map();
 let layCur = null, layHangN = {};
-function setLayout(L) { RLAY = L && L.rooms ? L : { v: 1, rooms: {} }; LAY_VER++; texCache.clear();
+function libSeatOv() { if (!(THEMES.LIB && THEMES.LIB.oldlib) || !LS) return; const R = RLAY.rooms.LIB, it = (R && R.items) || {};   /* the old library: readers sit where her chairs stand */
+  for (let k = 0; k < LIB_SPOTS.length; k++) { const r = Math.floor(k / 4), c = k % 4, o = it['lb_chair#' + (k + 1)]; LIB_SPOTS[k].x = LS.x0 + 1.1 + c * 1.3 + ((o && o.dx) || 0); LIB_SPOTS[k].y = LS.y0 + 1.8 + r * 1.6 + ((o && o.dy) || 0); } }
+function setLayout(L) { RLAY = L && L.rooms ? L : { v: 1, rooms: {} }; LAY_VER++; texCache.clear(); libSeatOv();
   if (WORLD === 1) { clearTimeout(setLayout.t); setLayout.t = setTimeout(() => { const po = pondOv(), k = JSON.stringify([concOff('DORM'), concOff('DORM2'), [po.dx || 0, po.dy || 0, po.k || 1, po.flip ? 1 : 0]]); if (k !== setLayout.k) { const first = setLayout.k === undefined; setLayout.k = k; if (!first || k !== '[{"dx":0,"dy":0},{"dx":0,"dy":0},[0,0,1,0]]' || (POND && !PATHS.some((r) => r.pond))) relayout(); } }, 600); } }   /* a sister moved: rebuild the paths */
 if (!EDIT) fetch('layouts/layouts.json?v=458').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.rooms && Object.keys(j.rooms).length) setLayout(j); }).catch(() => {});
 const layIm = (src) => { let im = LAY_IMS[src]; if (!im) { im = LAY_IMS[src] = new Image(); im.src = `assets/parts/${src}.webp?v=${src === 'reception/rc_umbrellas' ? 'e2' : 'e1'}`; } return im.complete && im.naturalWidth ? im : null; };
@@ -6077,7 +6079,8 @@ function render() {
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR', 'SHOP', 'TOWER', 'CANT']) {
     const th = themeOf(rid); if (!th || !SLOTS[rid] || (rid === 'CANT' && !cantOpen()) || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt()) || (rid === 'SHOP' && !shopOpen()) || (rid === 'TOWER' && !towerOpen())) continue;
     const T = THEMES[th], s = SLOTS[rid];
-    if (rid === 'LIB') LIB_SPOTS.slice(0, window.__EDIT && T.oldlib ? LIB_SPOTS.length : libSeats()).forEach((q, k) => { const o = { n: T.seats[k % T.seats.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); });
+    if (rid === 'LIB' && T.oldlib) { libSeatOv(); const aL = layAdd('LIB', s, add); for (let k = 0; k < (window.__EDIT ? LIB_SPOTS.length : libSeats()); k++) { const r = Math.floor(k / 4), c = k % 4, o = { n: 'lb_chair', x: s.x0 + 1.1 + c * 1.3, y: s.y0 + 1.8 + r * 1.6 - 0.02, th }; aL(o.x, o.y, () => drawProp(o), 0, 'lb_chair'); } }   /* movable chairs */
+    else if (rid === 'LIB') LIB_SPOTS.slice(0, libSeats()).forEach((q, k) => { const o = { n: T.seats[k % T.seats.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); });
     if (T.beds && WORLD === 1 && (true)) { const from = rid === 'DORM' ? 0 : DORM_STRIDE, n = rid === 'DORM' ? beds1() : beds2(), aN = layAdd(rid, s, add);   /* one nest per four places, drawn behind its sleepers */
       for (let b = 0; b < (EDIT ? DORM_STRIDE : n); b += 4) { const c = DORM_SPOTS[from + b].nest, o = { n: 'dm_nest_canopy', x: c.x, y: c.y, th }, num = b / 4 + 1; aN(c.x - 0.45, c.y - 0.45, () => { drawProp(o); if (EDIT) { const m = P(c.x, c.y); ctx.save(); ctx.font = '800 9px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.fillStyle = '#6b3fb0'; ctx.strokeText(String(num), m.x, m.y + 6); ctx.fillText(String(num), m.x, m.y + 6); ctx.restore(); } }, 0, 'dm_nest'); }   /* the editor shows all 8, numbered: players get them in this order */ }
     else if (T.beds) { const from = rid === 'DORM' ? 0 : DORM_STRIDE, n = rid === 'DORM' ? beds1() : beds2();
@@ -8680,7 +8683,7 @@ function relayout() {   // rebuild the map (a class was expanded): creatures kee
   genLayout(); buildGrid(); buildEdges(); decorateEdges();
   REC = SLOTS.REC; OFFICER = { x: REC.x0 + 0.75, y: REC.y0 + 3.3 };
   DS = SLOTS.DORM; DS2 = SLOTS.DORM2; CONCIERGE = WORLD === 1 && (true) ? { x: DS.x0 + 0.65, y: DS.y0 + 0.75 } : { x: DS.x0 - 0.55, y: DS.y0 + 1.1 }; dormSpots();
-  LS = SLOTS.LIB; libSpots();
+  LS = SLOTS.LIB; libSpots(); libSeatOv();
   computeBounds(); staticKey = ''; resize();
   if (snap) {
     agents = []; queue = []; processing = null; dormLine = []; checkin = null; CON2.line = []; CON2.cur = null; shopLine.length = 0; cantLine.length = 0; cantSeats.fill(null);
@@ -9054,5 +9057,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=594').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=595').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
