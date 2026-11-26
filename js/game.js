@@ -1,23 +1,23 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=591';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=592';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=591';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=591';
-import { initMinigame } from './minigame.js?v=591';
-import { initChests } from './chests.js?v=591';
-import { initValley } from './valley.js?v=591';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=591';
-import { initLore } from './lore.js?v=591';
-import { initAvatar } from './avatar.js?v=591';
-import { initStats } from './stats.js?v=591';
-import { initStudents } from './students.js?v=591';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initHeroes } from './heroes.js?v=591';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
-import { initAnnex } from './annex.js?v=591';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
-import { ANNEX_BAL } from './annex.js?v=591';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
-import { initToday } from './today.js?v=591';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
+} from './data.js?v=592';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=592';
+import { initMinigame } from './minigame.js?v=592';
+import { initChests } from './chests.js?v=592';
+import { initValley } from './valley.js?v=592';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=592';
+import { initLore } from './lore.js?v=592';
+import { initAvatar } from './avatar.js?v=592';
+import { initStats } from './stats.js?v=592';
+import { initStudents } from './students.js?v=592';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes } from './heroes.js?v=592';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=592';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=592';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=592';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -95,7 +95,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 591;   // keep equal to the ?v= number in index.html
+const BUILD = 592;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -563,6 +563,7 @@ const MAX_DESKS_ABS = 21;
 const ART = {                                               // room pictures with floor corners in image px
   ...((true) ? { DORM: { src: 'assets/parts/dorm/dm_tree.webp?v=1', L: [60, 669], R: [1090, 519], F: [452, 897], band: 1, fill: 1 }, DORM2: { src: 'assets/parts/dorm/dm_tree_nodoor.webp?v=1', L: [60, 669], R: [1090, 519], F: [452, 897], band: 1, fill: 1 } } : {}),   /* the tree dorms: editor only until her OK */
   CANT: { src: 'assets/parts/canteen/ct_room.webp?v=1', L: [103.5, 715], R: [950, 722.5], F: [525, 970] },   /* the tavern canteen, painted from the approved concept (live since her OK 2026-11-26) */
+  ...(window.__EDIT ? { LIB: { src: 'assets/parts/library/lb_room.webp?v=1', L: [70.6, 821], R: [946.2, 739.9], F: [441.4, 1045.5], band: 1, fill: 1 } } : {}),   /* the old sunlit library, painted from the approved concept: editor only until her OK */
   REC: { src: 'assets/parts/reception/rc_room.webp?v=1', L: [11, 689], R: [953, 699], F: [502, 952] },   /* the Arrival Hall (live since her OK 2026-11-25) */   /* the Arrival Hall, painted from the approved concept */
 };
 // ---- rooms assembled from parts (any size looks whole): seamless wall + floor textures, wall decor hung
@@ -728,6 +729,11 @@ if (WORLD === 1) THEMES.CANT = { dir: 'assets/parts/canteen/', wallTiles: 4, flo
     { n: 'ct_basket', x: s.x1 - 0.25, y: s.y0 + 2.5 }, { n: 'ct_pumpkins', x: s.x1 - 0.25, y: s.y0 + 3.5 }, { n: 'ct_barrel', x: s.x1 - 0.25, y: s.y0 + 4.4 },
     { n: 'ct_jars', x: s.x0 + 0.4, y: s.y1 - 0.28 }, { n: 'ct_basil', x: s.x0 + 2.05, y: s.y1 - 0.22 }, { n: 'ct_veg', x: s.x0 + 3.95, y: s.y1 - 0.28 },
     ...TAV_TABLES.slice(0, window.__EDIT || !(S && S.cant) ? 6 : cantTables()).map((b, k) => ({ n: TAV_KEYS[k % 3], x: s.x0 + b[0], y: s.y0 + b[1] - 0.02 }))] };   /* the editor shows all six */
+if (window.__EDIT && WORLD === 1) THEMES.LIB = { dir: 'assets/parts/library/', wallTiles: 4, floorTiles: 3, board: 'bookshelf', isoOnly: true, iso: true, oldlib: true,   /* redesign 2026-11-26: the old sunlit library (walls: the painted picture ART.LIB) */
+  decor: [], back: [], side: [], front: [], rug: '', seats: ['lb_chair'],
+  h: { lb_chair: 27, lb_desk: 30, lb_sidetable: 24, lb_candles: 46, lb_books: 24, lb_cart: 32, lb_monstera: 42 },
+  extras: (s) => [{ n: 'lb_desk', x: s.x0 + 3, y: s.y1 - 0.45 }, { n: 'lb_candles', x: s.x0 + 0.45, y: s.y0 + 1.4 }, { n: 'lb_cart', x: s.x0 + 0.5, y: s.y0 + 6.2 },
+    { n: 'lb_sidetable', x: s.x1 - 0.4, y: s.y0 + 4.2 }, { n: 'lb_books', x: s.x0 + 0.5, y: s.y1 - 0.45 }] };
 // wall decor: width in tiles along the wall, bottom edge as a share of the wall height
 const DECOR = { kp_relief: { w: 2.5, lo: 0.08, deep: 1.0 }, kp_fire: { w: 1.0, lo: 0.03, deep: 1.0 }, kp_deep: { w: 1.0, lo: 0.03, deep: 1.0 }, kp_sconce: { w: 0.4, lo: 0.45, deep: 1.2 }, kp_banner: { w: 0.7, lo: 0.25, deep: 0.5 }, kp_window: { w: 0.75, lo: 0.3, deep: 0.8 }, crownrelief: { w: 2.0, lo: 0.05, deep: 1.0 }, crownbanner: { w: 0.5, lo: 0.25, deep: 0.5 }, tshield: { w: 0.6, lo: 0.35, deep: 0.8 }, tbrazier: { w: 0.45, lo: 0.45, deep: 1.2 }, crownniche: { w: 0.6, lo: 0.3, deep: 1.0 }, taxes: { w: 0.7, lo: 0.35, deep: 0.8 }, bigshelf: { w: 1.6, lo: 0.0, deep: 1.2 }, ambwin: { w: 0.6, lo: 0.3, deep: 0.6 }, scrollcase: { w: 0.6, lo: 0.0, deep: 1.2 }, kingtree: { w: 0.8, lo: 0.25, deep: 0.6 }, hanglamps: { w: 0.8, lo: 0.4, deep: 1.0 }, kmap2: { w: 0.9, lo: 0.35, deep: 0.5 }, hookboard: { w: 1.8, lo: 0.3, deep: 0.8 }, roundwin: { w: 0.7, lo: 0.3, deep: 0.8 }, cshelf: { w: 0.9, lo: 0.4, deep: 1.0 }, embroid: { w: 0.6, lo: 0.3, deep: 0.5 }, moondial: { w: 0.6, lo: 0.35, deep: 0.8 }, clamp: { w: 0.35, lo: 0.45, deep: 1.0 }, kmap: { w: 1.8, lo: 0.1, deep: 1.0 }, slit: { w: 0.4, lo: 0.25, deep: 0.6 }, gnotice: { w: 0.8, lo: 0.35, deep: 0.6 }, runeclock: { w: 0.6, lo: 0.4, deep: 0.8 }, glamp: { w: 0.4, lo: 0.45, deep: 1.2 }, ledgers: { w: 0.9, lo: 0.4, deep: 1.0 }, kingrelief: { w: 2.6, lo: 0.0, deep: 1.0 }, oathbanner: { w: 0.7, lo: 0.25, deep: 0.5 }, goldcandle: { w: 0.45, lo: 0.4, deep: 1.0 }, names: { w: 1.1, lo: 0.4, deep: 0.5 }, wallgong: { w: 0.7, lo: 0.3, deep: 1.0 }, goldhammers: { w: 0.7, lo: 0.35, deep: 0.8 }, lakearch: { w: 2.0, lo: 0.0, deep: 1.0 }, net: { w: 1.0, lo: 0.25, deep: 0.6 }, oars: { w: 0.6, lo: 0.3, deep: 0.8 }, bluelamp: { w: 0.35, lo: 0.4, deep: 1.0 }, lakemap: { w: 0.9, lo: 0.4, deep: 0.5 }, fishstring: { w: 0.35, lo: 0.3, deep: 0.8 }, gbanner: { w: 2.0, lo: 0.05, deep: 1.0 }, shields: { w: 1.2, lo: 0.3, deep: 0.8 }, gtorch: { w: 0.4, lo: 0.45, deep: 1.2 }, axes: { w: 0.9, lo: 0.3, deep: 0.8 }, helm: { w: 0.5, lo: 0.35, deep: 1.0 }, warhorn: { w: 0.8, lo: 0.35, deep: 0.8 }, gcab: { w: 2.0, lo: 0.05, deep: 1.0 }, cuts: { w: 0.8, lo: 0.3, deep: 0.5 }, gsconce: { w: 0.45, lo: 0.45, deep: 1.2 }, gtap: { w: 0.8, lo: 0.3, deep: 0.5 }, gcrys: { w: 0.5, lo: 0.35, deep: 1.0 }, hearth: { w: 2.1, lo: 0.0, deep: 1.2 }, tongs: { w: 0.9, lo: 0.35, deep: 0.8 }, chain: { w: 0.4, lo: 0.3, deep: 0.8 }, tunnel: { w: 2.4, lo: 0.0, deep: 1.0 }, rack: { w: 1.0, lo: 0.35, deep: 1.0 }, sign: { w: 0.7, lo: 0.4, deep: 0.6 }, rope: { w: 0.45, lo: 0.3, deep: 1.0 }, shield: { w: 0.8, lo: 0.4, deep: 0.8 }, niche: { w: 0.8, lo: 0.25, deep: 1.0 }, plaque: { w: 0.75, lo: 0.35, deep: 0.8 }, menu: { w: 0.8, lo: 0.3, deep: 0.8 }, plates: { w: 1.1, lo: 0.35, deep: 1.4 }, pots: { w: 1.1, lo: 0.4, deep: 1.2 }, dried_herbs: { w: 0.8, lo: 0.35, deep: 1.2 }, stained: { w: 0.95, lo: 0.3, deep: 0.6 }, masters_art: { w: 1.4, lo: 0.32, deep: 0.7 }, trophies: { w: 1.3, lo: 0.4, deep: 1.4 }, jar_shelf: { w: 1.1, lo: 0.25, deep: 1.3 }, toy_rack: { w: 1.2, lo: 0.4, deep: 1.4 }, owl_clock: { w: 0.7, lo: 0.45, deep: 1.2 }, flying_books: { w: 1.4, lo: 0.55, deep: 1.6 }, candles: { w: 0.9, lo: 0.55, deep: 1.6 }, portrait: { w: 1.2, lo: 0.3, deep: 0.7 }, certificates: { w: 1.3, lo: 0.4, deep: 0.6 }, notice: { w: 0.9, lo: 0.4, deep: 0.8 }, lantern: { w: 0.5, lo: 0.5, deep: 1.4 }, garland: { w: 2.6, lo: 0.62, deep: 0.5 }, moon_clock: { w: 0.8, lo: 0.5, deep: 1 }, bookshelf: { w: 1.4, lo: 0.0, deep: 1.2 }, bookshelf2: { w: 1.3, lo: 0.0, deep: 1.2 }, lamp: { w: 0.5, lo: 0.5, deep: 1.2 }, map: { w: 1.1, lo: 0.35, deep: 0.6 }, banner: { w: 1.0, lo: 0.28, deep: 0.7 }, sconce: { w: 0.6, lo: 0.45, deep: 1.4 }, diploma: { w: 0.8, lo: 0.4, deep: 0.6 }, el_poster: { w: 1.5, lo: 0.3, deep: 0.6 }, torch: { w: 0.6, lo: 0.45, deep: 1.5 }, planter: { w: 1.2, lo: 0.4, deep: 1.4 }, wing_poster: { w: 1.7, lo: 0.3, deep: 0.6 }, birds: { w: 1.4, lo: 0.4, deep: 1.2 }, circle: { w: 1.7, lo: 0.3, deep: 0.8 }, mirror: { w: 0.8, lo: 0.35, deep: 0.8 }, wand_rack: { w: 1.3, lo: 0.35, deep: 1.4 }, chart: { w: 1.9, lo: 0.28, deep: 0.6 }, painting: { w: 0.9, lo: 0.45, deep: 0.8 }, poster: { w: 1.9, lo: 0.28, deep: 0.6 }, round_window: { w: 1.0, lo: 0.42, deep: 0.6 }, cabinet: { w: 1.2, lo: 0.32, deep: 1.5 }, board: { w: 2.6, lo: 0.3, deep: 0.8 }, window: { w: 0.95, lo: 0.3, deep: 0.6 }, window2: { w: 0.95, lo: 0.3, deep: 0.6 }, shelf: { w: 1.7, lo: 0.45, deep: 2.2 }, herbs_rack: { w: 1.5, lo: 0.36, deep: 2 }, clock: { w: 0.9, lo: 0.5, deep: 1.2 } };
 // floor props: height in world px (a creature is 30)
@@ -875,6 +881,7 @@ function genLayoutCourt() {
   // wall faces the gallery under the back row), a 4-tile lawn, the canteen (tall back wall too); the masters' tower stands outside
   // on the lawn to the right, a path from the gallery corner leads to it
   SLOTS.LIB = slot(Xr, cy0, [[Xr, cy0 + 3], [Xr - 1, cy0 + 3]], {}, 6, 8, [[[Xr, cy0 + 4], [Xr - 1, cy0 + 4]]]);
+  if (ART.LIB) SLOTS.LIB.extra = [];   /* the old library: students walk in through the middle of its painted arch */
   SLOTS.CANT = slot(Xr, cy0 + 12, [[Xr, cy0 + 14], [Xr - 1, cy0 + 14]], {}, 6, 6, [[[Xr, cy0 + 15], [Xr - 1, cy0 + 15]]]);
   if (ART.CANT) SLOTS.CANT.extra = [];   /* the tavern: students walk in through the middle of its painted arch */
   SLOTS.TOWER = slot(XR + 2, cy1 - 2, [[XR + 2, cy1 + 1], [XR + 1, cy1 + 1]], {}, 6, 6, [[[XR + 2, cy1 + 2], [XR + 1, cy1 + 2]]]);
@@ -4437,7 +4444,7 @@ function wallColor(id) {
   return { REC: '#d9c4f0', DORM: '#bcd3f2', DORM2: '#bcd3f2', LIB: '#d8b48a', TOWER: '#9d84d8', hall: '#e9e1f3' }[id] || '#e9e1f3';
 }
 function drawEdge(c, e, capOnly = false) {
-  if ((e.id === 'REC' || e.id === 'DORM' || e.id === 'DORM2' || e.id === 'CANT') && WORLD === 1 && arts[e.id] && arts[e.id].naturalWidth && (e.tall || e.side === 'x0' || e.side === 'y0')) return;   /* the painted Arrival Hall has its own walls */
+  if ((e.id === 'REC' || e.id === 'DORM' || e.id === 'DORM2' || e.id === 'CANT' || e.id === 'LIB') && WORLD === 1 && arts[e.id] && arts[e.id].naturalWidth && (e.tall || e.side === 'x0' || e.side === 'y0')) return;   /* the painted Arrival Hall has its own walls */
   const { x, y, side } = e, h = e.tall ? TALL_H() : KNEE_H();
   let a, b, a2, b2;                                    // base line (a,b) and the cap's far line (a2,b2)
   if (side === 'x0') { a = P(x, y + 1); b = P(x, y); a2 = P(x - TH, y + 1); b2 = P(x - TH, y); }
@@ -5939,12 +5946,12 @@ function render() {
   for (const rid of ['LIB', 'REC', 'DORM', 'DORM2', 'DIR', 'SHOP', 'TOWER', 'CANT']) {
     const th = themeOf(rid); if (!th || !SLOTS[rid] || (rid === 'CANT' && !cantOpen()) || (rid === 'DORM2' && !dorm2Built()) || (rid === 'DIR' && !dirBuilt()) || (rid === 'SHOP' && !shopOpen()) || (rid === 'TOWER' && !towerOpen())) continue;
     const T = THEMES[th], s = SLOTS[rid];
-    if (rid === 'LIB') LIB_SPOTS.slice(0, libSeats()).forEach((q, k) => { const o = { n: T.seats[k % T.seats.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); });
+    if (rid === 'LIB') LIB_SPOTS.slice(0, window.__EDIT && T.oldlib ? LIB_SPOTS.length : libSeats()).forEach((q, k) => { const o = { n: T.seats[k % T.seats.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); });
     if (T.beds && WORLD === 1 && (true)) { const from = rid === 'DORM' ? 0 : DORM_STRIDE, n = rid === 'DORM' ? beds1() : beds2(), aN = layAdd(rid, s, add);   /* one nest per four places, drawn behind its sleepers */
       for (let b = 0; b < (EDIT ? DORM_STRIDE : n); b += 4) { const c = DORM_SPOTS[from + b].nest, o = { n: 'dm_nest_canopy', x: c.x, y: c.y, th }, num = b / 4 + 1; aN(c.x - 0.45, c.y - 0.45, () => { drawProp(o); if (EDIT) { const m = P(c.x, c.y); ctx.save(); ctx.font = '800 9px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.fillStyle = '#6b3fb0'; ctx.strokeText(String(num), m.x, m.y + 6); ctx.fillText(String(num), m.x, m.y + 6); ctx.restore(); } }, 0, 'dm_nest'); }   /* the editor shows all 8, numbered: players get them in this order */ }
     else if (T.beds) { const from = rid === 'DORM' ? 0 : DORM_STRIDE, n = rid === 'DORM' ? beds1() : beds2();
       DORM_SPOTS.slice(from, from + n).forEach((q, k) => { const o = { n: T.beds[k % T.beds.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); }); }
-    const addR = (rid === 'REC' || rid === 'DORM' || rid === 'DORM2' || (rid === 'CANT' && T.tavern)) && WORLD === 1 ? layAdd(rid, s, add) : null;   /* the reception's furniture is editable in the room editor */
+    const addR = (rid === 'REC' || rid === 'DORM' || rid === 'DORM2' || (rid === 'CANT' && T.tavern) || (rid === 'LIB' && T.oldlib)) && WORLD === 1 ? layAdd(rid, s, add) : null;   /* the reception's furniture is editable in the room editor */
     for (const o of (T.extras ? T.extras(s) : [])) { const oo = { ...o, th }; if (addR) addR(oo.x, oo.y, () => drawProp(oo), 0, oo.n); else add(oo.x, oo.y, () => drawProp(oo)); }
     if (addR) layExtra(rid, s, add);
     if (T.arrival) { const pl = part(th, 'rc_plane'); if (pl) for (let m = 0; m < 2; m++) { const T0 = performance.now() / 1000 + m * 4.5, u = (T0 % 9) / 9; if (u > 0.55) continue; const v = u / 0.55, x = s.x0 + 1.75 + (1.3 - 1.75) * v, y = s.y0 + 3.6 + (0.4 - 3.6) * v;   /* paper airplanes fly from the counter to the notice board */
@@ -8912,5 +8919,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=591').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=592').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
