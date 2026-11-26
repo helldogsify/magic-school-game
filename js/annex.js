@@ -156,7 +156,8 @@ const perOf = (id) => ANNEX_BAL[id].per * Math.pow(ANNEX_BAL.speedK, (st(id).L |
 const lvlCoins = (id) => { const L = (st(id).L || 1) + 1; return A.paced(ANNEX_BAL[id].cost * Math.pow(ANNEX_BAL.lvlCoinK, L - 1), L); };
 const lvlRare = (id) => { const L = (st(id).L || 1) + 1; return id === 'obs' ? ANNEX_BAL.obs.dustNeed[L] : (ANNEX_BAL[id].lvlRare || ANNEX_BAL.lvlRare)[L]; };   // elcirc: own (dearer) list
 const rareN = (id) => (id === 'obs' ? A.S().stardust || 0 : st(id).r || 0);
-function rareAdd(id, n) { if (!(n > 0)) return; if (id === 'obs') A.S().stardust = (A.S().stardust || 0) + n; else st(id).r = (st(id).r || 0) + n; }
+function rareAdd(id, n) { if (!(n > 0) || (RUN && RUN.free)) return;   // free practice plays give no rare things
+  if (id === 'obs') A.S().stardust = (A.S().stardust || 0) + n; else st(id).r = (st(id).r || 0) + n; }
 const saplingCost = () => { const m = st('orchard').tr.filter(Boolean).length; return A.paced(ANNEX_BAL.orchard.sapling * Math.pow(ANNEX_BAL.orchard.saplingK, Math.max(0, m - 1)), m + 1); };
 
 // ---- production (by the trusted clock: Date.now is corrected by js/clock.js; offline time counts, capped stock)
@@ -344,10 +345,11 @@ function evTick() {
   }
 }
 function startEv(id) {
-  const e = st(id).ev; if (!e || !e.rdy || RUN || A.quiet()) return false;
-  e.rdy = 0; e.w = 0; e.k++; e.next = rand(ANNEX_BAL.ev.gapMin, ANNEX_BAL.ev.gapMax);
+  const e = st(id).ev; if (!e || RUN || A.quiet()) return false;
+  const paid = e.k < ANNEX_BAL.ev.perDay;   // any time; the first perDay plays of a day give rewards
+  e.rdy = 0; e.w = 0; if (paid) e.k++; e.next = rand(ANNEX_BAL.ev.gapMin, ANNEX_BAL.ev.gapMax);
   const g = geo(id); A.closePanel(); A.focusTile(g.x, g.y, false);
-  const kind = DEF[id].ev; RUN = { id, kind, t0: performance.now(), got: 0, rare: 0, items: [], k: 0, done: false };
+  const kind = DEF[id].ev; RUN = { id, kind, t0: performance.now(), got: 0, rare: 0, items: [], k: 0, done: false, free: !paid };
   if (kind === 'bloom') initBloom(); else if (kind === 'sfall') initFall(); else if (kind === 'storm') initStorm(); else initMirror();
   if (kind !== 'mirror' && kind !== 'storm') layerOn();
   if (!e.first) { e.first = 1; if (kind === 'mirror' || kind === 'storm') RUN.first = `${DEF[id].who}: ${DEF[id].first}`; else bubble(DEF[id].who, DEF[id].first, 6000); }   // the mirror shows the teacher's line inside its own overlay
@@ -363,7 +365,8 @@ function finishEv(cut) {
   rareAdd(id, rare); RUN = null; layerOff(); mirrorOff(); stormOff();
   if (R.kind === 'sfall' && R.got) setTimeout(() => A.lore('star'), 600);   // after the event: the first caught star opens the secret page «Звездопад» (D7.3), later ones show the dust count
   const tail = R.kind === 'sfall' ? (R.got ? ` → ✨ +${R.got} звёздной пыли` : '') : rare ? ` → ${D.rare.e} +${rare} ${rare === 1 ? D.rare.n : D.rare.many}` : '';
-  A.toast(`${EV_NAME[D.ev]}: ${R.sum}${tail}`); glog('toast', `${EV_NAME[D.ev]}: ${R.sum}${tail}`, WORLD);
+  const tail2 = R.free ? ' · без награды (награды на сегодня собраны)' : tail;
+  A.toast(`${EV_NAME[D.ev]}: ${R.sum}${tail2}`); glog('toast', `${EV_NAME[D.ev]}: ${R.sum}${tail}`, WORLD);
   stat('ev_end', id, { n: R.got || 0, r: R.kind === 'sfall' ? R.got : rare, c: cut ? 1 : 0, ...(R.kind === 'storm' ? { s: R.score, nr: R.newRec } : {}) }); deed('event', id); A.save();
   if (R.bookDone) setTimeout(() => bubble(D.who, '«Все находки собраны! Стихии с тобой договорились — теперь ты Повелитель стихий.»', 7000), 900);
 }
@@ -967,7 +970,7 @@ function panelFn() {
   h += `<div class="stats3"><div><span>${D.prod.e}</span><b>${a.n} мин</b><i>запас (до ${cap})</i></div><div><span>⏱️</span><b>+1 мин</b><i>каждые ${per >= 60 ? Math.round(per / 6) / 10 + ' мин' : Math.round(per) + ' с'}</i></div><div><span>${D.rare.e}</span><b>${rareN(id)}</b><i>${D.rare.n}</i></div></div>
     <p class="muted">${D.prod.e} ${D.prod.n[0].toUpperCase() + D.prod.n.slice(1)}: запас на ${a.n} мин. ${D.prod.fx[0].toUpperCase() + D.prod.fx.slice(1)}. Запас пополняется сам и тратится по минуте в минуту, пока он есть. Без него класс работает как обычно.</p>`;
   if (D.game) h += `<button class="btn wide hot" data-anx="play" data-id="${D.game}">${{ p: '🧪 Варить зелья — «Зельеварка»', fish: '🎣 Рыбачить — «Рыбалка»', f: '🪁 Летать — «Полёт через кольца»' }[D.game]}</button><p class="muted">Игра с наградой: за 2 ⭐ — ${D.rare.e} 1, за 3 ⭐ — ${D.rare.e} 2.</p>`;
-  if (D.ev) { const e = a.ev; h += `<div class="card ${e.rdy ? 'up' : ''}"><span class="remoji">${EV_NAME[D.ev].split(' ')[0]}</span><div class="grow"><b>${EV_NAME[D.ev].slice(EV_NAME[D.ev].indexOf(' ') + 1)}</b><div class="muted">${e.rdy ? 'готово — можно начать!' : e.k >= ANNEX_BAL.ev.perDay ? 'на сегодня всё — приходи завтра' : 'появится само, когда играешь'} · сегодня ${e.k}/${ANNEX_BAL.ev.perDay}</div></div>${e.rdy ? `<button class="btn hot" data-anx="start" data-id="${id}">Начать</button>` : ''}</div>`; }
+  if (D.ev) { const e = a.ev; h += `<div class="card ${e.rdy ? 'up' : ''}"><span class="remoji">${EV_NAME[D.ev].split(' ')[0]}</span><div class="grow"><b>${EV_NAME[D.ev].slice(EV_NAME[D.ev].indexOf(' ') + 1)}</b><div class="muted">${e.k >= ANNEX_BAL.ev.perDay ? 'награды на сегодня собраны — можно играть просто так' : `с наградой сегодня ещё ${ANNEX_BAL.ev.perDay - e.k} из ${ANNEX_BAL.ev.perDay}`}</div></div><button class="btn ${e.rdy || e.k < ANNEX_BAL.ev.perDay ? 'hot' : ''}" data-anx="start" data-id="${id}">Играть</button></div>`; }
   if (id === 'elcirc') h += circleCard();
   if (a.L < ANNEX_BAL.lvlMax) { const need = lvlRare(id), ok = rareN(id) >= need;
     h += `<div class="card up"><span class="remoji">⬆️</span><div class="grow"><b>Улучшить до ур. ${a.L + 1}</b><div class="muted">запас до ${cap} → ${Math.round(B.cap * (1 + ANNEX_BAL.capK * a.L))} мин, пополняется быстрее на 15 %${id === 'elcirc' ? ` · задания до ступени ${Math.min(RX.maxL, ANNEX_BAL.elcirc.depthL[a.L + 1])}` : ''} · нужно ${D.rare.e} ${need}${id === 'obs' ? ' (пыль остаётся у тебя)' : ''} (есть ${rareN(id)})</div></div><button class="btn" data-anx="lvl" data-id="${id}" ${ok ? '' : 'disabled'}>↑ <span class="cost">🪙${f(lvlCoins(id))}</span></button></div>`; }
