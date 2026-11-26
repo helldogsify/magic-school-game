@@ -13,6 +13,18 @@ const TINFO = {
   tower: { n: 'Сторожевая башня', ico: '🛡️', col: '#d9d2c3', d: 'Оборона ×1,5, а соседние земли альянса — ×1,25.' },
   castle: { n: 'Замок', ico: '🏰', col: '#f1e3c6', d: 'Дом альянса: оборона ×2. Чужой замок — 5 очков.' },
 };
+const TINFO2 = {   // world 2: the dwarves' halls under the mountain (same rules, own names)
+  plain: { n: 'Каменный зал', ico: '', col: '#8c95a3', d: 'Обычная земля.' },
+  forest: { n: 'Грибная роща', ico: '🍄', col: '#5fa3a0', d: 'Защитникам легче: оборона ×1,25.' },
+  mountain: { n: 'Скалы', ico: '⛰️', col: '#7d8594', d: 'Отбить трудно: оборона ×1,5.' },
+  lake: { n: 'Подземное озеро', ico: '', col: '#2f6b73', d: 'Через озеро не пройти.' },
+  mine: { n: 'Рудная жила', ico: '⛏️', col: '#b59a5a', d: 'Каждому в альянсе +1 отряд в день.' },
+  ruins: { n: 'Древний чертог', ico: '🏚️', col: '#9aa0aa', d: 'Раз в день каждый из альянса находит здесь лунный камень.' },
+  tower: { n: 'Застава', ico: '🛡️', col: '#a4a9b3', d: 'Оборона ×1,5, а соседние земли альянса — ×1,25.' },
+  castle: { n: 'Крепость', ico: '🏰', col: '#b8bcc6', d: 'Дом альянса: оборона ×2. Чужая крепость — 5 очков.' },
+};
+const TI = () => (A && A.world && A.world() === 2 ? TINFO2 : TINFO);
+const w2 = (a, b) => (A && A.world && A.world() === 2 ? b : a);   // a text of world 1 or of world 2
 const PRIZE = [15, 10, 5];
 let A = null, root = null, cv = null, st = null, sel = null, n = 1, busy = false, msg = '', pollT = 0, tab = 'map', zoom = 1.6, centred = false;
 const W = () => (A.world ? A.world() : 1);
@@ -56,18 +68,22 @@ function hexPath(cx, x, y, s) { cx.beginPath(); for (let k = 0; k < 6; k++) { co
 const shade = (hex, k) => { const v = parseInt(hex.slice(1, 7), 16), f = (c) => Math.max(0, Math.min(255, Math.round(k < 0 ? c * (1 + k) : c + (255 - c) * k))); return `rgb(${f(v >> 16)},${f((v >> 8) & 255)},${f(v & 255)})`; };
 const mix = (h1, h2, k) => { const a = parseInt(h1.slice(1, 7), 16), b = parseInt(h2.slice(1, 7), 16), m = (x, y) => Math.round(x + (y - x) * k); return '#' + [m(a >> 16, b >> 16), m((a >> 8) & 255, (b >> 8) & 255), m(a & 255, b & 255)].map((v) => v.toString(16).padStart(2, '0')).join(''); };
 let march = null, burst = null, tut = -1, raf = 0, lastDraw = 0;
-const TILE = {};   // painted tiles (art/valley/tiles_v1.jpg, SYNTX banana2, Maria's «Да» 2026-11-25); the code drawing stays as the fallback
-for (const k of ['plain', 'forest', 'mountain', 'lake', 'mine', 'ruins', 'tower', 'castle', 'path']) { const im = new Image(); im.src = `assets/valley/${k}.webp?v=1`; TILE[k] = im; }
-const tileImg = (c) => { const k = c.t === 'plain' && ((c.q * 7 + c.r * 13) & 3) === 0 ? 'path' : c.t, im = TILE[k]; return im && im.complete && im.naturalWidth ? im : null; };
+const TILES = {};   // painted tiles (art/valley/tiles_v1.jpg, SYNTX banana2, Maria's «Да» 2026-11-25); the code drawing stays as the fallback
+function tileSet() {   // painted tiles of this world, loaded on first use (world 2: dwarven halls, art/valley/tiles_w2_v1.jpg)
+  const w = W() === 2 ? 2 : 1; if (TILES[w]) return TILES[w]; const T = (TILES[w] = {});
+  for (const k of ['plain', 'forest', 'mountain', 'lake', 'mine', 'ruins', 'tower', 'castle', 'path']) { const im = new Image(); im.src = `assets/valley/${w === 2 ? 'w2/' : ''}${k}.webp?v=1`; T[k] = im; }
+  return T;
+}
+const tileImg = (c) => { const k = c.t === 'plain' && ((c.q * 7 + c.r * 13) & 3) === 0 ? 'path' : c.t, im = tileSet()[k]; return im && im.complete && im.naturalWidth ? im : null; };
 const VAL = { mine: 3, castle: 4, ruins: 2.5, tower: 2 };
 function tipOf() {   // the best move now: a cheap valuable neighbour; or what else to do
   if (!st || !st.me) return null;
   if (!st.me.left) return { text: `Отряды на сегодня кончились — новые ${st.me.troops} придут через ${refillTxt()}.` + ' Загляни в «События»: что делают друзья по альянсу.' };
   const mine = myAl(), opts = cells().filter((c) => c.o !== mine && reach(c) && c.t !== 'lake').map((c) => ({ c, need: Math.floor(c.g * defOf(c)) + 1 }));
   const ok = opts.filter((o) => o.need <= st.me.left).sort((x, y) => (VAL[y.c.t] || 1) / y.need - (VAL[x.c.t] || 1) / x.need);
-  if (ok.length) { const o = ok[0], T = TINFO[o.c.t], why = o.c.t === 'mine' ? ' Шахта даёт каждому в альянсе +1 отряд в день.' : o.c.t === 'ruins' ? ' В руинах каждый день лунный камень.' : o.c.t === 'tower' ? ' Башня защищает соседние земли.' : o.c.o ? ' Это земля соперников!' : '';
+  if (ok.length) { const o = ok[0], T = TI()[o.c.t], why = o.c.t === 'mine' ? ' Шахта даёт каждому в альянсе +1 отряд в день.' : o.c.t === 'ruins' ? ' В руинах каждый день лунный камень.' : o.c.t === 'tower' ? ' Башня защищает соседние земли.' : o.c.o ? ' Это земля соперников!' : '';
     return { text: `Займи «${T.n}» — нужно ${o.need} ${o.need === 1 ? 'отряд' : o.need < 5 ? 'отряда' : 'отрядов'}, у тебя ${st.me.left}.${why}`, c: o.c, need: o.need }; }
-  if (opts.length) { const o = opts.sort((x, y) => x.need - y.need)[0]; return { text: `Рядом сильные защитники. Атакуй «${TINFO[o.c.t].n}» всеми отрядами — даже без победы защитников станет меньше, и друзья добьют.`, c: o.c, need: st.me.left }; }
+  if (opts.length) { const o = opts.sort((x, y) => x.need - y.need)[0]; return { text: `Рядом сильные защитники. Атакуй «${TI()[o.c.t].n}» всеми отрядами — даже без победы защитников станет меньше, и друзья добьют.`, c: o.c, need: st.me.left }; }
   return { text: 'Укрепи свою землю на границе, чтобы её не отобрали.' };
 }
 function draw() {
@@ -77,7 +93,7 @@ function draw() {
   const all = cells().sort((a, b) => a.r - b.r || a.q - b.q);
   const ico = (e, x, y, z) => { const im = A.emojiImage && A.emojiImage(e); if (im) cx.drawImage(im, x - z / 2, y - z / 2, z, z); else { cx.font = `${z * 0.85}px serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(e, x, y); } };
   for (const c of all) {
-    const { x, y } = px(c.q, c.r), T = TINFO[c.t], al = alOf(c.o), lake = c.t === 'lake';
+    const { x, y } = px(c.q, c.r), T = TI()[c.t], al = alOf(c.o), lake = c.t === 'lake';
     const base = al ? mix(T.col, al.color, 0.38) : T.col, top = lake ? y + ext * 0.5 : y;
     if (!lake) { hexPath(cx, x, y + ext, s * 0.98); cx.fillStyle = shade(base, -0.38); cx.fill(); }   // the side of the raised tile
     const im = tileImg(c); hexPath(cx, x, top, s * 0.98);
@@ -129,20 +145,21 @@ function css() {
 #vl .vl-step{display:flex;align-items:center;gap:4px;background:#f1eafd;border-radius:12px;padding:3px}#vl .vl-step button{width:34px;height:34px;border:0;border-radius:10px;background:#fff;font:900 18px inherit}#vl .vl-step span{min-width:26px;text-align:center;font-weight:900}
 #vl .vl-msg{margin-top:6px;font-weight:800;font-size:13.5px}
 #vl .vl-tip{display:flex;align-items:center;gap:6px;margin:0 10px 6px;background:#fff6cf;border:2px solid #f2d06b;border-radius:12px;padding:5px 8px;font-size:12.5px;font-weight:700;line-height:1.3}
-#vl .vl-map{background:radial-gradient(ellipse at 50% 40%,#f7f1ff 0%,#e9ddff 60%,#dccdf7 100%);border-radius:16px;margin:0 6px}`;
+#vl .vl-map{background:radial-gradient(ellipse at 50% 40%,#f7f1ff 0%,#e9ddff 60%,#dccdf7 100%);border-radius:16px;margin:0 6px}
+#vl.w2 .vl-map{background:radial-gradient(ellipse at 50% 40%,#5d6573 0%,#424955 60%,#2f343e 100%)}`;
   document.head.appendChild(e);
 }
 function cardHtml() {
-  if (!st) return '<div class="vl-muted">Загружаю долину…</div>';
-  if (!st.me) return `<b>Долина альянсов</b><div class="vl-muted">Чтобы сражаться за земли, вступи в альянс (окно 🤝). Смотреть карту можно и так.</div>`;
+  if (!st) return `<div class="vl-muted">${w2('Загружаю долину…', 'Загружаю чертоги…')}</div>`;
+  if (!st.me) return `<b>${w2('Долина альянсов', 'Подземные чертоги')}</b><div class="vl-muted">Чтобы сражаться за земли, вступи в альянс (окно 🤝). Смотреть карту можно и так.</div>`;
   if (!sel) return `<b>Твой ход</b> <span class="vl-muted">· отрядов ${st.me.left} из ${st.me.troops}, новые через ${refillTxt()}</span><div class="vl-muted">Нажми на клетку с белой пунктирной рамкой — туда можно отправить отряды. Свои клетки можно укреплять. ${st.me.castle ? '' : ''}</div>${msg ? `<div class="vl-msg">${msg}</div>` : ''}`;
-  const c = cellAt(sel.q, sel.r), T = TINFO[c.t], al = alOf(c.o), mine = c.o === myAl(), can = mine || reach(c), d = defOf(c), need = Math.floor(c.g * d) + 1;
+  const c = cellAt(sel.q, sel.r), T = TI()[c.t], al = alOf(c.o), mine = c.o === myAl(), can = mine || reach(c), d = defOf(c), need = Math.floor(c.g * d) + 1;
   n = Math.max(1, Math.min(n, st.me.left || 1));
   let act = '';
   if (c.t === 'lake') act = '';
-  else if (freeCastle(c)) act = '<div class="vl-muted" style="margin-top:6px">🏰 Этот замок пока ничей: его получит новый альянс, когда придёт в долину. Захватить можно только замки других альянсов — а этот пока обходи стороной.</div>';
+  else if (freeCastle(c)) act = `<div class="vl-muted" style="margin-top:6px">${w2('🏰 Этот замок пока ничей: его получит новый альянс, когда придёт в долину. Захватить можно только замки других альянсов — а этот пока обходи стороной.', '🏰 Эта крепость пока ничья: её получит новый альянс, когда придёт в чертоги. Захватить можно только крепости других альянсов — а эту пока обходи стороной.')}</div>`;
   else if (mine) act = `<div class="vl-act"><div class="vl-step"><button data-vn="-1">−</button><span>${n}</span><button data-vn="1">+</button></div><button class="btn" data-vgo ${st.me.left ? '' : 'disabled'}>🛡 Укрепить</button></div>`
-    + (c.t === 'ruins' ? `<div class="vl-act"><button class="btn ghost" data-vruin ${st.me.ruins.includes(c.q + ',' + c.r) ? 'disabled' : ''}>🏚 Обыскать руины (лунный камень)</button></div>` : '');
+    + (c.t === 'ruins' ? `<div class="vl-act"><button class="btn ghost" data-vruin ${st.me.ruins.includes(c.q + ',' + c.r) ? 'disabled' : ''}>${w2('🏚 Обыскать руины (лунный камень)', '🏚 Обыскать чертог (лунный камень)')}</button></div>` : '');
   else if (can) act = `<div class="vl-act"><div class="vl-step"><button data-vn="-1">−</button><span>${n}</span><button data-vn="1">+</button></div><button class="btn hot" data-vgo ${st.me.left ? '' : 'disabled'}>⚔️ ${c.o ? 'Напасть' : 'Занять'}</button></div><div class="vl-muted" style="margin-top:4px">Чтобы взять с одного раза, нужно отрядов: <b>${need}</b> · у тебя сегодня: <b>${st.me.left}</b>${st.me.left < st.me.troops ? ` · новые ${st.me.troops} через ${refillTxt()}` : ''}</div>`;
   else act = '<div class="vl-muted" style="margin-top:6px">Сюда пока не дойти: сначала займи соседнюю клетку.</div>';
   return `<b>${T.ico ? T.ico + ' ' : ''}${T.n}</b> <span class="vl-muted">· ${al ? `<span style="color:${al.color};font-weight:800">${esc(al.emo)} ${esc(al.name)}</span>` : 'ничья земля'}${c.t !== 'lake' ? ` · защитников ${c.g}${d > 1 ? ` · оборона ×${String(+d.toFixed(2)).replace('.', ',')}` : ''}` : ''}</span>
@@ -150,31 +167,33 @@ function cardHtml() {
 }
 function listHtml() {
   if (!st) return '';
-  if (tab === 'log') return st.events.length ? st.events.slice().reverse().map((e) => { const al = alOf(e.al), T = TINFO[(cells().find((c) => c.q === e.q && c.r === e.r) || {}).t] || TINFO.plain, tm = new Date(e.t);
+  if (tab === 'log') return st.events.length ? st.events.slice().reverse().map((e) => { const al = alOf(e.al), T = TI()[(cells().find((c) => c.q === e.q && c.r === e.r) || {}).t] || TINFO.plain, tm = new Date(e.t);
     const what = e.k === 'reinforce' ? `укрепил(а) «${T.n}» (+${e.n})` : e.ok ? `${e.k === 'take' ? 'отбил(а)' : 'занял(а)'} «${T.n}»` : `атаковал(а) «${T.n}», но не взял(а)`;
     return `<div class="vl-row"><span class="vl-dot" style="background:${al ? al.color : '#bbb'}"></span><span style="flex:1"><b>${esc(e.who)}</b> ${what}</span><span class="vl-muted">${String(tm.getHours()).padStart(2, '0')}:${String(tm.getMinutes()).padStart(2, '0')}</span></div>`; }).join('') : '<div class="vl-muted" style="padding:10px">Пока тихо — начни первым!</div>';
   if (tab === 'top') {
     const rows = st.table.map((x, k) => { const al = alOf(x.al); return `<div class="vl-row" ${x.al === myAl() ? 'style="box-shadow:0 0 0 2px #e8b923 inset;background:#fff8dc"' : ''}><b style="min-width:24px">${k < 3 ? ['🥇', '🥈', '🥉'][k] : k + 1 + '.'}</b><span class="vl-dot" style="background:${al ? al.color : '#bbb'}"></span><span style="flex:1">${al ? esc(al.emo) + ' ' + esc(al.name) : '?'}<div class="vl-muted">земель: ${x.cells}</div></span><b>${x.score}</b></div>`; }).join('');
     const last = st.last && st.last.table.length ? `<div class="vl-muted" style="margin-top:10px">Прошлая неделя: победил «${esc((alOf(st.last.table[0].al) || {}).name || 'альянс')}».</div>` : '';
-    return `<div class="vl-muted" style="margin:4px 2px">Очки: замок врага 5, шахта, руины и башня по 2, остальные земли по 1. В конце недели каждому участнику: 1-е место 🔮${PRIZE[0]}, 2-е 🔮${PRIZE[1]}, 3-е 🔮${PRIZE[2]}.</div>${rows || '<div class="vl-muted">Пока никто не занял ни одной земли.</div>'}${last}`;
+    return `<div class="vl-muted" style="margin:4px 2px">${w2('Очки: замок врага 5, шахта, руины и башня по 2, остальные земли по 1.', 'Очки: крепость врага 5, рудная жила, древний чертог и застава по 2, остальные земли по 1.')} В конце недели каждому участнику: 1-е место 🔮${PRIZE[0]}, 2-е 🔮${PRIZE[1]}, 3-е 🔮${PRIZE[2]}.</div>${rows || '<div class="vl-muted">Пока никто не занял ни одной земли.</div>'}${last}`;
   }
   return `<div class="vl-muted" style="line-height:1.5;padding:4px 2px">
-    <b>Как играть</b><br>• Каждый день твоя школа даёт отряды: ${st.me ? st.me.troops : 6} сегодня. Больше — за кристальные шахты альянса и за очки «Битвы альянсов» (дела дня, мини-игры, подарки).<br>
+    <b>Как играть</b><br>• Каждый день твоя школа даёт отряды: ${st.me ? st.me.troops : 6} сегодня. Больше — за ${w2('кристальные шахты', 'рудные жилы')} альянса и за очки «Битвы альянсов» (дела дня, мини-игры, подарки).<br>
     • Отряды можно отправить на соседнюю с вашими землями клетку. Если отрядов больше, чем сила защитников, клетка ваша.<br>
-    • Сила защитников = их число × оборона земли (лес ×1,25, горы ×1,5, башня ×1,5, замок ×2).<br>
-    • Свои клетки можно укреплять, чтобы их не отобрали.<br>• Неделя длится до понедельника, потом долина начинается заново.</div>`;
+    • Сила защитников = их число × оборона земли ${w2('(лес ×1,25, горы ×1,5, башня ×1,5, замок ×2)', '(грибная роща ×1,25, скалы ×1,5, застава ×1,5, крепость ×2)')}.<br>
+    • Свои клетки можно укреплять, чтобы их не отобрали.<br>• Неделя длится до понедельника, потом ${w2('долина начинается', 'чертоги делят')} заново.</div>`;
 }
 function tipHtml() { const t = tipOf(); return t ? `<div class="vl-tip">💡 <span style="flex:1">${t.text}</span>${t.c ? '<button class="btn small" data-vtip>Показать</button>' : ''}</div>` : ''; }
+const TUT0 = ['🏰 Это замок твоего альянса', 'Отсюда вы захватываете Волшебную долину. Цвет флажков и рамок — цвет вашего альянса.'];
+const TUT0_W2 = ['🏰 Это крепость твоего альянса', 'Отсюда вы захватываете Подземные чертоги. Цвет флажков и рамок — цвет вашего альянса.'];
 const TUT = [
-  ['🏰 Это замок твоего альянса', 'Отсюда вы захватываете Волшебную долину. Цвет флажков и рамок — цвет вашего альянса.'],
+  TUT0,
   ['⚔️ Куда можно идти', 'Мигающая белая рамка — соседние клетки, туда можно отправить отряды. Число в кружке — сколько там защитников.'],
   ['🏆 Как победить', 'Нажми на клетку, выбери число отрядов и «Занять». Отрядов должно быть больше, чем сила защитников. Каждый день — новые отряды. У кого к понедельнику больше земель, тот победил: каждый участник получит лунные камни.'],
 ];
-function tutHtml() { const [h, t] = TUT[tut]; return `<b>${h}</b> <span class="vl-muted">· ${tut + 1} из ${TUT.length}</span><div class="vl-muted" style="margin-top:3px;font-size:13.5px">${t}</div><div class="vl-act"><button class="btn" data-vtut>${tut < TUT.length - 1 ? 'Дальше ➜' : 'Понятно, играем!'}</button></div>`; }
+function tutHtml() { const [h, t] = tut === 0 && W() === 2 ? TUT0_W2 : TUT[tut]; return `<b>${h}</b> <span class="vl-muted">· ${tut + 1} из ${TUT.length}</span><div class="vl-muted" style="margin-top:3px;font-size:13.5px">${t}</div><div class="vl-act"><button class="btn" data-vtut>${tut < TUT.length - 1 ? 'Дальше ➜' : 'Понятно, играем!'}</button></div>`; }
 function render() {
   if (!root) return;
   const left = st ? st.ends - Date.now() : 0;
-  root.innerHTML = A.emojiHtml(`<div class="vl-top"><button class="vl-x" data-vx>✕</button><h2>🚩 Долина</h2>${st && st.me ? `<span class="vl-pill">⚔️ ${st.me.left}/${st.me.troops}</span>` : ''}<span class="vl-pill">⏳ ${st ? fmtLeft(left) : '…'}</span>${tab === 'map' ? `<button class="vl-x" data-vzoom>${zoom > 1 ? '🔍−' : '🔍+'}</button>` : ''}</div>
+  root.innerHTML = A.emojiHtml(`<div class="vl-top"><button class="vl-x" data-vx>✕</button><h2>${w2('🚩 Долина', '⛏️ Чертоги')}</h2>${st && st.me ? `<span class="vl-pill">⚔️ ${st.me.left}/${st.me.troops}</span>` : ''}<span class="vl-pill">⏳ ${st ? fmtLeft(left) : '…'}</span>${tab === 'map' ? `<button class="vl-x" data-vzoom>${zoom > 1 ? '🔍−' : '🔍+'}</button>` : ''}</div>
     <div class="vl-tabs">${[['map', '🗺 Карта'], ['log', '📜 События'], ['top', '🏆 Таблица'], ['help', '❓ Как играть']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-vtab="${k}">${t}</button>`).join('')}</div>
     ${tab === 'map' ? `${tipHtml()}<div class="vl-map"><canvas></canvas></div><div class="vl-card">${tut >= 0 ? tutHtml() : cardHtml()}</div>` : `<div class="vl-list">${listHtml()}</div>`}`);
   const keep = root.__scroll; cv = root.querySelector('canvas'); geo = null;
@@ -202,19 +221,19 @@ async function go() {
     else if (d.won && d.cell && d.cell[3] === myAl() && d.power == null) msg = `🛡 Укреплено! Защитников: ${d.cell[4]}`;
     else if (d.won) { msg = `🎉 Победа! Земля ваша, на ней ${d.cell[4]} защитн.`; A.snd && A.snd('special'); A.onWin && A.onWin(); }
     else { msg = `💥 Не хватило сил: у защитников осталось ${d.cell[4]}. Добей их!`; A.snd && A.snd('nope'); }
-  } catch (e) { msg = '❗ Нет связи с долиной, попробуй ещё раз'; }
+  } catch (e) { msg = w2('❗ Нет связи с долиной, попробуй ещё раз', '❗ Нет связи с чертогами, попробуй ещё раз'); }
   busy = false; render();
 }
 async function ruin() {
   if (busy || !sel) return; busy = true;
-  try { const d = await call('ruin', { q: sel.q, r: sel.r }); msg = d.ok ? (A.stones(1, `valley_ruin_${d.day}_${d.cell}_w${W()}`) ? '💎 В руинах нашёлся лунный камень! 🔮 +1' : 'Сегодня камень уже найден') : '❗ ' + (d.error || 'Не получилось'); }
-  catch (e) { msg = '❗ Нет связи с долиной'; }
+  try { const d = await call('ruin', { q: sel.q, r: sel.r }); msg = d.ok ? (A.stones(1, `valley_ruin_${d.day}_${d.cell}_w${W()}`) ? w2('💎 В руинах нашёлся лунный камень! 🔮 +1', '💎 В древнем чертоге нашёлся лунный камень! 🔮 +1') : 'Сегодня камень уже найден') : '❗ ' + (d.error || 'Не получилось'); }
+  catch (e) { msg = w2('❗ Нет связи с долиной', '❗ Нет связи с чертогами'); }
   busy = false; render();
 }
 function prizeCheck() {   // last week's place: 15 / 10 / 5 moonstones to every member of the alliance it was in
   if (!st || !st.last || !st.last.al) return;
   const k = st.last.table.findIndex((x) => x.al === st.last.al);
-  if (k >= 0 && k < 3 && A.stones(PRIZE[k], `valley_${st.last.week}_w${W()}`)) A.toast(`🗺 Волшебная долина: ${k + 1}-е место на прошлой неделе! 🔮 +${PRIZE[k]}`);
+  if (k >= 0 && k < 3 && A.stones(PRIZE[k], `valley_${st.last.week}_w${W()}`)) A.toast(`${w2('🗺 Волшебная долина', '⛏️ Подземные чертоги')}: ${k + 1}-е место на прошлой неделе! 🔮 +${PRIZE[k]}`);
 }
 function onClick(e) {
   const b = e.target.closest('button'); if (!b || !root || !root.contains(b)) return; const d = b.dataset;
@@ -228,10 +247,10 @@ function onClick(e) {
   if (d.vruin !== undefined) return void ruin();
 }
 export function open() {
-  css(); if (root) return; root = document.createElement('div'); root.id = 'vl'; document.body.appendChild(root);
+  css(); if (root) return; root = document.createElement('div'); root.id = 'vl'; if (W() === 2) root.className = 'w2'; document.body.appendChild(root);
   root.addEventListener('click', onClick); tab = 'map'; sel = null; msg = ''; centred = false; render();
   if (!raf) raf = requestAnimationFrame(loop);
-  call('state').then(() => { prizeCheck(); centred = false; try { if (st.me && !localStorage.getItem('magicschool.valleyTut')) tut = 0; } catch (e) { /* private */ } render(); }).catch(() => { msg = '❗ Нет связи с долиной'; render(); });
+  call('state').then(() => { prizeCheck(); centred = false; try { if (st.me && !localStorage.getItem('magicschool.valleyTut')) tut = 0; } catch (e) { /* private */ } render(); }).catch(() => { msg = w2('❗ Нет связи с долиной', '❗ Нет связи с чертогами'); render(); });
   clearInterval(pollT); pollT = setInterval(() => { if (!root || busy || document.hidden) return; call('state').then(() => { if (tab !== 'map') render(); else { draw(); const c = root.querySelector('.vl-card'); if (c && !busy) c.innerHTML = A.emojiHtml(tut >= 0 ? tutHtml() : cardHtml()); const p = root.querySelector('.vl-pill'); if (p && st.me) p.textContent = `⚔️ ${st.me.left}/${st.me.troops}`; } }).catch(() => {}); }, 20000);
   A.onOpen && A.onOpen();
 }
@@ -239,7 +258,7 @@ export function close() { clearInterval(pollT); if (root) root.remove(); root = 
 export function initValley(api) {
   A = api;
   window.addEventListener('resize', () => { if (root && cv) { layout(); draw(); } });
-  const reg = () => { if (!window.schoolMenu) { setTimeout(reg, 50); return; } window.schoolMenu.add({ attr: 'data-valley', icon: '🚩', label: 'Долина', sub: () => '' }); };
+  const reg = () => { if (!window.schoolMenu) { setTimeout(reg, 50); return; } window.schoolMenu.add({ attr: 'data-valley', icon: W() === 2 ? '⛏️' : '🚩', label: W() === 2 ? 'Чертоги' : 'Долина', sub: () => '' }); };
   setTimeout(reg, 0);
   document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-valley]')) open(); });
   window.__valley = { open, close, url: URL0, call: (op) => call(op), get st() { return st; }, sel: (q, r) => { sel = { q, r }; render(); }, setN: (v) => { n = v; }, go: () => go() };   // test hook
