@@ -130,7 +130,7 @@ function cell(c, k) {
   const g = c.got[k];
   if (g) {
     if (g.dead) return `<div class="ch-c dead"><span class="num">${k + 1}</span>${img(IMG.curse)}<div class="lab">Проклятие!</div></div>`;
-    return `<div class="ch-c got${g.rare ? ' rare' : ''}"><span class="num">${k + 1}</span>${img(g.rare ? IMG.rare : IMG.open)}<div class="lab">🪙 ${A.fmt(g.c)}${g.rare ? ' ×2' : ''}<small>${[g.b ? `✨ ${g.b} мин` : '', g.m ? `🧪 +${g.m}` : ''].filter(Boolean).join(' · ') || '&nbsp;'}</small></div></div>`;
+    return `<div class="ch-c got${g.rare ? ' rare' : ''}"><span class="num">${k + 1}</span>${img(g.rare ? IMG.rare : IMG.open)}<div class="lab">🪙 ${A.fmt(g.c)}${g.rare ? ' ×2' : ''}<small>${[g.b ? `✨ ${g.b} мин` : '', g.m ? `🧪 +${g.m}` : '', g.gear ? '🎒' : ''].filter(Boolean).join(' · ') || '&nbsp;'}</small></div></div>`;
   }
   const next = k === c.k && !c.done && !c.dead;
   const extra = [MGT[k] ? '🧪' : '', BOOST[k] ? '✨' : '', k >= RARE_FROM ? '🌈' : ''].join('');
@@ -156,7 +156,7 @@ function html() {
   return `<div id="chests"><div class="ch-top"><h2>🎁 Сундучки дня</h2><button class="ch-x" data-chclose>✕</button></div>
     <div class="ch-sub">${sub}</div>
     <div class="ch-grid">${Array.from({ length: N }, (_, k) => cell(c, k)).join('')}</div>
-    <div class="ch-leg">🧪 попытка Зельеварки · ✨ Вдохновение (уроки +10%) · 🌈 шанс на сверкающий сундук ×2</div>
+    <div class="ch-leg">🧪 попытка Зельеварки · ✨ Вдохновение (уроки +10%) · 🌈 шанс на сверкающий сундук ×2${A.gearOn && A.gearOn() ? ' · 🎒 в каждом сундучке шанс на вещь для героев' : ''}</div>
     ${loot}<div class="ch-msg${lastMsg.startsWith('!') ? ' bad' : ''}">${lastMsg.replace(/^!/, '')}</div><div class="ch-btns">${btns}</div></div>`;
 }
 function redraw() { if (!root) return; const n = el(html()); root.replaceWith(n); root = n; root.addEventListener('click', onClick); }
@@ -188,10 +188,11 @@ function openNext() {
     }
     const rare = k >= RARE_FROM && Math.random() < RARE;
     const g = { c: coinsFor(k) * (rare ? 2 : 1), b: BOOST[k], m: MGT[k], rare };
+    { const gi = A.gear && A.gear(`${c.day}_${k}`); if (gi) g.gear = gi; }   // gear_sources: a chance of a gear item per opened chest (not burnt by a curse)
     c.got[k] = g; c.k = k + 1; c.loot.c += g.c; c.loot.b += g.b; c.loot.m += g.m;
     snd(rare ? 'rare' : 'open');
     if (c.k >= RISK.length) { take(true); if (warded) lastMsg = '🛡️ Оберег спас от проклятия! ' + lastMsg; busy = false; redraw(); return; }   // all six opened: everything is taken at once
-    lastMsg = (warded ? '🛡️ Оберег спас от проклятия! ' : '') + (rare ? '🌈 Сверкающий сундук — награда ×2!' : `Следующий: ${riskTxt(RISK[c.k])}. Рискнёшь?`);
+    lastMsg = (warded ? '🛡️ Оберег спас от проклятия! ' : '') + (g.gear ? `🎒 Находка для героев: ${g.gear}! ` : '') + (rare ? '🌈 Сверкающий сундук — награда ×2!' : `Следующий: ${riskTxt(RISK[c.k])}. Рискнёшь?`);
     A.save(); busy = false; redraw(); root.querySelectorAll('.ch-c')[k]?.classList.add('pop');
   }, 650);
 }

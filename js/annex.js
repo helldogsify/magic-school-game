@@ -11,7 +11,8 @@
 // «Цветение»), 🔭 observatory (Звездочётство, ch.4, event «Звездопад», rare = the existing star dust), 🍊 orange orchard (Столовая, ch.5,
 // planting = its upgrade, oranges -> «Апельсиновый мармелад»), 🎣 pond fish trap (Столовая, ch.6, opens «Рыбалка»), 🪞 Iskra's mirror (Чары,
 // ch.6, event «Чары перед зеркалом»), 🪁 take-off tower (Полёты, ch.7, opens «Полёт через кольца»); part 2 (tools/_patch/annex_elements.py):
-// 🔥 Круг стихий (Магия стихий, ch.8, event «Гроза четырёх стихий» = chain-recipe combinations, «📖 Книга стихий»).
+// 🔥 Круг стихий (Магия стихий, ch.8, event «Гроза четырёх стихий» = chain-recipe combinations, «📖 Книга стихий»); v2 (tools/_patch/annex_elements_v2.py):
+// tasks on top, a workbench with 2 slots, the labelled set below, drag and drop, Little Alchemy 2 recipes literally.
 // Old saves: an annex step whose chapter was already closed is stored as S.story[id] = -1 (truthy: chapters and the chain stay closed, nothing
 // is skipped back); its request stays open on the map, building it pays the step reward. A mini-game a save already played stays open.
 // Art: Maria's pictures are not ready; every annex is a drawn placeholder; ANNEX_ART names the WebP to drop in. Texts: placeholders («texts by Maria»).
@@ -35,11 +36,11 @@ export const ANNEX_BAL = {
   pond: { cost: 600000, reward: 300000, per: 120, cap: 30, priceK: 1.1, mood: 8 },
   mirror: { cost: 1500000, reward: 750000, per: 120, cap: 30, payK: 1.1, figs: 5, show: 1.2, trace: [6, 5.5, 5, 4.5, 4], R: [16, 15, 14, 13, 12], good: [0.58, 0.8] },
   kite: { cost: 6000000, reward: 3000000, per: 120, cap: 30, xpK: 2 },
-  // «Гроза четырёх стихий»: dur s; slots = made slots; cloud timer min(tMax, tBase + tStep × chain steps) × max(tMin, 1 − tDec × cloud no.) s, teach clouds ×teachK;
-  // points = pts × chain steps × (1 + streakK × min(streak, streakMax)) (× 2 hero); crystals = floor(calmed / perCrys) ≤ crysMax + newRec per new recipe
-  // (once) + bookAll for the full book (the book pays 70 💎 once, so the circle's levels cost more: lvlRare 10/20/35/50); depthL[L] = the deepest recipe layer clouds may ask at circle level L; unkP = share of clouds asking a new item
-  elcirc: { cost: 15000000, reward: 7500000, per: 120, cap: 30, lessonK: 0.85, dur: 60, slots: 4, tBase: 8, tStep: 4, tMax: 30, tMin: 0.55, tDec: 0.05, teachK: 2, gap: 1.1,
-    lvlRare: [0, 0, 10, 20, 35, 50], pts: 10, streakK: 0.25, streakMax: 4, perCrys: 3, crysMax: 4, newRec: 1, bookAll: 5, depthL: [0, 3, 4, 5, 6, 99], unkP: 0.45, teach: ['steam', 'rain', 'puddle'] },
+  // «Гроза четырёх стихий» v2: tasks per event; 💎 taskCrys per task + newItem per new item (once) + bookAll for every item found (title);
+  // points = pts × chain steps of the item (× fastK if made within fastSec × steps s of the task's start; × 2 hero); blobFade s; blobHint = blobs in a row
+  // before Буря's hint; depthL[L] = the deepest item depth tasks may ask at circle level L (and ≤ deepest found + 1); unkP = share of new items in tasks
+  elcirc: { cost: 15000000, reward: 7500000, per: 120, cap: 30, lessonK: 0.85, tasks: 5, taskCrys: 1, newItem: 1, bookAll: 5, pts: 10, fastK: 1.5, fastSec: 12,
+    blobFade: 2, blobHint: 3, lvlRare: [0, 0, 10, 20, 35, 50], depthL: [0, 4, 6, 8, 10, 99], unkP: 0.6, teach: ['steam', 'puddle', 'mud', 'pond', 'stone'] },
 };
 // Maria's art drops in here (WebP under assets/annex/, drawn centred on the footprint, bottom on the ground): '' = drawn placeholder
 export const ANNEX_ART = { pantry: '', greenh: '', obs: '', orchard_tree: '', pond: '', mirror: '', kite: '', elcirc: '' };
@@ -50,9 +51,9 @@ const DEF = {
   pantry: { cls: 'potions', ch: 1, after: 'g10', emo: '🫙', name: 'Кладовая зелий', who: 'Мадам Пузырь', h: 46, game: 'p',
     geo: (s) => [s.x0 - 6, (s.y0 + s.y1) / 2, 2.4, 2.4],
     prod: { e: '🫙', n: 'заготовки', fx: 'все уроки Зельеварения сдают чаще (+5 %), пока есть заготовки' }, rare: { e: '✨', n: 'редкое зелье', many: 'редких зелий' },
-    task: 'Построй кладовую зелий для Мадам Пузырь и свари в Зельеварке 3 зелья 🫙',
+    task: 'Построй кладовую зелий для Мадам Пузырь 🫙',
     ask: '«Директор, моим зельям нужна своя кладовая — полки для заготовок! Построишь? Тогда и сварим первые зелья.»',
-    done: '«Кладовая готова! Заготовки тут копятся сами. Нажми на кладовую — сварим зелья в Зельеварке.»' },
+    done: '«Кладовая готова! Заготовки тут копятся сами. А захочешь — нажми на кладовую, и сварим первые зелья в Зельеварке.»' },
   greenh: { cls: 'herbs', ch: 2, after: 'name', emo: '🌿', name: 'Теплица', who: 'Профессор Мох', h: 54, ev: 'bloom',
     geo: (s) => [s.x0 - 6, (s.y0 + s.y1) / 2, 3, 3],
     prod: { e: '🌿', n: 'свежие травы', fx: 'все уроки Травологии короче на 15 %, пока есть травы' }, rare: { e: '🌸', n: 'волшебный цветок', many: 'волшебных цветков' },
@@ -97,7 +98,7 @@ const DEF = {
     task: 'Госпожа Буря просит круг стихий у класса Магии стихий 🔥',
     ask: '«Директор, со стихиями не командуют — с ними договариваются. Поставь у моего класса круг из четырёх камней: заряды стихий будут копиться сами.»',
     done: '«Круг стоит! Когда над камнями соберётся гроза — зови меня. Будем договариваться со стихиями.»',
-    first: '«Нажми два камня — стихии соединятся. Что получилось, остаётся на круге и само становится ингредиентом. Туча покажет, что ей нужно, — дай ей это!»' },
+    first: '«Сверху — задание, в центре — стол, внизу — твои стихии. Перетащи две на стол — и посмотрим, что выйдет!»' },
 };
 const IDS = Object.keys(DEF), EVS = IDS.filter((id) => DEF[id].ev);
 const EV_NAME = { bloom: '🌸 Цветение', sfall: '🌠 Звездопад', mirror: '🪞 Чары перед зеркалом', storm: '⛈️ Гроза четырёх стихий' };
@@ -109,8 +110,7 @@ function addMissions() {
   const built = (g, id) => !!(g.S.annex && g.S.annex[id] && g.S.annex[id].b);
   for (const id of IDS) { const D = DEF[id], B = ANNEX_BAL[id];
     MISSIONS.push({ id, text: D.task, reward: B.reward, annex: 1, go: ['@anx:' + id, null],
-      check: id === 'pantry' ? (g) => built(g, id) && ((g.mg().pot || 0) >= B.pots) : (g) => built(g, id),
-      prog: id === 'pantry' ? (g) => (built(g, id) ? [Math.min(B.pots, g.mg().pot || 0), B.pots] : null) : undefined }); }
+      check: (g) => built(g, id) }); }   // audit F14: the pantry step is the build; brewing is its first (optional) event
 }
 
 let A = null;   // the game's api (initAnnex)
@@ -185,20 +185,62 @@ const treeAt = (tr) => tr.p + (tr.first ? ANNEX_BAL.orchard.grow1 : ANNEX_BAL.or
 function orchardStep(t) {
   const a = st('orchard'); if (!a.b) return; const B = ANNEX_BAL.orchard;
   stepStock(a, t, 0, B.cap, 'o', 'ot', 'od');   // the canteen pantry: one orange = one minute of «Апельсиновый мармелад» for every meal (measured per meal: a big school ate 50 in ~3.5 min)
-  a.tr.forEach((tr) => { if (!tr) return; const up = treeAt(tr); if (t < up) return; if (!tr.t || tr.t < up) tr.t = up;
-    if (tr.f >= B.perTree) { tr.t = t; return; }
-    const ms = dayOverlap(tr.t, t), k = Math.floor(ms / (B.fruit * 1000));
-    if (k > 0) { tr.f = Math.min(B.perTree, (tr.f || 0) + k); tr.t = tr.f >= B.perTree ? t : tr.t + (t - tr.t) * (k * B.fruit * 1000 / ms); }
-    else if (ms === 0) tr.t = t; });
+  a.tr.forEach((tr) => { if (tr) growTree(tr, treeAt(tr), t, B); });
+  for (const tr of Object.values(wildSync(t))) growTree(tr, tr.p, t, B);   // the map's orange trees, same rule
 }
-const hanging = () => (built('orchard') ? st('orchard').tr.reduce((s, tr) => s + ((tr && tr.f) || 0), 0) : 0);
-function harvest() {
+function growTree(tr, up, t, B) {
+  if (t < up) return; if (!tr.t || tr.t < up) tr.t = up;
+  if (tr.f >= B.perTree) { tr.t = t; return; }
+  const ms = dayOverlap(tr.t, t), k = Math.floor(ms / (B.fruit * 1000));
+  if (k > 0) { tr.f = Math.min(B.perTree, (tr.f || 0) + k); tr.t = tr.f >= B.perTree ? t : tr.t + (t - tr.t) * (k * B.fruit * 1000 / ms); }
+  else if (ms === 0) tr.t = t;
+}
+// ---- the map's orange trees (Ruslan 2026-11-26: «наоборот эти деревья должны стать кликабельными по всей карте!»; tools/_patch/audit_fixes.py):
+// every world-1 decor 'goldtree' is a real orange tree once the orchard is built: the orchard's rule (day window, one per B.fruit s,
+// at most B.perTree, they never rot); S.annex.orchard.wt[key] = { p: start ms, f: ripe, t: clock ms } (key = its place on the map);
+// a tap on any orange tree collects all ripe oranges (map + orchard) into the canteen pantry and they fly to the canteen.
+const WILD_HIT = new Map(); let FLY = [];
+function wildSync(t) {
+  const a = st('orchard'); a.wt ||= {}; const keys = (A.wild && A.wild()) || []; if (!keys.length) return a.wt;   // no layout yet: keep
+  const on = new Set(keys); for (const k of keys) if (!a.wt[k]) a.wt[k] = { p: t, f: 0, t };
+  for (const k of Object.keys(a.wt)) if (!on.has(k)) delete a.wt[k];   // a tree moved by a new building starts again
+  return a.wt;
+}
+const wildN = () => Object.values(st('orchard').wt || {}).reduce((s, tr) => s + (tr.f || 0), 0);
+function wildDraw(key, px, py, w, h) {   // game.js drawOut: ripe oranges on a map tree + its tap area
+  if (!ON || !A || !A.S() || A.edit()) return;
+  WILD_HIT.set(key, { x0: px - w * 0.42, x1: px + w * 0.42, y0: py - h * 0.95, y1: py - h * 0.2, t: performance.now() });
+  if (!built('orchard')) return; const tr = (st('orchard').wt || {})[key], n = tr ? tr.f || 0 : 0; if (!n) return;
+  const c = A.ctx(), F = [[-0.17, -0.74], [0.16, -0.79], [0.01, -0.63], [-0.21, -0.56], [0.2, -0.58]], sz = Math.max(9, h * 0.1);
+  for (let j = 0; j < Math.min(n, F.length); j++) A.emoji('🍊', px + F[j][0] * h, py + F[j][1] * h, sz, c);
+}
+function wildTap(wx, wy) {   // game.js map tap (after students and rooms)
+  if (!ON || !A || !A.S() || A.edit() || RUN) return false;
+  const t0 = performance.now(); let hit = null;
+  for (const r of WILD_HIT.values()) if (t0 - r.t < 600 && wx >= r.x0 && wx <= r.x1 && wy >= r.y0 && wy <= r.y1 && (!hit || r.y1 > hit.y1)) hit = r;   // the front one
+  if (!hit) return false;
+  const a = st('orchard');
+  if (!a.b) { A.toast(a.bt ? '🍊 Сад у столовой строится — скоро апельсины созреют и на этих деревьях' : '🍊 Уголёк мечтает об апельсиновом мармеладе — построй сад у столовой'); if (!a.bt && asked('orchard')) openPanel('orchard'); return true; }
+  harvest({ x: (hit.x0 + hit.x1) / 2, y: hit.y0 + (hit.y1 - hit.y0) * 0.3 }); return true;
+}
+function flyOranges(from, n) {   // oranges fly from the tree to the canteen (drawn in signs())
+  const s = A.slots().CANT; if (!s || !from) return; const q = A.P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), t = performance.now();
+  for (let k = 0; k < Math.min(8, n); k++) FLY.push({ x0: from.x + (k % 3 - 1) * 8, y0: from.y + (k % 2) * 6, x1: q.x, y1: q.y - 40, t0: t + k * 90 });
+}
+function drawFly(c, t) {
+  if (!FLY.length) return; FLY = FLY.filter((f) => t - f.t0 < 900);
+  for (const f of FLY) { const u = (t - f.t0) / 900; if (u < 0) continue; const e = u * u * (3 - 2 * u);
+    A.emoji('🍊', f.x0 + (f.x1 - f.x0) * e, f.y0 + (f.y1 - f.y0) * e - Math.sin(u * Math.PI) * 90, 14, c); }
+}
+const hanging = () => (built('orchard') ? st('orchard').tr.reduce((s, tr) => s + ((tr && tr.f) || 0), 0) + wildN() : 0);   // + the map's orange trees
+function harvest(from) {
   const a = st('orchard'), n = hanging(); if (!n) { A.toast(isNight() || !dayNow() ? '🌙 Ночью деревья отдыхают — апельсины вырастут днём' : '🍊 Апельсины ещё зреют'); return false; }
   const room = Math.max(0, ANNEX_BAL.orchard.cap - a.o), got = Math.min(room, n);
   if (!got) { A.toast(`🍊 Кладовая столовой полна (мармелада на ${a.o} мин) — апельсины подождут на деревьях`); return false; }
-  let left = got; for (const tr of a.tr) if (tr && tr.f && left > 0) { const k = Math.min(tr.f, left); if (tr.f >= ANNEX_BAL.orchard.perTree) tr.t = now(); tr.f -= k; left -= k; }
+  let left = got; for (const tr of [...a.tr, ...Object.values(a.wt || {})]) if (tr && tr.f && left > 0) { const k = Math.min(tr.f, left); if (tr.f >= ANNEX_BAL.orchard.perTree) tr.t = now(); tr.f -= k; left -= k; }
   if (!a.o) a.od = now(); a.o += got; A.sfx('fixed'); A.toast(`🍊 +${got} ${nOf(got, 'апельсин', 'апельсина', 'апельсинов')} в кладовую: мармелада на ${a.o} мин`);
-  stat('harvest', 'orchard', { n: got }); deed('harvest', 'orchard', got); A.save(); return true;
+  { const g = geo('orchard'), p0 = from || (g && UP(A.P(g.x, g.y), 30)); flyOranges(p0, got); }
+  stat('harvest', 'orchard', { n: got, m: from ? 1 : 0 }); deed('harvest', 'orchard', got); A.save(); return true;
 }
 const dayNow = () => { const h = hourNow(), [h0, h1] = ANNEX_BAL.orchard.day; return h >= h0 && h < h1; };
 function dailyRare(id, t) {   // one rare thing a day by itself (non-players grow slower but never stop)
@@ -323,7 +365,7 @@ function finishEv(cut) {
   const tail = R.kind === 'sfall' ? (R.got ? ` → ✨ +${R.got} звёздной пыли` : '') : rare ? ` → ${D.rare.e} +${rare} ${rare === 1 ? D.rare.n : D.rare.many}` : '';
   A.toast(`${EV_NAME[D.ev]}: ${R.sum}${tail}`); glog('toast', `${EV_NAME[D.ev]}: ${R.sum}${tail}`, WORLD);
   stat('ev_end', id, { n: R.got || 0, r: R.kind === 'sfall' ? R.got : rare, c: cut ? 1 : 0, ...(R.kind === 'storm' ? { s: R.score, nr: R.newRec } : {}) }); deed('event', id); A.save();
-  if (R.bookDone) setTimeout(() => bubble(D.who, '«Вся Книга стихий собрана! Стихии с тобой договорились — теперь ты Повелитель стихий.»', 7000), 900);
+  if (R.bookDone) setTimeout(() => bubble(D.who, '«Все находки собраны! Стихии с тобой договорились — теперь ты Повелитель стихий.»', 7000), 900);
 }
 // «Цветение»: press and hold a glowing bud, it opens petal by petal; release in the green ring = full bloom
 function initBloom() { const g = geo('greenh'); for (let k = 0; k < ANNEX_BAL.greenh.buds; k++) { const an = rand(0, Math.PI * 2), r = rand(1.9, 3.1); RUN.items.push({ x: g.x + Math.cos(an) * r, y: g.y + Math.sin(an) * r * 0.9 + 0.6, st: 'wait', t: 0, p: 0, res: null }); } RUN.cur = 0; RUN.tc = performance.now() + 600; }
@@ -438,175 +480,295 @@ function mirLoop() {
   const say = MIR.ph === 'show' ? (RUN.cur === 0 && RUN.first ? RUN.first : 'Мастер Искра рисует…') : MIR.ph === 'trace' ? 'Обведи фигуру пальцем!' : `Мастер Искра: «${MIR.say}» ${['· тускло', '· ярко ✨', '· сияет 🌟'][it.grade]}`, ms = MIR.w.querySelector('.anx-msay'); if (ms.dataset.t !== say) { ms.dataset.t = say; ms.innerHTML = A.emojiHtml(say); }
 }
 
-// ======================= 🔥 Круг стихий — «Гроза четырёх стихий» (chain recipes; Ruslan 2026-11-26: «Звучит супер»; chains AGREED:
-// «Её главная находка: то, что ты сделал, само становится ингредиентом. — вот») =======================
-// The 4 stones are the 4 elements. Tap two ingredients (stones or made slots; order free; the same one twice = with itself): with a recipe the
-// result is MADE and put into a made slot (oldest drops when all 4 are full), where it is an ingredient itself (Little Alchemy 2 logic); no recipe
-// = a small fizzle, no penalty. Clouds come one after another and show the PICTURE of what they need (never the recipe), each with its own timer;
-// give it (tap the made slot holding it with nothing selected, or make it) to calm the cloud. Points = pts × chain steps × streak; unknown items
-// are deduced from the picture. Clouds ask up to ONE layer deeper than the deepest item found so far (and the circle level's cap), so the book
-// grows over weeks. «📖 Книга стихий»: every recipe; found = shown, others = silhouettes; a new recipe pays 💎 once; the full book = title.
-// Names and pictures are placeholders (texts by Maria): table for her in design/elements_recipes.md (keep both in sync).
-const EL4 = { F: ['Огонь', '🔥'], W: ['Вода', '💧'], E: ['Земля', '🪨'], A: ['Воздух', '🌪️'] };
-const ITEMS = {
-  puddle: ['Лужица', '💦'], land: ['Суша', '🟫'], press: ['Давление', '💨'], energy: ['Энергия', '⚡'], steam: ['Пар', '♨️'], rain: ['Дождь', '🌧️'],
-  lightning: ['Молния', '🌩️'], dust: ['Пыль', '🌫️'], mud: ['Грязь', '🟤'], lava: ['Лава', '🟠'],
-  pond: ['Пруд', '🪷'], stone: ['Камень', '🗿'], volcano: ['Вулкан', '🌋'], cloud: ['Облако', '☁️'], plant: ['Росток', '🌱'], sun: ['Солнышко', '☀️'],
-  ice: ['Лёд', '🧊'], wind: ['Ветер', '🍃'], geyser: ['Гейзер', '⛲'], continent: ['Материк', '🌍'],
-  lake: ['Озеро', '🏞️'], sand: ['Песок', '🟨'], clay: ['Глина', '🏺'], storm: ['Гроза', '⛈️'], rainbow: ['Радуга', '🌈'], snow: ['Снег', '❄️'],
-  metal: ['Металл', '🔩'], mountain: ['Гора', '⛰️'], flower: ['Цветок', '🌺'], tree: ['Дерево', '🌳'], swamp: ['Болото', '🐸'], whirl: ['Вихрь', '🌀'], star: ['Звезда', '🌟'],
-  sea: ['Море', '🌊'], glass: ['Стекло', '🪟'], desert: ['Пустыня', '🏜️'], brick: ['Кирпич', '🧱'], snowman: ['Снеговик', '⛄'], forest: ['Лес', '🌲'],
-  magnet: ['Магнит', '🧲'], life: ['Жизнь', '🐣'],
-  house: ['Домик', '🏠'], hourglass: ['Песочные часы', '⌛'], lens: ['Линза', '🔍'], mirror: ['Зеркальце', '🪞'], flask: ['Колба', '🧪'], lantern: ['Фонарь', '🏮'],
-  ocean: ['Океан', '🐋'], peak: ['Снежная вершина', '🏔️'], bird: ['Птица', '🐦'], fish: ['Рыбка', '🐟'], dragon: ['Дракончик', '🐉'], island: ['Остров', '🏝️'],
-  scope: ['Телескоп', '🔭'], bunny: ['Солнечный зайчик', '🐇'], firebird: ['Жар-птица', '🦚'],
+// ======================= 🔥 Круг стихий — «Гроза четырёх стихий» v2 (tools/_patch/annex_elements_v2.py; Ruslan 2026-11-26: «Должно быть задание
+// типа: создайте «грязь». У вас есть рабочий стол, на который вы перетаскиваете элементы… сверху — задания, в центре — рабочий стол, снизу —
+// элементы. Всё должно быть аккуратно подписано… Нужно взять рецепты напрямую из литой алхимии») =======================
+// TOP = the current task in words («Создай: Пар», task N of 5). CENTRE = a workbench with 2 slots. BOTTOM = the player's set: the 4 bases + every
+// item put «В набор», labelled tiles, scrolled sideways. Drag a tile onto the bench (or tap it: it goes to the first free slot; tap a bench slot to
+// take it back). Both slots filled -> the result appears with its NAME: «В набор» (it joins the set and becomes an ingredient) or «Выкинуть».
+// ANY pair gives something (Ruslan asked; designer's call): a Little Alchemy 2 recipe gives its item(s) (3 LA2 pairs give two), any other pair a
+// «🫠 Клякса» that is never kept (fades after 2 s); 3 blobs in a row -> Буря puts one right ingredient of the next step on the bench.
+// The task is done the moment its item is made: crystals, points (deeper = more, quick = ×1.5); 5 tasks per event, no timers. First event:
+// Буря teaches step by step. A new item = «Новое: Пар!» + 💎 once; «📖 Книга стихий» lists every recipe («Огонь + Вода = Пар», «? + ? = ?»);
+// all items found = title «Повелитель стихий». Recipes: Little Alchemy 2, literally (design/elements_recipes.md; keep both in sync).
+const EL4 = { F: ['Огонь', '🔥'], W: ['Вода', '💧'], E: ['Земля', '🟫'], A: ['Воздух', '🌬️'] };
+const ITEMS = {   // id: [name, picture]; Little Alchemy 2 items (LA2 name in design/elements_recipes.md); names plain words, texts by Maria
+  dust: ['Пыль', '🌫️'], energy: ['Энергия', '⚡'], land: ['Суша', '🗺️'], lava: ['Лава', '🟠'], mist: ['Дымка', '💭'], mud: ['Грязь', '🟤'],
+  pressure: ['Давление', '🗜️'], puddle: ['Лужа', '💦'], smoke: ['Дым', '💨'], steam: ['Пар', '♨️'], brick: ['Кирпич', '🟥'], continent: ['Материк', '🌍'],
+  earthquake: ['Землетрясение', '💥'], geyser: ['Гейзер', '⛲'], heat: ['Жар', '🌡️'], obsidian: ['Обсидиан', '⬛'], pond: ['Пруд', '🪷'], stone: ['Камень', '🪨'],
+  volcano: ['Вулкан', '🌋'], wind: ['Ветер', '🍃'], clay: ['Глина', '🏺'], lake: ['Озеро', '🛶'], metal: ['Металл', '🔩'], mountain: ['Гора', '⛰️'],
+  planet: ['Планета', '🪐'], sand: ['Песок', '🟨'], tornado: ['Смерч', '🌪️'], wall: ['Стена', '🧱'], atmosphere: ['Атмосфера', '🌐'], beach: ['Пляж', '🏖️'],
+  desert: ['Пустыня', '🏜️'], glass: ['Стекло', '🪟'], gold: ['Золото', '🥇'], house: ['Дом', '🏠'], moon: ['Луна', '🌙'], mrange: ['Горный хребет', '🏔️'],
+  river: ['Река', '🏞️'], rust: ['Ржавчина', '🟧'], sea: ['Море', '🌊'], sun: ['Солнце', '☀️'], cloud: ['Облако', '☁️'], ocean: ['Океан', '🐋'], sky: ['Небо', '🌤️'],
+  rainbow: ['Радуга', '🌈'], island: ['Остров', '🏝️'], oasis: ['Оазис', '🌴'], salt: ['Соль', '🧂'], hourglass: ['Песочные часы', '⌛'], village: ['Деревня', '🏘️'],
+  aquarium: ['Аквариум', '🐠'], pyramid: ['Пирамида', '🔺'], eclipse: ['Затмение', '🌑'], soup: ['Первичный бульон', '🥣'], mirror: ['Зеркало', '🪞'],
+  telescope: ['Телескоп', '🔭'], pool: ['Бассейн', '🏊'], hurricane: ['Ураган', '🌀'], rain: ['Дождь', '🌧️'], fog: ['Туман', '🌁'], storm: ['Буря', '⛈️'],
+  life: ['Жизнь', '🐣'], day: ['День', '🏙️'], night: ['Ночь', '🌃'], lightning: ['Молния', '🌩️'], snow: ['Снег', '❄️'], bacteria: ['Бактерия', '🦠'],
+  soil: ['Почва', '🪱'], plant: ['Растение', '🌱'], grass: ['Трава', '🌿'], algae: ['Водоросли', '🪸'], sunflower: ['Подсолнух', '🌻'], swamp: ['Болото', '🐸'],
 };
-const RECIPES = [   // [ingredient, ingredient, result]; several routes to some items (Ruslan's «2»: «несколько путей»)
-  ['W', 'W', 'puddle'], ['E', 'E', 'land'], ['A', 'A', 'press'], ['F', 'F', 'energy'], ['W', 'F', 'steam'], ['A', 'W', 'rain'], ['A', 'F', 'lightning'],
-  ['A', 'E', 'dust'], ['E', 'W', 'mud'], ['F', 'E', 'lava'],
-  ['puddle', 'puddle', 'pond'], ['E', 'press', 'stone'], ['lava', 'W', 'stone'], ['lava', 'E', 'volcano'], ['steam', 'A', 'cloud'], ['rain', 'E', 'plant'],
-  ['mud', 'rain', 'plant'], ['energy', 'F', 'sun'], ['W', 'press', 'ice'], ['press', 'A', 'wind'], ['steam', 'E', 'geyser'], ['land', 'land', 'continent'],
-  ['cloud', 'W', 'rain'], ['cloud', 'energy', 'lightning'],
-  ['pond', 'pond', 'lake'], ['stone', 'A', 'sand'], ['dust', 'stone', 'sand'], ['mud', 'stone', 'clay'], ['cloud', 'lightning', 'storm'], ['rain', 'sun', 'rainbow'],
-  ['ice', 'A', 'snow'], ['cloud', 'ice', 'snow'], ['stone', 'F', 'metal'], ['stone', 'stone', 'mountain'], ['plant', 'sun', 'flower'], ['plant', 'land', 'tree'],
-  ['mud', 'plant', 'swamp'], ['wind', 'wind', 'whirl'], ['sun', 'sun', 'star'],
-  ['lake', 'lake', 'sea'], ['sand', 'F', 'glass'], ['sand', 'sand', 'desert'], ['sand', 'sun', 'desert'], ['clay', 'F', 'brick'], ['snow', 'snow', 'snowman'],
-  ['tree', 'tree', 'forest'], ['metal', 'lightning', 'magnet'], ['swamp', 'energy', 'life'], ['plant', 'rainbow', 'flower'],
-  ['brick', 'brick', 'house'], ['glass', 'sand', 'hourglass'], ['glass', 'glass', 'lens'], ['glass', 'metal', 'mirror'], ['glass', 'W', 'flask'],
-  ['glass', 'energy', 'lantern'], ['sea', 'sea', 'ocean'], ['mountain', 'snow', 'peak'], ['life', 'A', 'bird'], ['life', 'W', 'fish'], ['life', 'volcano', 'dragon'],
-  ['sea', 'land', 'island'], ['volcano', 'sea', 'island'], ['lens', 'star', 'scope'], ['mirror', 'sun', 'bunny'], ['bird', 'F', 'firebird'],
+const RECIPES = [   // [ingredient, ingredient, result]: every Little Alchemy 2 recipe whose 3 items are in ITEMS (+ the bases), as LA2 has them
+  ['snow', 'heat', 'W'], ['F', 'mist', 'A'], ['E', 'A', 'dust'], ['A', 'soil', 'dust'], ['A', 'land', 'dust'], ['F', 'atmosphere', 'energy'], ['F', 'F', 'energy'],
+  ['soil', 'soil', 'land'], ['E', 'E', 'land'], ['E', 'stone', 'land'], ['F', 'E', 'lava'], ['E', 'heat', 'lava'], ['W', 'A', 'mist'], ['A', 'steam', 'mist'],
+  ['A', 'rain', 'mist'], ['W', 'E', 'mud'], ['W', 'soil', 'mud'], ['A', 'A', 'pressure'], ['atmosphere', 'atmosphere', 'pressure'], ['A', 'atmosphere', 'pressure'],
+  ['ocean', 'ocean', 'pressure'], ['W', 'W', 'puddle'], ['F', 'plant', 'smoke'], ['F', 'grass', 'smoke'], ['F', 'A', 'smoke'], ['W', 'heat', 'steam'],
+  ['W', 'F', 'steam'], ['W', 'lava', 'steam'], ['F', 'mud', 'brick'], ['mud', 'sun', 'brick'], ['F', 'clay', 'brick'], ['clay', 'sun', 'brick'],
+  ['stone', 'clay', 'brick'], ['land', 'land', 'continent'], ['mrange', 'mrange', 'continent'], ['E', 'land', 'continent'], ['E', 'energy', 'earthquake'],
+  ['E', 'steam', 'geyser'], ['steam', 'mountain', 'geyser'], ['steam', 'pressure', 'geyser'], ['A', 'energy', 'heat'], ['W', 'lava', 'obsidian'],
+  ['lava', 'glass', 'obsidian'], ['W', 'puddle', 'pond'], ['puddle', 'puddle', 'pond'], ['E', 'pressure', 'stone'], ['A', 'lava', 'stone'],
+  ['lava', 'mountain', 'volcano'], ['F', 'mountain', 'volcano'], ['pressure', 'mountain', 'volcano'], ['E', 'lava', 'volcano'], ['A', 'pressure', 'wind'],
+  ['mud', 'sand', 'clay'], ['mud', 'stone', 'clay'], ['W', 'pond', 'lake'], ['pond', 'pond', 'lake'], ['F', 'stone', 'metal'], ['stone', 'heat', 'metal'],
+  ['E', 'earthquake', 'mountain'], ['continent', 'continent', 'planet'], ['ocean', 'continent', 'planet'], ['E', 'sky', 'planet'], ['A', 'stone', 'sand'],
+  ['wind', 'stone', 'sand'], ['storm', 'storm', 'tornado'], ['storm', 'wind', 'tornado'], ['wind', 'wind', 'tornado'], ['brick', 'brick', 'wall'],
+  ['stone', 'stone', 'wall'], ['A', 'planet', 'atmosphere'], ['A', 'sky', 'atmosphere'], ['ocean', 'sand', 'beach'], ['sea', 'sand', 'beach'], ['sand', 'lake', 'beach'],
+  ['W', 'sand', 'beach'], ['sand', 'sand', 'desert'], ['sand', 'land', 'desert'], ['F', 'sand', 'glass'], ['sand', 'heat', 'glass'], ['sand', 'lightning', 'glass'],
+  ['metal', 'sun', 'gold'], ['metal', 'rainbow', 'gold'], ['sand', 'metal', 'gold'], ['wall', 'wall', 'house'], ['sky', 'planet', 'moon'], ['sky', 'stone', 'moon'],
+  ['night', 'planet', 'moon'], ['stone', 'night', 'moon'], ['E', 'night', 'moon'], ['stone', 'planet', 'moon'], ['mountain', 'mountain', 'mrange'],
+  ['mountain', 'continent', 'mrange'], ['W', 'mountain', 'river'], ['rain', 'mountain', 'river'], ['A', 'metal', 'rust'], ['W', 'lake', 'sea'], ['lake', 'lake', 'sea'],
+  ['F', 'sky', 'sun'], ['sky', 'day', 'sun'], ['F', 'planet', 'sun'], ['atmosphere', 'mist', 'cloud'], ['W', 'atmosphere', 'cloud'], ['sky', 'mist', 'cloud'],
+  ['W', 'sky', 'cloud'], ['W', 'sea', 'ocean'], ['sea', 'sea', 'ocean'], ['A', 'cloud', 'sky'], ['sun', 'atmosphere', 'sky'], ['moon', 'sun', 'sky'],
+  ['cloud', 'atmosphere', 'sky'], ['rain', 'sun', 'rainbow'], ['W', 'sun', 'rainbow'], ['volcano', 'ocean', 'island'], ['volcano', 'sea', 'island'],
+  ['W', 'desert', 'oasis'], ['desert', 'puddle', 'oasis'], ['desert', 'pond', 'oasis'], ['desert', 'lake', 'oasis'], ['desert', 'river', 'oasis'],
+  ['ocean', 'sun', 'salt'], ['sea', 'sun', 'salt'], ['F', 'ocean', 'salt'], ['F', 'sea', 'salt'], ['sand', 'glass', 'hourglass'], ['house', 'house', 'village'],
+  ['W', 'glass', 'aquarium'], ['glass', 'puddle', 'aquarium'], ['glass', 'pond', 'aquarium'], ['stone', 'desert', 'pyramid'], ['desert', 'mountain', 'pyramid'],
+  ['moon', 'sun', 'eclipse'], ['lava', 'ocean', 'soup'], ['lava', 'sea', 'soup'], ['ocean', 'planet', 'soup'], ['E', 'ocean', 'soup'], ['sea', 'planet', 'soup'],
+  ['E', 'sea', 'soup'], ['glass', 'metal', 'mirror'], ['sky', 'glass', 'telescope'], ['glass', 'moon', 'telescope'], ['glass', 'planet', 'telescope'],
+  ['house', 'lake', 'pool'], ['ocean', 'tornado', 'hurricane'], ['sea', 'tornado', 'hurricane'], ['ocean', 'storm', 'hurricane'], ['sea', 'storm', 'hurricane'],
+  ['cloud', 'heat', 'rain'], ['pressure', 'cloud', 'rain'], ['W', 'cloud', 'rain'], ['E', 'cloud', 'fog'], ['cloud', 'mountain', 'fog'], ['cloud', 'cloud', 'storm'],
+  ['rain', 'wind', 'storm'], ['storm', 'soup', 'life'], ['volcano', 'soup', 'life'], ['ocean', 'lightning', 'life'], ['sea', 'lightning', 'life'],
+  ['lake', 'lightning', 'life'], ['soup', 'lightning', 'life'], ['energy', 'soup', 'life'], ['sky', 'sun', 'day'], ['sun', 'night', 'day'], ['sky', 'moon', 'night'],
+  ['energy', 'storm', 'lightning'], ['energy', 'cloud', 'lightning'], ['energy', 'rain', 'lightning'], ['storm', 'land', 'lightning'], ['rain', 'mountain', 'snow'],
+  ['rain', 'mrange', 'snow'], ['life', 'soup', 'bacteria'], ['mud', 'life', 'bacteria'], ['E', 'life', 'soil'], ['life', 'land', 'soil'], ['algae', 'land', 'plant'],
+  ['E', 'algae', 'plant'], ['life', 'soil', 'plant'], ['rain', 'soil', 'plant'], ['E', 'plant', 'grass'], ['plant', 'land', 'grass'], ['W', 'plant', 'algae'],
+  ['grass', 'pond', 'algae'], ['grass', 'lake', 'algae'], ['W', 'grass', 'algae'], ['plant', 'sun', 'sunflower'], ['mud', 'grass', 'swamp'], ['algae', 'lake', 'swamp'],
+  ['algae', 'pond', 'swamp'],
 ];
-const RX = (() => {   // derived: pair -> result, chain steps (combinations from the four stones), layer (recipe depth), elements inside
+const BLOB = ['Клякса', '🫠'];
+const RX = (() => {   // derived: pair -> results, item depth (layer), chain steps (combinations from the bases), elements inside, recipe layer
   const pair = {}, of = {}, steps = { F: 0, W: 0, E: 0, A: 0 }, layer = { F: 0, W: 0, E: 0, A: 0 }, els = { F: 'F', W: 'W', E: 'E', A: 'A' };
-  const key = (a, b) => [a, b].sort().join('+'), keys = RECIPES.map(([a, b]) => key(a, b));
-  RECIPES.forEach(([a, b, r], k) => { pair[keys[k]] = r; (of[r] ||= []).push(k); });
-  for (let ch = true, g = 0; ch && g < 60; g++) { ch = false;
+  const key = (a, b) => [a, b].sort().join('+'), keys = RECIPES.map(([a, b, r]) => key(a, b) + '=' + r);
+  RECIPES.forEach(([a, b, r], k) => { const p = (pair[key(a, b)] ||= []); if (!p.includes(r)) p.push(r); (of[r] ||= []).push(k); });
+  for (let ch = true, g = 0; ch && g < 80; g++) { ch = false;
     for (const [a, b, r] of RECIPES) { if (steps[a] === undefined || steps[b] === undefined) continue;
       const sN = a === b ? steps[a] + 1 : steps[a] + steps[b] + 1, l = 1 + Math.max(layer[a], layer[b]);
       if (steps[r] === undefined || sN < steps[r]) { steps[r] = sN; els[r] = [...new Set((els[a] + els[b]).split(''))].sort().join(''); ch = true; }
       if (layer[r] === undefined || l < layer[r]) { layer[r] = l; ch = true; } } }
-  const rl = RECIPES.map(([a, b]) => 1 + Math.max(layer[a], layer[b]));   // a recipe's own layer (the book's pages)
-  return { key, keys, pair, of, steps, layer, els, rl, maxL: Math.max(...rl) };
+  const rl = RECIPES.map(([a, b]) => 1 + Math.max(layer[a], layer[b]));
+  const all = Object.keys(ITEMS).sort((x, y) => layer[x] - layer[y]);
+  return { key, keys, pair, of, steps, layer, els, rl, all, maxL: Math.max(...all.map((i) => layer[i])) };
 })();
-const nmOf = (x) => (EL4[x] || ITEMS[x] || ['?', '❔'])[0], emOf = (x) => (EL4[x] || ITEMS[x] || ['?', '❔'])[1];
-const book = () => (st('elcirc').bk ||= {});
+const isBase = (x) => !!EL4[x];
+const nmOf = (x) => (x === 'blob' ? BLOB : EL4[x] || ITEMS[x] || ['?', '❔'])[0], emOf = (x) => (x === 'blob' ? BLOB : EL4[x] || ITEMS[x] || ['?', '❔'])[1];
+const book = () => (st('elcirc').bk2 ||= {});          // found recipes: 'a+b=r'
+const seen = () => (st('elcirc').seen ||= {});         // found items
+const inv = () => (st('elcirc').inv ||= {});           // items kept «В набор» (the bottom list; the 4 bases are always there)
 const bookN = () => RX.keys.filter((k) => book()[k]).length;
-const knownSet = () => { const b = book(), o = new Set(); RX.keys.forEach((k, j) => { if (b[k]) o.add(RECIPES[j][2]); }); return o; };
-const depthCap = () => { const kn = knownSet(); let m = 0; for (const i of kn) m = Math.max(m, RX.layer[i]); return Math.max(1, Math.min(m + 1, ANNEX_BAL.elcirc.depthL[st('elcirc').L || 1])); };
+const seenN = () => RX.all.filter((i) => seen()[i]).length;
+const knownSet = () => new Set(RX.all.filter((i) => seen()[i]));
+const depthCap = () => { let m = 1; for (const i of RX.all) if (seen()[i]) m = Math.max(m, RX.layer[i]); return Math.max(2, Math.min(m + 1, ANNEX_BAL.elcirc.depthL[st('elcirc').L || 1])); };
+const setList = () => ['F', 'W', 'E', 'A', ...RX.all.filter((i) => inv()[i])];
 const weekKey = (t = now()) => Math.floor((t / 86400000 + 3) / 7);   // the mini-games' week (Monday 00:00 UTC)
-// hero tie (§5d): a Мастер of an element as the Elements class mentor doubles the points of items with that element in their chain.
-// HOOK: js/heroes.js (not in HEAD yet) only has to define window.heroElemMentor() -> the mentor's element as the game's ELEMS index
-// (0 fire, 1 water, 2 earth, 3 air) or 'F' | 'W' | 'E' | 'A', or null; read once when the event starts; nothing else changes here.
+// hero tie (§5d): a Мастер of an element as the Elements class mentor doubles the points of tasks whose item has that element in its chain.
+// HOOK: window.heroElemMentor() -> the mentor's element as the game's ELEMS index (0 fire, 1 water, 2 earth, 3 air) or 'F' | 'W' | 'E' | 'A', or null.
 const heroEl = () => { try { const v = typeof window.heroElemMentor === 'function' ? window.heroElemMentor() : null; return typeof v === 'number' ? 'FWEA'[v] || null : 'FWEA'.includes(v) && v ? v : null; } catch (e) { return null; } };
 const heroK = (it) => (RUN && RUN.hero && (RX.els[it] || '').includes(RUN.hero) ? 2 : 1);
 const pick = (L) => L[Math.floor(Math.random() * L.length)];
-const EL_CALM = ['Договорились!', 'Видишь? Не приказ — разговор.', 'Пахнет дождём и цветами…', 'Стихии довольны!'];   // Буря's lines — placeholders, texts by Maria
-const EL_MISS = ['Туча ушла сердитой ☁️ — бывает. Следующая!', 'Не успели — над Бурей собралась маленькая тучка ☁️', 'Ничего, договоримся со следующей!'];
-const EL_FIZZ = ['Пшик! Эти двое не договорились 💫', 'Ничего не вышло 💫 — попробуй другую пару', 'Стихии фыркнули 💫'];
-let ELM = null;
-function pickNeed() {
+// Буря's lines — placeholders, texts by Maria
+const EL_OK = ['Договорились!', 'Видишь? Не приказ — разговор.', 'Стихии довольны!', 'Вот это да!'];
+const EL_BLOB = ['Клякса! Эти двое не договорились.', 'Хм, бесформенное что-то. Попробуй другую пару.', 'Стихии фыркнули — вышла клякса.'];
+const W = (x) => `${emOf(x)} ${nmOf(x)}`;
+const ACC = { F: 'Огонь', W: 'Воду', E: 'Землю', A: 'Воздух' };   // accusative of the bases for Буря's lines
+const WA = (x) => `${emOf(x)} ${ACC[x] || nmOf(x)}`;
+let ELM = null, DRG = null;
+function pickTasks() {   // 5 tasks: up to the depth cap, new items first by chance, then sorted easy -> deep
   const B = ANNEX_BAL.elcirc, cap = depthCap(), kn = knownSet();
-  const pool = Object.keys(ITEMS).filter((i) => RX.layer[i] <= cap && i !== RUN.lastNeed), unk = pool.filter((i) => !kn.has(i)), known = pool.filter((i) => kn.has(i));
-  return pick(unk.length && (!known.length || Math.random() < B.unkP) ? unk : known.length ? known : pool);
+  const pool = RX.all.filter((i) => RX.layer[i] <= cap), unk = pool.filter((i) => !kn.has(i)), known = pool.filter((i) => kn.has(i)), out = [];
+  while (out.length < B.tasks && (unk.length || known.length)) { const L = unk.length && (!known.length || Math.random() < B.unkP) ? unk : known; out.push(L.splice(Math.floor(Math.random() * L.length), 1)[0]); }
+  return out.sort((x, y) => RX.layer[x] - RX.layer[y]);
 }
 function initStorm() {
-  const a = st('elcirc');
-  Object.assign(RUN, { score: 0, streak: 0, slots: [], sel: null, newRec: 0, cloud: null, next: performance.now() + (a.taught ? 1600 : 4500), teach: a.taught ? [] : ANNEX_BAL.elcirc.teach.slice(), hero: heroEl(), say: '', mix: '' });
+  const a = st('elcirc'), B = ANNEX_BAL.elcirc, teach = !a.t2;
+  Object.assign(RUN, { tasks: teach ? B.teach.slice() : pickTasks(), ti: 0, bench: [null, null], res: [], blobs: 0, score: 0, got: 0, newRec: 0, newIt: 0, skips: 0, hints: 0,
+    teach, tstep: 0, tt0: performance.now(), hero: heroEl(), say: '', hl: null, mixAt: 0, done2: false, bookOn: false });
   const w = document.createElement('div'); w.id = 'anx-elem';
-  w.innerHTML = `<div class="anx-mtop"><span class="anx-mt"></span><button class="anx-x" aria-label="Закончить">✕</button></div>
-    <div class="el-sky"><div class="el-cloud"><span class="el-need"></span><span class="el-nm"></span></div><div class="el-bar"><i></i></div></div>
-    <div class="el-say"></div><div class="el-mix"></div>
-    <div class="el-lab">сделано на круге</div><div class="el-made">${[0, 1, 2, 3].map((k) => `<button class="el-slot" data-el-slot="${k}"></button>`).join('')}</div>
-    <div class="el-ring">${['F', 'W', 'E', 'A'].map((x) => `<button class="el-stone el-${x}" data-el-stone="${x}">${A.emojiHtml(EL4[x][1])}<small>${EL4[x][0]}</small></button>`).join('')}</div>`;
+  w.innerHTML = `<div class="el-top"><div class="el-hd"><b>⛈️ Круг стихий</b><span class="el-sc"></span><button class="anx-x" aria-label="Закончить">✕</button></div>
+      <div class="el-task"><div class="el-tn"></div><div class="el-tw"></div><div class="el-dots"></div></div></div>
+    <div class="el-say"></div>
+    <div class="el-bench"><div class="el-mixrow"><div class="el-slot" data-el-slot="0"></div><span class="el-plus">+</span><div class="el-slot" data-el-slot="1"></div></div><div class="el-res"></div></div>
+    <div class="el-lab"></div>
+    <div class="el-tray"></div>
+    <div class="el-foot"><button class="el-fb" data-el-book>📖 Книга стихий</button><button class="el-fb" data-el-skip>⏭ Другое задание</button></div>
+    <div class="el-bookov"></div>`;
   document.body.appendChild(w); ELM = { w, k: {} };
-  w.addEventListener('click', (e) => {
-    if (!RUN || RUN.kind !== 'storm' || RUN.done) return;
-    if (e.target.closest('.anx-x')) { finishEv(true); return; }
-    const s = e.target.closest('[data-el-stone]'), m = e.target.closest('[data-el-slot]');
-    if (s) ingTap(s.dataset.elStone, false); else if (m) { const v = RUN.slots[+m.dataset.elSlot]; if (v) ingTap(v, true); }
-  });
-  w.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false }); w.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
-  stormLoop();
+  w.addEventListener('click', elClick);
+  w.addEventListener('pointerdown', elDown);
+  window.addEventListener('pointermove', elMove); window.addEventListener('pointerup', elUp); window.addEventListener('pointercancel', elCancel);
+  w.querySelector('.el-tray').addEventListener('wheel', (e) => { e.currentTarget.scrollLeft += e.deltaY + e.deltaX; e.preventDefault(); }, { passive: false });
+  sayTask(); stormLoop();
 }
-function stormOff() { if (ELM) { ELM.w.remove(); ELM = null; } }
-function ingTap(x, fromSlot) {
-  const t = performance.now();
-  if (fromSlot && !RUN.sel && RUN.cloud && RUN.cloud.need === x) { RUN.say = ''; calmCloud(t); return; }   // give the made thing to the cloud
-  if (!RUN.sel) { RUN.sel = x; RUN.mix = `${emOf(x)} + …`; A.sfx('tick'); return; }
-  const a0 = RUN.sel; RUN.sel = null; combine(a0, x, t);
+function stormOff() {
+  if (!ELM) return; window.removeEventListener('pointermove', elMove); window.removeEventListener('pointerup', elUp); window.removeEventListener('pointercancel', elCancel);
+  if (DRG && DRG.g) DRG.g.remove(); DRG = null; ELM.w.remove(); ELM = null;
 }
-function combine(x, y, t) {
-  const B = ANNEX_BAL.elcirc, k = RX.key(x, y), r = RX.pair[k];
-  if (!r) { RUN.mix = `${emOf(x)} + ${emOf(y)} = 💫`; RUN.say = pick(EL_FIZZ); RUN.fz = t; A.sfx('tick'); return; }
-  const bk = book(); RUN.mix = `${emOf(x)} + ${emOf(y)} = ${emOf(r)} ${nmOf(r)}`;
-  if (!bk[k]) { bk[k] = 1; RUN.newRec++; rareAdd('elcirc', B.newRec); RUN.say = `Новый рецепт в Книге стихий! 💎 +${B.newRec}`;
-    if (bookN() >= RX.keys.length && !st('elcirc').ttl) { st('elcirc').ttl = 1; rareAdd('elcirc', B.bookAll); RUN.bookDone = 1; RUN.say = `📖 Книга стихий собрана! 💎 +${B.newRec + B.bookAll}`;
-      glog('toast', `📖 Книга стихий собрана — Госпожа Буря называет тебя «Повелитель стихий»`, WORLD); stat('book', 'elcirc', { n: RX.keys.length }); } }
-  else RUN.say = '';
-  if (!RUN.slots.includes(r)) { RUN.slots.push(r); if (RUN.slots.length > B.slots) RUN.slots.shift(); }
-  RUN.flash = r; RUN.ft = t; A.sfx('fixed');
-  if (RUN.cloud && RUN.cloud.need === r) calmCloud(t);
+const task = () => RUN.tasks[RUN.ti];
+function sayTask() {   // the teacher's line for a fresh task (teaching = step by step)
+  const x = task(); RUN.hl = null; if (!x) return;
+  if (RUN.teach) {
+    if (RUN.ti === 0) { RUN.say = `Госпожа Буря: «Перетащи ${WA('F')} на стол…»`; RUN.hl = 'F'; RUN.tstep = 0; }
+    else if (RUN.ti === 1) { RUN.say = `Госпожа Буря: «${nmOf(x)} — это вода и вода. Перетащи ${WA('W')} на стол два раза.»`; RUN.hl = 'W'; }
+    else if (RUN.ti === 2) RUN.say = 'Госпожа Буря: «Теперь сам: из каких двух стихий выйдет Грязь?»';
+    else if (RUN.ti === 3) { RUN.say = `Госпожа Буря: «Сделанное — тоже ингредиент! Пруд получается из Лужи. Найди её внизу.»`; RUN.hl = 'puddle'; }
+    else RUN.say = 'Госпожа Буря: «Последнее — сам. Если трижды выйдет клякса, я подскажу.»';
+  } else RUN.say = RUN.ti === 0 ? 'Госпожа Буря: «Гроза собралась! Сверху — что нужно сделать.»' : '';
+}
+// ---- dragging (pointer events: finger and mouse). A tile moved up = drag; moved sideways = the tray scrolls (touch-action: pan-x)
+function elDown(e) {
+  if (!RUN || RUN.done || RUN.bookOn || RUN.res.length) return; const t = e.target.closest('.el-tile'); if (!t) return;
+  DRG = { id: t.dataset.el, x0: e.clientX, y0: e.clientY, on: false, g: null, pid: e.pointerId };
+}
+function elMove(e) {
+  if (!DRG || e.pointerId !== DRG.pid) return; const dx = e.clientX - DRG.x0, dy = e.clientY - DRG.y0;
+  if (!DRG.on) { if (Math.hypot(dx, dy) < 8) return; if (Math.abs(dx) > Math.abs(dy) * 1.2 && e.pointerType !== 'mouse') { DRG = null; return; }
+    DRG.on = true; const g = document.createElement('div'); g.className = 'el-ghost'; g.innerHTML = A.emojiHtml(`${emOf(DRG.id)}<small>${nmOf(DRG.id)}</small>`); ELM.w.appendChild(g); DRG.g = g; }
+  DRG.g.style.left = e.clientX + 'px'; DRG.g.style.top = e.clientY + 'px'; const k = slotAt(e.clientX, e.clientY); ELM.w.querySelectorAll('.el-slot').forEach((s, j) => s.classList.toggle('over', j === k));
+}
+function slotAt(x, y) {   // the bench slot under the point; anywhere over the bench = the first free slot
+  const ss = [...ELM.w.querySelectorAll('.el-slot')], hit = ss.findIndex((s) => { const r = s.getBoundingClientRect(); return x >= r.left - 10 && x <= r.right + 10 && y >= r.top - 10 && y <= r.bottom + 10; });
+  if (hit >= 0) return hit; const r = ELM.w.querySelector('.el-bench').getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom ? -2 : -1;
+}
+function elUp(e) {
+  if (!DRG || e.pointerId !== DRG.pid) return; const d = DRG; DRG = null;
+  if (d.g) d.g.remove(); if (ELM) ELM.w.querySelectorAll('.el-slot.over').forEach((s) => s.classList.remove('over'));
+  if (!RUN || RUN.done) return;
+  if (!d.on) { place(d.id, -2); return; }   // a tap = to the first free slot
+  const k = slotAt(e.clientX, e.clientY); if (k !== -1) place(d.id, k);
+}
+function elCancel() { if (DRG && DRG.g) DRG.g.remove(); DRG = null; }
+function place(x, k) {
+  if (RUN.res.length || RUN.mixAt) return; const b = RUN.bench;
+  if (k < 0 || b[k]) k = b[0] ? (b[1] ? -1 : 1) : 0; if (k < 0) return;
+  b[k] = x; A.sfx('tick');
+  if (RUN.teach && RUN.ti === 0) { if (b.filter(Boolean).length === 1) { RUN.say = x === 'F' ? `Госпожа Буря: «…теперь ${WA('W')}»` : x === 'W' ? `Госпожа Буря: «…теперь ${WA('F')}»` : `Госпожа Буря: «Для Пара нужны ${W('F')} и ${W('W')}»`; RUN.hl = x === 'W' ? 'F' : 'W'; } }
+  if (b[0] && b[1]) RUN.mixAt = performance.now() + 380;
+}
+function combine(t) {
+  const B = ANNEX_BAL.elcirc, [x, y] = RUN.bench, rs = (RX.pair[RX.key(x, y)] || []).slice(); RUN.mixAt = 0; RUN.last = [x, y];
+  if (!rs.length) { RUN.res = [{ id: 'blob', t }]; RUN.blobs++; RUN.say = `Госпожа Буря: «${pick(EL_BLOB)}»`; A.sfx('tick'); stat('blob', 'elcirc'); return; }
+  RUN.blobs = 0; const need = task(); rs.sort((p, q) => (q === need) - (p === need)); RUN.gain = '';
+  let say = '';
+  for (const r of rs) { const k = RX.key(x, y) + '=' + r, isNew = !seen()[r] && !isBase(r);
+    if (!book()[k]) { book()[k] = 1; RUN.newRec++; }
+    if (isNew) { seen()[r] = 1; RUN.newIt++; rareAdd('elcirc', B.newItem); say = `Новое: ${nmOf(r)}!`; RUN.gain += ` · находка 💎 +${B.newItem}`; checkBook(); }
+    RUN.res.push({ id: r, isNew, t }); }
+  if (need && rs.includes(need)) taskDone(t, need); else RUN.say = `Госпожа Буря: «${say ? say + ' ' : ''}Это не то, что нужно, но пригодится. Нужно — ${nmOf(need)}.»`;
+  A.sfx('fixed'); A.save();
+}
+function checkBook() {
+  const a = st('elcirc'); if (a.ttl2 || seenN() < RX.all.length) return; a.ttl2 = 1; a.ttl = 1; rareAdd('elcirc', ANNEX_BAL.elcirc.bookAll); RUN.bookDone = 1;
+  glog('toast', '📖 Книга стихий собрана — Госпожа Буря называет тебя «Повелитель стихий»', WORLD); stat('book', 'elcirc', { n: RX.all.length });
+}
+function taskDone(t, x) {
+  const B = ANNEX_BAL.elcirc, fast = t - RUN.tt0 < B.fastSec * Math.max(1, RX.steps[x]) * 1000, hk = heroK(x);
+  const pts = Math.round(B.pts * Math.max(1, RX.steps[x]) * (fast ? B.fastK : 1) * hk);
+  RUN.score += pts; RUN.got++; RUN.done2 = true; rareAdd('elcirc', B.taskCrys);
+  RUN.say = `Госпожа Буря: «${RUN.teach && RUN.ti === 0 ? `Получился ${nmOf(x)}! Нажми «В набор» — ${nmOf(x)} ляжет вниз, к твоим стихиям.` : `${pick(EL_OK)} Готово: ${nmOf(x)}!`}»`;
+  RUN.gain = `✓ Задание выполнено · 💎 +${B.taskCrys} · +${pts} очков${fast ? ' (быстро ×' + B.fastK + ')' : ''}${hk > 1 ? ' · наставник ×2' : ''}${RUN.gain}`;
+  if (RUN.teach && RUN.ti === 0) RUN.hl = null;
+}
+function resolve(keep) {   // the result card: «В набор» / «Выкинуть» / «Хорошо»
+  const r = RUN.res.shift(); if (!r) return; RUN.gain = '';
+  if (keep && r.id !== 'blob' && !isBase(r.id) && !inv()[r.id]) { inv()[r.id] = 1; A.sfx('fixed'); }
+  if (r.id === 'blob' && RUN.blobs >= ANNEX_BAL.elcirc.blobHint) hint();
+  RUN.bench = [null, null];
+  if (!RUN.res.length && RUN.done2) nextTask();
   A.save();
 }
-function calmCloud(t) {
-  const B = ANNEX_BAL.elcirc, c = RUN.cloud; if (!c) return;
-  const k = 1 + B.streakK * Math.min(RUN.streak, B.streakMax), hk = heroK(c.need), pts = Math.round(B.pts * RX.steps[c.need] * k * hk);
-  RUN.score += pts; RUN.got++; RUN.streak++; c.res = 'ok'; c.pts = pts; RUN.cloud = null; RUN.next = t + B.gap * 1000; RUN.ct = t; RUN.cres = 'ok';
-  RUN.say = `${RUN.say ? RUN.say + ' · ' : ''}Госпожа Буря: «${pick(EL_CALM)}» +${pts}${k > 1 ? ` (серия ×${k})` : ''}${hk > 1 ? ' · наставник ×2' : ''}`; A.sfx('fixed');
+function nextTask() {
+  RUN.done2 = false; RUN.ti++; RUN.tt0 = performance.now(); RUN.blobs = 0;
+  if (RUN.ti >= RUN.tasks.length) { if (RUN.teach) st('elcirc').t2 = 1; setTimeout(() => finishEv(false), 700); RUN.say = 'Госпожа Буря: «Все задания сделаны! Гроза довольна.»'; return; }
+  sayTask();
 }
-function spawnCloud(t) {
-  const B = ANNEX_BAL.elcirc, teach = RUN.teach.length > 0, need = teach ? RUN.teach.shift() : pickNeed(), n = RUN.items.length;
-  const T = Math.min(B.tMax, B.tBase + B.tStep * RX.steps[need]) * Math.max(B.tMin, 1 - B.tDec * n) * (teach ? B.teachK : 1);
-  RUN.cloud = { need, t0: t, T, teach, res: null }; RUN.items.push(RUN.cloud); RUN.lastNeed = need; RUN.cres = '';
-  if (teach) { const [x, y] = RECIPES[RX.of[need][0]]; RUN.say = `Госпожа Буря: «${nmOf(need)} — это ${nmOf(x).toLowerCase()} и ${nmOf(y).toLowerCase()}: нажми ${emOf(x)}, потом ${emOf(y)}»`; RUN.taught = (RUN.taught || 0) + 1; }
-  else if (n === 0 || (RUN.items[n - 1] || {}).teach) RUN.say = 'Что нужно туче? Смотри на картинку.';
+function nextPair(tg) {   // the next makeable step towards tg with what the player holds now: [a, b, item]
+  const have = new Set(setList()), c = {}, via = {}; have.forEach((h) => { c[h] = 0; });
+  for (let ch = true, g = 0; ch && g < 80; g++) { ch = false;
+    RECIPES.forEach(([a, b, r], j) => { if (c[a] === undefined || c[b] === undefined) return; const v = (a === b ? c[a] : c[a] + c[b]) + 1; if (c[r] === undefined || v < c[r]) { c[r] = v; via[r] = j; ch = true; } }); }
+  let x = tg; for (let g = 0; g < 30; g++) { if (have.has(x) || via[x] === undefined) return null; const [a, b] = RECIPES[via[x]]; if (have.has(a) && have.has(b)) return [a, b, x]; x = have.has(a) ? b : a; }
+  return null;
+}
+function hint() {
+  const p = nextPair(task()); RUN.blobs = 0; if (!p) return; const [a, , x] = p; RUN.hints++;
+  setTimeout(() => { if (!RUN || RUN.done || RUN.res.length) return; RUN.bench = [a, null]; RUN.hl = null;
+    RUN.say = `Госпожа Буря: «Подскажу: ${x === task() ? '' : `сначала сделай ${nmOf(x)}. `}${W(a)} уже на столе — что добавить?»`; }, 60);
+  stat('hint', 'elcirc');
+}
+function skipTask() {
+  if (RUN.res.length || RUN.teach) return; const cap = depthCap(), pool = RX.all.filter((i) => RX.layer[i] <= cap && !RUN.tasks.includes(i));
+  if (!pool.length) return; RUN.tasks[RUN.ti] = pick(pool); RUN.skips++; RUN.tt0 = performance.now(); RUN.blobs = 0; RUN.bench = [null, null]; RUN.say = `Госпожа Буря: «Хорошо, другое: ${nmOf(task())}.»`; A.sfx('tick');
+}
+function elClick(e) {
+  if (!RUN || RUN.kind !== 'storm' || RUN.done) return;
+  if (e.target.closest('[data-el-bookx]')) { RUN.bookOn = false; return; }
+  if (e.target.closest('.anx-x')) { finishEv(true); return; }
+  if (RUN.bookOn) return;
+  if (e.target.closest('[data-el-book]')) { RUN.bookOn = true; ELM.w.querySelector('.el-bookov').innerHTML = A.emojiHtml(`<div class="el-bkhd"><b>📖 Книга стихий</b><button class="el-bkx" data-el-bookx>Закрыть</button></div>${bookBody()}`); return; }
+  if (e.target.closest('[data-el-skip]')) { skipTask(); return; }
+  const rb = e.target.closest('[data-el-res]'); if (rb) { resolve(rb.dataset.elRes === 'keep'); return; }
+  const s = e.target.closest('[data-el-slot]'); if (s && !RUN.res.length && !RUN.mixAt) { const k = +s.dataset.elSlot; if (RUN.bench[k]) { RUN.bench[k] = null; A.sfx('tick'); } }
 }
 function stormLoop() {
   if (!ELM || !RUN || RUN.kind !== 'storm' || RUN.done) return; requestAnimationFrame(stormLoop);
-  const B = ANNEX_BAL.elcirc, t = performance.now(), el = (t - RUN.t0) / 1000;
-  if (RUN.cloud) { if (t >= RUN.cloud.t0 + RUN.cloud.T * 1000) { RUN.cloud.res = 'miss'; RUN.cloud = null; RUN.streak = 0; RUN.next = t + B.gap * 1000; RUN.ct = t; RUN.cres = 'miss'; RUN.say = `Госпожа Буря: «${pick(EL_MISS)}»`; A.sfx('tick'); } }
-  else if (el >= B.dur) { setTimeout(() => finishEv(false), 50); return; }
-  else if (t >= RUN.next) spawnCloud(t);
-  stormHud(t, el);
+  const t = performance.now();
+  if (RUN.mixAt && t >= RUN.mixAt) combine(t);
+  const r0 = RUN.res[0]; if (r0 && r0.id === 'blob' && t - r0.t > ANNEX_BAL.elcirc.blobFade * 1000) resolve(false);
+  stormHud(t);
 }
 function setH(el, key, html) { if (!el || ELM.k[key] === html) return; ELM.k[key] = html; el.innerHTML = A.emojiHtml(html); }
-function stormHud(t, el) {
-  const B = ANNEX_BAL.elcirc, w = ELM.w, c = RUN.cloud, kn = knownSet();
-  setH(w.querySelector('.anx-mt'), 'mt', `⛈️ Гроза · очки ${RUN.score} · туч ${RUN.got}${RUN.streak > 1 ? ` · серия ${RUN.streak}` : ''} · ${Math.max(0, Math.ceil(B.dur - el))} с`);
-  const cl = w.querySelector('.el-cloud'), cls = 'el-cloud' + (c ? '' : RUN.cres === 'ok' && t - RUN.ct < 900 ? ' calm' : RUN.cres === 'miss' && t - RUN.ct < 900 ? ' miss' : ' wait');
-  if (cl.className !== cls) cl.className = cls;
-  setH(w.querySelector('.el-need'), 'need', c ? emOf(c.need) : RUN.cres === 'ok' && t - RUN.ct < 900 ? '🌈' : '');
-  setH(w.querySelector('.el-nm'), 'nm', c ? (kn.has(c.need) || c.teach ? nmOf(c.need) : '?') : '');
-  const bar = w.querySelector('.el-bar i'), u = c ? Math.max(0, 1 - (t - c.t0) / (c.T * 1000)) : 0; bar.style.width = (u * 100).toFixed(1) + '%'; bar.style.background = u < 0.3 ? '#e2504c' : '#6fd0ff';
-  setH(w.querySelector('.el-say'), 'say', RUN.say || (RUN.items.length ? '&nbsp;' : RUN.first || 'Госпожа Буря: «Гроза собирается…»'));   // before the first cloud: her first-time line setH(w.querySelector('.el-mix'), 'mix', RUN.mix || '&nbsp;');
-  w.querySelectorAll('.el-slot').forEach((b, k) => { const v = RUN.slots[k], h = v ? `${emOf(v)}<small>${nmOf(v)}</small>` : '';
-    setH(b, 's' + k, h); const on = v && RUN.sel === v ? ' sel' : '', fl = v && RUN.flash === v && t - RUN.ft < 700 ? ' new' : '', give = v && c && c.need === v && !RUN.sel ? ' give' : '';
-    const cn = 'el-slot' + (v ? '' : ' empty') + on + fl + give; if (b.className !== cn) b.className = cn; });
-  w.querySelectorAll('.el-stone').forEach((b) => { const x = b.dataset.elStone, cn = `el-stone el-${x}${RUN.sel === x ? ' sel' : ''}`; if (b.className !== cn) b.className = cn; });
-  if (RUN.fz && t - RUN.fz < 400) w.classList.add('fz'); else w.classList.remove('fz');
+const SHY = { earthquake: 'Земле­трясение', atmosphere: 'Атмо­сфера', algae: 'Водо­росли', sunflower: 'Под­солнух', soup: 'Первич­ный бульон', bacteria: 'Бакте­рия' };   // soft hyphens for long words on the small tiles
+const tileH = (x, cls = '') => `<div class="el-tile${cls}" data-el="${x}"><span class="el-em">${emOf(x)}</span><small>${SHY[x] || nmOf(x)}</small></div>`;
+function stormHud(t) {
+  const w = ELM.w, x = task(), N = RUN.tasks.length, r = RUN.res[0];
+  setH(w.querySelector('.el-sc'), 'sc', `очки ${RUN.score}`);
+  setH(w.querySelector('.el-tn'), 'tn', x ? `Задание ${Math.min(RUN.ti + 1, N)} из ${N}${RUN.done2 ? ' · готово ✓' : ''}` : `Все ${N} заданий сделаны`);
+  setH(w.querySelector('.el-tw'), 'tw', x ? `Создай: <b>${emOf(x)} ${nmOf(x)}</b>` : '🌈 Гроза довольна!');
+  setH(w.querySelector('.el-dots'), 'dots', RUN.tasks.map((_, k) => `<i class="${k < RUN.ti || (k === RUN.ti && RUN.done2) ? 'ok' : k === RUN.ti ? 'cur' : ''}"></i>`).join(''));
+  setH(w.querySelector('.el-say'), 'say', RUN.say || 'Перетащи два элемента на стол — посмотрим, что выйдет.');
+  w.querySelectorAll('.el-slot').forEach((s, k) => { const v = RUN.bench[k]; setH(s, 's' + k, v ? `<span class="el-em">${emOf(v)}</span><small>${nmOf(v)}</small>` : '<span class="el-ph">перетащи сюда</span>');
+    const cn = 'el-slot' + (v ? ' full' : '') + (RUN.mixAt ? ' mix' : '') + (s.classList.contains('over') ? ' over' : ''); if (s.className !== cn) s.className = cn; });
+  const rh = !r ? '' : r.id === 'blob'
+    ? `<div class="el-eq">${nmOf(RUN.last[0])} + ${nmOf(RUN.last[1])} =</div><div class="el-big blob">${emOf('blob')}</div><div class="el-rn">Клякса — ничего полезного</div><div class="el-btns"><button class="btn" data-el-res="drop">Выкинуть</button></div>`
+    : `<div class="el-eq">${nmOf(RUN.last[0])} + ${nmOf(RUN.last[1])} =</div><div class="el-big${r.id === x || (RUN.done2 && r.id === RUN.tasks[RUN.ti]) ? ' goal' : ''}">${emOf(r.id)}</div><div class="el-rn">${r.isNew ? '<em>Новое:</em> ' : ''}${nmOf(r.id)}${r.isNew ? '!' : ''}</div>${r === RUN.res[0] && RUN.gain && r.id !== 'blob' ? `<div class="el-gain">${RUN.gain.replace(/^ · /, '')}</div>` : ''}
+      <div class="el-btns">${isBase(r.id) || inv()[r.id] ? `<button class="btn hot" data-el-res="drop">Хорошо — уже в наборе</button>` : `<button class="btn hot" data-el-res="keep">⬇ В набор</button><button class="btn" data-el-res="drop">🗑 Выкинуть</button>`}</div>`;
+  setH(w.querySelector('.el-res'), 'res', rh); const bc = 'el-bench' + (r ? ' show' : '') + (r && r.id === 'blob' ? ' blobbed' : ''); const be = w.querySelector('.el-bench'); if (be.className !== bc) be.className = bc;
+  const L = setList(); setH(w.querySelector('.el-lab'), 'lab', `Твой набор · ${L.length} — перетащи на стол или нажми`);
+  setH(w.querySelector('.el-tray'), 'tray', L.map((i) => tileH(i, i === RUN.hl ? ' hl' : isBase(i) ? ' base' : '')).join(''));
+  const sk = w.querySelector('[data-el-skip]'); if (sk.disabled !== (RUN.teach || !!r)) sk.disabled = RUN.teach || !!r;
+  const bo = w.querySelector('.el-bookov'), bcn = 'el-bookov' + (RUN.bookOn ? ' on' : ''); if (bo.className !== bcn) bo.className = bcn;
 }
-function stormEnd(R) {   // the event's end: crystals for calmed clouds, the weekly record (local, like the mini-games' week bests)
-  const B = ANNEX_BAL.elcirc, a = st('elcirc'), wk = weekKey(); if (a.wk !== wk) { a.wk = wk; a.wb = 0; }
-  const rec = R.score > 0 && R.score > (a.wb || 0); if (rec) a.wb = R.score; a.best = Math.max(a.best || 0, R.score);
-  if ((R.taught || 0) >= B.teach.length) a.taught = 1;
-  R.sum = `туч успокоено ${R.got}, очки ${R.score}${rec ? ' (рекорд недели!)' : ''}${R.newRec ? `, новых рецептов ${R.newRec} (💎 +${R.newRec * B.newRec})` : ''}`;
-  return Math.min(B.crysMax, Math.floor(R.got / B.perCrys));
+function stormEnd(R) {   // the event's end: crystals were paid per task and per new item; the weekly record (local, like the mini-games' week bests)
+  const B = ANNEX_BAL.elcirc, a = st('elcirc'), wk = weekKey(); if (a.wk2 !== wk) { a.wk2 = wk; a.wb2 = 0; }
+  const rec = R.score > 0 && R.score > (a.wb2 || 0); if (rec) a.wb2 = R.score; a.best2 = Math.max(a.best2 || 0, R.score);
+  R.sum = `заданий ${R.got} из ${R.tasks.length}, очки ${R.score}${rec ? ' (рекорд недели!)' : ''}${R.newIt ? `, новых находок ${R.newIt}` : ''}`;
+  stat('elem_end', 'elcirc', { d: R.got, s: R.score, ni: R.newIt, h: R.hints, sk: R.skips, t: R.teach ? 1 : 0 });
+  return 0;   // crystals already given: 💎 taskCrys per task + newItem per new item (shown at once)
 }
-function bookHtml() {   // «📖 Книга стихий»: every recipe by its layer; found ones shown, the rest as silhouettes
-  const a = st('elcirc'), b = book(), n = bookN(), M = RX.keys.length, kn = knownSet(), B = ANNEX_BAL.elcirc;
-  let h = `<div class="sh-head"><span class="remoji big">📖</span><div><h2>Книга стихий</h2><div class="muted">${n} из ${M} рецептов${a.ttl ? ' · 👑 Повелитель стихий' : ''}</div></div><button class="x" data-close>✕</button></div>
-    <p class="muted">Каждый новый рецепт — 💎 ${B.newRec} один раз. Сделанное само становится ингредиентом. Собери всю книгу — и Госпожа Буря назовёт тебя Повелителем стихий (💎 +${B.bookAll}).</p>`;
+function bookBody() {   // every recipe, grouped by the item it makes, by depth; found = «Огонь + Вода = Пар», not found = «? + ? = ?»
+  const b = book(), s = seen(); let h = `<p class="muted">Находок ${seenN()} из ${RX.all.length} · рецептов ${bookN()} из ${RX.keys.length}. Новая находка — 💎 ${ANNEX_BAL.elcirc.newItem}. Все находки — титул «Повелитель стихий» (💎 +${ANNEX_BAL.elcirc.bookAll}).</p>`;
   for (let L = 1; L <= RX.maxL; L++) {
-    const rows = RECIPES.map((r, j) => [r, j]).filter(([, j]) => RX.rl[j] === L); if (!rows.length) continue;
-    h += `<h3>Слой ${L} · ${rows.filter(([, j]) => b[RX.keys[j]]).length}/${rows.length}</h3><div class="el-book">` + rows.map(([[x, y, r], j]) => (b[RX.keys[j]]
-      ? `<div class="el-rec">${emOf(x)} + ${emOf(y)} = ${emOf(r)} <b>${nmOf(r)}</b></div>`
-      : `<div class="el-rec off">❔ + ❔ = <span class="el-sil">${emOf(r)}</span> <i>${kn.has(r) ? nmOf(r) + ' — другой путь' : '???'}</i></div>`)).join('') + '</div>';
+    const its = RX.all.filter((i) => RX.layer[i] === L); if (!its.length) continue;
+    h += `<h3>Ступень ${L} · ${its.filter((i) => s[i]).length}/${its.length}</h3><div class="el-book">`;
+    for (const i of its) for (const j of RX.of[i]) { const [x, y] = RECIPES[j];
+      h += b[RX.keys[j]] ? `<div class="el-rec">${W(x)} + ${W(y)} = <b>${W(i)}</b></div>` : `<div class="el-rec off">? + ? = ${s[i] ? `${W(i)} <i>(другой рецепт)</i>` : '?'}</div>`; }
+    h += '</div>';
   }
-  return h + `<button class="btn wide" data-anx="back" data-id="elcirc" style="margin-top:10px">⬅ К кругу стихий</button>`;
+  return h;
+}
+function bookHtml() {   // «📖 Книга стихий» in the circle panel
+  const a = st('elcirc');
+  return `<div class="sh-head"><span class="remoji big">📖</span><div><h2>Книга стихий</h2><div class="muted">находок ${seenN()} из ${RX.all.length}${a.ttl ? ' · 👑 Повелитель стихий' : ''}</div></div><button class="x" data-close>✕</button></div>`
+    + bookBody() + `<button class="btn wide" data-anx="back" data-id="elcirc" style="margin-top:10px">⬅ К кругу стихий</button>`;
 }
 function circleCard() {
-  const a = st('elcirc'), wk = weekKey(), wb = a.wk === wk ? a.wb || 0 : 0;
-  return `<div class="card"><span class="remoji">📖</span><div class="grow"><b>Книга стихий ${bookN()} из ${RX.keys.length}</b><div class="muted">рекорд недели: ${wb} · лучший: ${a.best || 0}${a.ttl ? ' · 👑 Повелитель стихий' : ''} · тучи просят до слоя ${depthCap()}</div></div><button class="btn" data-anx="book" data-id="elcirc">Открыть</button></div>`;
+  const a = st('elcirc'), wk = weekKey(), wb = a.wk2 === wk ? a.wb2 || 0 : 0;
+  return `<div class="card"><span class="remoji">📖</span><div class="grow"><b>Книга стихий: ${seenN()} из ${RX.all.length} находок</b><div class="muted">рекорд недели: ${wb} · лучший: ${a.best2 || 0}${a.ttl ? ' · 👑 Повелитель стихий' : ''} · задания до ступени ${depthCap()}</div></div><button class="btn" data-anx="book" data-id="elcirc">Открыть</button></div>`;
 }
 function drawCircle(c, g, a, T) {   // placeholder: four standing stones around a rune ring (Maria's art: ANNEX_ART.elcirc)
   const P = A.P, q = P(g.x, g.y), rx = 1.2 * A.HW, ry = 1.2 * A.HH;
@@ -710,6 +872,7 @@ let RECTS = [];
 function signs() {
   RECTS = []; if (!ON || !A || !A.S() || A.edit()) { edge(null); return; }
   const c = A.ctx(), t = performance.now();
+  drawFly(c, t);   // oranges on their way to the canteen
   for (const id of IDS) { if (id === 'pond') continue; const g = geo(id); if (!g) continue; const a = st(id); if (!a.b && !a.bt && !asked(id)) continue;
     const D = DEF[id], ready = a.ev && a.ev.rdy && !RUN, hgt = id === 'orchard' ? 44 : D.h + 26;
     let lab = `${D.emo} ${D.name}`, bg = '#d6f0ff';
@@ -794,6 +957,7 @@ function panelFn() {
     const n = a.tr.filter(Boolean).length, grown = a.tr.filter((tr, k) => tr && treeUp(tr, k)).length;
     h += `<div class="stats3"><div><span>🌳</span><b>${grown}/${n}</b><i>деревьев</i></div><div><span>🍊</span><b>${hanging()}</b><i>на деревьях</i></div><div><span>🧺</span><b>${a.o} мин</b><i>мармелад (до ${B.cap})</i></div></div>
       <p class="muted">Днём (${B.day[0]}:00–21:30) каждое дерево растит апельсин примерно раз в ${Math.round(B.fruit / 60)} минут, до ${B.perTree} на дереве; они не портятся, ночью деревья отдыхают. ${D.prod.fx[0].toUpperCase() + D.prod.fx.slice(1)}. Нет апельсинов — столовая работает как обычно.${dayNow() ? '' : ' 🌙 Сейчас ночь.'}</p>
+      ${Object.keys(a.wt || {}).length ? `<p class="muted">🌳 Ещё ${Object.keys(a.wt).length} ${nOf(Object.keys(a.wt).length, 'апельсиновое дерево растёт', 'апельсиновых дерева растут', 'апельсиновых деревьев растут')} вокруг школы: нажми на любое — весь урожай полетит в столовую.</p>` : ''}
       ${hanging() ? `<button class="btn wide hot" data-anx="harvest" data-id="orchard">🧺 Собрать весь урожай (${hanging()})</button>` : ''}
       <h3>Лунки</h3>` + a.tr.map((tr, k) => { if (tr) { const up = treeUp(tr, k); return `<div class="card"><span class="remoji">${up ? '🌳' : '🌱'}</span><div class="grow">Лунка ${k + 1}: ${up ? `дерево · апельсинов: ${tr.f || 0}/${B.perTree}` : `саженец, вырастет через ${Math.max(1, Math.ceil((treeAt(tr) - now()) / 60000))} мин`}</div></div>`; }
         const first = a.tr.findIndex((x) => !x); if (k !== first) return ''; return `<div class="card up ${PANEL_HOLE === k ? 'pulse' : ''}"><span class="remoji">🕳️</span><div class="grow"><b>Посадить саженец</b><div class="muted">свободных лунок: ${a.tr.filter((x) => !x).length} · вырастет за ${Math.round(B.grow / 60)} мин</div></div><button class="btn" data-anx="plant" data-id="${k}">🌱 <span class="cost">🪙${f(saplingCost())}</span></button></div>`; }).join('');
@@ -806,7 +970,7 @@ function panelFn() {
   if (D.ev) { const e = a.ev; h += `<div class="card ${e.rdy ? 'up' : ''}"><span class="remoji">${EV_NAME[D.ev].split(' ')[0]}</span><div class="grow"><b>${EV_NAME[D.ev].slice(EV_NAME[D.ev].indexOf(' ') + 1)}</b><div class="muted">${e.rdy ? 'готово — можно начать!' : e.k >= ANNEX_BAL.ev.perDay ? 'на сегодня всё — приходи завтра' : 'появится само, когда играешь'} · сегодня ${e.k}/${ANNEX_BAL.ev.perDay}</div></div>${e.rdy ? `<button class="btn hot" data-anx="start" data-id="${id}">Начать</button>` : ''}</div>`; }
   if (id === 'elcirc') h += circleCard();
   if (a.L < ANNEX_BAL.lvlMax) { const need = lvlRare(id), ok = rareN(id) >= need;
-    h += `<div class="card up"><span class="remoji">⬆️</span><div class="grow"><b>Улучшить до ур. ${a.L + 1}</b><div class="muted">запас до ${cap} → ${Math.round(B.cap * (1 + ANNEX_BAL.capK * a.L))} мин, пополняется быстрее на 15 %${id === 'elcirc' ? ` · тучи просят до слоя ${Math.min(RX.maxL, ANNEX_BAL.elcirc.depthL[a.L + 1])}` : ''} · нужно ${D.rare.e} ${need}${id === 'obs' ? ' (пыль остаётся у тебя)' : ''} (есть ${rareN(id)})</div></div><button class="btn" data-anx="lvl" data-id="${id}" ${ok ? '' : 'disabled'}>↑ <span class="cost">🪙${f(lvlCoins(id))}</span></button></div>`; }
+    h += `<div class="card up"><span class="remoji">⬆️</span><div class="grow"><b>Улучшить до ур. ${a.L + 1}</b><div class="muted">запас до ${cap} → ${Math.round(B.cap * (1 + ANNEX_BAL.capK * a.L))} мин, пополняется быстрее на 15 %${id === 'elcirc' ? ` · задания до ступени ${Math.min(RX.maxL, ANNEX_BAL.elcirc.depthL[a.L + 1])}` : ''} · нужно ${D.rare.e} ${need}${id === 'obs' ? ' (пыль остаётся у тебя)' : ''} (есть ${rareN(id)})</div></div><button class="btn" data-anx="lvl" data-id="${id}" ${ok ? '' : 'disabled'}>↑ <span class="cost">🪙${f(lvlCoins(id))}</span></button></div>`; }
   else h += '<p class="muted">Максимальный уровень.</p>';
   return h;
 }
@@ -839,41 +1003,48 @@ function css() { const s = document.createElement('style'); s.id = 'anx-css'; s.
 #anx-mir .anx-mtop{position:static;transform:none;margin-bottom:10px}
 #anx-mir canvas{touch-action:none}
 #anx-mir .anx-msay{margin-top:10px;max-width:330px;text-align:center;background:#fff6cf;border:2px solid #e2b23c;border-radius:12px;padding:6px 12px;font:800 14px ui-rounded,"Nunito",sans-serif;color:#5a4410}
-#anx-elem{position:fixed;inset:0;z-index:36;background:linear-gradient(#1c1430f0,#2a2048e8);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;touch-action:none;-webkit-user-select:none;user-select:none;padding:0 12px;color:#fff}
-#anx-elem .anx-mtop{position:static;transform:none;margin-bottom:4px}
-#anx-elem.fz .el-mix{animation:elfz .35s}
-@keyframes elfz{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
-.el-sky{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:30px}
-.el-cloud{position:relative;width:170px;height:104px;border-radius:52px;background:radial-gradient(circle at 35% 35%,#ffffff,#cfd8ee 70%);box-shadow:0 0 0 6px #ffffff22,0 8px 22px #0005;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:background .3s,transform .3s}
-.el-cloud:before,.el-cloud:after{content:'';position:absolute;background:inherit;border-radius:50%}
-.el-cloud:before{width:70px;height:70px;top:-26px;left:28px}.el-cloud:after{width:56px;height:56px;top:-16px;right:30px}
-.el-cloud>span{position:relative;z-index:1}
-.el-cloud.miss{background:radial-gradient(circle at 35% 35%,#8a8fa3,#535a70 70%);transform:translateY(-6px)}
-.el-cloud.calm{background:radial-gradient(circle at 35% 35%,#fffbe6,#ffe6f6 70%)}
-.el-cloud.wait{opacity:.45}
-.el-need{font-size:44px;line-height:1}.el-need img.em{width:46px;height:46px}
-.el-nm{font:800 13px ui-rounded,"Nunito",sans-serif;color:#2e2340;min-height:16px}
-.el-bar{width:170px;height:7px;border-radius:4px;background:#ffffff26;overflow:hidden}.el-bar i{display:block;height:100%;width:0}
-.el-say{max-width:350px;min-height:38px;text-align:center;background:#fff6cf;border:2px solid #e2b23c;border-radius:12px;padding:5px 10px;font:800 13px/1.3 ui-rounded,"Nunito",sans-serif;color:#5a4410}
-.el-mix{min-height:22px;font:800 15px ui-rounded,"Nunito",sans-serif;color:#fff}
-.el-lab{font:700 11px ui-rounded,"Nunito",sans-serif;color:#d9c7ff;margin-top:2px}
-.el-made{display:flex;gap:8px}
-.el-slot{width:70px;height:64px;border-radius:14px;border:2px solid #b9a3ff;background:#ffffff1f;color:#fff;font:800 26px sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px}
-.el-slot small,.el-stone small{font:700 10px ui-rounded,"Nunito",sans-serif;white-space:nowrap;overflow:hidden;max-width:100%}
-.el-slot img.em{width:28px;height:28px}
-.el-slot.empty{border-style:dashed;opacity:.5}
-.el-slot.new{box-shadow:0 0 0 4px #ffe46b}
-.el-slot.give{border-color:#5ee07a;box-shadow:0 0 12px #5ee07a;animation:elgive 1s infinite}
-@keyframes elgive{50%{transform:scale(1.07)}}
-.el-ring{display:grid;grid-template-columns:repeat(4,76px);gap:8px;margin-top:6px}
-.el-stone{height:82px;border-radius:38px 38px 14px 14px;border:3px solid #5d5870;background:linear-gradient(#b9b5c8,#8d89a0);color:#2e2340;font:800 32px sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 5px 0 #4a4560}
-.el-stone img.em{width:34px;height:34px}
-.el-stone.el-F{box-shadow:0 5px 0 #4a4560,0 0 14px #ff8a3d88}.el-stone.el-W{box-shadow:0 5px 0 #4a4560,0 0 14px #4fa8ff88}.el-stone.el-E{box-shadow:0 5px 0 #4a4560,0 0 14px #c9a26b88}.el-stone.el-A{box-shadow:0 5px 0 #4a4560,0 0 14px #d0f0ff88}
-.el-stone.sel,.el-slot.sel{border-color:#ffe46b;box-shadow:0 0 0 4px #ffe46b,0 0 18px #ffe46b;transform:translateY(-3px)}
+#anx-elem{position:fixed;inset:0;z-index:36;background:linear-gradient(#1c1430,#2a2048);display:flex;flex-direction:column;align-items:stretch;gap:8px;touch-action:none;-webkit-user-select:none;user-select:none;padding:calc(var(--safe-t, 0px) + 8px) 10px calc(var(--safe-b, 0px) + 8px);color:#fff;font-family:ui-rounded,"Nunito",sans-serif;box-sizing:border-box}
+#anx-elem img.em{width:1em;height:1em}
+.el-top{display:flex;flex-direction:column;gap:6px}
+.el-hd{display:flex;align-items:center;gap:8px;font:800 15px ui-rounded,"Nunito",sans-serif}.el-hd b{flex:1}.el-sc{font:700 13px ui-rounded,"Nunito",sans-serif;color:#e9ddff}
+.el-task{background:#fffdf5;color:#2e2340;border-radius:16px;padding:8px 12px 9px;box-shadow:0 4px 14px #0004;text-align:center;border:3px solid #ffcf40}
+.el-tn{font:700 13px ui-rounded,"Nunito",sans-serif;color:#7a6a99}
+.el-tw{font:800 22px/1.25 ui-rounded,"Nunito",sans-serif}.el-tw b{white-space:nowrap}
+.el-dots{display:flex;justify-content:center;gap:6px;margin-top:5px}.el-dots i{width:22px;height:7px;border-radius:4px;background:#ddd3ee}.el-dots i.cur{background:#ffcf40}.el-dots i.ok{background:#5ec27a}
+.el-say{min-height:40px;text-align:center;background:#fff6cf;border:2px solid #e2b23c;border-radius:12px;padding:5px 10px;font:800 14px/1.3 ui-rounded,"Nunito",sans-serif;color:#5a4410;box-sizing:border-box}
+.el-bench{position:relative;height:210px;flex:0 0 auto;border-radius:22px;background:radial-gradient(ellipse at 50% 40%,#6a4f9a,#3b2c5e 75%);border:3px solid #b9a3ff;box-shadow:inset 0 0 24px #0006;display:flex;align-items:center;justify-content:center}
+.el-mixrow{display:flex;align-items:center;gap:12px}
+.el-plus{font:900 34px ui-rounded,sans-serif;color:#efe4ff}
+.el-slot{width:118px;height:132px;border-radius:18px;border:3px dashed #d9c7ff;background:#ffffff14;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:transform .15s}
+.el-slot.full{border-style:solid;background:#fffdf5;color:#2e2340}.el-slot.over{border-color:#ffe46b;box-shadow:0 0 0 4px #ffe46b88;transform:scale(1.05)}.el-slot.mix{animation:elmix .38s}
+.el-slot .el-em{font-size:52px;line-height:1}.el-slot small{font:800 16px/1.15 ui-rounded,"Nunito",sans-serif;text-align:center;max-width:110px}
+.el-ph{font:700 13px ui-rounded,"Nunito",sans-serif;color:#d9c7ff;text-align:center;padding:0 8px}
+@keyframes elmix{50%{transform:scale(.9) rotate(-4deg)}}
+.el-res{display:none}
+.el-bench.show .el-mixrow{display:none}.el-bench.show .el-res{display:flex;flex-direction:column;align-items:center;gap:3px;animation:elpop .3s}
+@keyframes elpop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+.el-eq{font:700 14px ui-rounded,"Nunito",sans-serif;color:#e9ddff}
+.el-big{font-size:60px;line-height:1.05}.el-big.goal{filter:drop-shadow(0 0 12px #ffe46b)}.el-big.blob{filter:grayscale(.5)}
+.el-rn{font:900 21px ui-rounded,"Nunito",sans-serif;color:#fff}.el-rn em{font-style:normal;color:#ffe46b}
+.el-bench.blobbed .el-rn{font-size:16px;color:#d9c7ff}.el-bench.blobbed .el-res{animation:elpop .3s,elfade 2s forwards}
+@keyframes elfade{70%{opacity:1}100%{opacity:.25}}
+.el-gain{font:800 13px ui-rounded,"Nunito",sans-serif;color:#b8f5c6;text-align:center;padding:0 8px}
+.el-btns{display:flex;gap:8px;margin-top:4px}.el-btns .btn{font-size:15px;padding:8px 14px}
+.el-lab{font:700 13px ui-rounded,"Nunito",sans-serif;color:#d9c7ff;text-align:center}
+.el-tray{flex:0 0 auto;height:284px;display:grid;grid-auto-flow:column;grid-template-rows:repeat(3,88px);grid-auto-columns:86px;align-content:start;gap:6px;overflow-x:auto;overflow-y:hidden;touch-action:pan-x;padding:2px 2px 6px;scrollbar-width:thin}
+.el-tile{border-radius:14px;background:#fffdf5;color:#2e2340;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px;box-shadow:0 3px 0 #0003;cursor:grab;touch-action:pan-x}
+.el-tile.base{background:#ffeccc}.el-tile.hl{box-shadow:0 0 0 4px #ffe46b,0 0 16px #ffe46b;animation:elgive 1s infinite}
+.el-tile .el-em{font-size:30px;line-height:1;pointer-events:none}.el-tile small{font:800 12px/1.1 ui-rounded,"Nunito",sans-serif;text-align:center;pointer-events:none;hyphens:manual;overflow-wrap:anywhere}
+@keyframes elgive{50%{transform:translateY(-3px)}}
+.el-ghost{position:fixed;z-index:40;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:16px;background:#fffdf5;color:#2e2340;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 8px 22px #0007;pointer-events:none;font-size:36px;transform:rotate(-4deg)}
+.el-ghost small{font:800 12px ui-rounded,"Nunito",sans-serif}
+.el-foot{display:flex;gap:8px;margin-top:auto}.el-fb{flex:1;border:0;border-radius:12px;background:#ffffff22;color:#fff;font:800 14px ui-rounded,"Nunito",sans-serif;padding:10px 6px}.el-fb:disabled{opacity:.35}
+.el-bookov{display:none;position:absolute;inset:8px;z-index:3;background:#fffdf5;color:#2e2340;border-radius:18px;padding:10px 12px;overflow-y:auto;touch-action:pan-y}.el-bookov.on{display:block}
+.el-bkhd{display:flex;align-items:center;justify-content:space-between;font:800 18px ui-rounded,"Nunito",sans-serif;position:sticky;top:-10px;background:#fffdf5;padding:4px 0}.el-bkx{border:0;border-radius:10px;background:#2e2340;color:#fff;font:800 14px sans-serif;padding:6px 12px}
+.el-bookov h3{margin:10px 0 4px;font:800 15px ui-rounded,"Nunito",sans-serif}
 .el-book{display:flex;flex-direction:column;gap:3px}
-.el-rec{font:600 14px ui-rounded,"Nunito",sans-serif;padding:3px 6px;border-radius:8px;background:#f4efff}
+.el-rec{font:600 14px ui-rounded,"Nunito",sans-serif;padding:4px 7px;border-radius:8px;background:#f4efff;color:#2e2340}
 .el-rec.off{background:#f2f2f2;color:#888}
-.el-sil{filter:brightness(0);opacity:.3;display:inline-block}
 #anx-edge{position:fixed;z-index:16;border:2px solid #ffcf40;background:#fff1b8;color:#2e2340;border-radius:14px;padding:5px 10px;font:800 13px ui-rounded,"Nunito",sans-serif;box-shadow:0 3px 10px #0003;white-space:nowrap}
 #anx-bubble{position:fixed;left:50%;top:calc(var(--safe-t, 0px) + 110px);transform:translate(-50%,-20px);opacity:0;pointer-events:none;z-index:31;max-width:min(92vw,460px);background:#fffdf5;border:2px solid #b9a3ff;border-radius:14px;padding:8px 12px;font:600 14px/1.35 ui-rounded,"Nunito",sans-serif;color:#2e2340;box-shadow:0 6px 18px #0003;transition:opacity .3s,transform .3s}
 #anx-bubble.on{opacity:1;transform:translate(-50%,0)}
@@ -883,29 +1054,30 @@ img.em{height:1em;width:1em}
 export function initAnnex(api0) {
   A = api0; MISSIONS = A.MISSIONS; CLASSES = A.CLASSES; WORLD = A.WORLD; ON = WORLD === 1; glog = A.glog;
   if (ON) addMissions();
-  if (!ON) return { ...api, prep() {}, late: () => false, draw() {}, signs() {}, tap: () => false, blocks: () => false, go: () => false, running: () => false, sfOff: () => false, mgOk: () => true, mgAny: () => true, mgDone() {}, fishGate: () => false, pondSign: (n) => (n > 0 ? `🎣 Рыбалка · ${n}` : '🎣 Рыбалка'), cantCard: () => '', classCard: () => '' };
+  if (!ON) return { ...api, wildDraw() {}, wildTap: () => false, prep() {}, late: () => false, draw() {}, signs() {}, tap: () => false, blocks: () => false, go: () => false, running: () => false, sfOff: () => false, mgOk: () => true, mgAny: () => true, mgDone() {}, fishGate: () => false, pondSign: (n) => (n > 0 ? `🎣 Рыбалка · ${n}` : '🎣 Рыбалка'), cantCard: () => '', classCard: () => '' };
   css(); document.addEventListener('click', onClick, true); setInterval(tick, 1000);
   window.__annex = {   // test hooks
     st: (id) => st(id), DEF, BAL: ANNEX_BAL, geo, holes, asked, late, run: () => RUN && { id: RUN.id, kind: RUN.kind, got: RUN.got, cur: RUN.cur, items: RUN.items.map((x) => ({ st: x.st, res: x.res, grade: x.grade, score: x.score })) },
     ready: (id) => { const e = st(id).ev; e.rdy = 1; e.w = 0; }, start: (id) => startEv(id), finish: () => finishEv(false), tick,
     build: (id) => { const a = st(id); a.bt = now() - 1; tick(); }, panel: (id) => openPanel(id), edgeShown: () => !!(EDGE && EDGE.style.display !== 'none'),
-    advance(sec) { const ms = sec * 1000; for (const id of IDS) { const a = st(id); if (a.t) a.t -= ms; if (a.d) a.d -= ms; if (a.od) a.od -= ms; if (a.bt) a.bt -= ms; if (a.tr) a.tr.forEach((tr) => { if (tr) { tr.p -= ms; if (tr.t) tr.t -= ms; } }); } tick(); },
+    advance(sec) { const ms = sec * 1000; for (const id of IDS) { const a = st(id); if (a.t) a.t -= ms; if (a.d) a.d -= ms; if (a.od) a.od -= ms; if (a.bt) a.bt -= ms; if (a.tr) a.tr.forEach((tr) => { if (tr) { tr.p -= ms; if (tr.t) tr.t -= ms; } }); if (a.wt) Object.values(a.wt).forEach((tr) => { tr.p -= ms; if (tr.t) tr.t -= ms; }); } tick(); },
     hold: (ms) => { const b = RUN && RUN.items[RUN.cur]; if (!b) return 'none'; b.st = 'hold'; b.h0 = performance.now() - ms; bloomUp(); return b.res; },
     trace: (jit = 0) => { if (!MIR || MIR.ph !== 'trace') return 'not tracing'; const F = figPts(RUN.items[RUN.cur].f); MIR.trace = F.map(([x, y]) => [x + (Math.random() - 0.5) * jit, y + (Math.random() - 0.5) * jit]); MIR.drawing = false; gradeFig(); return RUN.items[RUN.cur].grade; },
     traceHalf: () => { if (!MIR || MIR.ph !== 'trace') return 'not tracing'; const F = figPts(RUN.items[RUN.cur].f); MIR.trace = F.slice(0, Math.floor(F.length / 2)); MIR.drawing = true; return MIR.trace.length; },
     mir: () => MIR && { ph: MIR.ph, cur: RUN && RUN.cur }, catchAll: () => { const t = performance.now(); let n = 0; if (!RUN) return 0; for (const s of RUN.items) { const p = s.st === 'fall' && fallPos(s, t); if (p) { fallDown(p.x, p.y); n++; } } return n; },
-    harvest, plant, levelUp, mgOk, edge: () => EDGE && EDGE.textContent,
+    harvest, plant, levelUp, mgOk, wildTap, wildHits: () => [...WILD_HIT.entries()], wild: () => st('orchard').wt || {}, wildKeys: () => (A.wild ? A.wild() : []), edge: () => EDGE && EDGE.textContent,
     rects: () => RECTS.slice(), client: (wx, wy) => { const sc = A.scroller(), r = sc.getBoundingClientRect(), k = A.scale(); return { x: r.left + wx * k - sc.scrollLeft, y: r.top + wy * k - sc.scrollTop }; },
     tileClient: (x, y) => { const q = A.P(x, y), sc = A.scroller(), r = sc.getBoundingClientRect(), k = A.scale(); return { x: r.left + q.x * k - sc.scrollLeft, y: r.top + q.y * k - sc.scrollTop }; },
     budClient: () => { const b = RUN && RUN.items[RUN.cur]; if (!b) return null; const q = A.P(b.x, b.y), sc = A.scroller(), r = sc.getBoundingClientRect(), k = A.scale(); return { x: r.left + q.x * k - sc.scrollLeft, y: r.top + (q.y - 12) * k - sc.scrollTop, st: b.st, ready: performance.now() >= RUN.tc }; },
     meal: () => api.meal(), quiet: () => A.quiet(),
-    elem: { info: () => ({ items: Object.keys(ITEMS).length, recipes: RECIPES.length, maxL: RX.maxL, steps: RX.steps, layer: RX.layer, rl: RX.rl }), book: () => ({ n: bookN(), M: RX.keys.length, cap: depthCap(), ttl: st('elcirc').ttl || 0 }),
-      run: () => RUN && RUN.kind === 'storm' && { need: RUN.cloud && RUN.cloud.need, T: RUN.cloud && +RUN.cloud.T.toFixed(1), slots: RUN.slots.slice(), sel: RUN.sel, score: RUN.score, got: RUN.got, streak: RUN.streak, newRec: RUN.newRec, clouds: RUN.items.map((c) => c.need + ':' + c.res), say: RUN.say },
-      learnAll: () => { RX.keys.forEach((k) => { book()[k] = 1; }); return bookN(); }, setNeed: (x) => { if (RUN && RUN.cloud) { RUN.cloud.need = x; RUN.cloud.t0 = performance.now(); } return !!(RUN && RUN.cloud); }, lessonK: () => api.lessonK(CLASSES.findIndex((c) => c.id === 'elements')), recipes: () => RECIPES, names: () => Object.fromEntries(Object.entries(ITEMS).map(([k, v]) => [k, v[0]])) },
+    elem: { info: () => ({ items: RX.all.length, recipes: RECIPES.length, maxL: RX.maxL, layer: RX.layer, steps: RX.steps }), book: () => ({ seen: seenN(), M: RX.all.length, rec: bookN(), R: RX.keys.length, cap: depthCap(), ttl: st('elcirc').ttl2 || 0 }),
+      run: () => RUN && RUN.kind === 'storm' && { tasks: RUN.tasks.slice(), ti: RUN.ti, task: RUN.tasks[RUN.ti], bench: RUN.bench.slice(), res: RUN.res.map((r) => r.id), done2: RUN.done2, score: RUN.score, got: RUN.got, blobs: RUN.blobs, hints: RUN.hints, newIt: RUN.newIt, say: RUN.say, set: setList(), teach: RUN.teach },
+      place: (x, k = -2) => place(x, k), resolve: (keep) => resolve(!!keep), pair: (a, b) => RX.pair[RX.key(a, b)] || null, next: (x) => nextPair(x), setTasks: (L) => { if (RUN && RUN.tasks) { RUN.tasks = L.slice(); RUN.ti = 0; RUN.got = 0; RUN.done2 = false; sayTask(); } return !!RUN; },
+      learnAll: () => { RX.all.forEach((i) => { seen()[i] = 1; }); RX.keys.forEach((k) => { book()[k] = 1; }); return seenN(); }, lessonK: () => api.lessonK(CLASSES.findIndex((c) => c.id === 'elements')), recipes: () => RECIPES, names: () => Object.fromEntries(RX.all.map((k) => [k, ITEMS[k][0]])) },
     figClient: () => { if (!MIR || !RUN) return null; const r = MIR.cv.getBoundingClientRect(); return figPts(RUN.items[RUN.cur].f).map(([x, y]) => [r.left + x, r.top + y]); },
   };
   return {
-    ...api, draw, signs, tap, blocks, mgOk, mgAny, mgDone, fishGate, pondSign,
+    ...api, draw, signs, tap, wildDraw, wildTap, blocks, mgOk, mgAny, mgDone, fishGate, pondSign,
     late, running: () => !!RUN, prep: () => { try { if (ON && A.S() && A.S().story) lateCheck(); } catch (e) { console.error('annex', e); } },
     go(id) { if (!String(id).startsWith('@anx:')) return false; const x = id.slice(5); if (!DEF[x]) return false; openPanel(x); return true; },
     sfOff: () => built('obs'),   // the observatory's «Звездопад» replaces the random night starfall (it still opens the secret page on its first star)
@@ -916,3 +1088,4 @@ export function initAnnex(api0) {
   };
 }
 document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('[data-anx-open]'); if (!b || !A) return; e.stopPropagation(); openPanel(b.dataset.anxOpen); }, true);
+window.__anxName = (id) => (DEF[id] ? { n: DEF[id].name, e: DEF[id].emo, w: DEF[id].who, ev: EV_NAME[DEF[id].ev] || '' } : null);   // tikhon_chronicler: names for Tikhon's chronicle lines

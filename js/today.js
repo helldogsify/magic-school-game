@@ -78,7 +78,7 @@ function deeds(T) {
     ? { id: 'harv', e: '🍊', t: 'Собери урожай в саду', unit: 'апельсинов', n: TODAY_BAL.orangeN, k: 'harv', done: 'Урожай собран', past: 'Собрали апельсины', go: ['orchard'] }
     : { id: 'harv', e: '🌙', t: 'Собери плоды Лунного древа', n: 1, k: 'harv', done: 'Плоды собраны', past: 'Собрали плоды Лунного древа', go: ['moon'] });
   L.push({ id: 'chest', e: '🎁', t: 'Открой сундучки дня', n: 1, k: 'chest', done: 'Сундучки открыты', past: 'Открыли сундучки', go: ['chest'], btn: 'Открыть' });
-  L.push({ id: 'quest', e: '📋', t: w1 ? `Выполни ${TODAY_BAL.questN} задания Тихона` : `Выполни ${TODAY_BAL.questN} задания`, n: TODAY_BAL.questN, k: 'quest', done: 'Задания выполнены', past: 'Выполнили задания', go: ['quests'], btn: 'Задания' });
+  L.push({ id: 'quest', e: '📋', t: `Выполни ${TODAY_BAL.questN} задания`,   /* tikhon_chronicler: was «задания Тихона» in world 1 */ n: TODAY_BAL.questN, k: 'quest', done: 'Задания выполнены', past: 'Выполнили задания', go: ['quests'], btn: 'Задания' });
   if (A.inspOn()) L.push({ id: 'insp', e: '🦅', t: 'Пройди проверку инспектора или проведи открытый урок', n: 1, k: 'insp', done: 'Проверка пройдена', past: T.medal ? `Инспектор поставил ${T.medal}` : 'Прошли проверку', wait: 'ждёт инспектора' });
   if (A.mates() > 0 || (T.n && T.n.gift)) L.push({ id: 'gift', e: '🤝', t: 'Подари подарок союзнику', n: 1, k: 'gift', done: 'Подарок отправлен', past: 'Порадовали союзников подарком', go: ['ally'], btn: 'Альянс' });
   if (A.mgAny()) L.push({ id: 'mg', e: '🧪', t: 'Сыграй партию в мини-игру', n: 1, k: 'mg', done: 'Партия сыграна', past: 'Сыграли партию в мини-игру', go: ['mg'], btn: 'Играть' });
@@ -181,7 +181,7 @@ function tick(force) {
 }
 function done(T, d) {
   T.c[d.id] = 1; const r = coinsFor(d), live = !A.ffwd();
-  A.bonus(r); A.war('dq');
+  A.bonus(r);   // gear_sources: no alliance battle points any more (the valley v2 reads closedYesterday())
   const n = doneN(T);
   A.stats('today', { d: DEED_IDS.indexOf(d.id), n, th: themes().findIndex((x) => x.id === T.th) });
   if (live) A.toast(`✅ ${d.done} · +🪙${A.fmt(r)}`);
@@ -192,10 +192,11 @@ const DEED_IDS = ['theme', 'harv', 'chest', 'quest', 'insp', 'gift', 'mg', 'anx'
 function closeDay(T) {
   const m = A.meta(), td = (m.td ||= {}), D = T.dn, P = streakAt(td, D);
   T.closed = now(); T.s = P.s;
-  if (!P.same) { td.s = P.s; td.last = D; td.fg = P.fg; td.best = Math.max(td.best || 0, P.s); A.metaPut(m); }
+  if (!P.same) { td.prev = td.last ?? null; td.s = P.s; td.last = D; td.fg = P.fg; td.best = Math.max(td.best || 0, P.s); A.metaPut(m); }   // prev: closedYesterday() after today is closed too
   const n = stonesFor(P.s), paid = A.stones(n, 'td_' + T.d);   // one prize a day for both worlds
   T.st = paid ? n : 0;
-  A.war('day'); A.stats('today', { c: 1, s: P.s, st: T.st, fz: P.fz, lo: P.lost });
+  A.stats('today', { c: 1, s: P.s, st: T.st, fz: P.fz, lo: P.lost });   // gear_sources: the closed day no longer pays battle points
+  { const g = A.gear && A.gear('td_' + T.d); if (g) T.gear = g; }   // gear for the heroes: a chance once a day for the account (token td_<day>)
   writeLine(T);
   A.glog('imp', `☀️ День удался! ${T.st ? `🔮 +${T.st}` : ''}`.trim());
   if (!A.ffwd()) A.iq('cel', 'td_done', celPanel);
@@ -257,6 +258,7 @@ function celPanel() {   // «☀️ День удался!»
   return `<div class="sh-head">${A.world() === 1 ? A.tikhonPic(56) : '<span class="remoji big">☀️</span>'}<div><h2>☀️ День удался!</h2><div class="muted">Сделано ${doneN(T)} ${plural(doneN(T), 'дело', 'дела', 'дел')} дня</div></div><button class="x" data-close>✕</button></div>
     <div class="card up"><div class="grow">«Хороший день, директор. Запишу его в летопись».</div></div>
     ${T.st ? `<div class="qbig ok">${A.stImg(24)}<span style="flex:1">+${T.st} ${plural(T.st, 'лунный камень', 'лунных камня', 'лунных камней')}</span></div>` : '<div class="qnote">Камни за сегодня уже получены в другом мире.</div>'}
+    ${T.gear ? `<div class="qbig ok"><span style="flex:1">🎒 Находка для героев: ${esc(T.gear)}</span></div>` : ''}
     <div class="qnote">Серия: ${s} ${plural(s, 'день', 'дня', 'дней')} · завтра ${A.stImg(14)} ${stonesFor(s + 1)}. У фонтана во дворе зажглись фонарики.</div>
     ${A.loreOn() ? '<button class="btn wide" data-tdbook style="margin-top:8px">📜 Прочитать в летописи</button>' : ''}
     <button class="btn hot wide" data-close style="margin-top:8px">Ура!</button>`;
@@ -292,12 +294,20 @@ function drawFount(ctx, p, h) {
   ctx.restore();
 }
 
+// ---- valley v2 (design/valley_boardgame.md: +3 action points if yesterday's «☀️ Сегодня» was closed): the account's streak in meta.td
+function closedYesterday() {
+  const td = meta(), D = dNum(); if (td.last == null) return false;
+  if (td.last === D - 1) return true;
+  if (td.last === D) return td.prev !== undefined ? td.prev === D - 1 : (td.s || 0) >= 2;   // closed before this patch: streak >= 2 [approximation]
+  return false;
+}
 // ---- the book «Твоя школа»: day lines grouped by month (lore.js shows them as pages «☀️ Хорошие дни · ноябрь 2026»)
 function book() { const s = S(); return (s && s.tdays) || []; }
 
 export function initToday(api) {
   A = api;
   window.dayDeed = (k0, id, n) => { try { annexDeed(k0, id, n); } catch (e) { console.error('today', e); } };
+  window.todayClosedYesterday = () => { try { return !!(A && closedYesterday()); } catch (e) { return false; } };   // valley v2: +3 action points
   window.__today = {   // test hooks
     st: () => st(), deeds: () => deeds(st()).map((d) => ({ id: d.id, t: d.t, have: have(st(), d), n: d.n, got: !!st().c[d.id] })), themes: () => themes().map((x) => x.id), theme: () => themeOf(st()),
     meta: () => meta(), streakAt: (T, D) => streakAt(T, D), tick: () => tick(true), k: (kind, i) => k(kind, i), sev: (n, x) => sev(n, x), dnum: () => dNum(), BAL: TODAY_BAL, panel: () => A.openPanel(panel),
@@ -305,5 +315,5 @@ export function initToday(api) {
   };
   setInterval(() => { try { if (S()) { tick(false); hud(); } } catch (e) { console.error('today', e); } }, 1000);   // the bar follows the deeds and the night
   const tap = (stats) => { if (!stats || stats.__td) return stats; const e0 = stats.ev; stats.ev = function (n, x) { try { sev(n, x); } catch (e) { console.error('today', e); } return e0.call(this, n, x); }; stats.__td = 1; return stats; };
-  return { k, hud, body: () => listHtml(), tick: () => { try { tick(false); } catch (e) { console.error('today', e); } }, buy, click, drawFount, tap, book, panel: () => panel, sev };
+  return { k, hud, closedYesterday, theme: () => { try { return themeOf(st()); } catch (e) { return null; } }, body: () => listHtml(), tick: () => { try { tick(false); } catch (e) { console.error('today', e); } }, buy, click, drawFount, tap, book, panel: () => panel, sev };
 }

@@ -1,23 +1,24 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=592';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=593';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=592';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=592';
-import { initMinigame } from './minigame.js?v=592';
-import { initChests } from './chests.js?v=592';
-import { initValley } from './valley.js?v=592';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=592';
-import { initLore } from './lore.js?v=592';
-import { initAvatar } from './avatar.js?v=592';
-import { initStats } from './stats.js?v=592';
-import { initStudents } from './students.js?v=592';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initHeroes } from './heroes.js?v=592';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
-import { initAnnex } from './annex.js?v=592';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
-import { ANNEX_BAL } from './annex.js?v=592';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
-import { initToday } from './today.js?v=592';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
+} from './data.js?v=593';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=593';
+import { initMinigame } from './minigame.js?v=593';
+import { initChests } from './chests.js?v=593';
+import { initValley } from './valley.js?v=593';
+import { initValley2 } from './valley2.js?v=593';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=593';
+import { initLore } from './lore.js?v=593';
+import { initAvatar } from './avatar.js?v=593';
+import { initStats } from './stats.js?v=593';
+import { initStudents } from './students.js?v=593';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes, HERO_BAL } from './heroes.js?v=593';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=593';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=593';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=593';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -33,16 +34,35 @@ const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rat
 const VALLEY = initValley({ token: () => anonToken(), world: () => WORLD, emojiHtml, emojiImage, toast: (t) => toast(t), stones: (n, k) => stonesAdd(n, k),
   snd: (k) => { if (k === 'special') sfx('fixed'); }, onWin: () => STATS.ev('valley', { k: 'win' }), onOpen: () => STATS.ev('valley', { k: 'open' }),   // registry G6.21
   inAlly: () => !!myAl(),   // registry G6.20 (tester_fb1): the ✨ tile asks the valley server only for a school in an alliance
+  gear: (src, tok, place) => { const it = HERO.drop(src, null, src === 'alliance' ? { tok, min: HERO_BAL.allyMin[place] ?? 1 } : { tok }); return it ? HERO.label(it) : ''; },   // gear_sources
   testTok: () => { try { return localStorage.getItem('magicschool.valleyTok') || ''; } catch (e) { return ''; } } });   // 🗺 alliance strategy (js/valley.js, server lazy /game/valley)
+// «Долина» v2 (js/valley2.js, server lazy /game/valley2, design/valley_boardgame.md): one valley per account, each school brings its
+// squad of heroes; prizes are kept on the server until claimed and paid here once per id (keys v2_<id>)
+const V2PAID = 'magicschool.v2paid';
+function v2Once(k) { try { const L = JSON.parse(localStorage.getItem(V2PAID) || '[]'); if (L.includes(k)) return false; L.push(k); localStorage.setItem(V2PAID, JSON.stringify(L.slice(-400))); return true; } catch (e) { return false; } }
+function v2Squad() {   // this school's squad for the server: heroes with rarity, level, rank, element, stats (the server clamps them)
+  try { const H = window.__s8b; if (!H || !towerOpen()) return null; const L = H.heroes().filter((x) => x.post && x.post.t === 's').slice(0, 5); if (!L.length) return null;
+    const res = towerUp().res, q = H.squad(0) || {}, sum = q.sum || [0, 0, 0, 0];
+    const heroes = L.map((x) => { const r = res.find((y) => y.id === x.id) || {}; return { id: x.id, nm: String(x.n || '').slice(0, 16), r: x.r, lv: x.lv, rk: x.rk, el: r.el || 0, st: x.st, e: (window.__spEmo && window.__spEmo(r.sp)) || '' }; });
+    return { heroes, sk: { banner: Math.max(0, (q.atk || 1) - 1 - sum[0] / 400), guard: Math.max(0, (q.def || 1) - 1 - sum[1] / 400), siege: q.siege || 0 }, face: heroes[0].e || '' }; } catch (e) { return null; }
+}
+function v2TodayClosed() { try { const td = (JSON.parse(localStorage.getItem('magicschool.meta') || '{}') || {}).td || {}, d = new Date(); const dn = Math.round(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTime() / 86400000); return td.last != null && td.last >= dn - 1; } catch (e) { return false; } }   // TRUST: the server takes the client's word (valley2_deploy.md)
+const VALLEY2 = initValley2({ token: () => anonToken(), world: () => WORLD, emojiHtml, emojiImage, toast: (t) => toast(t), schoolName: () => schoolName(),
+  stones: (n, k) => stonesAdd(n, k, 'valley2'),
+  coins: (min, k) => { if (!v2Once(k)) return false; const n = Math.max(50, Math.round((rateNow() || 1) * 60 * min)); S.coins += n; toast(`🪙 Клад из долины: +${fmt(n)}`); save(); return true; },
+  gear: (rar, k) => { if (!towerOpen()) return false; if (window.heroDrop) { const it = window.heroDrop('v2', k, { min: rar }); save(); return !!it; } if (!v2Once(k)) return false; const it = HERO && HERO.drop ? HERO.drop('valley', rar) : null; save(); return !!it; },   // gear_sources.py: idempotent by token
+  heroXp: (n) => { const k = HERO && HERO.squadXp ? HERO.squadXp(n) : 0; if (k) save(); return k > 0; },
+  squad: () => v2Squad(), todayClosed: () => (window.todayClosedYesterday ? window.todayClosedYesterday() || v2TodayClosed() : v2TodayClosed()), snd: (k) => { if (k === 'special') sfx('fixed'); }, stats: (n, x) => STATS.ev(n, x) });
 const CHESTS = initChests({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
-  mgCharge: () => MG.addCharges(1) /* the shared pool, above 3 too (her «должна приплюсываться») */, onClose: () => { renderInsp(); updateHud(); } });
+  mgCharge: () => MG.addCharges(1) /* the shared pool, above 3 too (her «должна приплюсываться») */, onClose: () => { renderInsp(); updateHud(); },
+  gear: (k) => { const it = HERO.drop('chest', null, { tok: `ch${WORLD}_${k}` }); return it ? HERO.label(it) : ''; }, gearOn: () => HERO.gearOn() });   // gear_sources
 
 const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () => WORLD === 1,
   music: { on: () => musicOn(), pause: () => music.pause(), resume: () => musicStart() },
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; }, onClose: () => { renderInsp(); updateHud(); },   // «Летопись» (her wish 2026-11-23)
   facts: () => ({ allBuilt: S.classes.every((c, i) => isOpen(i)), grads: S.stats.graduated || 0, masters: (S.stats.ranks || [])[5] || 0, forms: S.forms || {},
-    ch: CHAPTERS.filter((c, k) => chapDone(k)).length, chron: S.chron || [], tdays: TODAY.book(), /* s7: day lines of «Сегодня» */ school: schoolName(),   // rework step 4: the book knows the chronicle
+    ch: CHAPTERS.filter((c, k) => chapDone(k)).length, chron: S.chron || [], tkj: S.tkj || [], fw: (S.heroFw && S.heroFw.L) || [], tdays: TODAY.book(), /* s7: day lines of «Сегодня» */ school: schoolName(),   // rework step 4: the book knows the chronicle
     cls: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return i < 0 ? { built: false, lvl: 0 } : { built: isOpen(i), lvl: S.classes[i].teacher || 1 }; },
     has: (id) => (id === 'dorm2' ? NEWDORM && dorm2Built() : id === 'cant' ? cantBuilt() : id === 'shop' ? shopOpen() : id === 'dir' ? dirBuilt() : id === 'tower' ? towerOpen() : true) }) });
 
@@ -54,6 +74,7 @@ const ANNEX = initAnnex({ MISSIONS, CLASSES, WORLD, glog: (k, t, w) => glog(k, t
   toast: (t) => toast(t), sfx: (k) => sfx(k), fmt: (n) => fmt(n), save: () => save(), bonus: (n) => bonus(n), paced: (pr, n) => paced(pr, n), emojiHtml: (h) => emojiHtml(h),
   spend: (c) => { spendAct = 'annex'; return spend(c); }, quiet: () => quietNow(), idle: () => idleNow(), tour: () => tourStep >= 0, edit: () => !!EDIT,
   stats: (n, x) => STATS.ev(n, x), storyCur: () => (S && S.story ? storyCur() : null), chapters: () => CHAPTERS, storyReward: (m) => storyReward(m), lore: (k) => LORE.event(k),
+  wild: () => (WORLD === 1 ? OUTDOOR.filter((o) => o.n === 'goldtree').map(wildKey) : []),   // the map's orange trees (audit_fixes)
   openMg: (g) => { MG.open(); const b = document.querySelector(`#mg [data-mgpick="${g}"]`); if (b) b.click(); } });
 // student path 1-3 (js/students.js): names, student card, favourites, gifted newcomers, the gate crowd, favourites' retakes
 const STU = initStudents({ S: () => S, gate: () => gate(), species: () => SPECIES, names: () => NAMES, spNames: () => SP_NAMES, classes: () => CLASSES, world: () => WORLD,
@@ -66,7 +87,7 @@ const STU = initStudents({ S: () => S, gate: () => gate(), species: () => SPECIE
   formImg: (a) => formImg(formOf(a)), moodFace: (m) => moodFace(m), status: (a) => statusOf0(a),
   rankName: (a) => ((a.rk || 0) === 5 && SPECIES.includes(a.sp) ? 'Мастер ' + ELEMS[a.el || 0].name : RANKS[a.rk || 0]), rankNameRk: (r) => RANKS[r] || '', rankNameAt: (i) => RANKS[RANK_AT(i)] || '', rankAt: (i) => RANK_AT(i),
   examChance: (a, i) => Math.max(0.05, Math.min(0.95, success(i) + (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + moodBonus(a) + STU.examB(a, i) + HERO.examB(i))),
-  rankNext: (a, i) => { const T = RANK_AT(i); return T && SPECIES.includes(a.sp) && (a.rk || 0) === T - 1 ? { name: RANKS[T], p: rankChance(i) } : null; },
+  rankNext: (a, i) => { const T = RANK_AT(i); return T && SPECIES.includes(a.sp) && (a.rk || 0) === T - 1 ? { name: RANKS[T], p: Math.max(0, Math.min(RANK_MAX - STU.rankB(a), rankChance(i) * ANNEX.rankK())) } : null; },
   isOpen: (i) => i >= 0 && i < CLASSES.length && isOpen(i), rtPrice: (i, n) => paced(tuition(i) * n, 1),
   spend: (c) => { spendAct = 'retake'; return spend(c); }, addCoins: (c) => { S.coins += c; },
   retakeNow: (a) => { const g = a.goal; if (!g || g.t !== 'c' || !(g.i >= 0) || a.desk >= 0) return false; const L = waitList[g.i], k = L.indexOf(a); if (k >= 0) { L.splice(k, 1); pullWaiting(g.i); } goClass(a, g.i); return true; } });
@@ -76,7 +97,7 @@ const TODAY = initToday({ S: () => S, world: () => WORLD, classes: () => CLASSES
   gradN: () => lvN(20, 10), fmt: (n) => fmt(n), nice: (x) => nice(x), perMin: () => qPerMin(), moonNight: () => moonNight(), daylight: () => daylight(),
   inspOn: () => !calm() && (!CHAPTERS.length || chapDone(0)), ch1: () => !CHAPTERS.length || chapDone(0), mates: () => Math.max(0, allyMates()), mgAny: () => ANNEX.mgAny(),
   chestDone: () => { const c = S.chest; return !!c && c.day === qDay() && (c.k > 0 || c.done || c.dead); },
-  bonus: (n) => bonus(n), war: (k) => (k === 'day' ? warAdd('day', WAR_PTS.day) : warAdd('dq', WAR_PTS.dq)), stats: (n, x) => STATS.ev(n, x), toast: (t) => toast(t), save: () => save(),
+  bonus: (n) => bonus(n), war: () => {} /* gear_sources: the bar pays no alliance battle points any more */, gear: (tok) => { const it = HERO.drop('day', null, { tok, quiet: 1 }); return it ? HERO.label(it) : ''; }, stats: (n, x) => STATS.ev(n, x), toast: (t) => toast(t), save: () => save(),
   refresh: () => { dirtyPanel = true; }, meta: () => stMeta(), metaPut: (m) => { try { localStorage.setItem('magicschool.meta', JSON.stringify(m)); } catch (e) { /* full storage */ } },
   stones: (n, key) => stonesAdd(n, key), glog: (k, t) => glog(k, t, WORLD), iq: (pr, key, fn, opt) => iqWin(pr, key, fn, opt), hasIq: (k) => iqHas(k),
   openPanel: (fn) => openPanel(fn), closePanel: () => closePanel(), qStyle: () => qStyle(), stImg: (n) => ST_IMG(n), tikhonPic: (h) => tikhonPic(h), emojiHtml: (h) => emojiHtml(h),
@@ -85,17 +106,20 @@ const TODAY = initToday({ S: () => S, world: () => WORLD, classes: () => CLASSES
     else if (k === 'obs' || k === 'orchard') goTarget(['@anx:' + k, null]); else if (k === 'grad') goTarget(missionGo({ type: 'grad' }) || ['REC', null]); else if (k === 'moon') qGo(['@moon', null]);
     else if (k === 'chest') qGo(['@chest', null]); else if (k === 'quests') { qTab = 'lvl'; openPanel(missionsPanel); } else if (k === 'ally') goTarget(['@ally', null]); else if (k === 'mg') goTarget(['@mg', null]); } });
 // heroes 8b (js/heroes.js): tower residents become heroes (roll, levels, skills, gear chest, posts: mentors, council, squads)
-const HERO = initHeroes({ S: () => S, towerUp: () => towerUp(), towerOpen: () => towerOpen(), towerCap: () => towerCap(), classes: () => CLASSES, isOpen: (i) => i >= 0 && i < CLASSES.length && isOpen(i),
+const HERO = initHeroes({ tkNote: (e, x, k) => tkNote(e, x, k), S: () => S, towerUp: () => towerUp(), towerOpen: () => towerOpen(), towerCap: () => towerCap(), classes: () => CLASSES, isOpen: (i) => i >= 0 && i < CLASSES.length && isOpen(i),
   nextId: () => S.nextId++, ffwd: () => ffwd, edit: () => !!EDIT, toast: (t) => toast(t), toastBig: (t) => toastBig(t), glog: (k, t) => glog(k, t, WORLD), stats: (n, x) => STATS.ev(n, x),
   iq: (pr, key, fn) => iqWin(pr, key, fn), openPanel: (fn) => openPanel(fn), openTower: () => openPanel(towerPanel), refresh: () => { dirtyPanel = true; refreshPanel(); }, save: () => save(), sfx: (k) => sfx(k),
   stones: () => stones(), stonesAdd: (n, why) => stonesAdd(n, '', why), fmt: (n) => fmt(n), resTitle: (r) => resTitle(r), spName: (sp) => SP_NAMES[sp] || '', elemName: (e) => ELEMS[e || 0].name, towerIn: () => TW.inN, world: () => WORLD, masterWord: () => TW.master,
   pic: (r) => `<div class="fpic${r.rk === 5 ? ' master' : ''}"${r.rk === 5 ? ` style="--ec:rgb(${ELEMS[r.el || 0].col})"` : ''}><img src="${formImg(fkey(r.sp, r.rk, r.el || 0))}">${r.rk === 5 ? `<em>${ELEMS[r.el || 0].emo}</em>` : ''}</div>`,
-  slotOf: (i) => slotOf(i), teacherPos: (i) => teacherPos(i), drawCreature: (a, x, y, h, ex) => drawCreature(a, x, y, h, ex), emoji: (e, x, y, sz) => emoji(e, x, y, sz) });
+  slotOf: (i) => slotOf(i), teacherPos: (i) => teacherPos(i), drawCreature: (a, x, y, h, ex) => drawCreature(a, x, y, h, ex), emoji: (e, x, y, sz) => emoji(e, x, y, sz),
+  // worlds rework (tools/_patch/heroes_worlds.py): other schools' saves, farewell, fame
+  saveKeyOf: (w) => saveKeyOf(w), otherWorlds: () => WORLDS.filter((w) => w.id !== WORLD && !w.soon && localStorage.getItem(saveKeyOf(w.id))).map((w) => ({ w: w.id, name: w.name })),
+  farewell: (r, nw) => towerFarewell(r, nw), fameUpd: () => fameUpd(), closePanel: () => closePanel() });
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 592;   // keep equal to the ?v= number in index.html
+const BUILD = 593;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -360,7 +384,7 @@ const firmK = () => 1;   // 6c: a refusal no longer raises the fee (refuse = 1�
 function cheerAll(d, icon) {   // every student in school gets mood d
   for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && a.goal.t === 'x')) { a.mood = Math.max(0, Math.min(100, moodOf(a) + d)); if (icon && Math.random() < 0.35) popup(icon, a.x, a.y, d > 0 ? '#ff6fa3' : '#5b7fd6', 44); }
 }
-function quietNow() { try { return !!panel || menuOpen || ANNEX.running() || MG.isOpen() || LORE.isOpen() || CHESTS.isOpen() || VALLEY.isOpen() || icardOn(); } catch (e) { return false; } }   // build 557: a mini-game or the chronicle is open: no events; tester_fb1: any panel, the ✨ menu, the chests or the valley too (a tester lost his feedback text to an incident)
+function quietNow() { try { return !!panel || menuOpen || ANNEX.running() || MG.isOpen() || LORE.isOpen() || CHESTS.isOpen() || VALLEY.isOpen() || VALLEY2.isOpen() || icardOn(); } catch (e) { return false; } }   // build 557: a mini-game or the chronicle is open: no events; tester_fb1: any panel, the ✨ menu, the chests or the valley too (a tester lost his feedback text to an incident)
 // ======================= 6d: one queue for every window the game opens by itself (Ruslan 2026-11-26 «Я согласен») =======================
 // A window shows only when no other window is open, the player has not tapped for ~2 s, no tour, no mini-game (quietNow). Priority:
 // top (welcome back) > urgent (inspector at the door) > celebration > news > first-time hints. At most one window a minute (urgent and
@@ -2078,7 +2102,7 @@ function stepAgents(dt, live = false) {
 // Now and then something goes wrong in a class: its lesson stops until the player taps the room. Left alone it ends by itself after 10 minutes.
 const INCIDENTS = { herbs: ['🌿', 'растения разрослись и опутали парты'], potions: ['💥', 'взорвался котёл'], stars: ['☁️', 'тучи закрыли небо, телескопы ничего не видят'], charms: ['✨', 'заклинание вышло из-под контроля'], flight: ['🪶', 'ученики улетели под потолок'], elements: ['🔥', 'в классе пожар'], final: ['📜', 'экзаменационные листы разлетелись'] };
 const INC_GENERIC = ['🤧', 'учитель простыл'];
-const INC_MIN = 70, INC_MAX = 150, INC_AUTO = 600, INC_MAXN = 2;
+const INC_MIN = 240, INC_MAX = 360, INC_AUTO = 600, INC_MAXN = 2;   // audit F8 / decision B3.1: one incident per ~5 min (was 70-150 s)
 const incOf = (i) => !!(S.inc && S.inc[i]);
 const INCIDENTS_W2 = { runes: ['🪨', 'руны осыпались со стены'], forge: ['🔥', 'горн погас'], mine: ['🪨', 'в штольне просела крепь'], gems: ['💎', 'рассыпались самоцветы'], guards: ['🛡️', 'сломались манекены'], lake: ['🌊', 'лодки унесло течением'], final: ['🕯️', 'погасли свечи клятвы'] };
 const incInfo = (i) => (S.inc[i].k === 'r' ? ['🪨', 'обвал завалил зал'] : S.inc[i].k === 'g' ? INC_GENERIC : (WORLD === 2 ? INCIDENTS_W2 : INCIDENTS)[CLASSES[i].id] || INC_GENERIC);
@@ -2540,7 +2564,8 @@ const FORM_BASE = [10000, 40000, 250000, 1200000, 6000000, 30000000];   // first
 const MAX_EX_LVL = 20, MAX_XPL_LVL = 10, FORM_MAX = 20;
 const exLvl = (i) => S.classes[i].ex || 0, xplLvl = (i) => S.classes[i].xpl || 0;
 const ratingK = () => 1 + 0.05 * Math.max(0, Math.min(4, Math.floor(((ratingVal() || 0) - 3) / 0.5 + 1e-9)));   // rework step 5: a good name brings abler students: +5 % per 0.5★ above 3
-const rankChance = (i) => (RANK_BASE[RANK_AT(i)] + RANK_STEP[RANK_AT(i)] * exLvl(i) + helpBonus(i) + HERO.rankB(i)) * ratingK();   // 8b: + mentor skill
+const RANK_MAX = 0.95;   // audit F16: rating ×1.2, helpers, mentors, observatory ×1.25 and the gifted +10 % could pass 100 %
+const rankChance = (i) => Math.min(RANK_MAX, (RANK_BASE[RANK_AT(i)] + RANK_STEP[RANK_AT(i)] * exLvl(i) + helpBonus(i) + HERO.rankB(i)) * ratingK());   // 8b: + mentor skill
 const exCost = (i) => paced(CLASSES[i].tuition * 300 * Math.pow(2.0, exLvl(i)), exLvl(i) + 1);
 const xplCost = (i) => paced(CLASSES[i].tuition * 200 * Math.pow(1.8, xplLvl(i)), xplLvl(i) + 1);
 const fkey = (sp, rk, el) => sp + ':' + rk + (rk === 5 ? ':' + el : '');
@@ -2570,7 +2595,7 @@ function rankTry(a, i, p) {   // the rank exam right after a passed lesson
   const T = RANK_AT(i);
   if (!T || !SPECIES.includes(a.sp) || (a.rk || 0) !== T - 1) return;
   S.classes[i].rkTry = (S.classes[i].rkTry || 0) + 1; a._rkT = i;   // s8a: tried here (STU.rankAfter sees a failure)
-  if (Math.random() - STU.rankB(a) >= rankChance(i) * ANNEX.rankK()) return;   // 5c: observatory star maps
+  if (Math.random() >= Math.min(RANK_MAX, rankChance(i) * ANNEX.rankK() + STU.rankB(a))) return;   // 5c: observatory star maps; audit F16: total clamped
   a.rk = T; if (T === 5) a.el = Math.floor(Math.random() * 4);
   S.classes[i].rkPass = (S.classes[i].rkPass || 0) + 1;
   S.stats.ranks ||= [0, 0, 0, 0, 0, 0]; S.stats.ranks[T]++; a._rkT = -1; STU.ev(a, 'rank', i);
@@ -2628,12 +2653,12 @@ function speciesPanel() {   // 🎓 album (own button at the bottom; her ruling 
 // Elder mages (rank 4) and masters (rank 5) who pass the final exam do not fly away: they move into the tower, live there
 // and bring coins every second (also while the game is closed). Few places; more are bought. When the tower is full the
 // newcomer waits by the door (up to TOWER_WAIT); the player frees a place by letting a resident go for a big reward.
-const TOWER_BASE = 4, TOWER_MAXUP = 18, TOWER_WAIT = 3;   // 8b: 22 places = 7 mentors + 3 council + 3 squads × 4 (was 20)
+const TOWER_BASE = 4, TOWER_MAXUP = 11, TOWER_WAIT = 3;   // worlds rework: 15 places = 7 mentors + 3 council + 1 squad × 5 (8b had 22; old saves keep their residents)
 const TW = WORLD === 2 ? { name: 'Чертог Хранителей', emo: '🗝️', inN: 'в Чертоге Хранителей', inS: 'в Чертоге', elder: 'Старший мастер', elders: 'Старшие мастера', eldersD: 'Старшим мастерам', elderI: 'Старшим мастером', master: 'Хранитель', masterA: 'Хранителя', masters: 'Хранители', mastersG: 'Хранителей', masterTitle: 'Хранитель ', mage: 'Умелец', helpers: 'Помощники-умельцы', craft: 'своё ремесло' }
   : { name: 'Башня мастеров', emo: '🏰', inN: 'в Башне мастеров', inS: 'в башне', elder: 'Старший маг', elders: 'Старшие маги', eldersD: 'Старшим магам', elderI: 'Старшим магом', master: 'Мастер', masterA: 'Мастера', masters: 'Мастера', mastersG: 'Мастеров', masterTitle: 'Мастер ', mage: 'Маг', helpers: 'Помощники-маги', craft: 'магию' };   // tower texts per world
 const towerUp = () => (S.tower ||= { built: false, cap: 0, res: [], wait: [] });
 const towerOpen = () => WORLD <= 2 && !!(S && bReady(S.tower));
-const towerCap = () => TOWER_BASE + towerUp().cap;
+const towerCap = () => TOWER_BASE + Math.min(TOWER_MAXUP, towerUp().cap);   // places bought above the new max are not counted: residents stay, nobody new moves in until under 15
 const towerCost = () => BAL.tower;
 // build audit 2026-11-24: places grew x2.3 each (12th 6.8B, 20th 5.33T, never paid back); x1.45: all 20 cost ~25B in total
 const towerCapCost = () => paced(BAL.tower * 0.4 * Math.pow(1.45, towerUp().cap), towerUp().cap + 1);
@@ -2642,7 +2667,24 @@ const resRate = (r) => { const li = NCLS - 1; return isOpen(li) ? tuition(li) * 
 const towerRate = () => (towerOpen() ? towerUp().res.reduce((n, r) => n + resRate(r), 0) : 0);
 const mastersLiving = () => (towerOpen() ? towerUp().res.filter((r) => r.rk === 5).length : 0);
 const resTitle = (r) => (r.rk === 5 ? TW.masterTitle + ELEMS[r.el || 0].name : RANKS[r.rk]);
-const releaseReward = (r) => Math.round(resRate(r) * 3600);   // one hour of what it brings
+const releaseReward = (r) => Math.round(resRate(r) * 3600);   // one hour of what it brings (8b; replaced by the farewell below, kept for reference)
+// farewell (worlds rework, Ruslan «пока не соберёшь супер сильные отряды»): a resident leaves to open a school over the sea: school
+// fame +1 % (cap +25 %), his gear back to the account chest, half his XP and his place + post to the newcomer nw (or the first at the door)
+function towerFarewell(r, nw) {
+  const T = towerUp(), k = T.res.indexOf(r); if (k < 0 || r.away || r.mc) return false;
+  if (!nw && T.wait.length) nw = T.wait[0];
+  const xp = HERO.farewell(r, nw);
+  T.res.splice(k, 1);
+  if (nw) { const j = T.wait.indexOf(nw); if (j >= 0) T.wait.splice(j, 1); T.res.splice(k, 0, nw); }
+  towerPull();
+  const F = (S.heroFw ||= { n: 0, L: [] }); F.n++;   // this school's lines for the book
+  { const m = readMetaLocal(); m.fw = (m.fw || 0) + 1; try { localStorage.setItem('magicschool.meta', JSON.stringify(m)); } catch (e) { /* full storage */ } }   // fame is the account's («во всех мирах»)
+  const line = `${r.rk === 5 ? TW.master : TW.elder} ${r.name} открыл(а) школу за морем`;   // PLACEHOLDER text for Maria
+  F.L.push({ t: Date.now(), x: line + (nw ? `. Место заняла смена: ${nw.name}.` : '.') }); if (F.L.length > 200) F.L.splice(0, F.L.length - 200);
+  fameUpd(); glog('imp', `🌍 ${line}`, WORLD);
+  toastBig(`🌍 ${line}! Слава школы +1 %${nw ? ` · ${nw.name} занял(а) место${xp ? ` и получил(а) ${fmt(xp)} опыта` : ''}` : ''}`);
+  dirtyPanel = true; save(); return true;
+}
 function towerCandidate(a) { return towerOpen() && SPECIES.includes(a.sp) && (a.rk || 0) >= (towerUp().onlyM ? 5 : 4); }   // onlyM (her request 2026-11-22): elder mages are refused automatically and graduate as usual
 function towerAdmit(a) {   // the graduate walks from the garden into the tower (or waits at its door)
   const T = towerUp(), r = { sp: a.sp, rk: a.rk, el: a.el || 0, name: STU.full(a), t: Date.now() };
@@ -2778,14 +2820,15 @@ function towerPanel() {
   { const hx = HERO.tabHtml(head); if (hx) return hx; }   // 8b: tabs «🦸 Герои», «⚔️ Отряды», «🎒 Сундук»
   const pic = (r) => `<div class="fpic${r.rk === 5 ? ' master' : ''}"${r.rk === 5 ? ` style="--ec:rgb(${ELEMS[r.el].col})"` : ''}><img src="${formImg(fkey(r.sp, r.rk, r.el))}">${r.rk === 5 ? `<em>${ELEMS[r.el].emo}</em>` : ''}</div>`;
   const res = T.res.map((r, k) => `<div class="card up"${r.h ? ` data-hx="card:${r.id}" style="cursor:pointer"` : ''}>${pic(r)}<div class="grow"><b>${r.name}</b> ${HERO.badge(r)} <span class="muted">${resTitle(r)}</span><div class="muted">${r.away ? `📜 сейчас пересдаёт экзамен на ${TW.masterA}` : r.mc ? '✨ сейчас ведёт мастер-класс' : `🪙 ${fmt(resRate(r))} в секунду`}</div></div>
-    ${r.away || r.mc ? '' : `<button class="btn ghost" data-act="towerfree" data-k="${k}">Отпустить <span class="cost">🎁 ${fmt(releaseReward(r))}</span></button>`}</div>`).join('');
+    ${r.away || r.mc ? '' : `<button class="btn ghost" data-act="towerfree" data-k="${k}">👋 Проводить</button>`}</div>`).join('');
   const elders = T.res.filter((r) => r.rk === 4).length, away = T.res.find((r) => r.away);
   const retake = `<h3>Пересдача на ${TW.masterA}</h3><p class="muted">${!elders ? `Когда ${TW.inS} живёт ${TW.elder}, он время от времени ходит ${W2T ? 'в Палату клятв' : 'в Экзаменационный зал'} пересдавать экзамен на ${TW.masterA}.` : away ? `Сейчас <b>${away.name}</b> пересдаёт экзамен.` : `Следующий ${TW.elder} пойдёт на пересдачу через <b>${mmss(Math.max(0, T.rt ?? retakeInterval()))}</b>. Шанс стать ${W2T ? 'Хранителем' : 'Мастером'}: ${(rankChance(CLASSES.findIndex((c) => c.final)) * 100).toFixed(1)}%.`}</p>
     <div class="card up"><span class="remoji">📜</span><div class="grow"><b>${W2T ? 'Подготовка хранителей' : 'Подготовка мастеров'}</b> <span class="muted">ур. ${retakeLvl()}/${RETAKE_MAX}</span><div class="muted">${nn('пересдача раз в', mmss(retakeInterval()), mmss(peek((d) => { towerUp().prep = retakeLvl() + d; }, retakeInterval)), retakeLvl() >= RETAKE_MAX)}</div></div>
       ${retakeLvl() >= RETAKE_MAX ? '<span class="done">макс.</span>' : costBtn('↑', retakeCost(), 'towerprep')}</div>`;
   const wait = T.wait.map((r, k) => `<div class="card up locked">${pic(r)}<div class="grow"><b>${r.name}</b> <span class="muted">${resTitle(r)}</span><div class="muted">ждёт места у двери</div></div>
-    <button class="btn ghost" data-act="towerno" data-k="${k}">Не брать</button></div>`).join('');
+    ${r.h && T.res.length >= towerCap() ? `<button class="btn small" data-hx="swapcard:${r.id}">⚖️ Сравнить</button>` : ''}<button class="btn ghost" data-act="towerno" data-k="${k}">Не брать</button></div>`).join('');
   return `${head(`Живут ${T.res.length} из ${towerCap()} · 🪙 ${fmt(towerRate() * 60)} в минуту`)}${HERO.tabBar()}${HERO.towerSummary()}
+    ${T.res.length > towerCap() ? `<p class="muted">Теперь ${TW.inS} ${towerCap()} мест: 7 наставников, 3 советника и 5 героев отряда. Все, кто уже живёт здесь, остаются; новый жилец заселится, когда их станет меньше ${towerCap()}.</p>` : ''}
     <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Ещё одно место</b> <span class="muted">${towerCap()}/${TOWER_BASE + TOWER_MAXUP}</span><div class="muted">${TW.inS} смогут жить больше ${TW.mastersG}</div></div>
       ${T.cap >= TOWER_MAXUP ? '<span class="done">макс.</span>' : costBtn('+1', towerCapCost(), 'towercap')}</div>
     <div class="card up"><span class="remoji">🚪</span><div class="grow"><b>Принимать только ${TW.mastersG}</b><div class="muted">${T.onlyM ? `включено: ${TW.eldersD} ${W2T ? 'Чертог отказывает сам' : 'башня отказывает сама'}, они просто выпускаются` : `выключено: ${W2T ? 'в Чертог' : 'в башню'} просятся и ${TW.elders}`}</div></div>
@@ -2914,14 +2957,14 @@ function renderInsp() {
 // global click handler opens the same panels. Never put an emoji inside an attribute here (emojiHtml would turn it into <img>).
 // Other features add tiles with addMenuItem({ attr: 'data-xxx', icon: '🎁', label: 'Сундучки', sub: () => 'text', badge: () => n, glow: () => bool })
 const menuExtra = [];
-function addMenuItem(it) { menuExtra.push(it); renderMenu(); }
+function addMenuItem(it) { if (it.attr === 'data-valley') { valleyTile = it; renderMenu(); return; } menuExtra.push(it); renderMenu(); }   // tikhon_chronicler: the valley lives on the ⚔️ button
 window.schoolMenu = { add: addMenuItem, close: () => setMenu(false) };   // for other modules (js/*.js), which cannot import game.js
 let menuOpen = false;
 function menuItems() {
   const ally = [allyGifts.length ? '🎁 ' + allyGifts.length : '', ownReqs.length ? '📩 ' + ownReqs.length : ''].filter(Boolean).join(' · ');
   const base = [
     { attr: 'data-top', icon: '🏆', label: 'Топ школ' },
-    { attr: 'data-ally', icon: '🤝', label: 'Альянс', sub: ally, badge: allyGifts.length + ownReqs.length },
+    ...(hubOn() ? [] : [{ attr: 'data-ally', icon: '🤝', label: 'Альянс', sub: ally, badge: allyGifts.length + ownReqs.length }]),   // tikhon_chronicler: in the ⚔️ hub once it shows
     { attr: 'data-people', icon: '👥', label: 'Ученики', sub: String(inSchool().length) },
     { attr: 'data-mg', icon: '🧪', label: 'Мини-игры', sub: (() => { const n = MG.charges(); return n ? `попыток: ${n}` : ''; })() },   // also in the menu (tester №73po7zf1, Maria's pick «И там, и там»: the 🧪 pill stays)
   ];
@@ -3182,6 +3225,7 @@ function stepAdvisor(dt, live) {
   if (!live || WORLD !== 1) return;   // 6a: the upset-leavers alarm also works before the Director's office (was tikhonOn())
   advSampleT -= dt; if (advSampleT > 0) return; advSampleT = 10;
   advLog.push(leftNow()); if (advLog.length > 19) advLog.shift();
+  tkBellStep();   // tikhon_chronicler: real alarms go to the 🔔 list, not to Tikhon
 }
 const prestigeOn = () => !!(S.boss && S.boss.plan === 'prestige');
 const bedsLeft = () => bedCount() < maxBeds();
@@ -3259,7 +3303,7 @@ function advReport() {   // rework 6a: Tikhon's alarms only, real trouble [{hot,
   advCacheAt = performance.now(); advCache = out;
   return out;
 }
-const advHot = () => tikhonOn() && advReport().some((r) => r.hot);
+const advHot = () => tikhonOn() && tkBadge() > 0;   // tikhon_chronicler: his 📜 scroll = something new in his window (claimable quests, new chronicle lines), never alarms
 // His walk round the school (her «Тихон должен иногда прогуливаться по школе», build 254): every 3-5 minutes of play he leaves the
 // office with his staff, visits 2-3 places (the court, a class door, the reception) and stops at each for 4-6 s to read his
 // scroll, raise the lantern or explain something, then comes back. Render-only, like the teachers' strolls; never while the game is closed.
@@ -3363,61 +3407,132 @@ function tkWisePay(paid, share = TK_WISE_SHARE, title = '', fam = '') {
   S.tkLast = { title, bonus, t: Date.now() }; if (fam) (S.tkRest ||= {})[fam] = Date.now() + TK_REST;
   STATS.ev('wise', { f: String(fam).slice(0, 12) });
   toast(`🐢 Мудрое решение, директор! Тихон доплатил 🪙${fmt(bonus)}`); updateHud();
+  tkNote('🐢', `Сегодня директор сам выбрал мудрое улучшение. Я доплатил 🪙${fmt(bonus)} и записал это на полях.`, 'wise' + qDay());   // tikhon_chronicler (B8.12): the praise line goes to the chronicle (once a day), PLACEHOLDER
 }
+// ======================= tikhon_chronicler (Ruslan 2026-11-26: «Тихон — летописец и рассказчик всей игры», «мне кажется тихон и кнопка
+// заданий это одно и тоже»): no advisor report any more. ONE button (bottom right, his head in world 1) opens ONE window «Тихон»: the quest
+// tabs (default «⭐ Задания»: the three 6a quests) + «📜 Летопись» (today / this week / the book). Real alarms go to the 🔔 list (tkBellStep).
+// His chronicle: S.tkj [{ t, e, x, k }] (k: one line per key) + chapters (S.chron), good days (S.tdays), farewells (S.heroFw.L). Texts = PLACEHOLDERS for Maria.
+const TKJ_MAX = 300;
+function tkNote(e, x, k) {   // a dated line of his chronicle (window tab «📜 Летопись» and the book «🏫 Твоя школа»)
+  try {
+    if (!S || WORLD !== 1 || EDIT || !x) return false;
+    const L = (S.tkj ||= []); if (k && L.some((y) => y.k === k)) return false;
+    const y = { t: Date.now(), e: String(e || '📜'), x: String(x).slice(0, 300) }; if (k) y.k = String(k).slice(0, 40);
+    L.push(y); if (L.length > TKJ_MAX) L.splice(0, L.length - TKJ_MAX);
+    tkBadgeC = null; dirtyPanel = true; return true;
+  } catch (er) { return false; }
+}
+window.tikhonNote = (e, x, k) => tkNote(e, x, k);   // for other modules
+window.__tkb = { bell: (fake) => tkBellStep(fake), entries: () => tkEntries(), nw: () => tkNew() };   // test hook
+window.tikhonWeek = (text) => tkNote('🗺️', text, 'wk' + Math.floor((Date.now() / 86400000 + 3) / 7));   // the valley's Monday story: one line a week
+window.addEventListener('annexdeed', (ev) => {   // annex.js deeds: a new annex, its first harvest, its first event
+  try {
+    const d = ev.detail || {}, D = window.__anxName && window.__anxName(d.a); if (!D || WORLD !== 1) return;
+    if (d.k === 'build') tkNote(D.e, `У школы новая пристройка — «${D.n}». ${D.w} сияет: давно об этом мечтал(а).`, 'anxb_' + d.a);
+    else if (d.k === 'harvest') tkNote(D.e, `Первый урожай «${D.n}». Запах стоит на всю школу — записываю.`, 'anxh_' + d.a);
+    else if (d.k === 'event') tkNote(D.e, `${D.ev ? `«${D.ev}»` : 'Первое событие'} у «${D.n}» — впервые! Ученики будут рассказывать об этом младшим.`, 'anxe_' + d.a);
+  } catch (er) { /* never breaks the game */ }
+});
+function tkEntries() {   // every dated line, newest first
+  const out = [];
+  for (const y of S.tkj || []) out.push(y);
+  for (const c of S.chron || []) if (c.t) out.push({ t: c.t, e: c.e || '📖', x: `Глава «${c.title}» окончена.${c.built ? ` В школе открылось новое: ${c.built}.` : ''}` });
+  for (const d of S.tdays || []) if (d.t) out.push({ t: d.t, e: '☀️', x: `${d.th}. ${d.x ? d.x + ' ' : ''}Хороший был день.` });
+  for (const f of (S.heroFw && S.heroFw.L) || []) if (f.t) out.push({ t: f.t, e: '🌍', x: f.x });
+  return out.sort((a, b) => b.t - a.t);
+}
+const tkSeen = () => (S.tkjSeen ||= Date.now());   // older lines of an old save are not «new»
+const tkNew = () => { if (WORLD !== 1 || !S) return 0; const t = tkSeen(); return tkEntries().filter((y) => y.t > t).length; };
 const tkNewPages = () => (WORLD === 1 ? (S.chron || []).filter((c) => !((((S.lore || {}).seen) || {})['ch' + c.n] >= 1)).length : 0);   // own chronicle pages («🏫 Твоя школа») not read yet
-function tkBadge() {   // 6a: hot alarms + unread pages of the player's chronicle (was: unseen riddles + hot reports, lit almost always)
-  if (WORLD !== 1) return 0;
-  let n = tkNewPages();
-  try { n += advReport().filter((r) => r.hot).length; } catch (e) { /* report needs the school */ }
-  return n;
+let tkBadgeC = null, tkBadgeAt = 0;
+function tkBadge() {   // claimable quests + new chronicle lines (no alarms); cached 2 s (the map asks every frame)
+  if (WORLD !== 1 || !S) return 0;
+  if (tkBadgeC !== null && performance.now() - tkBadgeAt < 2000) return tkBadgeC;
+  let n = 0; try { n = qReadyAll() + tkNew(); } catch (e) { /* needs the school */ }
+  tkBadgeAt = performance.now(); return (tkBadgeC = n);
+}
+const TK_BELL_REST = 10 * 60000;
+const tkBell = {};
+function tkBellStep(fake) {   // B7.3-B7.5: a hot alarm = one 🔔 line per kind per 10 min (its fixes are in the quest «Главное сейчас»)
+  let rep; try { advCache = null; rep = fake || advReport(); } catch (e) { return; }
+  for (const r of rep) if (r.hot && r.k && !(tkBell[r.k] > Date.now())) { tkBell[r.k] = Date.now() + TK_BELL_REST; glog('imp', `${r.emo} ${r.text}`, WORLD); }
 }
 function tkStyle() {
   if (document.getElementById('tk-style')) return;
   const st = document.createElement('style'); st.id = 'tk-style';
-  st.textContent = `#tkbtn{position:absolute;left:calc(50% + 43px);bottom:calc(var(--safe-b) + 14px);z-index:4;padding:0}
-#tkbtn img{width:56px;height:56px;border-radius:50%;object-fit:cover;display:block}
-.tktip{border:2px solid #f3d27a}
-.tkhint{margin-top:4px;font-weight:800;color:#7b5cd6}
+  st.textContent = `#quest .mbtn img.tkq{width:56px;height:56px;border-radius:50%;object-fit:cover;display:block}
+#hubbtn{position:absolute;left:234px;bottom:calc(var(--safe-b) + 14px);z-index:4}
 .tknote{background:#fff7dd;border-radius:14px;padding:8px 10px;margin:0 0 8px;font-size:13px;display:flex;gap:8px;align-items:center}
-.tknote>img{height:44px;width:auto;flex:none}.tknote span img{height:1.15em;width:auto;vertical-align:-0.2em}.tknote .btn{display:block;margin:6px 0 0 auto}`;
+.tknote>img{height:44px;width:auto;flex:none}
+.tkrow{display:flex;gap:8px;align-items:flex-start;background:#fffaff;border-radius:12px;padding:7px 10px;margin:4px 0;line-height:1.3;font-size:13.5px}
+.tkrow.new{background:#fff6cf;box-shadow:0 0 0 2px #f2d06b inset}.tkrow .tkt{font-weight:800;color:#8a7cab;min-width:44px;font-size:12px}
+.tkday{background:#f1eafd;border-radius:14px;padding:8px 10px;margin:4px 0 6px;font-size:13.5px}`;
   document.head.appendChild(st);
 }
-let tkBtnT = 0;
-function renderTkBtn() {   // the round button with Tikhon's head (world 1), between ✨ and 📋; a red badge counts his new tips and urgent reports
-  if (WORLD !== 1 || EDIT) return;
-  if (performance.now() - tkBtnT < 2500 && document.getElementById('tkbtn')) return; tkBtnT = performance.now();
+function renderTkBtn() {   // tikhon_chronicler: the separate #tkbtn is gone (the quest button is Tikhon); this slot now draws the ⚔️ hub button
+  const b = document.getElementById('tkbtn'); if (b) b.remove();
+  renderHubBtn();
+}
+function advisorBlock() {   // the director's office: one calm line of Tikhon and a way to his window (no alarms)
+  tkStyle(); const quote = ADV_QUOTES[Math.floor(Date.now() / 60000) % ADV_QUOTES.length];
+  return `<div class="card up" style="align-items:center">${tikhonPic(70)}<div class="grow"><b>${ADV_NAME}</b><div class="muted">летописец школы</div><div>«${quote}»</div></div><button class="btn small go" data-tikhon="chron">📜 Летопись</button></div>`;
+}
+let tkFrozen = null;   // kept for old call sites (the window is the quest window now)
+const tkOpen = (tab) => { qTab = tab || 'lvl'; tkChronTab.prev = undefined; openPanel(missionsPanel); };
+function advGo() { /* tikhon_chronicler: no alarm cards any more */ }
+function tkChronTab() {   // «📜 Летопись»: his greeting, today, this week, the book
   tkStyle();
-  let b = document.getElementById('tkbtn');
-  if (!b) { b = document.createElement('button'); b.id = 'tkbtn'; b.className = 'mbtn'; b.dataset.tikhon = ''; b.setAttribute('aria-label', 'Тихон'); const st = document.getElementById('stage'); if (!st) return; st.appendChild(b); }
-  const n = tkBadge(), key = 'k' + n;
-  if (b.dataset.key === key) return; b.dataset.key = key;
-  b.classList.toggle('ready', n > 0);
-  b.innerHTML = `<img src="assets/staff/tikhon_head.webp?v=1" alt="">${n ? `<span class="badge">${n}</span>` : ''}`;
+  const prev = (tkChronTab.prev ??= tkSeen()); S.tkjSeen = Date.now(); tkBadgeC = null;
+  const d0 = new Date(); d0.setHours(0, 0, 0, 0); const t0 = d0.getTime(), w0 = t0 - 6 * 86400000;
+  const L = tkEntries(), today = L.filter((y) => y.t >= t0), week = L.filter((y) => y.t < t0 && y.t >= w0).slice(0, 14);
+  const hm = (t) => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const dm = (t) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  const row = (y, f) => `<div class="tkrow${y.t > prev ? ' new' : ''}"><span class="tkt">${f(y.t)}</span><span class="grow">${y.e} ${escTxt(y.x)}</span></div>`;
+  let th = null; try { th = TODAY.theme && TODAY.theme(); } catch (e) { th = null; }
+  const quote = ADV_QUOTES[Math.floor(Date.now() / 60000) % ADV_QUOTES.length], np = tkNewPages();
+  return `<div class="tknote">${tikhonPic(44)}<span>«${quote}»</span></div>
+    <h3 style="margin:10px 2px 4px">Сегодня</h3>
+    ${th ? `<div class="tkday"><b>${th.e} ${escTxt(th.name)}</b><div class="muted">«${escTxt(th.say || '')}»</div></div>` : ''}
+    ${today.length ? today.map((y) => row(y, hm)).join('') : '<p class="muted">Сегодня я ещё ничего не записал. День только начинается, директор.</p>'}
+    <h3 style="margin:12px 2px 4px">На этой неделе</h3>
+    ${week.length ? week.map((y) => row(y, dm)).join('') : '<p class="muted">Неделя только началась — страницы пока чистые.</p>'}
+    <button class="btn wide" data-lorepage="" style="margin-top:10px">📖 Открыть летопись${np ? ` · новых страниц: ${np}` : ''}</button>`;
 }
-let advTargets = [];
-function advisorBlock(own = false) {   // top of the director's panel (own: Tikhon's own window): his alarms, or the calm line with an idle quote; in his window also his praise and the chronicle
-  const rep = advReport(); advTargets = rep.map((r) => r.go);
-  const items = rep.map((r, k) => `<div class="card up"${r.hot ? ' style="border:2px solid #ffb4a8"' : ''}><span class="remoji">${r.emo}</span><div class="grow">${r.text}</div>${r.go ? `<button class="btn small go" data-advgo="${k}">${r.go === 'missions' ? 'Задания' : r.go === 'mail' ? 'Открыть' : 'Показать'}</button>` : ''}</div>`).join('');
-  const quote = ADV_QUOTES[Math.floor(Date.now() / 60000) % ADV_QUOTES.length];
-  let extra = '';
-  if (own) { const L = S.tkLast && Date.now() - S.tkLast.t < 30 * 60000 ? S.tkLast : null, np = tkNewPages();
-    extra = `<div class="tknote">🐢 <span>${L ? `Мудрое решение — я доплатил 🪙${fmt(L.bonus)}. ` : ''}Выберешь сам одно из самых выгодных улучшений — я доплачу.${S.stats.wise ? ` Мудрых решений: ${S.stats.wise}.` : ''}</span></div>
-    <button class="btn wide" data-lorepage="">📜 Летопись${np ? ` · новых: ${np}` : ''}</button>`; }
-  return `<div class="card up" style="align-items:center">${own ? '' : tikhonPic(70)}<div class="grow">${own ? '' : `<b>${ADV_NAME}</b><div class="muted">советник директора и летописец школы</div>`}<div>«${rep.length ? 'Директор, вот что я заметил:' : 'В школе всё спокойно, директор. ' + quote}»</div></div></div>
-    ${items}${extra}
-    <button class="btn ghost wide" data-missions>📋 Задания от Тихона</button>`;
+// ---- ⚔️ Долина: the alliance + valley hub on the bottom bar (Ruslan 2026-11-26 «тогда может вынесем кнопку альянсов? ведь долины это кор механика теперь»)
+let valleyTile = null;   // the ✨ tile valley.js registers (data-valley): kept for its sub/badge, no longer shown in the ✨ menu
+const hubOn = () => { if (!S) return false; if (WORLD !== 1 || myAl()) return true; const ch = chapNow(); return !ch || ch.i >= 5; };   // from chapter 6 (or with an alliance)
+const hubAllyN = () => allyGifts.length + ownReqs.length;
+function hubBadge() {
+  let n = 0;
+  try { if (valleyTile && valleyTile.badge) n += valleyTile.badge() || 0; } catch (e) { /* valley not ready */ }
+  try { n += hubAllyN(); const A = myAl() ? aqGoals() : null; if (A) n += A.goals.filter((x) => x.ok && !stGot(x.key)).length; } catch (e) { /* alliance not loaded */ }
+  return n;
 }
-let tkFrozen = null;   // his window's html, kept while it stays open
-const tkOpen = () => { tkFrozen = null; openPanel(tikhonPanel); };
-function tikhonPanel() {   // built once per opening (no jumping text);  his own window (tester «По Тихону открывается весь кабинет директора а должен открываться только меню Тихона Тихон отдельное личность»): a tap on him opens only his report and quests
-  if (tkFrozen) return tkFrozen;
-  return tkFrozen = `<div class="sh-head">${tikhonPic(56)}<div><h2>${ADV_NAME}</h2><div class="muted">советник директора и летописец школы</div></div><button class="x" data-close>✕</button></div>` + advisorBlock(true);
+let hubBtnT = 0;
+function renderHubBtn() {
+  if (EDIT) return;
+  let b = document.getElementById('hubbtn');
+  if (!hubOn()) { if (b) b.remove(); return; }
+  if (b && performance.now() - hubBtnT < 1500) return; hubBtnT = performance.now();
+  tkStyle();
+  if (!b) { b = document.createElement('button'); b.id = 'hubbtn'; b.className = 'mbtn'; b.dataset.hub = ''; b.setAttribute('aria-label', WORLD === 2 ? 'Чертоги' : 'Долина'); const st = document.getElementById('stage'); if (!st) return; st.appendChild(b); }
+  const n = hubBadge(), h = `${WORLD === 2 ? '⛏️' : '⚔️'}${n ? `<span class="badge">${n}</span>` : ''}`;
+  if (b.dataset.h === h) return; b.dataset.h = h; b.classList.toggle('ready', n > 0); b.innerHTML = emojiHtml(h);
 }
-function advGo(k) {
-  const g = advTargets[+k]; if (!g) return;
-  if (g === 'missions') { qTab = 'lvl'; openPanel(missionsPanel); return; }   // 6a: his alarms point at the quest «Главное сейчас»
-  if (g === 'mail') { openPanel(mailPanel); return; }
-  goTarget(g);
+function hubPanel() {
+  const w2 = WORLD === 2, al = myAl(); let vs = ''; try { vs = valleyTile && valleyTile.sub ? valleyTile.sub() : ''; } catch (e) { vs = ''; }
+  const an = [allyGifts.length ? '🎁 ' + allyGifts.length : '', ownReqs.length ? '📩 ' + ownReqs.length : ''].filter(Boolean).join(' · ');
+  let h = `<div class="sh-head"><span class="remoji big">${w2 ? '⛏️' : '⚔️'}</span><div><h2>${w2 ? 'Подземные чертоги' : 'Долина'}</h2><div class="muted">альянс и битвы за земли</div></div><button class="x" data-close>✕</button></div>`;
+  if (!al) return h + `<div class="card up"><span class="remoji">🤝</span><div class="grow"><b>Вступи в альянс, чтобы воевать в ${w2 ? 'Чертогах' : 'Долине'}</b><div class="muted">Школы альянса вместе захватывают земли. Посмотреть карту можно и сейчас.</div></div></div>
+    <button class="btn wide" data-ally>🤝 Найти или создать альянс</button><button class="btn ghost wide" data-valley>${w2 ? '⛏️ Посмотреть Чертоги' : '🚩 Посмотреть Долину'}</button>`;
+  return h + `<button class="btn wide" data-valley>${w2 ? '⛏️ Подземные чертоги' : '🚩 Волшебная долина'}${vs ? ` · ${vs}` : ''}</button>
+    <button class="btn ghost wide" data-ally>🤝 Альянс${an ? ` · ${an}` : ''}</button>
+    <h3 style="margin:12px 2px 4px">Цели альянса</h3>${qAllyTab()}`;
+}
+function openHub() {
+  qStyle(); openPanel(hubPanel);
+  if (myAl() && (!topList || Date.now() - topLoadedAt > 60000) && !hubPanel.loading) { hubPanel.loading = true; topPush(true).finally(() => topLoad().finally(() => { hubPanel.loading = false; if (panel === hubPanel) refreshPanel(); })); }
 }
 // The fox shopkeeper (her choice 2026-11-21: a curiosity shop): hands over the treat while a student is shopping,
 // counts coins after a sale; when the shop is empty he polishes a crystal ball or carries a box of glowing jars to the shelf.
@@ -4022,7 +4137,7 @@ function stonesPanel() {
     return `<div class="card up"><span class="remoji">${it.icon}</span><div class="grow"><b>${it.name}</b><div class="muted">${ok ? it.txt : it.why()}</div></div><button class="btn small" data-stbuy="${it.k}" ${ok && n >= it.price ? '' : 'disabled'}>${ST_IMG(15)} ${it.price}</button></div>`; }).join('');
   return `<div class="sh-head"><span class="remoji big">${ST_IMG(44)}</span><div><h2>Лунные камни</h2><div class="muted">Редкая волшебная валюта — одна на оба мира</div></div><button class="x" data-close>✕</button></div>
     <div class="card" style="justify-content:center;font-size:22px"><b>${ST_IMG(26)} ${n}</b></div>
-    <h3>Как добыть</h3><p class="muted">Лунные камни дают: большие достижения школы в каждом мире (ниже); каждые 5 уровней школы 🌟; каждая звезда школы ⭐ сверх ${STAR_STONE_FROM}; все дела дня 📅 (${DQ_STONES} в день); цели альянса 🤝 (по ${AQ_STONES} за цель каждую неделю); особые задания 🎁; 1–3 место в недельном турнире мини-игр (🥇 15, 🥈 10, 🥉 5). А ещё ночью на Лунном древе иногда вызревает лунная жемчужина 🌙.</p>${ach}
+    <h3>Как добыть</h3><p class="muted">Лунные камни дают: большие достижения школы в каждом мире (ниже); каждая новая глава летописи 📜 (${CH_STONES}); удачный день ☀️ (от 2 до 7 — чем длиннее серия, тем больше); каждая звезда школы ⭐ сверх ${STAR_STONE_FROM}; золото инспектора 🥇; цели альянса 🤝 (по ${AQ_STONES} за цель каждую неделю); особые задания 🎁; 1–3 место в недельном турнире мини-игр (🥇 15, 🥈 10, 🥉 5). А ещё ночью на Лунном древе иногда вызревает лунная жемчужина 🌙.</p>${ach}
     <h3>Лавка</h3>${shop}
     ${WORLD === 1 ? `<h3>Волшебная вода фонтана</h3><p class="muted">Цвет воды и сияния фонтана во дворе. Купленный цвет остаётся навсегда.</p>${Object.entries(FOUNT_COL).map(([k, f]) => { const ow = (stMeta().stones || {}).own || {}, own = !f.price || ow['fnt_' + k] || (k === 'rainbow' && ow.fnt_gold), cur = fountCol().name === f.name;
       return `<div class="card up"><span class="remoji" style="width:26px;height:26px;border-radius:50%;background:${f.rainbow ? 'conic-gradient(#ff9ad5,#c9a0ff,#8fd3ff,#9ff0c8,#ffe28f,#ff9ad5)' : `rgb(${f.glow})`};display:inline-block"></span><div class="grow"><b>${f.name}</b><div class="muted">${cur ? 'сейчас в фонтане' : own ? 'куплено' : ''}${f.price ? `${cur || own ? ' · ' : ''}цена ${ST_IMG(13)} ${f.price}` : cur ? '' : 'бесплатно'}</div></div>${cur ? '<span class="done">✓</span>' : `<button class="btn small" data-stfnt="${k}" ${own || n >= f.price ? '' : 'disabled'}>${own ? 'Выбрать' : `${ST_IMG(15)} ${f.price}`}</button>`}</div>`; }).join('')}` : ''}
@@ -4063,7 +4178,7 @@ function levelPanel() {
   return `<div class="sh-head"><span class="remoji big">🌟</span><div><h2>Уровень школы ${n}</h2><div class="muted">${WORLD === 2 ? 'Мир гномов' : 'Школа магии'}</div></div><button class="x" data-close>✕</button></div>
     <div class="card"><div class="grow"><b>Опыт: ${fmt(x - a)} из ${fmt(b - a)}</b><div style="height:12px;border-radius:6px;background:#efe6ff;margin-top:6px"><div style="height:12px;border-radius:6px;background:#a98bf0;width:${pct}%"></div></div></div></div>
     <p>Школа получает опыт за каждого выпускника. Чем выше его звание, тем больше опыта: новичок — ${XP_RANK[0]}, ${RANKS[3].toLowerCase()} — ${XP_RANK[3]}, ${RANKS[5].toLowerCase()} — ${XP_RANK[5]}.</p>
-    <p>Каждые 5 уровней школа получает ${ST_IMG()} лунные камни. Уровень видно в топе школ, а задания подбираются по силам школы.</p>`;
+    <p>Уровень видно в топе школ, а задания подбираются по силам школы.</p>`;   // audit F11: no level stones since s7
 }
 function drawTreeGrounded(o, im, p, w, h) {   // false = not a grounded tree (draw as usual)
   const g = WORLD === 1 && TREE_GROUND[o.n], soil = SOIL[(Math.round(o.x * 7 + o.y * 13) & 1)];
@@ -4075,6 +4190,7 @@ function drawTreeGrounded(o, im, p, w, h) {   // false = not a grounded tree (dr
   ctx.drawImage(soil, -mw / 2, -mh * 0.55, mw, mh); ctx.restore();   // the mound's upper half covers the cut trunk: it goes into the ground
   return true;
 }
+function wildKey(o) { return Math.round(o.x * 10) + ',' + Math.round(o.y * 10); }   // a map orange tree's id = its place
 function drawOut(o) {
   let im = part('outdoor', o.n); if (!im) return;
   if (o.g) return drawGarland(o, im);
@@ -4088,6 +4204,7 @@ function drawOut(o) {
   if (!drawTreeGrounded(o, im, p, w, h)) ctx.drawImage(o.flip ? flipped(im) : im, p.x - w / 2, p.y + h * 0.05 - h, w, h);
   if (im2 && mix > 0.01) { ctx.save(); ctx.globalAlpha = mix; ctx.drawImage(o.flip ? flipped(im2) : im2, p.x - w / 2, p.y + h * 0.05 - h, w, h); ctx.restore(); }
   if (o.n === 'moontree') drawMoonTree(o, p, w, h);
+  if (o.n === 'goldtree' && WORLD === 1) ANNEX.wildDraw(wildKey(o), p.x, p.y, w, h);   // ripe oranges + the tap area (audit_fixes)
   if (zoom >= 1.3 || o.n === 'fountain') outFx(o, p, h);
   if (o.n === 'fountain') TODAY.drawFount(ctx, p, h);   // s7: lanterns and rising lights while today's day is closed   // the fountain's water shows at every zoom (it grows with its upgrades)   // zoomed out the life is too small to see: save the iPhone's work
 }
@@ -5730,7 +5847,7 @@ const TOUR_W1 = [
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Настроение 😊', text: 'Долгие очереди и ожидание в спальне огорчают учеников 😟, уроки и библиотека радуют 😄. Весёлые сдают экзамены лучше. Совсем грустный ученик 😭 может уйти домой. Добавляй парты и сокращай уроки, чтобы никто долго не ждал.' },
   { at: null, title: 'Инспектор и звёзды ⭐', text: 'Примерно раз в 10–15 минут игры приходит инспектор 🦅. Можно пройти его проверку (3 минуты, он проверит слабое место школы), показать открытый урок или попросить зайти позже. Любая медаль — 🥉, 🥈 или 🥇 — это звезда школы: она даёт +3% к плате за уроки, а звёзды нужны для новых классов. Штрафов нет. Если на школу придут 3 жалобы, он придёт без предупреждения.' },
   { at: null, title: 'Спокойный режим 😌', text: 'Не хочется проверок? В ⚙️ можно включить спокойный режим — инспектор не будет приходить. Когда захочешь заработать звёзды, просто выключи его.' },
-  { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту (нажми — «Казна школы»), 🎓 выпускники. Под ними: 🏅 рейтинг, 🏆 топ школ, 🤝 альянсы, 🧪 мини-игры (они открываются в пристройках классов), ⭐ звёзды школы и 👥 ученики (нажми — увидишь, где они). Справа внизу 📋 задания от летописца Тихона: кнопка «Выполнить» сама откроет нужное место. Слева внизу 🗺️ другие миры и 🎓 альбом учеников. Нажми на зверька — увидишь, что он делает. Повторить обучение можно в ⚙️. Удачи, директор!' },
+  { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту (нажми — «Казна школы»), 🎓 выпускники. Под ними: 🏅 рейтинг, 🏆 топ школ, 🤝 альянсы, 🧪 мини-игры (они открываются в пристройках классов), ⭐ звёзды школы и 👥 ученики (нажми — увидишь, где они). Справа внизу — летописец Тихон 🐢: его задания (кнопка «Выполнить» сама откроет нужное место) и летопись школы. С главы 6 рядом появится ⚔️ Долина — альянс и битвы за земли. Слева внизу 🗺️ другие миры и 🎓 альбом учеников. Нажми на зверька — увидишь, что он делает. Повторить обучение можно в ⚙️. Удачи, директор!' },
 ];
 const roomAt = (id, dy = 0) => () => { const s = SLOTS[id]; return s ? [(s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2 + dy] : null; };
 const clsAt = (id) => () => { const i = CLASSES.findIndex((c) => (id === 'final' ? c.final : c.id === id)); const s = i >= 0 && SLOTS[CLASS_SLOT[i]]; return s ? [(s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2] : null; };
@@ -5746,7 +5863,7 @@ const TOUR_W2 = [
   { at: clsAt('final'), title: 'Палата клятв и Зал славы 🎓', text: 'В конце — Палата клятв, финальный экзамен. Выпускник идёт в Зал славы и исчезает в свете кристалла.' },
   { at: null, title: 'Последнее 💡', text: 'Вверху ⛏️ ⚒️ 💎 — руда, изделия и самоцветы. Справа внизу 📋 задания ведут по шагам. 🧪 Зельеварка, 🏅 рейтинг, 🏆 топ и 🤝 альянсы работают и здесь. В Школу магии можно вернуться через 🗺️ слева внизу. Обучение повторяется в ⚙️.' },
 ];
-const TOUR_W1_START = [{ at: () => [(SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 + 4], title: 'Летописец Тихон 🐢', img: 'assets/staff/tikhon_explain.png?v=1', imgFlip: 1, text: 'Здравствуй, директор! Я Тихон, летописец этой школы. С тех пор как прежний директор исчез, школа почти опустела. Давай вернём ей жизнь: первые ученики уже у ворот. Ученики учатся сами и платят за уроки 🪙, а твоё дело — делать школу лучше. Дела летописи лежат под кнопкой 📋 справа внизу. Первое я тебе сейчас покажу.' }];   // rework step 3: one card, then chapter 1 teaches by doing
+const TOUR_W1_START = [{ at: () => [(SLOTS.REC.x0 + SLOTS.REC.x1) / 2, SLOTS.REC.y0 + 4], title: 'Летописец Тихон 🐢', img: 'assets/staff/tikhon_explain.png?v=1', imgFlip: 1, text: 'Здравствуй, директор! Я Тихон, летописец этой школы. С тех пор как прежний директор исчез, школа почти опустела. Давай вернём ей жизнь: первые ученики уже у ворот. Ученики учатся сами и платят за уроки 🪙, а твоё дело — делать школу лучше. Дела летописи лежат под моим портретом справа внизу. Первое я тебе сейчас покажу.' }];   // rework step 3: one card, then chapter 1 teaches by doing
 const TOUR = WORLD === 2 ? TOUR_W2 : TOUR_W1_START;
 const tourCards = (...names) => names.map((n) => TOUR_W1.find((t) => t.title.startsWith(n))).filter(Boolean);
 // Short intros of the features added since build 237 (2026-11-23): shown once, when the feature opens, with the camera on it;
@@ -5763,7 +5880,7 @@ const INTROS = [
   { key: 'mg', when: () => S.stats.graduated >= 10 && ANNEX.mgOk('p'), steps: () => [WORLD === 2 ? { at: null, title: 'Мини-игры ✨', text: 'Вверху есть кнопка 🧪 — мини-игры этого мира: «Огранка самоцветов», «Башня из руды» и «Вагонетка в штольне». За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждый час.' } : { at: null, title: 'Зельеварка 🧪', text: 'Вверху есть кнопка 🧪 — мини-игра «Зельеварка». Меняй местами ингредиенты, собирай три в ряд и вари зелья по рецепту. За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждые 20 минут.' }] },
   { key: 'dir', when: () => WORLD === 1 && (dirBuilt() || isOpen(2)), steps: () => [
     { at: roomAt('DIR'), title: 'Кабинет директора 👑', text: dirBuilt() ? 'В кабинете директора ты выбираешь договор с учениками, запускаешь рекламные акции 📣, отвечаешь на письма родителей ✉️ и улучшаешь правила школы.' : `Здесь можно построить кабинет директора 👑 (🪙${fmt(DIR_COST)} и ⭐ ${DIR_STARS} звезды школы — их дают проверки инспектора). В нём выбирают договор с учениками, запускают рекламные акции и отвечают на письма родителей.` },
-    { at: roomAt('DIR'), title: 'Летописец Тихон 🐢', text: 'В кабинете живёт летописец Тихон. Он иногда гуляет по школе — нажми на него, и он расскажет, что в школе не так и что улучшить. Задания 📋 тоже от него.' }] },
+    { at: roomAt('DIR'), title: 'Летописец Тихон 🐢', text: 'В кабинете живёт летописец Тихон. Он иногда гуляет по школе — нажми на него — откроются его задания и летопись школы.' }] },
   { key: 'shop', when: () => WORLD === 1 && isOpen(2), steps: () => [
     { at: roomAt('SHOP'), title: 'Лавка 🛍️', text: 'Между уроками ученики заходят в лавку за сладостями: школа получает монеты, а у ученика поднимается настроение. Нажми на лавку, чтобы её открыть и улучшить.' },
     { at: roomAt('CANT'), title: 'Столовая 🍽️', text: 'После урока часть учеников идёт обедать к повару-дракончику. Обед — это монеты и настроение, а сытый ученик легче сдаёт следующий экзамен.' }] },
@@ -6511,7 +6628,7 @@ const UPS = {
   ...Object.fromEntries(Object.keys(DIR_UP).map((k) => ['dir_' + k, { g: 'dir', name: DIR_UP[k].name, on: () => bossOn(), lvl: () => dirLvl(k), max: () => DIR_UP[k].max, cost: () => dirCost(k), k: DIR_UP[k].k, go: () => ['DIR', `[data-act="dir"][data-k="${k}"]`] }])),
   ...Object.fromEntries([['seller', 'Продавец'], ['shelves', 'Витрины'], ['goods', 'Товары']].map(([k, name]) => ['shop_' + k, { g: 'shop', name: name + ' в лавке', on: () => shopOpen(), lvl: () => shopUp()[k], max: () => SHOP_MAX, cost: () => shopCost(k), k: 1.9, go: () => ['SHOP', `[data-act="shopup"][data-k="${k}"]`] }])),
   ...Object.fromEntries([['cook', 'Повар'], ['tables', 'Столы'], ['menu', 'Меню']].map(([k, name]) => ['cant_' + k, { g: 'cant', name: name + ' в столовой', on: () => cantOpen(), lvl: () => cantUp()[k], max: () => CANT_MAX[k], cost: () => cantCost(k), k: 1.9, go: () => ['CANT', `[data-act="cantup"][data-k="${k}"]`] }])),
-  towercap: { g: 'tower', name: WORLD === 2 ? 'Места в Чертоге Хранителей' : 'Места в Башне мастеров', show: (v) => v + TOWER_BASE, unit: 'мест', text: (t) => `Расширь ${WORLD === 2 ? 'Чертог Хранителей' : 'Башню мастеров'} до ${t + TOWER_BASE} мест`, on: () => towerOpen(), lvl: () => towerUp().cap, max: () => TOWER_MAXUP, cost: () => towerCapCost(), k: 1.45, go: () => ['TOWER', '[data-act="towercap"]'] },
+  towercap: { g: 'tower', name: WORLD === 2 ? 'Места в Чертоге Хранителей' : 'Места в Башне мастеров', show: (v) => v + TOWER_BASE, unit: 'мест', text: (t) => `Расширь ${WORLD === 2 ? 'Чертог Хранителей' : 'Башню мастеров'} до ${t + TOWER_BASE} мест`, on: () => towerOpen(), lvl: () => Math.min(TOWER_MAXUP, towerUp().cap), max: () => TOWER_MAXUP, cost: () => towerCapCost(), k: 1.45, go: () => ['TOWER', '[data-act="towercap"]'] },
   towerprep: { g: 'tower', name: WORLD === 2 ? 'Подготовка хранителей' : 'Подготовка мастеров', on: () => towerOpen(), lvl: () => retakeLvl(), max: () => RETAKE_MAX, cost: () => retakeCost(), k: 2.0, go: () => ['TOWER', '[data-act="towerprep"]'] },
   ads: { g: 'room', name: 'Объявления о школе', on: () => !adsFull(), lvl: () => S.reception.ads, max: () => MAX_REC_LVL, cost: () => adsCost(), k: BAL.ads, go: () => ['REC', '[data-act="ads"]'] },
   libspeed: { g: 'room', name: 'Быстрее подготовка (библиотека)', on: () => true, lvl: () => libUp().speed, max: () => MAX_LIB_LVL, cost: () => libSpeedCost(), k: 1.5, go: () => ['LIB', '[data-act="libspeed"]'] },
@@ -6574,7 +6691,7 @@ const CH_W1 = [
   { t: 'Своё имя', e: '👑', ids: ['name', 'greenh', 'g100', 'star2', 'dir'] },
   { t: 'Лавка и столовая', e: '🍽️', ids: ['camp', 'obs', 'shop', 'cant'] },
   { t: 'Чары', e: '✨', ids: ['orchard', 'mail', 'fount3', 'charms'] },
-  { t: 'Крылья', e: '🪽', ids: ['ally', 'mirror', 'pond', 'flight'] },
+  { t: 'Крылья', e: '🪽', ids: ['mirror', 'pond', 'flight'] },   // audit F14: `ally` is a bonus step after the chronicle (a solo player is not gated)
   { t: 'Стихии', e: '🔥', ids: ['kite', 'elements'] },
   { t: 'Башня мастеров', e: '🏰', ids: ['elcirc', 'master', 'tower'] },   // 5c part 2: 🔥 Круг стихий (tools/_patch/annex_elements.py)   // mgStar3 is a bonus step after the chronicle (M8: a skill wall on the main path)
 ];
@@ -6593,7 +6710,7 @@ function chapNow() {   // {i, c, done, total} of the current chapter; null when 
 }
 const w1Story = () => { if (WORLD === 1) return (S && S.story) || {}; try { return (JSON.parse(localStorage.getItem(saveKeyOf(1))) || {}).story || {}; } catch (e) { return {}; } };
 const w1ChDone = () => { const st = w1Story(); return CH_W1.filter((c) => c.ids.every((id) => st[id])).length; };
-function fameUpd() { FAME_K = 1 + FAME_STEP * (w1ChDone() >= CH_W1.length ? 1 : 0); }   // more worlds join when their chronicles exist
+function fameUpd() { FAME_K = (1 + FAME_STEP * (w1ChDone() >= CH_W1.length ? 1 : 0)) * (1 + Math.min(HERO_BAL.fwFameCap, HERO_BAL.fwFame * (readMetaLocal().fw || 0))); }   // + every farewell of the account, +1 % each, cap +25 % (worlds rework)   // more worlds join when their chronicles exist
 let chapW2New = false;
 function w1Finish() {   // the world-1 chronicle is written: world 2 opens (true when it was closed before)
   const m = readMetaLocal(), had = (m.unlocked || []).includes(2);
@@ -7263,12 +7380,12 @@ function claimMission(key) {
 
 // missions live behind a round button on the map (bottom right); a red badge shows how many can be claimed
 function renderMission() {
-  qTick(); const ready = qReadyAll(), el = $('#quest');
+  qTick(); const tk = WORLD === 1, ready = tk ? tkBadge() : qReadyAll(), el = $('#quest'); if (tk) tkStyle();   // tikhon_chronicler: world 1 = Tikhon's button
   const ch = chapNow(), tag = ch ? `Гл.${ch.i + 1} · ${ch.done}/${ch.total}` : '';
   const key = 'b' + ready + tag;
   if (el.dataset.key === key) return;
   el.dataset.key = key; chapBackPay();
-  el.innerHTML = emojiHtml(`<button class="mbtn ${ready ? 'ready' : ''}" data-missions aria-label="Задания">📋${ready ? `<span class="badge">${ready}</span>` : ''}${tag ? `<span style="position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);white-space:nowrap;padding:0 5px;border-radius:8px;background:#7b5cd6;color:#fff;font:800 10px/15px ui-rounded,'Nunito',sans-serif;border:2px solid #fff;box-shadow:0 2px 4px #3a2f4a40">${tag}</span>` : ''}</button>`);
+  el.innerHTML = emojiHtml(`<button class="mbtn ${ready ? 'ready' : ''}" data-missions aria-label="${tk ? 'Тихон: задания и летопись' : 'Задания'}">${tk ? '<img class="tkq" src="assets/staff/tikhon_head.webp?v=1" alt="">' : '📋'}${ready ? `<span class="badge">${ready}</span>` : ''}${tag ? `<span style="position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);white-space:nowrap;padding:0 5px;border-radius:8px;background:#7b5cd6;color:#fff;font:800 10px/15px ui-rounded,'Nunito',sans-serif;border:2px solid #fff;box-shadow:0 2px 4px #3a2f4a40">${tag}</span>` : ''}</button>`);
 }
 // ======================= world map =======================
 function readMetaLocal() { try { return JSON.parse(localStorage.getItem('magicschool.meta')) || {}; } catch (e) { return {}; } }
@@ -7448,9 +7565,10 @@ function qCounts() {
     lvl: list.filter((m) => m.key !== 'f' && m.ok).length,
     ally: A ? A.goals.filter((g) => g.ok && !stGot(g.key)).length : 0,
     sp: SP_LIST.filter(spReady).length,
+    chron: WORLD === 1 ? tkNew() : 0,
   };
 }
-const qReadyAll = () => { try { const c = qCounts(); return c.story + c.day + c.lvl + c.ally + c.sp; } catch (e) { return missionList().filter((m) => m.ok).length; } };
+const qReadyAll = () => { try { const c = qCounts(); return c.story + c.day + c.lvl + c.sp; }   /* tikhon_chronicler: alliance goals count on the ⚔️ button */ catch (e) { return missionList().filter((m) => m.ok).length; } };
 // ---- the window
 const Q_TABS = [['story', '📖', 'Сюжет'], ['day', '☀️', 'Сегодня'], ['lvl', '⭐', 'Задания'], ['ally', '🤝', 'Альянс'], ['sp', '🎁', 'Особые']];
 function qStyle() {
@@ -7501,7 +7619,7 @@ function qLvlTab(list) {
   const L = q6On() ? q6Rows(list) : list.filter((m) => m.key !== 'f'), lv = schoolLevel(), next = [];
   for (let l = Math.ceil((lv + 1) / 5) * 5; next.length < 3; l += 5) next.push(l);
   const ms = next.map((l) => `<span class="qp" style="margin-right:10px">ур. ${l} → ${ST_IMG(14)} ${3 + Math.floor(l / 10)}</span>`).join('');
-  return `<div class="qnote">${q6On() ? 'Три задания от Тихона: ⭐ главное, что сейчас тормозит школу, 📖 следующий шаг летописи и 💡 ещё одна идея, если захочется.' : `Задания подстраиваются под силы школы и под то, на что хватает монет.`} Сделал одно — сразу появится новое. ${S.mswap !== qDay() ? 'Не нравится задание? 🔄 заменит одно в день.' : 'Замена задания сегодня уже использована.'}</div>
+  return `<div class="qnote">${q6On() ? 'Три задания: ⭐ главное, что сейчас тормозит школу, 📖 следующий шаг летописи и 💡 ещё одна идея, если захочется.' : `Задания подстраиваются под силы школы и под то, на что хватает монет.`} Сделал одно — сразу появится новое. ${S.mswap !== qDay() ? 'Не нравится задание? 🔄 заменит одно в день.' : 'Замена задания сегодня уже использована.'}</div>
     <div class="qbar">${L.map(qRow).join('')}</div>
 `;   // s7: no level stones
 }
@@ -7538,13 +7656,14 @@ function qSpTab() {
 }
 function missionsPanel() {
   qStyle();
-  const list = missionList(), c = qCounts(), tk = WORLD === 1;   // world 1: the quests come from Chronicler Tikhon (build 251, her pick)
-  if (!qTab) qTab = (Q_TABS.find(([k]) => c[k] > 0) || Q_TABS[0])[0];
+  const list = missionList(), c = qCounts(), tk = WORLD === 1;   // world 1: the window of Chronicler Tikhon (tikhon_chronicler: quests + his chronicle)
+  const QT = Q_TABS.filter(([k]) => k !== 'ally').concat(tk ? [['chron', '📜', 'Летопись']] : []);   // the alliance goals moved to the ⚔️ hub
+  if (!qTab || !QT.some(([k]) => k === qTab)) qTab = tk ? 'lvl' : (QT.find(([k]) => c[k] > 0) || QT[0])[0];
   if (qTab === 'ally' && myAl() && (!topList || Date.now() - topLoadedAt > 60000) && !missionsPanel.loading) { missionsPanel.loading = true; topPush(true).finally(() => topLoad().finally(() => { missionsPanel.loading = false; if (panel === missionsPanel) refreshPanel(); })); }
   if (qTab === 'sp' && (!topList || Date.now() - topLoadedAt > 120000) && !missionsPanel.loading) { missionsPanel.loading = true; Promise.all([topLoad(), AV.load()]).finally(() => { missionsPanel.loading = false; if (panel === missionsPanel) refreshPanel(); }); }
-  const tabs = Q_TABS.map(([k, ic, nm]) => `<button class="qtab ${qTab === k ? 'on' : ''}" data-qtab="${k}"><span class="remoji">${ic}</span>${nm}${c[k] ? `<span class="qb">${c[k]}</span>` : ''}</button>`).join('');
-  const body = qTab === 'story' ? qStoryTab(list) : qTab === 'day' ? TODAY.body() : qTab === 'lvl' ? qLvlTab(list) : qTab === 'ally' ? qAllyTab() : qSpTab();
-  return `<div class="sh-head">${tk ? tikhonPic(56) : '<span class="remoji big">📋</span>'}<div><h2>${tk ? 'Задания от Тихона' : 'Задания'}</h2><div class="muted">${tk ? '«Летопись школы пишется твоими делами, директор»' : 'Выполняй и забирай награды'}</div></div><button class="x" data-close>✕</button></div>
+  const tabs = QT.map(([k, ic, nm]) => `<button class="qtab ${qTab === k ? 'on' : ''}" data-qtab="${k}"><span class="remoji">${ic}</span>${nm}${c[k] ? `<span class="qb">${c[k]}</span>` : ''}</button>`).join('');
+  const body = qTab === 'story' ? qStoryTab(list) : qTab === 'day' ? TODAY.body() : qTab === 'lvl' ? qLvlTab(list) : qTab === 'chron' && tk ? tkChronTab() : qSpTab();
+  return `<div class="sh-head">${tk ? tikhonPic(56) : '<span class="remoji big">📋</span>'}<div><h2>${tk ? 'Тихон' : 'Задания'}</h2><div class="muted">${tk ? 'летописец школы · «Летопись пишется твоими делами, директор»' : 'Выполняй и забирай награды'}</div></div><button class="x" data-close>✕</button></div>
     <div class="qtabs">${tabs}</div>${body}`;
 }
 function qGo(go) {
@@ -7554,11 +7673,10 @@ function qGo(go) {
   goTarget(go);
 }
 function qClick(d) {   // true when the button was ours
-  if (d.qtab !== undefined) { qTab = d.qtab; refreshPanel(); const sh = $('#sheet'); if (sh) sh.scrollTop = 0; return true; }
+  if (d.qtab !== undefined) { qTab = d.qtab; tkChronTab.prev = undefined; refreshPanel(); const sh = $('#sheet'); if (sh) sh.scrollTop = 0; return true; }
   if (d.qgo !== undefined) { qGo([d.qgo, null]); return true; }
   if (d.dqgo !== undefined) { const x = dqList().find((t) => t.id === d.dqgo); if (x) qGo(x.go); return true; }
-  if (d.dqc !== undefined) { const x = dqList().find((t) => t.id === d.dqc); if (x && x.ok && !x.got) { S.dq.c[x.id] = 1; S.coins += S.dq.r; STATS.ev('quest', { k: 'day:' + x.id, r: Math.round(S.dq.r) }); warAdd('dq', WAR_PTS.dq); toast(`🎁 Награда 🪙${fmt(S.dq.r)}`); updateHud(); save(); } refreshPanel(); return true; }
-  if (d.dqall !== undefined) { if (dqAllReady()) { S.dq.all = 1; if (stonesAdd(DQ_STONES, dqAllKey())) toast(`📅 Все дела дня! ${ST_ICON} +${DQ_STONES} лунных камня`); save(); } refreshPanel(); return true; }
+  if (d.dqc !== undefined || d.dqall !== undefined) { refreshPanel(); return true; }   // audit F11: the old random daily tasks (hidden since s7) pay nothing; «☀️ Сегодня» pays
   if (d.mswap !== undefined) {   // build audit 2026-11-24: a stuck level mission can be swapped, once a day
     if (q6On() && /^q[123]$/.test(d.mswap)) {   // 6a: q1 skips that action for 30 min (the next best comes), q3 moves on in its rotation
       const q = q6St(), sk = 's' + d.mswap[1], x = q[sk];
@@ -7691,6 +7809,7 @@ scroller.addEventListener('click', (e) => {
     if (!id || id === 'hall' || id === 'path') continue;
     openRoom(id); return;
   }
+  if (ANNEX.wildTap(wx, wy)) return;   // a map orange tree: collect all ripe oranges (after students and rooms, audit_fixes)
   // in the corridors a tap on a creature tells what it is doing
   const who = creatureAt(e.clientX, e.clientY);
   if (who) STU.open(who);   // s8a: the student card (was a toast «name: status»)
@@ -7731,8 +7850,9 @@ document.addEventListener('click', (e) => {
   if (qClick(d)) return;
   if (TODAY.click(d)) return;   // s7: the bar, its window, «Прочитать в летописи»
   if (insClick(d)) return;   // 6b-6d: inspector card, open lesson
-  if (d.tikhon !== undefined) { tkOpen(); renderTkBtn(); return; }
-  if (d.missions !== undefined) { openPanel(missionsPanel); return; }
+  if (d.tikhon !== undefined) { tkOpen(d.tikhon); return; }
+  if (d.missions !== undefined) { if (WORLD === 1) tkOpen(); else openPanel(missionsPanel); return; }
+  if (d.hub !== undefined) { openHub(); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
   if (d.rumble !== undefined) { const s = slotOf(guardsIdx()); if (panel) closePanel(); if (s) focusTile((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2); return; }
   if (d.people !== undefined) { openPanel(peoplePanel); return; }
@@ -7748,7 +7868,6 @@ document.addEventListener('click', (e) => {
   if (d.world !== undefined) { goWorld(+d.world); return; }
   if (d.worldOpen !== undefined) { openWorld(+d.worldOpen); return; }
   if (d.mgo !== undefined) { goMission(d.mgo); return; }
-  if (d.advgo !== undefined) { advGo(d.advgo); return; }
   if (d.fullgo !== undefined) { const b = +d.fullgo; if (b >= 0 && b < CLASSES.length) goTarget(fullGo(b)); return; }   // 5b: «Школа переполнена» -> the busiest class
   if (d.mission !== undefined) { claimMission(d.mission); if (panel === missionsPanel) refreshPanel(); return; }
   if (t.id === 'btn-settings') { openPanel(settingsPanel); drawFbPics(); return; }
@@ -7834,7 +7953,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'towerbuild') { if (!(S.tower && S.tower.built) && isOpen(NCLS - 1) && spend(towerCost())) { towerUp().built = true; S.tower.end = Date.now() + BTIME.TOWER * 1000; staticKey = ''; toast(WORLD === 2 ? '🗝️ Чертог Хранителей построен!' : '🏰 Башня мастеров построена!'); panel = towerPanel; } }
   else if (d.act === 'towerprep') { if (retakeLvl() < RETAKE_MAX && spend(retakeCost())) { towerUp().prep = retakeLvl() + 1; towerUp().rt = Math.min(towerUp().rt ?? 1e9, retakeInterval()); } }
   else if (d.act === 'towercap') { if (towerUp().cap < TOWER_MAXUP && spend(towerCapCost())) { towerUp().cap++; towerPull(); } }
-  else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && !r.away && confirm(`Отпустить ${r.name} (${resTitle(r)})? Школа получит 🎁 ${fmt(releaseReward(r))}.`)) { bonus(releaseReward(r)); HERO.leave(r); T.res.splice(+d.k, 1); towerPull(); toast(`🎁 ${r.name} отправился в большое путешествие`); } }
+  else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && !r.away && !r.mc && confirm(`Проводить ${r.name} (${resTitle(r)})? ${r.name} откроет свою школу за морем: слава школы +1 %, вещи вернутся в сундук, половина опыта перейдёт ${T.wait.length ? T.wait[0].name + ' — он(а) займёт место и пост' : 'следующему герою'}.`)) towerFarewell(r, null); }
   else if (d.act === 'towerno') { towerUp().wait.splice(+d.k, 1); }
   else if (d.act === 'toweronly') { const T = towerUp(); T.onlyM = !T.onlyM; if (T.onlyM) { const n = T.wait.length; T.wait = T.wait.filter((r) => r.rk === 5); if (n > T.wait.length) toast(`${TW.emo} Отказано ${TW.eldersD} у двери: ${n - T.wait.length}`); } }
   else if (d.act === 'cantbuild') { if (!cantBuilt() && isOpen(CANT_NEED) && spend(CANT_COST)) { const u = cantUp(); u.built = true; u.end = Date.now() + CANT_TIME * 1000; staticKey = ''; toast(WORLD === 2 ? '🏗️ Пиршественный зал строится!' : '🏗️ Столовая строится!'); panel = cantPanel; } }
@@ -8167,7 +8286,7 @@ function openAlly() { openPanel(allyPanel); Promise.all([allyLoad(), topLoad(), 
 // Every member's points travel in his top entry: wp (this week, week = aw), wpp / wpw (last week's total and its week) so the last
 // week can be ranked after members already started the new one. Places 1-3 pay 15 / 10 / 5 moonstones to every member (key
 // war_<wk>_wN, from 15 min after the week ends); the winner wears «🏆 Чемпион недели» in the alliance top for the next week.
-const WAR_PRIZE = [15, 10, 5], WAR_CAP = { dq: 4, mg: 10 }, WAR_PTS = { dq: 10, gift: 3, lv: 20, day: 20 };   // s7: lv no longer paid; day = a closed «Сегодня»
+const WAR_PRIZE = [15, 10, 5], WAR_CAP = { dq: 4, mg: 10 }, WAR_PTS = { dq: 10, gift: 3, lv: 20, day: 20 };   // s7: lv no longer paid; gear_sources: dq / day no longer paid by «Сегодня» (old S.dq claim path is unused)
 function warSt() {
   const wk = MG.weekKey(), day = qDay();
   if (!S.war) S.war = { wk, pts: 0, lv: schoolLevel() };
@@ -8191,7 +8310,8 @@ function warTick() {   // from qTick (every 3 s): school levels -> points; last 
   if (Date.now() - warPrizeT < 30000) return; warPrizeT = Date.now();
   const place = warTable(w.pwk).findIndex((a) => a.id === w.pal);
   if (place >= 0 && place < WAR_PRIZE.length && stonesAdd(WAR_PRIZE[place], `war_${w.pwk}_w${WORLD}`)) {
-    toast(`⚔️ Битва альянсов: ${place + 1}-е место! ${ST_ICON} +${WAR_PRIZE[place]} лунных камней`); save();
+    toast(`⚔️ Битва альянсов: ${place + 1}-е место! ${ST_ICON} +${WAR_PRIZE[place]} лунных камней`);
+    HERO.drop('alliance', null, { tok: `war_${w.pwk}_w${WORLD}`, min: HERO_BAL.allyMin[place] ?? 1 }); save();   // gear_sources: a guaranteed gear item
   }
 }
 function warTable(wk) {   // [{id, a, pts, m:[{id, name, pts}]}] of a week, best first; my own line from the save (fresher than the top)
@@ -8213,7 +8333,7 @@ function warPanel() {
   const champ = warChamp(), ca = champ && allyOf(champ);
   const head = `<div class="sh-head"><span class="remoji big">⚔️</span><div><h2>Битва альянсов</h2><div class="muted">Неделя битвы: до конца ${dd} д ${hh} ч</div></div><button class="x" data-close>✕</button></div>`;
   const prize = `<div class="qbig" style="flex-wrap:wrap;font-weight:700">🏆 Награда каждому участнику: 1-е место ${ST_IMG(16)} ${WAR_PRIZE[0]} · 2-е ${ST_IMG(16)} ${WAR_PRIZE[1]} · 3-е ${ST_IMG(16)} ${WAR_PRIZE[2]}</div>`;
-  const how = `<h3>Как заработать очки</h3><div class="muted" style="line-height:1.5">☀️ дело из «Сегодня» — +${WAR_PTS.dq} (до 4 в день)<br>🧪 раунд мини-игры — +5 и ещё +5 за каждую звезду (до 10 в день)<br>🎁 подарок союзнику — +${WAR_PTS.gift}<br>☀️ удачный день (4 дела «Сегодня») — +${WAR_PTS.day}<br>Очки считаются, только пока ты в альянсе.</div>`;
+  const how = `<h3>Как заработать очки</h3><div class="muted" style="line-height:1.5">🧪 раунд мини-игры — +5 и ещё +5 за каждую звезду (до 10 в день)<br>🎁 подарок союзнику — +${WAR_PTS.gift}<br>Очки считаются, только пока ты в альянсе.</div>`;
   const last = ca ? `<p class="muted">🏆 Чемпион прошлой недели: <b>${ca.emo} ${escTxt(ca.name)}</b></p>` : '';
   const rows = T.length ? T.slice(0, 20).map((x, k) => `<div class="card up" style="padding:7px 10px${x.id === myAl() ? ';border:2px solid #e8b923;background:#fff8dc' : ''}"><span style="font-weight:900;min-width:26px">${k < 3 ? ['🥇', '🥈', '🥉'][k] : k + 1 + '.'}</span><span class="remoji">${x.a.emo}</span><div class="grow"><b>${escTxt(x.a.name)}</b>${x.id === myAl() ? ' <span class="muted">(твой)</span>' : ''}<div class="muted">школ: ${x.m.length}</div></div><b>${fmt(x.pts)}</b></div>`).join('')
     : '<p class="muted">На этой неделе очков пока нет ни у кого — начни первым!</p>';
@@ -8919,5 +9039,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=592').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=593').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }

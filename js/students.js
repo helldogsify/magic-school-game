@@ -102,7 +102,7 @@ export function initStudents(api) {
     if (quiet) return;
     if (k === 'pass' || k === 'fail') {
       if (clock - (a._ft ?? -1e9) < FAV_TOAST_GAP) return; a._ft = clock;
-      api.toast(k === 'pass' ? `💗 ${n}: «${cn}» — сдано 🎉` : `💗 ${n}: «${cn}» — не сдано, будет ещё попытка`);
+      api.glog('toast', k === 'pass' ? `💗 ${n}: «${cn}» — сдано 🎉` : `💗 ${n}: «${cn}» — не сдано, будет ещё попытка`);   // audit F8: only in the 🔔 list
     } else if (k === 'rank') api.toastBig(`💗 ${n}: новое звание — ${api.rankName(a)} 🌟`);
     else if (k === 'rankfail') { const t = `💗 ${n}: экзамен на звание «${api.rankNameAt(i)}» не сдан${rtOk(a) ? ' — можно пересдать (нажми)' : ''}`; api.toast(t); tapToast(t, a); }
     else if (k === 'grad') api.toastBig(`💗 ${n}: выпуск! 🎓`);
@@ -165,7 +165,8 @@ export function initStudents(api) {
     if (force || (clock - giftAt >= GIFT_GAP && Math.random() < giftP())) {
       o.gift = 1; giftAt = clock; M.gifted++;
       api.stats('gifted', { k: 'arr', r: Math.round((api.rating() || 0) * 10) });
-      if (!api.ffwd() && !api.edit()) api.toastBig(`✨ У ворот одарённый новичок: ${o.name} ${o.fn} (${spName(o.sp).toLowerCase()})!`);
+      if (!api.ffwd() && !api.edit()) { const s0 = api.stats0(), t = `✨ У ворот одарённый новичок: ${o.name} ${o.fn} (${spName(o.sp).toLowerCase()})!`;   // audit F8: big toast only for the first 3
+        s0.giftTb = (s0.giftTb || 0) + 1; if (s0.giftTb <= 3) api.toastBig(t); else api.glog('toast', t); }
     }
     C.push(o); crowd();
   }
@@ -257,6 +258,7 @@ export function initStudents(api) {
       c.fillStyle = 'rgba(255,252,240,0.92)'; c.strokeStyle = '#b89a6a'; c.lineWidth = 1.1 * k; c.beginPath(); c.roundRect(x, y, bw, bh, 7 * k); c.fill(); c.stroke();
       c.fillStyle = '#5a4630'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(t, x + pad + ew, y + bh / 2 + 0.5 * k); c.restore();
       api.emoji('🚶', x + pad + ew * 0.42, y + bh / 2, fs * 1.05);
+      if (C.some((o) => o.gift)) api.emoji('✨', x + bw - pad * 0.3, y + 1.5 * k, fs * 1.15);   // audit F8: a gifted one waits
       plateRect = { x0: x, y0: y, x1: x + bw, y1: y + bh, t: performance.now(), plate: false };
       return;
     }

@@ -334,7 +334,18 @@ function dayPages(f) {   // s7 «☀️ Сегодня»: every closed day is a 
     return { id, mine: 1, hand: 1, title: `Хорошие дни · ${TD_MONTH[d.getMonth()]} ${d.getFullYear()}`, icon: '☀️', sub: `${n} ${w}`,
       layers: L.map((x) => ({ t: `${new Date(x.t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} · ${x.th}`, x: `${x.x ? x.x + ' ' : ''}Хороший был день.\n\n— летописец Тихон` })) }; });
 }
-function minePages(f) { return minePages0(f).concat(dayPages(f)); }
+function tkjPages(f) {   // tikhon_chronicler: his dated lines (game.js facts().tkj = [{ t, e, x }]), one page per month
+  const by = {}; for (const x of f.tkj || []) { const d = new Date(x.t), id = `tj${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`; (by[id] ||= { d, L: [] }).L.push(x); }
+  return Object.keys(by).sort().map((id) => { const { d, L } = by[id];
+    return { id, mine: 1, hand: 1, title: `Летопись · ${TD_MONTH[d.getMonth()]} ${d.getFullYear()}`, icon: '📜', sub: `записей: ${L.length}`,
+      layers: L.map((x) => ({ t: new Date(x.t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }), x: `${x.e ? x.e + ' ' : ''}${x.x}\n\n— летописец Тихон` })) }; });
+}
+function minePages(f) { return minePages0(f).concat(dayPages(f), fwPages(f), tkjPages(f)); }
+function fwPages(f) {   // worlds rework: heroes who left to open a school over the sea (game.js facts().fw = [{ t, x }])
+  const L = f.fw || []; if (!L.length) return [];
+  return [{ id: 'fw', mine: 1, hand: 1, title: 'Школы за морем', icon: '🌍', sub: `${L.length}`,
+    layers: L.map((x) => ({ t: new Date(x.t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }), x: `${x.x}\n\n— летописец Тихон` })) }];
+}
 function minePages0(f) {   // facts().chron = [{ n, t, title, e, built, g }] written by game.js when a chapter closes
   return (f.chron || []).slice().sort((a, b) => a.n - b.n).map((c) => ({ id: 'ch' + c.n, mine: 1, hand: 1, title: `Глава ${c.n}. ${c.title}`, icon: c.e || '📖', sub: CH_DATE(c.t),
     layers: [{ t: 'Запись Тихона', x: `Глава «${c.title}» окончена.${c.built ? ` В школе открылось новое: ${c.built}.` : ''}${c.g ? ` Выпускников к этому дню: ${c.g.toLocaleString('ru-RU')}.` : ''}${f.school ? ` Школа «${f.school}».` : ''}

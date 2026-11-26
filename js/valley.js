@@ -226,14 +226,16 @@ async function go() {
 }
 async function ruin() {
   if (busy || !sel) return; busy = true;
-  try { const d = await call('ruin', { q: sel.q, r: sel.r }); msg = d.ok ? (A.stones(1, `valley_ruin_${d.day}_${d.cell}_w${W()}`) ? w2('🏚 В руинах нашёлся лунный камень! 🔮 +1', '🏚 В древнем чертоге нашёлся лунный камень! 🔮 +1') : 'Сегодня камень уже найден') : '❗ ' + (d.error || 'Не получилось'); }
+  try { const d = await call('ruin', { q: sel.q, r: sel.r }), key = `valley_ruin_${d.day}_${d.cell}_w${W()}`;
+    msg = d.ok ? (A.stones(1, key) ? w2('🏚 В руинах нашёлся лунный камень! 🔮 +1', '🏚 В древнем чертоге нашёлся лунный камень! 🔮 +1') : 'Сегодня камень уже найден') : '❗ ' + (d.error || 'Не получилось');
+    if (d.ok) { const g = A.gear && A.gear('ruins', key); if (g) msg += ` · 🎒 ${g}`; } }   // gear_sources: 10 % gear item, one chance per ruin per day
   catch (e) { msg = w2('❗ Нет связи с долиной', '❗ Нет связи с чертогами'); }
   busy = false; render();
 }
 function prizeCheck() {   // last week's place: 15 / 10 / 5 moonstones to every member of the alliance it was in
   if (!st || !st.last || !st.last.al) return;
   const k = st.last.table.findIndex((x) => x.al === st.last.al);
-  if (k >= 0 && k < 3 && A.stones(PRIZE[k], `valley_${st.last.week}_w${W()}`)) A.toast(`${w2('🗺 Волшебная долина', '⛏️ Подземные чертоги')}: ${k + 1}-е место на прошлой неделе! 🔮 +${PRIZE[k]}`);
+  if (k >= 0 && k < 3 && A.stones(PRIZE[k], `valley_${st.last.week}_w${W()}`) && (A.gear && A.gear('alliance', `valley_${st.last.week}_w${W()}`, k), 1)) A.toast(`${w2('🗺 Волшебная долина', '⛏️ Подземные чертоги')}: ${k + 1}-е место на прошлой неделе! 🔮 +${PRIZE[k]}`);
 }
 function onClick(e) {
   const b = e.target.closest('button'); if (!b || !root || !root.contains(b)) return; const d = b.dataset;
@@ -249,8 +251,9 @@ function onClick(e) {
 const PEEK_MS = 600000;
 let peekAt = 0;
 const inAlly = () => !A.inAlly || A.inAlly();   // game.js tells whether this school is in an alliance (no server call, no anonymous sign-up otherwise)
-const freeTroops = () => (inAlly() && st && st.me && st.me.al ? st.me.left || 0 : 0);   // only for a player in an alliance
+const freeTroops = () => (window.__valley2 && window.__valley2.flagOn()) ? 0 : (inAlly() && st && st.me && st.me.al ? st.me.left || 0 : 0);   // only for a player in an alliance
 function peek() {
+  if (window.__valley2 && window.__valley2.flagOn()) return;   // valley v2 is on: the old server is asked only for its last prize
   if (root || busy || document.hidden || !inAlly() || Date.now() - peekAt < PEEK_MS) return;
   peekAt = Date.now(); call('state').catch(() => { /* offline or the server is down: the tile simply shows nothing */ });
 }
@@ -272,6 +275,6 @@ export function initValley(api) {
   // and then at most every 10 minutes while the game is on screen (never while the valley itself is open: it polls on its own)
   setTimeout(peek, 6000); setInterval(peek, 60000); document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(peek, 1500); });
   document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-valley]')) open(); });
-  window.__valley = { open, close, url: URL0, call: (op) => call(op), get st() { return st; }, sel: (q, r) => { sel = { q, r }; render(); }, setN: (v) => { n = v; }, go: () => go() };   // test hook
+  window.__valley = { prize: () => call('state').then(() => { prizeCheck(); return st && st.last ? st.last.week : 0; }), open, close, url: URL0, call: (op) => call(op), get st() { return st; }, sel: (q, r) => { sel = { q, r }; render(); }, setN: (v) => { n = v; }, go: () => go() };   // test hook
   return { open, close, isOpen: () => !!root };
 }
