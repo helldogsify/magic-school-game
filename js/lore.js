@@ -266,9 +266,9 @@ export function crownHint() {   // the lion's hint about the crown on his desk (
   if (!S() || !A.on()) return ''; const r = RD(); if (!r.start || has(4) || LS().prize) return '';
   const now = Date.now(); if (now - crHintAt < 60000) return '';
   let t = '';
-  if (takenToday()) t = 'На сегодня хватит загадок, друг мой. Утро вечера мудренее.';
-  else if (!(QS().world || {}).done) t = 'Ты ещё как гость в собственной школе… Узнай, где ты живёшь, — тогда и поговорим по-хозяйски.';
-  else if (!isMorning()) t = 'Я, знаешь ли, жаворонок. Самое важное на моём столе случается рано-рано.';
+  if (takenToday()) t = 'Тихон сегодня и так исписал полкниги. Хватит на сегодня тайн, отдохни.';
+  else if (!(QS().world || {}).done) t = 'Когда я вернулся сюда после долгих лет в пути, Тихон первым делом усадил меня за летопись. Сначала пройди испытание «Мир», а потом поговорим.';
+  else if (!isMorning()) t = 'Каждое утро я люблю здороваться с каждым учеником — и на тебя найдётся минутка.';
   if (t) crHintAt = now; return t;
 }
 export const crown = () => !!(S() && A.on() && (LS().prize || (crownWanted() && isMorning() && (QS().world || {}).done && canFind(4))));
