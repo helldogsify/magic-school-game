@@ -1,18 +1,18 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=586';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=587';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=586';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=586';
-import { initMinigame } from './minigame.js?v=586';
-import { initChests } from './chests.js?v=586';
-import { initValley } from './valley.js?v=586';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=586';
-import { initLore } from './lore.js?v=586';
-import { initAvatar } from './avatar.js?v=586';
-import { initStats } from './stats.js?v=586';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=587';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=587';
+import { initMinigame } from './minigame.js?v=587';
+import { initChests } from './chests.js?v=587';
+import { initValley } from './valley.js?v=587';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=587';
+import { initLore } from './lore.js?v=587';
+import { initAvatar } from './avatar.js?v=587';
+import { initStats } from './stats.js?v=587';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -43,7 +43,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 586;   // keep equal to the ?v= number in index.html
+const BUILD = 587;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -137,8 +137,8 @@ const adsCost = () => paced(30 * Math.pow(BAL.ads, S.reception.ads - 1), S.recep
 const DIR_UP = {
   refund: { emo: '💸', name: 'Правила возврата', max: 8, base: 500000, k: 1.9, desc: (l) => `ушедшим возвращаем ${Math.round(refundRateAt(l) * 100)}% взноса, их отзыв ${String(+(1 + l / 8).toFixed(2)).replace('.', ',')}★` },
   care: { emo: '💗', name: 'Забота об учениках', max: 10, base: 500000, k: 1.9, desc: (l) => `в очередях грустят на ${Math.round((1 - careK(l)) * 100)}% медленнее` },
-  keeper: { emo: '🧹', name: 'Дежурный завхоз', max: 10, base: 750000, k: 1.9, desc: (l) => `происшествия ${l ? `в ${String(+(1 + 0.1 * l).toFixed(1)).replace('.', ',')} раза реже` : 'как обычно'}, сами проходят за ${Math.round(INC_AUTO_AT(l) / 60)} мин` },   // build 264: the old «реже на 100%» read as «never» (her «Вообще без происшествий не может быть»); the pause between incidents is x(1 + 0.1 l)
-  ties: { emo: '🤝', name: 'Связи с инспекцией', max: 10, base: 500000, k: 1.9, desc: (l) => `награда за проверку +${l * 10}%, штраф −${l * 7}%` },
+  keeper: { emo: '🧹', name: 'Дежурный завхоз', max: 10, base: 750000, k: 1.9, desc: (l) => `происшествия ${l ? `в ${String(+(1 + 0.1 * l).toFixed(1)).replace('.', ',')} раза реже, завхоз 🦬 сам чинит за ${CARE_FIX(l)} с` : `как обычно, проходят сами за ${INC_SELF} с`}` },   // 6c: a visible caretaker (registry A6.4)
+  ties: { emo: '🤝', name: 'Связи с инспекцией', max: 10, base: 500000, k: 1.9, desc: (l) => `награда за проверку +${l * 10}%` },   // 6b: no fines
 };
 // ---- the school shop (her ruling 2026-11-21): between lessons some students drop in to buy a treat; coins + mood ----
 const SHOP_COST = 150000, SHOP_MAX = 10;
@@ -264,66 +264,171 @@ function startCamp(k) {
   arrivalT = Math.min(arrivalT, arrivalInterval()); if (CAMPS[k].mood) cheerAll(CAMPS[k].mood, '🎈');
   toast(`${CAMPS[k].emo} Акция «${CAMPS[k].name}» началась на 5 минут!`); save();
 }
-// parents' letters: every 8-15 minutes of play one complaint; three answers; no deadline since build 240 (only while the game is on screen)
-const MAIL_FIRST = 300, MAIL_MIN = 480, MAIL_MAX = 900, REP_MAX = 5;
-const MAILS = [
-  ['⏳', 'Мой ребёнок целый час простоял в очереди у класса и так и не попал на урок!'],
-  ['🛏️', 'Нам написали, что пришлось ночевать в общежитии, потому что в классе не было места. Мы платили не за это!'],
-  ['📉', 'Почему мой ребёнок провалил экзамен? Может, учителя плохо объясняют?'],
-  ['💰', 'Взнос за поступление слишком большой. Соседняя школа берёт меньше!'],
-  ['💥', 'Мне рассказали, что у вас на уроке что-то взорвалось. Это вообще безопасно?'],
-  ['😢', 'Мой ребёнок приходит грустный. Ему у вас скучно.'],
-  ['🍽️', 'Чем вы кормите детей? Жалуются, что всё время голодные.'],
-];
+// ---- parents' letters about REAL events (rework 6c, agreed with Ruslan 2026-11-26; registry A6.12-A6.23): a letter comes only after
+// something really happened (a long line at a class door, a child failed twice, students sleeping in the dorm for want of a desk, low
+// mood in a class, an incident left for long, a fee rise, no canteen); answers: refund (calm 3★ review), an open lesson (must be held
+// within OL_HOLD s of screen time; review stars = students who passed out of 5), refuse (1★ review + a complaint to the inspector).
+// Parents' reviews go into the school rating; the old hidden «репутация» (boss().rep, repK) is gone (old saves still load).
+const MAIL_FIRST = 300, MAIL_MIN = 480, MAIL_MAX = 900;   // seconds of screen time between letters (as before); now a real event is needed too
+const MAIL_EV_FRESH = 300000;   // ms: only events of the last 5 minutes are written about
+const MAIL_QUEUE_N = 5, MAIL_SAD = 40, MAIL_DORM_N = 3, MAIL_FOOD_GRAD = 60;   // what counts as an event: door line, class mood, sleepers waiting, graduates without a canteen
+const OL_HOLD = 180;   // an invited open lesson must be held within 3 min of screen time (Ruslan: «Минуты 3 бы»)
+const MAIL_KINDS = {   // chk: the inspector's check that answers this complaint
+  queue: { e: '⏳', chk: 'noleave', t: (c) => (c ? `Мой ребёнок так долго простоял в очереди у класса «${c}» и так и не попал на урок!` : 'Мой ребёнок целый час простоял в очереди у класса и так и не попал на урок!') },
+  dorm: { e: '🛏️', chk: 'noleave', t: (c) => (c ? `Нам написали, что пришлось ночевать в спальне, потому что в классе «${c}» не было места. Мы платили не за это!` : 'Нам написали, что пришлось ночевать в общежитии, потому что в классе не было места. Мы платили не за это!') },
+  fail: { e: '📉', chk: 'pass', t: (c) => (c ? `Мой ребёнок два раза подряд провалил экзамен в классе «${c}». Может, учителя плохо объясняют?` : 'Почему мой ребёнок провалил экзамен? Может, учителя плохо объясняют?') },
+  fee: { e: '💰', chk: 'mood', t: () => 'Взнос за поступление слишком большой. Соседняя школа берёт меньше!' },
+  boom: { e: '💥', chk: 'inc', t: (c) => (c ? `Мне рассказали, что в классе «${c}» случилось происшествие и его долго не могли исправить. Это вообще безопасно?` : 'Мне рассказали, что у вас на уроке что-то взорвалось. Это вообще безопасно?') },
+  sad: { e: '😢', chk: 'mood', t: (c) => (c ? `Мой ребёнок приходит с урока «${c}» грустный. Ему у вас скучно.` : 'Мой ребёнок приходит грустный. Ему у вас скучно.') },
+  food: { e: '🍽️', chk: 'mood', t: () => 'Чем вы кормите детей? Жалуются, что всё время голодные.' },
+};
+const MAIL_OLD = ['queue', 'dorm', 'fail', 'fee', 'boom', 'sad', 'food'];   // saves before 6c kept the index of a random text
+const mailCls = (c) => (c && c.i >= 0 && CLASSES[c.i] ? CLASSES[c.i].name : '');
+const mailTxt = (c) => (MAIL_KINDS[c.k] || MAIL_KINDS.sad).t(mailCls(c));
+const mailEmo = (c) => (MAIL_KINDS[c.k] || MAIL_KINDS.sad).e;
+const parentName = (n) => `Родители ученика ${n}`;
+function mailEv(k, i = -1, n = '') { if (!bossOn() || ffwd) return; const B = boss(); B.ev ||= {}; B.ev[k] = { i, n, at: Date.now() }; }   // a real event a letter may be about
+function mailFail(a, i) { if (WORLD !== 1 || ffwd) return; a.fl = a.flc === i ? (a.fl || 0) + 1 : 1; a.flc = i; if (a.fl >= 2) mailEv('fail', i, a.name || ''); }   // the same student failed twice in a row in one class
+let mailWT = 0;
+function mailWatch(dt) {   // looks for real events every 2 s of screen time
+  mailWT -= dt; if (mailWT > 0) return; mailWT = 2;
+  for (let i = 0; i < CLASSES.length; i++) if (isOpen(i) && waitList[i] && waitList[i].length >= MAIL_QUEUE_N) mailEv('queue', i);
+  { const sl = dorm.filter((a) => a && a.state === 'sleep' && a.goal && a.goal.i >= 0); if (sl.length >= MAIL_DORM_N) mailEv('dorm', sl[0].goal.i); else if (fullNow()) mailEv('dorm', fullClass()); }
+  for (let i = 0; i < CLASSES.length; i++) { if (!isOpen(i)) continue; const l = agents.filter((a) => a.c === i && a.state === 'study'); if (l.length >= 3 && l.reduce((n, a) => n + moodOf(a), 0) / l.length < MAIL_SAD) mailEv('sad', i); }
+  if (planOf() === PLANS.prestige || ((campNow() || {}).fee || 1) > 1.3) mailEv('fee');
+  if ((!cantBuilt() && S.stats.graduated >= MAIL_FOOD_GRAD) || cantLine.length >= MAIL_QUEUE_N) mailEv('food');
+}
+function mailPick() {   // the newest fresh event; nothing fresh = no letter yet
+  const ev = boss().ev || {}, now = Date.now(), l = Object.entries(ev).filter(([, e]) => now - e.at < MAIL_EV_FRESH);
+  if (!l.length) return null;
+  const [k, e] = l.sort((a, b) => b[1].at - a[1].at)[0]; delete ev[k]; return { k, ...e };
+}
 const mailPayCost = () => { const c = boss().mail.cur, v = Math.max(200, Math.round((rateNow() || 1) * 20 / 10) * 10); return c ? (c.pay ||= v) : v; };   // fixed for the letter (it moved every second)
-const FIRM_SEC = 600, firmK = () => (bossOn() && (boss().firm || 0) > Date.now() ? 1.25 : 1);   // build audit 2026-11-24: a refused letter: the school knows its worth, newcomers pay +25% for 10 minutes (refuse was strictly worse than the open lesson)
-const repK = () => 1 + 0.05 * (bossOn() ? boss().rep || 0 : 0);   // the school's name among parents: inspection reward ±5% per point
+const firmK = () => 1;   // 6c: a refusal no longer raises the fee (refuse = 1★ review + a complaint); B.firm of old saves is ignored
 function cheerAll(d, icon) {   // every student in school gets mood d
   for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && a.goal.t === 'x')) { a.mood = Math.max(0, Math.min(100, moodOf(a) + d)); if (icon && Math.random() < 0.35) popup(icon, a.x, a.y, d > 0 ? '#ff6fa3' : '#5b7fd6', 44); }
 }
-function quietNow() { try { return !!panel || menuOpen || MG.isOpen() || LORE.isOpen() || CHESTS.isOpen() || VALLEY.isOpen(); } catch (e) { return false; } }   // build 557: a mini-game or the chronicle is open: no events; tester_fb1: any panel, the ✨ menu, the chests or the valley too (a tester lost his feedback text to an incident)
+function quietNow() { try { return !!panel || menuOpen || MG.isOpen() || LORE.isOpen() || CHESTS.isOpen() || VALLEY.isOpen() || icardOn(); } catch (e) { return false; } }   // build 557: a mini-game or the chronicle is open: no events; tester_fb1: any panel, the ✨ menu, the chests or the valley too (a tester lost his feedback text to an incident)
+// ======================= 6d: one queue for every window the game opens by itself (Ruslan 2026-11-26 «Я согласен») =======================
+// A window shows only when no other window is open, the player has not tapped for ~2 s, no tour, no mini-game (quietNow). Priority:
+// top (welcome back) > urgent (inspector at the door) > celebration > news > first-time hints. At most one window a minute (urgent and
+// «top» skip that gap); the rest wait, never lost. Everything pushed is logged into the journal, so the 🔔 list keeps it.
+const IQ_PR = { top: -1, urgent: 0, cel: 1, news: 2, hint: 3 }, IQ_IDLE_MS = 2000, IQ_GAP_MS = 60000;
+const IQ = []; let iqLastBig = -1e9, icardKey = '';
+function iqWin(pr, key, show, opt = {}) {   // show: a panel function, or with opt.card a function that opens the big card itself
+  if (opt.imp) glog('imp', opt.imp, WORLD);   // important: counted on the 🔔 badge
+  if (key && IQ.some((q) => q.key === key)) return;
+  IQ.push({ pr: IQ_PR[pr] ?? 2, key, show, card: !!opt.card, pre: opt.pre, cond: opt.cond, gap: pr !== 'urgent' && pr !== 'top', at: performance.now() });
+}
+const iqHas = (key) => IQ.some((q) => q.key === key);
+function iqDrop(key) { for (let k = IQ.length - 1; k >= 0; k--) if (IQ[k].key === key) IQ.splice(k, 1); }
+function icardOn() { return !!icardKey; }
+const iqFree = () => !!S && !panel && !menuOpen && tourStep < 0 && !icardKey && !quietNow() && !document.hidden && !bootOn && !(catchLeft > 0) && !EDIT && performance.now() - (window.__inputAt || 0) > IQ_IDLE_MS;
+const iqNext = () => { const now = performance.now(); return IQ.slice().sort((a, b) => a.pr - b.pr || a.at - b.at).find((q) => !q.gap || now - iqLastBig >= IQ_GAP_MS); };
+function stepIQ() {   // from the frame loop
+  if (!IQ.length || !iqFree()) return;
+  const q = iqNext(); if (!q) return;
+  IQ.splice(IQ.indexOf(q), 1);
+  if ((q.cond && !q.cond()) || (q.pre && q.pre() === false)) return;   // no longer true (letter answered, visit cancelled, hint seen)
+  if (q.gap) iqLastBig = performance.now();
+  if (q.card) q.show(); else openPanel(q.show);
+}
+// the big card (like Tikhon's first card): inspector at the door, his result, the open-lesson cut-scene
+function icardShow(key, html) {
+  let w = document.getElementById('icard'); if (!w) { w = document.createElement('div'); w.id = 'icard'; document.body.appendChild(w); }
+  if (icardKey !== key) glog('open', 'карточка ' + key, WORLD);
+  icardKey = key; w.innerHTML = emojiHtml(`<div class="icard-bg"></div><div class="tour-card">${html}</div>`); w.classList.remove('hidden');
+}
+function icardHide() { icardKey = ''; clearTimeout(olTm); const w = document.getElementById('icard'); if (w) { w.classList.add('hidden'); w.innerHTML = ''; } }
+// toasts by value (6d tiers): small = toast (identical ones merge «×N»), medium = toastBig (bigger, with a chime), big = a queued window
+function toastBig(t) { toast(t); const d = [...$('#fx').querySelectorAll('.toast')].pop(); if (d) d.classList.add('big'); sfx('fixed'); }
+// 🔔 in the top bar left of ⚙️ (Ruslan: «пункт меню Уведомления я хотел поместить слева от шестерёнки настроек»); the badge counts only
+// important news since the last look: letters, prizes, author replies, new chronicle pages (journal kind 'imp')
+const bellN = () => { try { const t = notifSeen(); let n = 0; const L = gentries(); for (let k = L.length - 1; k >= 0 && L[k][0] > t; k--) if (L[k][2] === 'imp') n++; return n; } catch (e) { return 0; } };
+function renderBell() {
+  const g = document.getElementById('btn-settings'); if (!g) return;
+  let b = document.getElementById('btn-bell'); if (!b) { b = document.createElement('button'); b.id = 'btn-bell'; b.className = 'gear'; b.setAttribute('aria-label', 'Оповещения'); b.setAttribute('data-notif', ''); g.parentElement.insertBefore(b, g); }
+  const n = bellN(), h = `🔔${n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : ''}`;
+  if (b._h !== h) { b._h = h; b.innerHTML = emojiHtml(h); }
+}
+{ const st = document.createElement('style'); st.id = 's6bd-css'; st.textContent = `
+#icard{position:fixed;inset:0;z-index:30;display:flex;align-items:flex-end;justify-content:center;padding:0 10px calc(var(--safe-b, 0px) + 12px)}
+#icard.hidden{display:none}
+#icard .icard-bg{position:absolute;inset:0;background:#2e234055}
+#icard .tour-card{position:relative;max-width:520px}
+.icrow{display:flex;gap:10px;align-items:flex-start}
+.icemo{line-height:1;flex:none;text-align:center;filter:drop-shadow(0 4px 6px #0003)}
+.icemo img.em{height:1em;width:1em}
+.icpic{flex:none;width:auto}
+.icline{font-style:italic}
+.bsub{display:block;font:600 11.5px/1.25 ui-rounded,"Nunito",sans-serif;opacity:.8;margin-top:2px}
+.ibanner{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 10px}
+.ibface{font-size:30px;line-height:1;flex:none}.ibface img.em{height:1em;width:1em}img.ibface{height:40px;width:auto}
+.ibtxt{flex:1;min-width:0}
+.ibbar{position:relative;flex:0 0 84px;height:12px;border-radius:6px;background:#0001;margin-top:12px}
+.ibbar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:linear-gradient(90deg,#cd7f32,#c0c0c0 50%,#ffd23f)}
+.ibbar em{position:absolute;top:-17px;transform:translateX(-50%);font-style:normal;font-size:13px}.ibbar em img.em{height:1em;width:1em}
+#iglow{position:fixed;inset:0;pointer-events:none;z-index:14;box-shadow:inset 0 0 0 3px #ffd23faa,inset 0 0 34px #ffcf40aa;animation:iglow 2.4s ease-in-out infinite;display:none}
+body.insp-glow #iglow{display:block}
+@keyframes iglow{50%{opacity:.45}}
+#btn-bell{position:relative}
+#btn-bell .badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#ff4d6d;color:#fff;font:800 11px/18px ui-rounded,"Nunito",sans-serif;border:2px solid #fff;box-sizing:content-box}
+.toast.big{font-size:16px;padding:12px 18px;background:#5a3fb0f2;box-shadow:0 0 0 3px #ffd23f}
+.olguests{text-align:center;font-size:30px;margin:4px 0}.olguests small{font-size:12px;color:#7a6a99}.olguests img.em{height:1em;width:1em}
+.oltiles{display:flex;gap:6px;justify-content:center;margin:8px 0}
+.oltile{width:54px;border-radius:12px;background:#f3edff;text-align:center;padding:6px 0;font-size:24px}.oltile img.em{height:1em;width:1em}
+.oltile b{display:block;font-size:18px}.oltile.ok{background:#dff5e6}.oltile.no{background:#fde2e7}
+`; document.head.appendChild(st); const gl = document.createElement('div'); gl.id = 'iglow'; document.body.appendChild(gl); }
+
 function stepBoss(dt, live) {
   if (!bossOn()) return;
   const B = boss();
   if (B.camp && B.camp.k && Date.now() >= B.camp.end) { if (live) toast(`${CAMPS[B.camp.k].emo} Рекламная акция закончилась`); B.camp.k = null; dirtyPanel = true; }
   const M = B.mail;
-  if (M.cur) { if (live) M.cur.t = (M.cur.t || 0) + dt; return; }   // build 240 (her «10 мин это слишком жестко»): no deadline, the letter simply waits for an answer; no new letter meanwhile
-  if (!live || calm() || quietNow() || S.stats.graduated < 20 || tourStep >= 0) return;   // only while playing (not inside the mini-game); the calm mode has no complaints either
+  if (M.cur && M.cur.k === undefined) { M.cur.k = MAIL_OLD[M.cur.m] || 'sad'; M.cur.i = -1; }   // a letter from before 6c
+  const on = live && !quietNow() && !idleNow() && !calm() && tourStep < 0;   // screen time only (tester_fb1: frozen while a window is open)
+  if (on) mailWatch(dt);
+  if (B.ol && live && !quietNow()) { B.ol.left -= dt; if (B.ol.left <= 0) olMissed(); }   // the invited lesson's clock runs only on screen
+  if (M.cur) { if (live) M.cur.t = (M.cur.t || 0) + dt; return; }   // no deadline for the answer; no new letter meanwhile
+  if (B.ol || !on || S.stats.graduated < 20) return;
   M.t -= dt; if (M.t > 0) return;
+  const ev = mailPick(); if (!ev) { M.t = 10; return; }   // nothing happened worth a letter: look again soon
   M.t = MAIL_MIN + Math.random() * (MAIL_MAX - MAIL_MIN);
-  M.cur = { m: Math.floor(Math.random() * MAILS.length), name: rnd(NAMES), t: 0 };
-  toast('✉️ Письмо от родителей! Загляни в кабинет директора'); try { navigator.vibrate?.(60); } catch (e) { /* no vibration */ }
-  hintOnce('mail', '✉️', 'Письмо от родителей', 'Родители учеников иногда жалуются директору. Над кабинетом директора 👑 появляется конверт ✉️: нажми на кабинет и ответь. Можно вернуть деньги, пригласить на открытый урок или отказать. От ответа зависят настроение учеников и репутация школы (она меняет награду инспектора). Письмо подождёт, пока ты ответишь, а новые не придут, пока не ответишь на это.');
+  M.cur = { k: ev.k, i: ev.i, name: ev.n || rnd(NAMES), t: 0 };
+  try { navigator.vibrate?.(60); } catch (e) { /* no vibration */ }
+  iqWin('news', 'mail', mailPanel, { imp: `✉️ Письмо от родителей ученика ${M.cur.name}`, cond: () => !!(bossOn() && boss().mail.cur) });
   dirtyPanel = true;
 }
 let mailResult = '';
-function answerMail(how, auto) {
-  const B = boss(), M = B.mail; if (!M.cur) return;
-  if (how === 'pay') { if (!spend(mailPayCost())) return; B.rep = Math.min(REP_MAX, (B.rep || 0) + 1); cheerAll(10, '💖'); mailResult = '💐 Родители довольны: деньги вернули, извинения приняты. Репутация школы выросла, ученики повеселели.'; }
-  else if (how === 'lesson') {
-    if (Math.random() < 0.6) { cheerAll(8, '😊'); mailResult = '🎓 Открытый урок понравился! Родители успокоились, ученики гордятся школой.'; }
-    else { B.rep = Math.max(-REP_MAX, (B.rep || 0) - 1); cheerAll(-5); mailResult = '😕 Открытый урок не убедил родителей. Репутация школы немного упала.'; }
-  } else if (auto) { B.rep = Math.max(-REP_MAX, (B.rep || 0) - 1); cheerAll(-12, '😟'); mailResult = '📭 На письмо никто не ответил. Родители обиделись: репутация упала, ученики загрустили.'; }
-  else { B.rep = Math.max(-REP_MAX, (B.rep || 0) - 1); cheerAll(-6, '😟'); B.firm = Date.now() + FIRM_SEC * 1000; mailResult = '😤 Родители обиделись на отказ: репутация упала. Зато все видят, что школа знает себе цену: взнос новичков +25% на 10 минут.'; }
-  M.cur = null; dirtyPanel = true; if (!auto) S.stats.mails = (S.stats.mails || 0) + 1; save();   // mails: counted for the missions
-  toast(auto ? '📭 Письмо родителей осталось без ответа' : mailResult.split(':')[0].split('!')[0]);
+function answerMail(how) {
+  const B = boss(), M = B.mail, c = M.cur; if (!c) return;
+  if (how === 'pay') { if (!spend(mailPayCost())) return; review({ name: parentName(c.name) }, 3, false, 'Деньги вернули, претензий нет'); cheerAll(10, '💖'); mailResult = '💸 Деньги вернули. Родители спокойно оставили отзыв ★★★, ученики повеселели.'; }
+  else if (how === 'lesson') { B.ol = { i: c.i >= 0 && isOpen(c.i) ? c.i : olWeak(), left: OL_HOLD, name: c.name, k: c.k, prep: 0 }; mailResult = `🎓 Родители придут на открытый урок. Проведи его за ${Math.round(OL_HOLD / 60)} минуты игры: сколько учеников из ${OL_N} сдадут, столько звёзд будет в отзыве.`; glog('imp', `🎓 Открытый урок для родителей ученика ${c.name}: проведи за ${Math.round(OL_HOLD / 60)} минуты`, WORLD); }
+  else { review({ name: parentName(c.name) }, 1, false, 'Нам отказали. Очень недовольны'); addComplaint((MAIL_KINDS[c.k] || {}).chk, c.i, 'отказ родителям'); mailResult = '🚪 Родители обиделись на отказ: отзыв ★ и жалоба инспектору.'; }
+  M.cur = null; dirtyPanel = true; S.stats.mails = (S.stats.mails || 0) + 1; save();   // mails: counted for the missions
+  toast(mailResult.split(':')[0].split('.')[0]);
+}
+function olMissed() {   // the invited lesson was not held in time = a refusal
+  const B = boss(), o = B.ol; if (!o) return; B.ol = null; if (olSrc === 'mail' && panel === olPanel) closePanel();
+  review({ name: parentName(o.name) }, 1, false, 'Нас пригласили, но урока так и не было'); addComplaint('pass', o.i, 'открытый урок не состоялся');
+  mailResult = '⌛ Открытый урок так и не провели: родители оставили отзыв ★ и пожаловались инспектору.'; glog('imp', mailResult, WORLD); dirtyPanel = true; save();
 }
 let mailRect = null;
-// The letter has its own window (build 311, tester «письмо в кабинете директора открывается в общем меню директора. Должно открываться
-// в отдельной своей менюшке, где ты конкретно по этому письму принимаешь решение по клику на пришедшее письмо»): the envelope over the
-// office, the letter card in the director's panel and Tikhon's report open it; after the answer it shows how it went.
+// The letter has its own window (build 311); 6c: three answers with one-line subtitles, the reviews go into the rating
 function mailPanel() {
-  const M = boss().mail;
+  const B = boss(), M = B.mail;
   if (!M.cur) return `<div class="sh-head"><span class="remoji big">✉️</span><div><h2>Письмо от родителей</h2><div class="muted">Ответ отправлен</div></div><button class="x" data-close>✕</button></div>
-    <p>${mailResult || 'Новых писем нет.'}</p><button class="btn wide" data-close>Хорошо</button>`;
-  const [e, t] = MAILS[M.cur.m] || MAILS[0];
-  return `<div class="sh-head"><span class="remoji big">✉️</span><div><h2>Письмо от родителей</h2><div class="muted">ученика ${M.cur.name}</div></div><button class="x" data-close>✕</button></div>
-    <div class="card up"><span class="remoji">${e}</span><div class="grow">«${t}»</div></div>
-    <p class="muted">Как ответить? От ответа зависят настроение учеников и репутация школы у родителей (сейчас ${(boss().rep || 0) > 0 ? '+' : ''}${boss().rep || 0}).</p>
-    <button class="btn wide" data-cost="${mailPayCost()}" data-act="mail" data-k="pay">💐 Извиниться и вернуть деньги (репутация +1) <span class="cost">🪙${fmt(mailPayCost())}</span></button>
-    <button class="btn ghost wide" data-act="mail" data-k="lesson">🎓 Пригласить на открытый урок <span class="cost">60%</span></button>
-    <button class="btn ghost wide" data-act="mail" data-k="no">🙅 Отказать (взнос новичков +25% на 10 мин)</button>`;
+    <p>${mailResult || 'Новых писем нет.'}</p>${B.ol ? '<button class="btn wide" data-olopen="mail">🎓 Провести открытый урок сейчас</button><button class="btn ghost wide" data-close>Позже</button>' : '<button class="btn wide" data-close>Хорошо</button>'}`;
+  const c = M.cur, sub = (t) => `<small class="bsub">${t}</small>`;
+  return `<div class="sh-head"><span class="remoji big">✉️</span><div><h2>Письмо от родителей</h2><div class="muted">ученика ${c.name}</div></div><button class="x" data-close>✕</button></div>
+    <div class="card up"><span class="remoji">${mailEmo(c)}</span><div class="grow">«${mailTxt(c)}»</div></div>
+    <p class="muted">Как ответить? Отзыв родителей попадёт в рейтинг школы 🏅.</p>
+    <button class="btn wide" data-cost="${mailPayCost()}" data-act="mail" data-k="pay">💸 Вернуть деньги <span class="cost">🪙${fmt(mailPayCost())}</span>${sub('спокойный отзыв ★★★')}</button>
+    <button class="btn ghost wide" data-act="mail" data-k="lesson">🎓 Пригласить на открытый урок${sub(`провести за ${Math.round(OL_HOLD / 60)} минуты · отзыв = сколько из ${OL_N} сдали`)}</button>
+    <button class="btn ghost wide" data-act="mail" data-k="no">🚪 Отказать${sub('отзыв ★ и жалоба инспектору')}</button>`;
 }
+const olCard = () => { const o = bossOn() && boss().ol; return o ? `<div class="card up" style="border:2px solid #7b5cd6;background:#f3edff"><span class="remoji">🎓</span><div class="grow"><b>Открытый урок для родителей ученика ${o.name}</b><div class="muted">провести за ${mmss(o.left)} игры, иначе это отказ</div></div><button class="btn small hot" data-olopen="mail">Провести</button></div>` : ''; };
+const olBanner = () => { const o = bossOn() && boss().ol; return o ? `<button class="iwarn" data-olopen="mail">🎓 Открытый урок для родителей · ${mmss(o.left)}<br><b>Нажми, чтобы провести</b></button>` : ''; };
 function drawMail() {   // a bobbing envelope over the director's office while a letter waits
   if (!bossOn() || !S.boss || !S.boss.mail || !S.boss.mail.cur || !SLOTS.DIR) return;
   const s = SLOTS.DIR, c = P((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2), T = performance.now();
@@ -334,13 +439,15 @@ function drawMail() {   // a bobbing envelope over the director's office while a
   ctx.fillStyle = '#ff4d6d'; rr(c.x - 40, y + 30, 80, 22, 11); ctx.fill(); text('Письмо!', c.x, y + 41, 11, '#ffffff');
 }
 function bossBlock() {   // the routine part of the director's panel
-  const B = boss(), M = B.mail, cn = campNow(), w = campWait();
+  const B = boss(), M = B.mail, cn = campNow(), w = campWait(), I = insp();
   let h = '';
-  if (M.cur) { const [e, t] = MAILS[M.cur.m] || MAILS[0];
-    h += `<div class="card up" style="border:2px solid #e8b923;background:#fff8dc"><span class="remoji">✉️</span><div class="grow"><b>Письмо от родителей ученика ${M.cur.name}</b><div class="muted">${e} ${t.length > 48 ? t.slice(0, 46) + '…' : t}</div></div><button class="btn small hot" data-mailopen>Открыть</button></div>`; }
-  else if (mailResult) h += `<p class="muted">${mailResult}</p>`;
-  const rep = B.rep || 0;
-  h += `<p class="muted">Репутация у родителей: <b>${rep > 0 ? '+' : ''}${rep}</b> (от −${REP_MAX} до +${REP_MAX}), награда инспектора ${rep >= 0 ? '+' : '−'}${Math.abs(rep * 5)}%. Письма приходят раз в 8–15 минут игры.</p>`;
+  if (M.cur) { const t = mailTxt(M.cur);
+    h += `<div class="card up" style="border:2px solid #e8b923;background:#fff8dc"><span class="remoji">✉️</span><div class="grow"><b>Письмо от родителей ученика ${M.cur.name}</b><div class="muted">${mailEmo(M.cur)} ${t.length > 48 ? t.slice(0, 46) + '…' : t}</div></div><button class="btn small hot" data-mailopen>Открыть</button></div>`; }
+  h += olCard();
+  if (!M.cur && mailResult) h += `<p class="muted">${mailResult}</p>`;
+  h += `<div class="card up"><span class="remoji">📮</span><div class="grow"><b>Жалобы: ${I.cmp || 0} из ${CMP_MAX}</b><div class="muted">${calm() ? 'В спокойном режиме инспектор не приходит.' : `Жалуются родители (отказ, неудачный открытый урок) и когда многие уходят расстроенными. На ${CMP_MAX}-й жалобе инспектор придёт без предупреждения.`}</div></div></div>`;
+  if (WORLD === 1) h += `<div class="card up"><span class="remoji">🧹</span><div class="grow"><b>Пока тебя нет, происшествия съедают примерно ${incAwayPct()}% дохода</b><div class="muted">${careOn() ? `Завхоз ${CARE_EMO} чинит за ${incFixT()} с.` : `Без завхоза происшествие проходит само за ${INC_SELF} с.`} Нажми на класс с происшествием — починится сразу.</div></div></div>`;
+  h += `<p class="muted">Письма приходят раз в 8–15 минут игры, когда в школе что-то случилось.</p>`;
   h += `<h3>📜 Договор с учениками</h3><p class="muted">Взнос новичка сейчас 🪙${fmt(entryFee())}, приходят ${perMin(arrivalInterval())} в минуту${adsFull() ? ' (школа полна: больше не помещается, поэтому важнее взнос)' : ''}. Ушедшие расстроенными получают назад свой взнос × правила возврата.</p>`;
   for (const [k, p] of Object.entries(PLANS)) h += `<div class="card up"><span class="remoji">${p.emo}</span><div class="grow"><b>${p.name}</b><div class="muted">${p.desc}</div></div>${B.plan === k ? '<span class="done">выбран</span>' : `<button class="btn ghost" data-act="plan" data-k="${k}">Выбрать</button>`}</div>`;
   h += `<h3>📣 Рекламные акции</h3>`;
@@ -1639,7 +1746,7 @@ function finishLesson(a) {
   a.les = (a.les || 0) + 1; if (a.rest > 0) a.rest--;   // dorm roles: tiredness grows with every lesson, the rest wears off
   const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + dream; a.prepared = false; a.fed = false; a.luck = 0;   // a meal in the canteen helps one exam
   if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i)), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
-  else { S.stats.failed++; (window.__failAt ||= {})[i] = performance.now(); popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
+  else { S.stats.failed++; (window.__failAt ||= {})[i] = performance.now(); mailFail(a, i); popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
 let LS = SLOTS.LIB;
@@ -1746,12 +1853,12 @@ function rating() {   // old saves: start from their whole history (graduates ~3
 const ratingVal = () => (S && (S.rating || (S.stats.graduated || S.stats.left)) ? rating().v : 0);
 const ratingTxt = () => (ratingVal() ? ratingVal().toFixed(2).replace('.', ',') : '—');   // two decimals since build 288 (her «Много с одинаковой оценкой и непонятно почему он первый в списке»)
 const r2 = (v) => (+v).toFixed(2).replace('.', ',');   // a rating in the tops: 4,13
-function review(a, stars, gold) {
+function review(a, stars, gold, txt0) {   // txt0: own text (6c parents' reviews)
   const R = rating(), w = gold ? RATE_GOLD_W : 1;
   stars = Math.max(1, Math.min(5, stars));
   R.v = R.n ? R.v + (stars - R.v) * Math.min(1, w / Math.min(RATE_N, R.n + w)) : stars; R.n += w;
   if (gold) R.gold = (R.gold || 0) + 1; if (stars <= 1) R.bad = (R.bad || 0) + 1;
-  const txt = rnd(REVIEW_TXT[Math.round(stars)]);
+  const txt = txt0 || rnd(REVIEW_TXT[Math.round(stars)]);
   R.last.unshift({ n: a.name || '', s: stars, g: gold ? 1 : 0, t: txt }); if (R.last.length > 8) R.last.length = 8;
 }
 function reviewGraduate(a) {
@@ -1766,7 +1873,7 @@ function cashPanel() {   // «Казна школы» (build 275): what comes in
   const bar = (v, col) => `<div style="height:12px;border-radius:6px;margin:4px 0;background:${col};width:${Math.max(2, Math.round(v / mx * 100))}%"></div>`;
   return `<div class="sh-head"><span class="remoji big">💰</span><div><h2>Казна школы</h2><div class="muted">Сколько приходит и уходит за минуту</div></div><button class="x" data-close>✕</button></div>
     <div class="card up"><div class="grow"><b>📈 Приходит: +${fmt(inc)} в минуту</b>${bar(inc, '#58c27d')}<div class="muted">уроки, взносы новичков, магазин, столовая</div></div></div>
-    <div class="card up"><div class="grow"><b>📉 Уходит: −${fmt(out)} в минуту</b>${bar(out, '#e0607e')}<div class="muted">возвраты ушедшим и штрафы инспектора</div></div></div>
+    <div class="card up"><div class="grow"><b>📉 Уходит: −${fmt(out)} в минуту</b>${bar(out, '#e0607e')}<div class="muted">возвраты ушедшим</div></div></div>
     <div class="card up" style="border:2px solid ${net >= 0 ? '#58c27d' : '#e0607e'}"><div class="grow"><b>${net >= 0 ? '🙂 Школа в плюсе' : '⚠️ Школа в минусе'}: ${net >= 0 ? '+' : '−'}${fmt(Math.abs(net))} в минуту</b></div></div>
     <p class="muted">Кто уходит из школы расстроенным, получает взнос назад (сейчас ${Math.round(refundRate() * 100)}%). Но за минуту школа возвращает не больше половины своего дохода (сейчас до 🪙${fmt(refundCap())}), остальные уходят без денег — так школа никогда не застрянет в нуле. Всего вернули: 🪙${fmt(S.stats.refunded || 0)}${S.stats.unpaid ? ` · не хватило кассы на 🪙${fmt(S.stats.unpaid)}` : ''}${S.stats.fined ? ` · штрафы: 🪙${fmt(S.stats.fined)}` : ''}.</p>
     <p class="muted">Как тратить меньше: больше парт и кроватей, чтобы никто не уходил; «Правила возврата» у директора; «Престижный» договор, если учеников приходит больше, чем мест.</p>`;
@@ -1914,33 +2021,64 @@ const incOf = (i) => !!(S.inc && S.inc[i]);
 const INCIDENTS_W2 = { runes: ['🪨', 'руны осыпались со стены'], forge: ['🔥', 'горн погас'], mine: ['🪨', 'в штольне просела крепь'], gems: ['💎', 'рассыпались самоцветы'], guards: ['🛡️', 'сломались манекены'], lake: ['🌊', 'лодки унесло течением'], final: ['🕯️', 'погасли свечи клятвы'] };
 const incInfo = (i) => (S.inc[i].k === 'r' ? ['🪨', 'обвал завалил зал'] : S.inc[i].k === 'g' ? INC_GENERIC : (WORLD === 2 ? INCIDENTS_W2 : INCIDENTS)[CLASSES[i].id] || INC_GENERIC);
 let incT = 45;
-function hintOnce(key, emo, title, text) {   // a short explanation the first time something happens
-  S.hints ||= {}; if (S.hints[key] || tourStep >= 0) return; S.hints[key] = 1; save(); glog('hint', title, WORLD);
-  openPanel(() => `<div class="sh-head"><span class="remoji big">${emo}</span><div><h2>${title}</h2><div class="muted">Подсказка</div></div><button class="x" data-close>✕</button></div><p>${text}</p><button class="btn wide" data-close>Понятно</button>`);
+function hintOnce(key, emo, title, text) {   // a short explanation the first time something happens; 6d: it waits in the window queue
+  S.hints ||= {}; if (S.hints[key] || iqHas('h_' + key)) return;
+  iqWin('hint', 'h_' + key, () => `<div class="sh-head"><span class="remoji big">${emo}</span><div><h2>${title}</h2><div class="muted">Подсказка</div></div><button class="x" data-close>✕</button></div><p>${text}</p><button class="btn wide" data-close>Понятно</button>`,
+    { pre: () => { if (S.hints[key]) return false; S.hints[key] = 1; save(); glog('hint', title, WORLD); return true; } });
 }
 // build audit 2026-11-24: a game left open on screen with nobody at it lost more than a closed one (incidents only start live and
 // then stop a class for 10 min, students leave with refunds). Nobody has touched the screen for 2 min = treated like a closed game.
 const idleNow = () => performance.now() - (window.__inputAt || 0) > 120000;
+// rework 6c (Ruslan 2026-11-26, registry B3.6 / A6.4): world 1: an incident ends by itself after INC_SELF s; the office's «Дежурный завхоз»
+// is a visible caretaker (a bison, «Завхоз будет Зубр.»; name and art by Maria) who walks to it and fixes it in CARE_FIX(l) s; a tap
+// fixes at once (+10 mood and a small «спасибо» in coins). Incidents also happen while the player is away (the catch-up), at the same
+// frequency; then nobody taps, so the caretaker sets the away loss. World 2 keeps its old rule.
+const INC_SELF = 30, INC_THANKS_S = 5;
+let incAwayN = 0;   // incidents started during catch-ups (test hook)   // self-fix seconds; the tap's thanks = this many seconds of steady income
+const CARE_FIX = (l) => Math.round(25 - (Math.max(1, l) - 1) * 17 / 9);   // caretaker level 1: 25 s ... level 10: 8 s
+const careOn = () => WORLD === 1 && dirBuilt() && dirLvl('keeper') > 0;
+const incFixT = () => (careOn() ? CARE_FIX(dirLvl('keeper')) : INC_SELF);
+const incGap = () => (INC_MIN + INC_MAX) / 2 * (1 + 0.1 * dirLvl('keeper'));
+const incAwayLoss = () => { const n = CLASSES.filter((c, i) => isOpen(i)).length || 1; return Math.min(1, incFixT() / (incGap() * n)); };   // share of class time stopped (formula estimate, «примерно»)
+const incAwayPct = () => String(Math.max(0.1, Math.round(incAwayLoss() * 1000) / 10)).replace('.', ',');
+function incEnd(i, how, live) {   // an incident ends without a tap: by itself or by the caretaker
+  const x = S.inc[i]; delete S.inc[i]; inspIncDone(i, x);
+  if (!live) return;
+  const s = slotOf(i); if (s) popup(how === 'care' ? `${CARE_EMO} Починено!` : '✨ Прошло само', (s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, '#2f9e7a', 50);
+  if (how === 'care') sfx('fixed'); dirtyPanel = true;
+}
 function stepIncidents(dt, live) {
   S.inc ||= {};
-  if (live && quietNow()) return;   // build 278 (tester Соня): the school is quiet while the player brews potions; tester_fb1: and while any window is open (timers frozen); the catch-up is never frozen
-  for (const [i, x] of Object.entries(S.inc)) { x.t = (x.t || 0) + dt; if (x.t > (live && !idleNow() ? INC_AUTO_AT(dirLvl('keeper')) : Math.min(30, INC_AUTO_AT(dirLvl('keeper'))))) delete S.inc[i]; }   // away (catch-up) the caretaker fixes it within 30 s: an incident left open stopped its class for 10 min of the catch-up and emptied the rating (tester О-Дин: 3.9 -> 1.9 after 15 min away)
-  if (!live || idleNow() || S.stats.graduated < 5 || tourStep >= 0) return;   // never while the game is closed, nor for a brand-new school, nor while nobody touches it (build audit 2026-11-24)
+  if (live && quietNow()) return;   // build 278 (tester Соня); tester_fb1: and while any window is open (timers frozen); the catch-up is never frozen
+  for (const [k, x] of Object.entries(S.inc)) {
+    const i = +k; x.t = (x.t || 0) + dt;
+    if (WORLD === 1) {
+      if (live && x.t > 20 && !x.mev) { x.mev = 1; mailEv('boom', i); }   // an incident left for long is a real event for a letter
+      if (x.t >= incFixT()) incEnd(i, careOn() ? 'care' : 'self', live);
+    } else if (x.t > (live && !idleNow() ? INC_AUTO_AT(dirLvl('keeper')) : Math.min(30, INC_AUTO_AT(dirLvl('keeper'))))) delete S.inc[k];   // world 2 as before
+  }
+  const away = !live && WORLD === 1;   // 6c: world 1 has incidents during the catch-up too
+  if (!away && (!live || idleNow())) return;   // never while nobody touches an open game (build audit 2026-11-24)
+  if (S.stats.graduated < 5 || tourStep >= 0) return;   // nor for a brand-new school
   incT -= dt; if (incT > 0) return;
   incT = (INC_MIN + Math.random() * (INC_MAX - INC_MIN)) * (1 + 0.1 * dirLvl('keeper'));
   const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !S.inc[i] && !(WORLD === 2 && S.w2 && S.w2.throne && (S.w2.throne.cur || S.w2.throne.warned) && CLASSES[i].id === THRONE_NEED));   // the guard hall is never hit while it defends
   if (Object.keys(S.inc).length >= INC_MAXN || !open.length) return;
-  const i = rnd(open); S.inc[i] = { k: Math.random() < 0.3 ? 'g' : 'c', t: 0 }; sfx(incSound(i)); glog('event', 'происшествие: ' + CLASSES[i].name, WORLD);
+  const i = rnd(open); S.inc[i] = { k: Math.random() < 0.3 ? 'g' : 'c', t: 0 };
+  if (!live) { incAwayN++; return; }   // away: no sound, toast or hint
+  sfx(incSound(i)); glog('event', 'происшествие: ' + CLASSES[i].name, WORLD);
   const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`); try { navigator.vibrate?.(80); } catch (er) { /* no vibration */ }
-  hintOnce('inc', '💥', 'Происшествие!', `В классе «${CLASSES[i].name}» ${txt}. Урок остановился, ученики носятся по классу. Закрой подсказку и нажми на этот класс — всё починится. Если не трогать, через 10 минут пройдёт само, но школа потеряет монеты.`);
+  hintOnce('inc', '💥', 'Происшествие!', WORLD === 1 ? `В классе «${CLASSES[i].name}» ${txt}. Урок остановился, ученики носятся по классу. Нажми на этот класс — всё починится сразу, ученики обрадуются, а родители скажут спасибо монетками. Если не трогать, ${careOn() ? 'придёт завхоз и починит' : `через ${INC_SELF} секунд пройдёт само`}, но урок постоит. Завхоза можно нанять в кабинете директора.`
+    : `В классе «${CLASSES[i].name}» ${txt}. Урок остановился, ученики носятся по классу. Закрой подсказку и нажми на этот класс — всё починится. Если не трогать, через 10 минут пройдёт само, но школа потеряет монеты.`);
   dirtyPanel = true;
 }
-function fixIncident(i) {
+function fixIncident(i) {   // a tap on the class in trouble
   sfx('fixed');
-  delete S.inc[i];
+  const x = S.inc[i]; delete S.inc[i]; inspIncDone(i, x);
   for (const a of agents) if (a.c === i && a.state === 'study') { a.mood = Math.min(100, moodOf(a) + 10); popup(rnd(['😄', '🥰', '💖']), a.x, a.y, '#ff6fa3', 44); }   // everyone is relieved
-  S.stats.fixed = (S.stats.fixed || 0) + 1;   // (build audit 2026-11-24: was inside the comment above)
-  const s = slotOf(i); popup('✨ Починено!', (s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, '#2f9e7a', 50);
+  S.stats.fixed = (S.stats.fixed || 0) + 1;
+  const s = slotOf(i), cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2; popup('✨ Починено!', cx, cy, '#2f9e7a', 50);
+  if (WORLD === 1) { const th = Math.max(5, Math.round(rateNow() * INC_THANKS_S)); earn(th, cx, cy + 0.8, '#c98a00', 72); popup('🙏 спасибо!', cx, cy + 0.8, '#c98a00', 94); }   // 6c: a small «спасибо» for a quick hand
   toast(`✨ ${CLASSES[i].name}: всё в порядке, урок продолжается`); save();
 }
 const STAR_DUTY = window.__starDuty = {};   // per class: { id, t0, from, to } — one student at the big telescope at a time
@@ -1972,99 +2110,349 @@ function drawIncidents() {
 // ======================= inspector + school stars (her ruling 2026-11-21) =======================
 // Every ~12 minutes of play an inspector checks one thing for 3 minutes. Passed: a school star (+3% to every lesson,
 // needed for new classes and worlds) and a reward. Failed: a fine. The goal is announced 40 s ahead. Only while the game is open.
-const INSP_EVERY = 720, INSP_FIRST = 420, INSP_LEN = 180, INSP_WARN = 40;
+// rework 6b (agreed with Ruslan 2026-11-26, registry B4): the inspector (an eagle; name, look and lines by Maria) comes by himself:
+// a planned visit every 10-15 min of SCREEN time when there are no complaints, an unplanned one when complaints reach 3 (a refused
+// letter, a failed or missed open lesson, many upset leavers in a short time). His timers run only while the game is on screen and
+// no window is open (tester_fb1 quiet); calm mode: no visits. He knocks through the window queue (6d) with a big card and three
+// answers: a 3-minute check of the school's weak spot (bronze = the school's own normal level, silver = clearly better, gold = much
+// better), an open lesson (5/5 silver, 3-4 bronze), or «come later» (once). No fines. One star per visit at most.
+const INSP_FIRST = 420, INSP_LEN = 180, INSP_PLAN_MIN = 600, INSP_PLAN_MAX = 900, INSP_LATER = 600, INSP_MIN_GRAD = 20;
+const CMP_MAX = 3, CMP_LEAVE_N = 8, CMP_LEAVE_WIN = 60, CMP_LEAVE_CD = 180;   // complaints; «many upset leavers» = 8 within 60 s of screen time, then 3 min pause
+const INSP_PAY = { b: 1, s: 2, g: 2 }, INSP_GOLD_STONES = 1, INSP_GOLD_REVIEWS = 3;   // coins = 180 s of steady income × this; gold: + a moonstone and parents' 5★ reviews
+const INSP_INC_T = { b: 25, s: 15, g: 8 }, INSP_PASS_MIN = 5;   // «происшествия»: his incidents fixed within this many seconds; «экзамены»: at least 5 exams
+const INSP_NAME = 'Инспектор', INSP_EMO = '🦅';   // name and look by Maria later
+const INSP_ART = { full: '', walk: '', face: '', res: { g: '', s: '', b: '', f: '' } };   // pictures by Maria (registry B4.11); '' = emoji placeholder
+const INSP_LINES = { plan: 'Плановая проверка. Посмотрим, как у вас идут дела.', cmp: 'На школу пришли жалобы. Я должен разобраться.', g: 'Превосходно! Так держать.', s: 'Очень хорошо. Я доволен.', b: 'Порядок. Школа работает как положено.', f: 'Сегодня без награды. Я ещё приду.' };   // placeholders: his lines are Maria's
+const MEDAL = { g: { e: '🥇', n: 'золото' }, s: { e: '🥈', n: 'серебро' }, b: { e: '🥉', n: 'бронза' } };
 function spendStars(n) { if (!n) return true; if (schoolStars() < n) { toast(`Нужно ⭐ ${n} звёзд школы`); return false; } insp().stars -= n; return true; }
 const schoolStars = () => (S && S.insp && S.insp.stars) || 0;
 const insp = () => (S.insp ||= { t: INSP_FIRST, stars: 0, cur: null, passed: 0, failed: 0 });
-const NOLEAVE_MAX = 7, NOLEAVE_LEN = 60;   // her ruling 2026-11-21: one minute, up to 7 may leave
 const leftNow = () => (S.stats.left || 0) + (S.stats.gaveUp || 0);
-// the steady income per second: like S.ema, but one big payout (a chest, a prize, a caravan) is clipped to 3x the usual rate, so the
-// inspector's «школа заработает» goal is never set from a spike (her «Цель нереалистичная»: 58M asked while the school earns ~4M a minute)
+// the steady income per second: like S.ema, but one big payout (a chest, a prize, a caravan) is clipped to 3x the usual rate
 const steadyRate = () => (S.steadyEma ??= Math.min(S.ema || 0, S.paceEma ?? S.ema ?? 0));
-const INSP_KINDS = {
-  mood: { text: 'настроение учеников 60% и выше', check: () => avgMood() >= 60, now: () => `настроение ${Math.round(avgMood())}%` },
-  noleave: { text: `расстроенными уйдут не больше ${NOLEAVE_MAX} учеников`, start: () => ({ v: leftNow() }), len: NOLEAVE_LEN, fail: (c) => leftNow() - c.v > NOLEAVE_MAX, now: (c) => `ушли: ${leftNow() - c.v} из ${NOLEAVE_MAX}` },   // was «nobody»: too hard (her report 2026-11-21)
-  inc: { text: 'каждое происшествие исправлено быстрее чем за 20 секунд', start: () => { forceIncident(); return {}; }, fail: () => Object.values(S.inc || {}).some((x) => x.t > 20), now: () => (Object.keys(S.inc || {}).length ? '⚠️ происшествие!' : 'всё спокойно') },
-  pass: { text: 'экзамены сдают 70% учеников и больше', start: () => ({ p: S.stats.passed, f: S.stats.failed, g: passGoal() }), check: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f >= 5 && p / (p + f) >= (c.g || 0.7); }, now: (c) => { const p = S.stats.passed - c.p, f = S.stats.failed - c.f; return p + f ? `сдали ${Math.round(p / (p + f) * 100)}%` : 'экзаменов ещё не было'; } },
-  earn: { text: 'школа заработает', start: () => ({ e: S.stats.earned || 0, goal: Math.max(300, Math.round((steadyRate() || 1) * 140 / 10) * 10) }), check: (c) => (S.stats.earned || 0) - c.e >= c.goal, now: (c) => `заработано ${fmt((S.stats.earned || 0) - c.e)} из ${fmt(c.goal)}` },
-};
-function forceIncident() {
-  const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && !(S.inc && S.inc[i])); if (!open.length) return;
-  const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'c', t: 0 }; sfx(incSound(i)); const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`);
+const planGap = () => INSP_PLAN_MIN + Math.random() * (INSP_PLAN_MAX - INSP_PLAN_MIN);
+// the school's own normal level (slow averages over ~5 min of screen time): the bronze line of a check
+const NORM_TAU = 300;
+const avgSucc = () => { const o = CLASSES.map((c, i) => i).filter((i) => isOpen(i)); return o.length ? o.reduce((a, i) => a + success(i), 0) / o.length : 0.45; };
+const norm = () => (S.norm ||= { mood: avgMood(), lpm: 0, pass: avgSucc(), gpm: 0, gn: 0, incT: 15 });
+const statSnapI = () => ({ l: leftNow(), p: S.stats.passed || 0, f: S.stats.failed || 0, g: S.stats.graduated || 0 });
+let normSnap = null, normAcc = 0;
+function normStep(dt, on) {
+  if (!on) { normSnap = null; normAcc = 0; return; }
+  const s = statSnapI(); if (!normSnap) { normSnap = s; normAcc = 0; return; }
+  normAcc += dt; if (normAcc < 5) return;
+  const N = norm(), k = 1 - Math.exp(-normAcc / NORM_TAU), dp = s.p - normSnap.p, df = s.f - normSnap.f, gpm = (s.g - normSnap.g) / normAcc * 60;
+  N.mood += (avgMood() - N.mood) * k; N.lpm += ((s.l - normSnap.l) / normAcc * 60 - N.lpm) * k;
+  if (dp + df > 0) N.pass += (dp / (dp + df) - N.pass) * k;
+  N.gpm = N.gn < 60 ? (N.gpm * N.gn + gpm) / (N.gn + 1) : N.gpm + (gpm - N.gpm) * k; N.gn++;   // the first 5 min: a plain mean
+  normSnap = s; normAcc = 0;
 }
-// build audit 2026-11-24: «70% pass» was nearly unwinnable for a young school (base chance 45%): the goal is the school's own average
-// chance + 5 points, between 50% and 70%
-const passGoal = () => { const o = CLASSES.map((c, i) => i).filter((i) => isOpen(i)); const m = o.length ? o.reduce((a, i) => a + success(i), 0) / o.length : 0.45; return Math.max(0.5, Math.min(0.7, Math.round((m + 0.05) * 20) / 20)); };
-const inspText = (c) => (c.kind === 'earn' ? `${INSP_KINDS.earn.text} ${fmt(c.goal)} 🪙` : c.kind === 'pass' ? `экзамены сдают ${Math.round((c.g || 0.7) * 100)}% учеников и больше` : INSP_KINDS[c.kind].text);
-const INSP_SHORT = { mood: 'настроение 60%+', noleave: 'уйдут не больше 7', inc: 'чинить за 20 с', pass: 'экзамены сдают', earn: 'заработок' };
-const inspNextText = (k) => (k === 'earn' ? 'сколько школа заработает' : k === 'pass' ? `экзамены сдают ${Math.round(passGoal() * 100)}% учеников и больше` : INSP_KINDS[k].text);
+let lvRing = [], lvSnap = null, lvCd = 0, lvT = 0;
+function leaveWatch(dt, on) {   // many upset leavers in a short time -> a complaint
+  if (!on) { lvSnap = null; return; }
+  const l = leftNow(); if (lvSnap === null) { lvSnap = l; return; }
+  const d = l - lvSnap; lvSnap = l; lvT += dt;
+  if (d > 0) lvRing.push([lvT, d]);
+  lvRing = lvRing.filter(([t]) => lvT - t <= CMP_LEAVE_WIN);
+  if (lvCd > 0) { lvCd -= dt; return; }
+  if (lvRing.reduce((a, [, n]) => a + n, 0) >= CMP_LEAVE_N) { lvRing = []; lvCd = CMP_LEAVE_CD; addComplaint('noleave', -1, 'многие ушли расстроенными'); }
+}
+function addComplaint(k, i = -1, why = '') {
+  const I = insp(); I.cmp = Math.min(CMP_MAX, (I.cmp || 0) + 1); if (k) I.cmpK = k; I.cmpI = i;
+  if (!ffwd) toast(`📮 Жалоба инспектору${why ? ` (${why})` : ''}: ${I.cmp} из ${CMP_MAX}`);
+  dirtyPanel = true; save();
+}
+// every check: start(c) at the start (thresholds c.tr from the school's normal level), step(c, d, dt) with the progress since the last
+// step (screen time only, quiet time skipped), val(c) = the measure now, lo = lower is better, failNow = no medal is possible any more
+const INSP_KINDS = {
+  mood: { name: 'настроение учеников', text: 'среднее настроение учеников за 3 минуты', unit: (v) => Math.round(v) + '%',
+    start: (c) => { const b = Math.min(90, Math.round(norm().mood)); c.tr = { b, s: Math.min(94, b + 6), g: Math.min(97, b + 12) }; c.ms = 0; c.mn = 0; },
+    step: (c, d, dt) => { c.ms += avgMood() * dt; c.mn += dt; }, val: (c) => (c.mn ? c.ms / c.mn : avgMood()), now: (c) => `в среднем ${Math.round(INSP_KINDS.mood.val(c))}%` },
+  noleave: { name: 'никто не уходит расстроенным', text: 'сколько учеников уйдут расстроенными за 3 минуты', lo: 1, unit: (v) => `ушли не больше ${v}`,
+    start: (c) => { const b = Math.max(2, Math.ceil(norm().lpm * INSP_LEN / 60)); c.tr = { b, s: Math.floor(b / 2), g: 0 }; c.lv = 0; },
+    step: (c, d) => { c.lv += d.l; }, val: (c) => c.lv, now: (c) => `ушли: ${c.lv}`, failNow: (c) => c.lv > c.tr.b },
+  inc: { name: 'происшествия', text: 'как быстро чинят происшествия, которые устроит инспектор', lo: 1, unit: (v) => `за ${v} с`,
+    start: (c) => { c.tr = { ...INSP_INC_T }; c.fz = []; c.el = 0; inspForce(c); },
+    step: (c, d, dt) => { c.el += dt; if (c.fz.length < 2 && c.el >= INSP_LEN / 2) inspForce(c);
+      for (const f of c.fz) if (f.done == null && !(S.inc && S.inc[f.i] && S.inc[f.i].ins)) { S.inc ||= {}; S.inc[f.i] = { k: 'c', t: c.el - f.t0, ins: 1 }; } },   // cleared without a fix (the mini-game clears incidents): it comes back
+    val: (c) => c.fz.reduce((m, f) => Math.max(m, f.done != null ? f.done : c.el - f.t0), 0),
+    now: (c) => (c.fz.some((f) => f.done == null) ? '⚠️ происшествие! нажми на класс' : `починили за ${Math.round(INSP_KINDS.inc.val(c))} с`), failNow: (c) => INSP_KINDS.inc.val(c) > c.tr.b },
+  pass: { name: 'экзамены', text: 'какая доля учеников сдаст экзамены за 3 минуты', unit: (v) => Math.round(v * 100) + '%',
+    start: (c) => { const b = Math.max(0.3, Math.min(0.85, Math.round(norm().pass * 20) / 20)); c.tr = { b, s: Math.min(0.9, b + 0.05), g: Math.min(0.95, b + 0.1) }; c.pp = 0; c.pf = 0; },
+    step: (c, d) => { c.pp += d.p; c.pf += d.f; }, val: (c) => (c.pp + c.pf >= INSP_PASS_MIN ? c.pp / (c.pp + c.pf) : 0),
+    now: (c) => (c.pp + c.pf >= INSP_PASS_MIN ? `сдали ${Math.round(c.pp / (c.pp + c.pf) * 100)}%` : `экзаменов: ${c.pp + c.pf} из ${INSP_PASS_MIN}`) },
+  grads: { name: 'выпускники', text: 'сколько выпускников будет за 3 минуты', unit: (v) => String(v),
+    start: (c) => { const E = norm().gpm * INSP_LEN / 60, b = Math.max(1, Math.round(E)), s = Math.max(b + 1, Math.round(E * 1.25)); c.tr = { b, s, g: Math.max(s + 1, Math.round(E * 1.5)) }; c.gg = 0; },
+    step: (c, d) => { c.gg += d.g; }, val: (c) => c.gg, now: (c) => `выпускников: ${c.gg}` },
+};
+function inspForce(c) {   // the check «происшествия» sets its own incidents (only these count: registry B4.4)
+  const open = CLASSES.map((x, i) => i).filter((i) => isOpen(i) && !(S.inc && S.inc[i])); if (!open.length) return;
+  const i = rnd(open); S.inc ||= {}; S.inc[i] = { k: 'c', t: 0, ins: 1 }; c.fz.push({ i, t0: c.el, done: null });
+  sfx(incSound(i)); const [e, txt] = incInfo(i); toast(`${e} ${CLASSES[i].name}: ${txt}! Нажми на класс`);
+}
+function inspIncDone(i, x) {   // any incident ended (tap, caretaker, by itself): the normal fix time; the check's own ones are timed
+  if (x && S.norm) S.norm.incT += ((x.t || 0) - S.norm.incT) * 0.2;
+  const c = S.insp && S.insp.cur; if (!c || c.kind !== 'inc' || !x || !x.ins) return;
+  const f = c.fz.find((q) => q.i === i && q.done == null); if (f) f.done = Math.round(c.el - f.t0);
+}
+function medalOf(K, c) {
+  if (K === INSP_KINDS.pass && c.pp + c.pf < INSP_PASS_MIN) return null;
+  const v = K.val(c), t = c.tr, ge = (a, b) => (K.lo ? a <= b : a >= b);
+  return ge(v, t.g) ? 'g' : ge(v, t.s) ? 's' : ge(v, t.b) ? 'b' : null;
+}
+function medalFrac(K, c) {   // 0..1 on the banner bar: bronze at 1/3, silver at 2/3, gold at the end
+  if (K === INSP_KINDS.pass && c.pp + c.pf < INSP_PASS_MIN) return 0;
+  const v = K.val(c), t = c.tr, seg = (x, a, b) => Math.max(0, Math.min(1, (x - a) / ((b - a) || 1)));
+  if (!K.lo) { if (v >= t.g) return 1; if (v >= t.s) return 0.66 + 0.34 * seg(v, t.s, t.g); if (v >= t.b) return 0.33 + 0.33 * seg(v, t.b, t.s); return 0.33 * seg(v, 0, t.b); }
+  if (v <= t.g) return 1; if (v <= t.s) return 0.66 + 0.34 * seg(-v, -t.s, -t.g); if (v <= t.b) return 0.33 + 0.33 * seg(-v, -t.b, -t.s); return 0.33 * Math.max(0, 1 - (v - t.b) / Math.max(1, t.b));
+}
+let inspForceKind = '';   // test hook
+function inspPick() {   // the school's weak spot (or the subject of the complaints)
+  const I = insp(), N = norm(); if (inspForceKind) { const k = inspForceKind; inspForceKind = ''; return k; }
+  const sc = { mood: (75 - N.mood) / 25, noleave: N.lpm >= 0.3 ? N.lpm / 2 : -9, pass: (0.7 - N.pass) / 0.2, inc: S.stats.graduated >= 5 ? (N.incT - 10) / 20 : -9, grads: N.gn >= 24 && N.gpm * INSP_LEN / 60 >= 2 ? 0.3 : -9 };
+  if (I.v && I.v.why === 'cmp' && I.cmpK && sc[I.cmpK] > -9) return I.cmpK;
+  let best = 'mood', bv = -1e9;
+  for (const [k, v] of Object.entries(sc)) { const x = v + Math.random() * 0.3 - (k === I.lastK ? 0.6 : 0); if (x > bv) { bv = x; best = k; } }
+  return best;
+}
 const calm = () => !!(S && S.calm);
 function setCalm(on) {
   const I = insp();
-  if (on && I.cur) { S.calmAfter = 1; toast('😌 Проверка уже идёт: спокойный режим включится, как только она закончится'); save(); dirtyPanel = true; return; }   // build audit 2026-11-24: switching it on cancelled a failing check without the fine
+  if (on && I.cur) { S.calmAfter = 1; toast('😌 Проверка уже идёт: спокойный режим включится, как только она закончится'); save(); dirtyPanel = true; return; }
   if (!on) S.calmAfter = 0;
   S.calm = on;
-  if (on) { I.cur = null; I.next = null; I.t = Math.max(I.t, INSP_WARN + 60); }   // a running check is cancelled without a fine
+  if (on) { I.cur = null; I.v = null; iqDrop('insp'); if (icardKey === 'insp') icardHide(); I.t = Math.max(I.t || 0, 60); }   // a visit at the door goes away
   toast(on ? '😌 Спокойный режим: инспектор не придёт' : '🧐 Инспектор снова будет приходить');
   save(); updateHud(); dirtyPanel = true;
 }
+function inspCall(why) { const I = insp(); if (calm() || I.cur || I.v) return; I.v = { st: 'door', why, post: 0 }; glog('event', why === 'cmp' ? 'инспектор пришёл по жалобам' : 'инспектор пришёл с плановой проверкой', WORLD); inspKnock(); save(); }
+function inspKnock() { if (!iqHas('insp') && icardKey !== 'insp') iqWin('urgent', 'insp', () => icardShow('insp', inspArriveHtml()), { card: 1, cond: () => { const v = insp().v; return !!v && v.st === 'door' && !calm(); } }); }
 function stepInspector(dt, live) {
-  if (calm() || !live || idleNow() || S.stats.graduated < 20 || tourStep >= 0) return;   // build audit 2026-11-24: nor while nobody is at the screen
   const I = insp();
-  // the inspector waits while a window is open (a running check pauses too); tester_fb1: the check's counters skip the quiet time
-  if (quietNow()) { const c = I.cur; if (c && !c.qz) c.qz = { e: S.stats.earned || 0, p: S.stats.passed || 0, f: S.stats.failed || 0, v: leftNow() }; return; }
-  if (I.cur && I.cur.qz) { const c = I.cur, q = c.qz; delete c.qz; if ('e' in c) c.e += (S.stats.earned || 0) - q.e; if ('p' in c) { c.p += (S.stats.passed || 0) - q.p; c.f += (S.stats.failed || 0) - q.f; } if ('v' in c) c.v += leftNow() - q.v; }
-  if (!I.cur) {
-    I.t -= dt;
-    if (I.t <= INSP_WARN && !I.next) { I.next = rnd(Object.keys(INSP_KINDS)); toast(`🧐 Скоро инспектор! Проверит: ${inspNextText(I.next)}`);
-      hintOnce('insp', '🧐', 'Скоро придёт инспектор', `Через 40 секунд придёт инспектор и проверит: <b>${inspNextText(I.next)}</b>. Это написано в жёлтой карточке слева вверху. Пройдёшь проверку — школа получит звезду ⭐ (+3% к плате за все уроки, звёзды нужны для новых классов) и награду. Не пройдёшь — небольшой штраф. Не хочешь проверок — включи спокойный режим 😌 в ⚙️.`); }
-    if (I.t <= 0) { const kind = I.next || 'mood', K = INSP_KINDS[kind]; I.cur = { kind, left: K.len || INSP_LEN, failed: false, ...(K.start ? K.start() : {}) }; I.next = null; toast(`🧐 Инспектор пришёл! Проверка ${(K.len || INSP_LEN) >= 120 ? Math.round((K.len || INSP_LEN) / 60) + ' минуты' : '1 минуту'}`); }
+  if (I.next !== undefined) delete I.next;   // the 40-s warning of the old inspector
+  if (I.cur && !I.cur.v2) I.cur = null;   // a check of the old kind (before 6b) is dropped
+  const on = !calm() && live && !idleNow() && S.stats.graduated >= INSP_MIN_GRAD && tourStep < 0 && !quietNow();   // screen time only (tester_fb1: frozen while any window is open)
+  normStep(dt, on); leaveWatch(dt, on);
+  if (!on) { if (I.cur) I.cur.snap = null; return; }   // the gap (closed, hidden, a window, the catch-up) never counts into a check
+  if (I.cur) { inspCheckStep(dt); return; }
+  if (I.v) {
+    if (I.v.st === 'later') { I.v.t -= dt; if (I.v.t <= 0) { I.v.st = 'door'; inspKnock(); } }
+    else if (I.v.st === 'lesson' || I.v.st === 'door') { I.v.st = 'door'; inspKnock(); }   // the lesson window was closed without starting: he waits at the door again
     return;
   }
-  const c = I.cur, K = INSP_KINDS[c.kind];
-  c.left -= dt;
-  if (K.fail && K.fail(c)) c.failed = true;
-  if (c.failed || c.left <= 0) finishInspection();
+  if ((I.cmp || 0) >= CMP_MAX) { inspCall('cmp'); return; }
+  I.t -= dt; if (I.t > 0) return;
+  I.t = planGap(); if (!(I.cmp > 0)) inspCall('plan');   // a planned visit only for a school without complaints
+}
+function inspStart() {
+  const I = insp(); if (!I.v) return;
+  const kind = inspPick(), K = INSP_KINDS[kind];
+  I.cur = { v2: 1, kind, left: INSP_LEN, snap: null }; K.start(I.cur); I.v.st = 'check';
+  insWalk(true); toast(`${INSP_EMO} Проверка: ${K.name}! 3 минуты`); STATS.ev('insp_go', { k: Object.keys(INSP_KINDS).indexOf(kind) }); save(); updateHud();
+}
+function inspCheckStep(dt) {
+  const I = insp(), c = I.cur, K = INSP_KINDS[c.kind]; if (!K) { I.cur = null; return; }
+  const s = statSnapI(); if (!c.snap) c.snap = s;
+  const d = { l: s.l - c.snap.l, p: s.p - c.snap.p, f: s.f - c.snap.f, g: s.g - c.snap.g }; c.snap = s;
+  K.step(c, d, dt); c.left -= dt;
+  if (K.failNow && K.failNow(c)) inspEnd(null);
+  else if (c.left <= 0) inspEnd(medalOf(K, c));
 }
 let inspResult = null;
-function finishInspection() {
-  const I = insp(), c = I.cur, K = INSP_KINDS[c.kind];
-  const ok = !c.failed && (K.check ? K.check(c) : true);
-  const income = Math.max(200, Math.round((rateNow() || 1) * 180 / 10) * 10), ties = dirLvl('ties');   // build audit 2026-11-24: steady rate (a payout right before the end gave x5 of it)
-  I.cur = null; I.t = INSP_EVERY;
-  if (ok) { const rw = Math.round(income * (1 + 0.1 * ties) * repK()); I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; if (I.stars > STAR_STONE_FROM && stonesAdd(1)) setTimeout(() => toast(`⭐ Звезда ${I.stars}: ${ST_ICON} +1 лунный камень`), 1500); S.coins += rw; S.stats.earned = (S.stats.earned || 0) + rw; inspResult = { ok, income: rw }; }
-  else { const fine = Math.min(S.coins, Math.round(income / 2 * (1 - 0.07 * ties))); spendOut(fine, 'fined'); I.failed = (I.failed || 0) + 1; inspResult = { ok, fine, text: inspText(c) }; }
+function inspEnd(m, ol) {   // the end of a visit: a check (m from the measure) or an open lesson (ol = { n, i })
+  const I = insp(), c = I.cur, K = c && INSP_KINDS[c.kind], why = I.v ? I.v.why : 'plan';
+  const income = Math.max(200, Math.round((rateNow() || 1) * 180 / 10) * 10), ties = dirLvl('ties');
+  const r = { m, ol: ol || null, coins: 0, stone: 0, why, now: c && K ? K.now(c) : '', tiers: c && K ? `🥉 ${K.unit(c.tr.b)} · 🥈 ${K.unit(c.tr.s)} · 🥇 ${K.unit(c.tr.g)}` : '' };
+  if (c && c.kind === 'inc') for (const f of c.fz) if (S.inc && S.inc[f.i]) delete S.inc[f.i].ins;   // an unfixed one stays as a normal incident
+  I.cur = null; I.v = null; I.t = planGap(); if (c) I.lastK = c.kind;
+  if (why === 'cmp') { I.cmp = 0; I.cmpK = ''; I.cmpI = -1; }   // he has dealt with the complaints
+  if (m) {
+    I.stars = (I.stars || 0) + 1; I.passed = (I.passed || 0) + 1; (I.med ||= {})[m] = (I.med[m] || 0) + 1;
+    if (I.stars > STAR_STONE_FROM && stonesAdd(1)) r.stone++;
+    r.coins = Math.round(income * INSP_PAY[m] * (1 + 0.1 * ties)); S.coins += r.coins; S.stats.earned = (S.stats.earned || 0) + r.coins;
+    if (m === 'g') { if (stonesAdd(INSP_GOLD_STONES)) r.stone += INSP_GOLD_STONES; for (let k = 0; k < INSP_GOLD_REVIEWS; k++) review({ name: parentName(rnd(NAMES)) }, 5, false, rnd(['Инспектор дал школе золото — мы гордимся!', 'Спасибо школе, ребёнок счастлив! 💖', 'Лучшая школа магии ✨'])); cheerAll(10, '💖'); r.thanks = 1; glog('imp', '💌 Родители благодарят школу за золото инспектора', WORLD); }
+  } else I.failed = (I.failed || 0) + 1;
+  I.last = m || 'f';
   if (S.calmAfter) { S.calmAfter = 0; setCalm(true); }   // calm mode asked for during the check
-  openPanel(inspResultPanel); updateHud(); save();
+  inspResult = r; insWalk(false);
+  STATS.ev('insp', { m: m ? 'bsg'.indexOf(m) + 1 : 0, ol: ol ? 1 : 0 });
+  glog('toast', `${INSP_EMO} Инспектор: ${m ? MEDAL[m].e + ' ' + MEDAL[m].n : 'без медали'}`, WORLD);
+  if (!ol) iqWin('cel', 'inspres', () => icardShow('inspres', inspResHtml(r)), { card: 1 });
+  updateHud(); save(); dirtyPanel = true;
 }
-function inspResultPanel() {
-  const r = inspResult || { ok: true, income: 0 };
-  return r.ok ? `<div class="sh-head"><span class="remoji big">🌟</span><div><h2>Проверка пройдена!</h2><div class="muted">Инспектор доволен школой</div></div><button class="x" data-close>✕</button></div>
-    <p class="center">Школа получила звезду: теперь их <b>⭐ ${schoolStars()}</b>. Каждая звезда даёт +3% к плате за все уроки.</p><div class="center big-txt">🪙 +${fmt(r.income)}</div><button class="btn wide" data-close>Ура!</button>`
-    : `<div class="sh-head"><span class="remoji big">😤</span><div><h2>Проверка не пройдена</h2><div class="muted">Надо было: ${r.text}</div></div><button class="x" data-close>✕</button></div>
-    <p class="center">Штраф: <b>🪙 ${fmt(r.fine)}</b>. В следующий раз получится!</p><button class="btn wide" data-close>Понятно</button>`;
+const inspPic = (src, emo, h) => (src ? `<img src="${src}" alt="" class="icpic" style="height:${h}px">` : `<div class="icemo" style="font-size:${Math.round(h * 0.62)}px">${emo}</div>`);
+const inspRew = (r) => (r.m ? [`⭐ +1 звезда школы (теперь ${schoolStars()})`, `🪙 +${fmt(r.coins)}`, r.stone ? `${ST_ICON} +${r.stone} лунный камень` : '', r.thanks ? '💌 Родители прислали благодарность и отзывы ★★★★★' : ''].filter(Boolean) : ['Награды нет. Штрафа тоже нет.']).join('<br>');
+function inspResHtml(r) {
+  const md = r.m ? MEDAL[r.m] : null;
+  return `<div class="tour-top"><b>${md ? `${md.e} ${INSP_NAME}: ${md.n}!` : `${INSP_NAME}: без медали`}</b></div>
+    <div class="icrow">${inspPic(INSP_ART.res[r.m || 'f'], md ? md.e : INSP_EMO, 150)}<div class="grow"><p class="icline">«${INSP_LINES[r.m || 'f']}»</p>${r.now ? `<p class="muted">Результат: ${r.now}<br>${r.tiers}</p>` : ''}<p>${inspRew(r)}</p></div></div>
+    <div class="tour-btns"><button class="btn small" data-icclose>${r.m ? 'Ура!' : 'Понятно'}</button></div>`;
+}
+function inspArriveHtml() {
+  const I = insp(), v = I.v || { why: 'plan' }, last = I.last ? (I.last === 'f' ? 'В прошлый раз медали не было.' : `В прошлый раз было ${MEDAL[I.last].n}.`) : '';
+  const b = (go, t, sub, ghost) => `<button class="btn wide${ghost ? ' ghost' : ''}" data-insgo="${go}" style="margin-top:6px">${t}<small class="bsub">${sub}</small></button>`;
+  return `<div class="tour-top"><b>${INSP_EMO} ${INSP_NAME} пришёл в школу!</b><span class="muted">${v.why === 'cmp' ? `📮 жалоб: ${CMP_MAX}` : 'плановая проверка'}</span></div>
+    <div class="icrow">${inspPic(INSP_ART.full, INSP_EMO, 190)}<div class="grow"><p class="icline">«${INSP_LINES[v.why === 'cmp' ? 'cmp' : 'plan']}${last ? ' ' + last : ''}»</p>
+    ${b('check', '🔍 Пройти проверку', 'испытание · до 🥇 золота')}
+    ${b('lesson', '🎓 Открытый урок', 'подготовка за монеты по желанию · до 🥈', 1)}
+    ${v.post ? '' : b('later', '🕒 Зайдите позже', 'один раз · без награды', 1)}</div></div>`;
+}
+function inspBanner(c) {   // during a check: a wide banner with his portrait, the timer and the medal bar
+  const K = INSP_KINDS[c.kind]; if (!K) return '';
+  const f = Math.round(medalFrac(K, c) * 100), m = medalOf(K, c), face = INSP_ART.face ? `<img src="${INSP_ART.face}" alt="" class="ibface">` : `<span class="ibface">${INSP_EMO}</span>`;
+  return `<button class="iwarn ibanner" data-insp>${face}<span class="ibtxt"><b>Проверка: ${K.name}</b> · ${mmss(c.left)}<br>${K.now(c)}${m ? ' · сейчас ' + MEDAL[m].e : ''}</span><span class="ibbar"><i style="width:${f}%"></i><em style="left:33%">🥉</em><em style="left:66%">🥈</em><em style="left:94%">🥇</em></span></button>`;
 }
 const mmss = (x) => `${Math.floor(Math.max(0, x) / 60)}:${String(Math.floor(Math.max(0, x) % 60)).padStart(2, '0')}`;
 function calmBlock() {
   return calm()
-    ? `<p class="muted">Спокойный режим включён: инспектор не приходит, проверок и штрафов нет. Звёзды школы в этом режиме не появляются — когда захочешь их заработать (они нужны для новых классов), выключи спокойный режим.</p><button class="btn ghost wide" data-calm="0">🧐 Выключить спокойный режим</button>`
-    : `<p class="muted">В спокойном режиме инспектор не приходит: никаких проверок и штрафов, но и новых звёзд школы не будет. Звёзды нужны для новых классов — зарабатывай их, когда есть настроение. Включить и выключить можно в любой момент.</p><button class="btn ghost wide" data-calm="1">😌 Включить спокойный режим</button>`;
+    ? `<p class="muted">Спокойный режим включён: инспектор не приходит. Звёзды школы в этом режиме дают закрытые главы летописи. Выключить можно в любой момент.</p><button class="btn ghost wide" data-calm="0">🧐 Выключить спокойный режим</button>`
+    : `<p class="muted">В спокойном режиме инспектор не приходит, проверок нет. Звёзды школы тогда дают закрытые главы летописи. Включить и выключить можно в любой момент.</p><button class="btn ghost wide" data-calm="1">😌 Включить спокойный режим</button>`;
 }
 const STAR_STONE_FROM = 15;   // from the 16th star every new star also gives a moonstone (her «тратить некуда»)
 function inspPanel() {   // short and plain (her «миллион текста и глаза пугаются»)
-  const I = insp(), c = I.cur, n = schoolStars(), row = (ic, t) => `<div class="card up"><span class="remoji">${ic}</span><div class="grow">${t}</div></div>`;
-  return `<div class="sh-head"><span class="remoji big">⭐</span><div><h2>Звёзды школы</h2><div class="muted">проверок пройдено ${I.passed || 0}, провалено ${I.failed || 0}</div></div><button class="x" data-close>✕</button></div>
+  const I = insp(), c = I.cur, n = schoolStars(), M = I.med || {}, row = (ic, t) => `<div class="card up"><span class="remoji">${ic}</span><div class="grow">${t}</div></div>`, K = c && INSP_KINDS[c.kind];
+  return `<div class="sh-head"><span class="remoji big">⭐</span><div><h2>Звёзды школы</h2><div class="muted">медали: 🥇 ${M.g || 0} · 🥈 ${M.s || 0} · 🥉 ${M.b || 0} · без медали ${I.failed || 0}</div></div><button class="x" data-close>✕</button></div>
     <div class="card" style="justify-content:center;text-align:center;font-size:19px"><b>⭐ ${n} = +${3 * n}% к плате за уроки</b></div>
     <h3>Что даёт звезда</h3>
     ${row('💰', '<b>+3% к плате за все уроки</b>, пока звезда у школы')}
     ${row(ST_IMG(24), `<b>+1 лунный камень</b> за каждую новую звезду после ${STAR_STONE_FROM}-й`)}
-    ${row('🏗️', 'Нужны для постройки классов, кабинета директора и новых миров (тогда тратятся)')}
+    ${row('🏗️', 'Нужны для постройки классов, кабинета директора и новых миров')}
     <h3>Как получить</h3>
-    ${row('🧐', 'Пройти проверку инспектора. Он приходит примерно раз в 15 минут, пока ты играешь, за провал — штраф')}
-    ${c ? row('⏳', `<b>Сейчас проверка: ${inspText(c)}</b><div class="muted">${INSP_KINDS[c.kind].now(c)} · осталось ${mmss(c.left)}</div>`)
-      : S.stats.graduated < 20 ? '<p class="muted">Инспектор начнёт приходить, когда у школы будет 20 выпускников.</p>' : `<p class="muted">Следующая проверка через <b>${mmss(I.t)}</b>${I.next ? `: ${inspNextText(I.next)}` : ''}.</p>`}
+    ${row(INSP_EMO, `${INSP_NAME} приходит сам примерно раз в 10–15 минут игры. Любая медаль — 🥉 бронза, 🥈 серебро или 🥇 золото — это звезда школы и награда. Без медали — без награды, штрафов нет`)}
+    ${row('📮', `Жалобы: <b>${I.cmp || 0} из ${CMP_MAX}</b> — на ${CMP_MAX}-й он придёт без предупреждения`)}
+    ${K ? row('⏳', `<b>Сейчас проверка: ${K.text}</b><div class="muted">${K.now(c)} · осталось ${mmss(c.left)}<br>🥉 ${K.unit(c.tr.b)} · 🥈 ${K.unit(c.tr.s)} · 🥇 ${K.unit(c.tr.g)}</div>`)
+      : I.v ? (I.v.st === 'later' ? `<p class="muted">Инспектор зайдёт через <b>${mmss(I.v.t)}</b> игры.</p>` : `<button class="btn wide" data-insdoor>${INSP_EMO} Инспектор ждёт: встретить</button>`)
+      : calm() ? '' : S.stats.graduated < INSP_MIN_GRAD ? `<p class="muted">Инспектор начнёт приходить, когда у школы будет ${INSP_MIN_GRAD} выпускников.</p>` : `<p class="muted">Следующий плановый визит примерно через <b>${mmss(I.t)}</b> игры${I.cmp ? ' (пока есть жалобы, плановых визитов нет)' : ''}.</p>`}
     ${calmBlock()}`;
 }
+// ---- open lesson (rework 6c, shared by the parents' letters and the inspector): OL_N students of a chosen class take the exam in
+// front of guests; each passes with that class's real chance (teacher, items, mood); optional preparation for coins: +15 % each.
+const OL_N = 5, OL_PREP = 0.15, OL_PREP_TUIT = 40, OL_PREP_N = 4;   // prep price = paced(tuition × 40, level 4 of the pace floor)
+const OL_ART = { guests: '', pass: '', fail: '' };   // cut-scene pictures by Maria; '' = emoji cards
+let olSrc = 'mail', olShow = null, olTm = 0;
+const olCtx = () => (olSrc === 'insp' ? insp().v : bossOn() ? boss().ol : null);
+const clsMoodK = (i) => { const l = agents.filter((a) => a.c === i && a.state === 'study'); return l.length ? l.reduce((n, a) => n + moodBonus(a), 0) / l.length : (avgMood() - 60) / 400; };
+const olChance = (i, prep) => Math.max(0.05, Math.min(0.95, success(i) + clsMoodK(i) + (prep ? OL_PREP : 0)));
+const olPrepCost = (i) => paced(Math.max(100, tuition(i) * OL_PREP_TUIT), OL_PREP_N);
+const olWeak = () => { const o = CLASSES.map((c, i) => i).filter((i) => isOpen(i)); return o.length ? o.reduce((a, i) => (olChance(i) < olChance(a) ? i : a), o[0]) : 0; };
+function olOpen(src) {
+  olSrc = src; const o = olCtx(); if (!o) { toast('Открытый урок сейчас не назначен'); return; }
+  if (!(o.i >= 0 && isOpen(o.i))) { const ci = insp().cmpI; o.i = src === 'insp' && ci >= 0 && isOpen(ci) ? ci : olWeak(); }
+  if (menuOpen) setMenu(false);
+  openPanel(olPanel);
+}
+function olPanel() {
+  const o = olCtx(), ins = olSrc === 'insp';
+  if (!o) return `<div class="sh-head"><span class="remoji big">🎓</span><div><h2>Открытый урок</h2></div><button class="x" data-close>✕</button></div><p>Открытый урок сейчас не назначен.</p><button class="btn wide" data-close>Хорошо</button>`;
+  const rows = CLASSES.map((c, i) => i).filter((i) => isOpen(i)).map((i) => `<div class="card up"${i === o.i ? ' style="border:2px solid #7b5cd6;background:#f3edff"' : ''}><span class="remoji">${CLASSES[i].emoji || '📘'}</span><div class="grow"><b>${CLASSES[i].name}</b><div class="muted">каждый сдаёт с шансом ${pct(olChance(i, o.prep))}</div></div>${i === o.i ? '<span class="done">выбран</span>' : `<button class="btn ghost small" data-olcls="${i}">Выбрать</button>`}</div>`).join('');
+  return `<div class="sh-head"><span class="remoji big">🎓</span><div><h2>Открытый урок</h2><div class="muted">${ins ? `для инспектора: ${OL_N} из ${OL_N} — 🥈 серебро, 3–4 — 🥉 бронза` : `для родителей ученика ${o.name} · осталось ${mmss(o.left)}`}</div></div><button class="x" data-close>✕</button></div>
+    <p>Гости смотрят, как ${OL_N} учеников сдают экзамен.${ins ? '' : ` Сколько сдадут, столько звёзд будет в отзыве родителей (${OL_N} из ${OL_N} — ещё и письмо-благодарность).`}</p>
+    <h3>Какой класс покажем</h3>${rows}
+    ${o.prep ? '<p class="center">📚 Ученики подготовлены: +15% каждому</p>' : `<button class="btn wide ghost" data-cost="${olPrepCost(o.i)}" data-olprep>📚 Подготовить учеников (+15% каждому) <span class="cost">🪙${fmt(olPrepCost(o.i))}</span></button>`}
+    <button class="btn wide" data-olstart>🎓 Начать открытый урок</button>`;
+}
+function olStart() {
+  const o = olCtx(); if (!o || !(o.i >= 0 && isOpen(o.i))) return;
+  const src = olSrc, i = o.i, p = olChance(i, o.prep), res = Array.from({ length: OL_N }, () => Math.random() < p), n = res.filter(Boolean).length;
+  closePanel(); STATS.ev('ol', { n, s: src === 'insp' ? 1 : 0 });
+  let outro;
+  if (src === 'insp') { const m = n >= OL_N ? 's' : n >= 3 ? 'b' : null; inspEnd(m, { n, i }); const r = inspResult; outro = `${m ? `${MEDAL[m].e} ${INSP_NAME}: ${MEDAL[m].n}!` : `${INSP_NAME}: без медали`} «${INSP_LINES[m || 'f']}»<br>${inspRew(r)}`; }
+  else {
+    boss().ol = null; review({ name: parentName(o.name) }, Math.max(1, n), false, n >= OL_N ? 'Открытый урок — чудо! Спасибо учителям 💖' : n >= 3 ? 'Открытый урок понравился' : 'Открытый урок нас не убедил');
+    if (n >= OL_N) { cheerAll(10, '💖'); glog('imp', `💌 Письмо-благодарность от родителей ученика ${o.name}`, WORLD); }
+    if (n <= 2) addComplaint('pass', i, 'неудачный открытый урок');
+    outro = n >= OL_N ? `💌 Родители в восторге: отзыв ${starRow(5)} и письмо-благодарность! Ученики повеселели.` : n >= 3 ? `Родители довольны: отзыв ${starRow(n)}.` : `Родители недовольны: отзыв ${starRow(Math.max(1, n))} и жалоба инспектору.`;
+    mailResult = `🎓 Открытый урок: сдали ${n} из ${OL_N}. ${outro.replace(/<[^>]+>/g, '')}`; save(); dirtyPanel = true;
+  }
+  olShow = { src, i, res, n, k: 0, outro }; icardShow('ol', olHtml()); clearTimeout(olTm); olTm = setTimeout(olTick, 900);
+}
+function olTick() { if (!olShow || icardKey !== 'ol' || olShow.k >= OL_N) return; olShow.k++; icardShow('ol', olHtml()); olTm = setTimeout(olTick, 750); }
+function olHtml() {   // the cut-scene (Ruslan: «это всё условно кат сцена картинками»): guests at the back, 5 results one by one
+  const s = olShow, ins = s.src === 'insp', done = s.k >= OL_N, pic = (ok) => (ok ? OL_ART.pass : OL_ART.fail);
+  const guests = OL_ART.guests ? `<img src="${OL_ART.guests}" alt="" class="icpic" style="height:90px;display:block;margin:0 auto">` : `<div class="olguests">${ins ? INSP_EMO + ' ' : ''}👨‍👩‍👧 👩‍👦 👨‍👩‍👦<br><small>гости смотрят</small></div>`;
+  const tiles = s.res.map((ok, k) => `<div class="oltile${k < s.k ? (ok ? ' ok' : ' no') : ''}">${k < s.k && pic(ok) ? `<img src="${pic(ok)}" alt="" style="height:40px">` : '<span>🧑‍🎓</span>'}<b>${k < s.k ? (ok ? '✅' : '❌') : '…'}</b></div>`).join('');
+  return `<div class="tour-top"><b>🎓 Открытый урок: ${CLASSES[s.i].name}</b><span class="muted">${ins ? 'для инспектора' : 'для родителей'}</span></div>
+    ${guests}<div class="oltiles">${tiles}</div>
+    ${done ? `<p class="center"><b>Сдали ${s.n} из ${OL_N}</b></p><p class="center">${s.outro}</p><div class="tour-btns"><button class="btn small" data-icclose>Готово</button></div>` : '<p class="center muted">Ученики сдают экзамен…</p>'}`;
+}
+function insClick(d) {   // buttons of 6b/6c/6d (called from the global click handler)
+  if (d.insgo !== undefined) {
+    const I = insp(); icardHide(); if (!I.v) return true;
+    if (d.insgo === 'check') inspStart();
+    else if (d.insgo === 'lesson') { I.v.st = 'lesson'; olOpen('insp'); }
+    else if (d.insgo === 'later' && !I.v.post) { I.v = { st: 'later', why: I.v.why, post: 1, t: INSP_LATER }; toast(`${INSP_EMO} Инспектор зайдёт позже`); save(); }
+    return true;
+  }
+  if (d.insdoor !== undefined) { const v = insp().v; if (v && (v.st === 'door' || v.st === 'lesson')) { closePanel(); v.st = 'door'; iqDrop('insp'); icardShow('insp', inspArriveHtml()); } return true; }
+  if (d.icclose !== undefined) { icardHide(); return true; }
+  if (d.olopen !== undefined) { olOpen(d.olopen || 'mail'); return true; }
+  if (d.olcls !== undefined) { const o = olCtx(), i = +d.olcls; if (o && isOpen(i)) { o.i = i; refreshPanel(); } return true; }
+  if (d.olprep !== undefined) { const o = olCtx(); if (o && !o.prep && isOpen(o.i) && spend(olPrepCost(o.i))) { o.prep = 1; toast('📚 Ученики подготовлены: +15% каждому'); save(); refreshPanel(); } return true; }
+  if (d.olstart !== undefined) { olStart(); return true; }
+  return false;
+}
+// ---- walkers on the map (emoji placeholders until Maria's art): the inspector during a check, the caretaker going to incidents
+const CARE_EMO = '🦬', CARE_ART = { walk: '', work: '' };   // «Завхоз будет Зубр.» (Ruslan); name and pictures by Maria
+const INW = { x: 0, y: 0, path: [], hold: 0, held: 0, on: false, out: false, speed: 1.3, flip: false };
+const CT = { x: 0, y: 0, path: [], job: -1, on: false, sp: 2, flip: false };
+function insWalk(on) {
+  if (on) { Object.assign(INW, { x: GATE_TILE.x, y: GATE_TILE.y, on: true, out: false, path: [], hold: 0, held: 0 }); return; }
+  if (INW.on) { INW.out = true; INW.hold = 0; INW.path = pathTo(INW, GATE_TILE.x, GATE_TILE.y); }
+}
+function walkStep(o, dt, sp) {
+  if (!o.path.length) return true;
+  const p = o.path[0], dx = p.x - o.x, dy = p.y - o.y, dist = Math.hypot(dx, dy), st = sp * WALK_K * dt;
+  if (Math.abs(dx - dy) > 0.01) o.flip = dx - dy > 0;
+  if (dist <= st) { o.x = p.x; o.y = p.y; o.path.shift(); } else { o.x += dx / dist * st; o.y += dy / dist * st; }
+  return !o.path.length;
+}
+function stepWalkers(dt) {   // live frames only (visual)
+  if (INW.on) {
+    if (INW.hold > 0) INW.hold -= dt;
+    else if (walkStep(INW, dt, INW.speed)) {
+      if (INW.out) INW.on = false;
+      else if (!(S.insp && S.insp.cur)) insWalk(false);
+      else if (!INW.held) { INW.held = 1; INW.hold = 2.5 + Math.random() * 2; }   // stops and looks around
+      else { INW.held = 0; const open = CLASSES.map((c, i) => i).filter((i) => isOpen(i) && slotOf(i) && slotOf(i).door); if (open.length) { const dd = slotOf(rnd(open)).door[0]; INW.path = pathTo(INW, dd[0] + 0.5, dd[1] + 0.5); } }
+    }
+  }
+  if (careOn() && SLOTS.DIR) {
+    const h = { x: SLOTS.DIR.x0 + 2.2, y: SLOTS.DIR.y0 + 3.7 };
+    if (!CT.on) Object.assign(CT, { on: true, x: h.x, y: h.y, path: [], job: -1 });
+    if (CT.job >= 0 && !(S.inc && S.inc[CT.job])) { CT.job = -1; CT.path = pathTo(CT, h.x, h.y); CT.sp = 2; }
+    if (CT.job < 0) {
+      const j = Object.keys(S.inc || {}).map(Number).find((i) => slotOf(i) && slotOf(i).door);
+      if (j !== undefined) {   // walk there fast enough to arrive at ~60 % of the fix time
+        const dd = slotOf(j).door[0]; CT.job = j; CT.path = pathTo(CT, dd[0] + 0.5, dd[1] + 0.5);
+        let L = 0, px = CT.x, py = CT.y; for (const q of CT.path) { L += Math.hypot(q.x - px, q.y - py); px = q.x; py = q.y; }
+        CT.sp = Math.max(1.5, Math.min(30, L / (Math.max(1, incFixT() - (S.inc[j].t || 0)) * 0.6) / WALK_K));
+      }
+    }
+    walkStep(CT, dt, CT.sp);
+  } else CT.on = false;
+}
+const artCache = {};
+function drawWalker(src, emo, x, y, size, flip) {
+  ctx.fillStyle = '#0003'; ctx.beginPath(); ctx.ellipse(x, y, size * 0.4, size * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+  const im = src ? (artCache[src] ||= Object.assign(new Image(), { src })) : null;
+  if (im && im.complete && im.naturalWidth) { const hh = size * 2.2, w = hh * im.naturalWidth / im.naturalHeight; ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); ctx.drawImage(im, -w / 2, -hh, w, hh); ctx.restore(); }
+  else { const cy = y - size * 0.6; ctx.globalAlpha = 1; ctx.fillStyle = '#fffaf0'; ctx.beginPath(); ctx.arc(x, cy, size * 0.62, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#7b5cd6'; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = '#000'; emoji(emo, x, cy, size); }   // placeholder: a round badge so the emoji reads among the students   // a system emoji (not in the bundled Twemoji set) is drawn by fillText: never with the shadow's colour
+}
+function drawWalkers() {
+  const T = performance.now();
+  if (CT.on) { const c = P(CT.x, CT.y), work = CT.job >= 0 && !CT.path.length; drawWalker(CARE_ART[work ? 'work' : 'walk'], CARE_EMO, c.x, c.y, 34, CT.flip); if (work) emoji('🔧', c.x + 20, c.y - 64 - 4 * Math.abs(Math.sin(T / 150)), 18); }
+  if (INW.on) { const c = P(INW.x, INW.y); drawWalker(INSP_ART.walk, INSP_EMO, c.x, c.y, 40, INW.flip); emoji('📋', c.x + 16, c.y - 30, 14); }
+}
+window.__s6 = {   // test hooks (6b-6d)
+  visit: (why = 'plan') => { const I = insp(); I.cur = null; I.v = null; iqDrop('insp'); inspCall(why); },
+  plan: (sec) => { insp().t = sec; }, kind: (k) => { inspForceKind = k; }, cur: () => insp().cur, I: () => insp(), norm: () => norm(),
+  complaint: (k = 'mood', i = -1) => addComplaint(k, i, 'тест'), mail: (k, i = -1) => { mailEv(k, i, 'Тест'); boss().mail.t = 0; },
+  iq: () => IQ.map((q) => `${q.key}:${q.pr}`), card: () => icardKey, gap: () => { iqLastBig = -1e9; }, push: (pr, key, txt) => iqWin(pr, key, () => `<div class="sh-head"><h2>${txt}</h2><button class="x" data-close>✕</button></div>`),
+  care: () => ({ on: CT.on, job: CT.job, x: CT.x, y: CT.y, path: CT.path.length }), inw: () => ({ on: INW.on, x: INW.x, y: INW.y }), bell: () => bellN(),
+  fix: (i) => fixIncident(i), toast: (t) => toast(t), ffw: (sec) => { const n0 = incAwayN, c0 = S.coins, g0 = S.stats.graduated; fastForward(sec); return { inc: incAwayN - n0, coins: Math.round(S.coins - c0), grads: S.stats.graduated - g0, open: Object.keys(S.inc || {}).length }; },
+  free: () => ({ panel: !!panel, menuOpen, tourStep, icardKey, quiet: quietNow(), q: (() => { try { return [MG.isOpen(), LORE.isOpen(), CHESTS.isOpen(), VALLEY.isOpen()]; } catch (e) { return String(e); } })(), hidden: document.hidden, bootOn, catchLeft, idle: Math.round(performance.now() - (window.__inputAt || 0)), gap: Math.round(performance.now() - iqLastBig) }),
+  away: () => incAwayLoss(), fixT: () => incFixT(), ol: () => (bossOn() ? boss().ol : null),
+};
 // how many students are in the school right now (her wish 2026-11-21)
 const inSchool = () => agents.filter((a) => a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && (a.goal.t === 'x' || a.goal.t === 'g')));
 // ======================= ranks and the album (her design 2026-11-22) =======================
@@ -2130,7 +2518,7 @@ function rankTry(a, i, p) {   // the rank exam right after a passed lesson
     f.seen = true;
     const gift = Math.max(300, Math.round((rateNow() || 1) * 60 * (1 + T)));
     S.coins += gift; S.stats.earned = (S.stats.earned || 0) + gift;
-    if (!ffwd) toast(`📖 Новая карточка в альбоме: ${formName(k)} · 🪙 +${fmt(gift)}`);
+    if (!ffwd) toastBig(`📖 Новая карточка в альбоме: ${formName(k)} · 🪙 +${fmt(gift)}`);   // 6d: medium tier
   }
   if (!document.hidden && !ffwd) hintOnce('rank', '🌟', 'Ученик получил звание!', 'После урока ученик может сдать экзамен на следующее звание. Сдал — сразу получает новый наряд и дальше платит за уроки больше. Не сдал — ничего страшного, попробует в следующем классе.<br><br>Звания по порядку: Ученик (Травология, Зельеварение) → Младший маг (Звездочётство, Чары) → Маг (Полёты) → Старший маг (Магия стихий) → Мастер одной из четырёх стихий (Экзаменационный зал).<br><br>Каждый вид зверька в каждом наряде — карточка в альбоме 🎓. Там их можно улучшать.');
 }
@@ -2437,10 +2825,11 @@ function peoplePanel() {
 function renderInsp() {
   const el = $('#insp'); if (!el || !S) return;
   const I = S.insp || {}, c = I.cur;
-  const html = c ? `<button class="ipill live" data-insp>🧐 Проверка ${mmss(c.left)} · ${INSP_KINDS[c.kind].now(c)}</button>`
+  const html = c && c.v2 ? inspBanner(c)
     : calm() ? `<button class="ipill" data-insp>😌 ⭐ ${schoolStars()}</button>`
     : `<button class="ipill" data-insp>⭐ ${schoolStars()}</button>`;   // the warning itself is the banner below (iwarn)   // the warning names what will be checked (her report 2026-11-21)
-  const warn = !c && !calm() && I.next ? `<button class="iwarn" data-insp>🧐 Через ${mmss(I.t)} придёт инспектор<br><b>Проверит: ${inspNextText(I.next)}</b></button>` : '';   // full text of what will be checked, 40 s ahead (her wish 2026-11-21)
+  const warn = olBanner();   // 6c: the invited open lesson's clock (the old 40-s inspector warning is gone: he comes unannounced)
+  document.body.classList.toggle('insp-glow', !!(c && c.v2));   // 6b: the screen frame glows during a check
   const R = WORLD === 2 && S.w2 && S.w2.throne, rc = R && R.cur, rumSt = 'style="background:#2e2340;color:#fff;border-color:#9a6cff;box-shadow:0 3px 0 #9a6cff55"';   // the throne's warning and defence (build 542)
   const rum = rc ? `<button class="iwarn" data-rumble ${rumSt}>🌑 Тени лезут в Зал стражей · ${mmss(rc.left)}<br><b>Отбито ${rc.got} из ${rc.need} — жми на тени!</b></button>`
     : R && rumbleOn() && !calm() && R.t <= RUMBLE_WARN ? `<button class="iwarn" data-rumble ${rumSt}>🌑 Гул из глубин! Через ${mmss(R.t)} полезут тени<br><b>Нажми, чтобы перейти к Залу стражей</b></button>` : '';
@@ -2491,6 +2880,7 @@ function setMenu(on) {
 function stepWorld(dt, live = false) {
   if (calmT > 0) calmT = Math.max(0, calmT - dt);
   stepIncidents(dt, live);
+  if (live && !ffwd) stepWalkers(dt);   // 6b/6c: inspector and caretaker on the map
   stepInspector(dt, live);
   stepBoss(dt, live);
   stepAdvisor(dt, live);
@@ -2799,7 +3189,7 @@ function advReport() {   // rework 6a: Tikhon's alarms only, real trouble [{hot,
   if (m < 50) out.push({ k: 'mood', hot: m < 35, emo: '😟', text: office ? `Ученики грустят: настроение ${Math.round(m)}%. Их радуют библиотека, магазин и столовая, а «Забота об учениках» помогает в очередях.` : `Ученики грустят: настроение ${Math.round(m)}%. Долгие очереди огорчают, а уроки и библиотека радуют — загляни в задание «Главное сейчас».`, go: office ? ['DIR', '[data-act="dir"][data-k="care"]'] : 'missions' });
   { const fi = (S.ema || 0) * 60, fo = (S.outEma || 0) * 60;   // build 275: money flowing out
     if (fi > 0 && fo >= fi * 0.3) { const ref = office && dirLvl('refund') < DIR_UP.refund.max;
-      out.push({ k: 'money', hot: fo >= fi * 0.45, emo: '📉', text: `${fo >= fi ? 'Школа в минусе!' : 'Казна худеет:'} возвраты ушедшим и штрафы забирают ${Math.round(fo / fi * 100)}% дохода. ${ref ? 'Улучши «Правила возврата» — ушедшим будем возвращать меньше.' : bedsLeft() ? 'Добавь кроватей, чтобы новички не уходили.' : 'Добавь парт в переполненные классы.'}`, go: ref ? ['DIR', '[data-act="dir"][data-k="refund"]'] : bedsLeft() ? ['DORM', '[data-act="beds"]'] : 'missions' }); } }
+      out.push({ k: 'money', hot: fo >= fi * 0.45, emo: '📉', text: `${fo >= fi ? 'Школа в минусе!' : 'Казна худеет:'} возвраты ушедшим забирают ${Math.round(fo / fi * 100)}% дохода. ${ref ? 'Улучши «Правила возврата» — ушедшим будем возвращать меньше.' : bedsLeft() ? 'Добавь кроватей, чтобы новички не уходили.' : 'Добавь парт в переполненные классы.'}`, go: ref ? ['DIR', '[data-act="dir"][data-k="refund"]'] : bedsLeft() ? ['DORM', '[data-act="beds"]'] : 'missions' }); } }
   advCacheAt = performance.now(); advCache = out;
   return out;
 }
@@ -5269,9 +5659,9 @@ const TOUR_W1 = [
   { at: () => [14.5, SLOTS.EXAM.y0 + 3], title: 'Финальный экзамен 📜', text: 'Кто прошёл все открытые классы, идёт в Экзаменационный зал в самом конце коридора и сдаёт финальный экзамен. Не сдал — готовится в библиотеке и пересдаёт. Нажми на зал, чтобы улучшить экзаменатора и обстановку.' },
   { at: () => [(SLOTS.GARDEN.x0 + SLOTS.GARDEN.x1) / 2, SLOTS.GARDEN.y0 + 3], title: 'Выпускники 🎓', text: 'Сдал финальный экзамен — выпускник! Он идёт в Сад выпускников и исчезает в волшебном огне ✨, а школе оставляет отзыв ⭐ — из отзывов складывается рейтинг школы 🏅. Число выпускников видно вверху экрана.' },
   { at: () => [(slotOf(2).x0 + slotOf(2).x1) / 2, (slotOf(2).y0 + slotOf(2).y1) / 2], title: 'Новые классы', text: 'На пустых местах можно построить новые классы — нажми на табличку с ценой. Чем больше классов, тем больше ученики платят за обучение.' },
-  { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Происшествия 💥', text: 'Иногда в классе что-то случается: взорвался котёл, растения опутали парты, учитель простыл. Ученики носятся по классу, урок стоит, над классом горит «Нажми!». Нажми на класс — и всё снова в порядке. Если не трогать, через 10 минут пройдёт само, но школа потеряет монеты.' },
+  { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Происшествия 💥', text: 'Иногда в классе что-то случается: взорвался котёл, растения опутали парты, учитель простыл. Ученики носятся по классу, урок стоит, над классом горит «Нажми!». Нажми на класс — и всё сразу в порядке, а родители скажут спасибо монетками. Если не трогать, через полминуты пройдёт само, а нанятый в кабинете директора завхоз 🦬 починит быстрее.' },
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Настроение 😊', text: 'Долгие очереди и ожидание в спальне огорчают учеников 😟, уроки и библиотека радуют 😄. Весёлые сдают экзамены лучше. Совсем грустный ученик 😭 может уйти домой. Добавляй парты и сокращай уроки, чтобы никто долго не ждал.' },
-  { at: null, title: 'Инспектор и звёзды ⭐', text: 'Раз в 12 минут приходит инспектор 🧐 и проверяет что-то одно: настроение, очереди, происшествия, экзамены или заработок. За 40 секунд слева вверху появится жёлтая карточка — там написано, что он будет проверять. Прошла проверку — получаешь звезду школы: она даёт +3% к плате за уроки, а звёзды нужны для новых классов.' },
+  { at: null, title: 'Инспектор и звёзды ⭐', text: 'Примерно раз в 10–15 минут игры приходит инспектор 🦅. Можно пройти его проверку (3 минуты, он проверит слабое место школы), показать открытый урок или попросить зайти позже. Любая медаль — 🥉, 🥈 или 🥇 — это звезда школы: она даёт +3% к плате за уроки, а звёзды нужны для новых классов. Штрафов нет. Если на школу придут 3 жалобы, он придёт без предупреждения.' },
   { at: null, title: 'Спокойный режим 😌', text: 'Не хочется проверок? В ⚙️ можно включить спокойный режим — инспектор не будет приходить. Когда захочешь заработать звёзды, просто выключи его.' },
   { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту (нажми — «Казна школы»), 🎓 выпускники. Под ними: 🏅 рейтинг, 🏆 топ школ, 🤝 альянсы, 🧪 мини-игра «Зельеварка», ⭐ звёзды школы и 👥 ученики (нажми — увидишь, где они). Справа внизу 📋 задания от летописца Тихона: кнопка «Выполнить» сама откроет нужное место. Слева внизу 🗺️ другие миры и 🎓 альбом учеников. Нажми на зверька — увидишь, что он делает. Повторить обучение можно в ⚙️. Удачи, директор!' },
 ];
@@ -5320,6 +5710,8 @@ const INTROS = [
 let introT = 20, tourList = TOUR, introKey = '';
 function stepIntros(dt) {   // called from the frame loop while the game is on screen
   if (!S || tourStep >= 0 || panel || quietNow() || document.hidden) return;
+  if (S.insp && S.insp.cur) return;   // 6b: no first-time intro over a running inspector check
+  if (iqNext() || performance.now() - (window.__inputAt || 0) < IQ_IDLE_MS) return;   // 6d: a queued window first; never right under a tap
   introT -= dt; if (introT > 0) return; introT = 3;
   S.hints ||= {};
   if (!S.tourDone) return;
@@ -5606,6 +5998,7 @@ function render() {
     if (onScreen(q.x, q.y, 160, 40)) ctx.drawImage(pl.cv, q.x - pl.w / 2, q.y - pl.h / 2, pl.w, pl.h);
     signRects.push({ id: 'POND', x0: q.x - pl.tw / 2, y0: q.y - pl.hh, x1: q.x + pl.tw / 2, y1: q.y + pl.hh }); }
   drawIncidents();
+  drawWalkers();   // 6b/6c
   if (WORLD === 2) drawShades();
   if (WORLD === 1 && POND) drawPondFish();
   if (WORLD <= 2) drawFullSign();   // 5b
@@ -5644,7 +6037,7 @@ gameLogPanel.still = true;
 // the messages, hints and events of the journal, newest first; new ones (since the last look) highlighted; unread count on the menu tile
 const NOTIF_SEEN = 'magicschool.notifSeen';
 const notifSeen = () => +(localStorage.getItem(NOTIF_SEEN) || 0);
-const notifOf = (e) => e[2] === 'toast' || e[2] === 'event' || e[2] === 'hint' || (e[2] === 'app' && /^возвращение/.test(e[3]));
+const notifOf = (e) => e[2] === 'imp' || e[2] === 'toast' || e[2] === 'event' || e[2] === 'hint' || (e[2] === 'app' && /^возвращение/.test(e[3]));
 const notifList = () => gentries().filter(notifOf);
 const notifUnread = () => { const t = notifSeen(); let n = 0; const L = gentries(); for (let k = L.length - 1; k >= 0 && L[k][0] > t; k--) if (notifOf(L[k])) n++; return n; };
 function notifText(e) {
@@ -5667,7 +6060,7 @@ function notifPanel() {
     ${rows || '<p class="muted">Пока оповещений нет.</p>'}`;
 }
 function openNotif() { notifPanel.prev = notifSeen(); localStorage.setItem(NOTIF_SEEN, String(Date.now())); openPanel(notifPanel); }
-addMenuItem({ attr: 'data-notif', icon: '🔔', label: 'Оповещения', sub: () => { const n = notifUnread(); return n ? `новых: ${n > 99 ? '99+' : n}` : ''; } });   // no red badge: toasts are frequent and would bury the real ones (gifts, chests) on the ✨ button
+// 6d (Ruslan 2026-11-26): the 🔔 button sits in the top bar left of ⚙️ (renderBell, badge = important news); the ✨ menu tile is gone
 function closePanel() { if (panel) glog('open', 'закрыто окно', WORLD); panel = null; $('#sheet-wrap').classList.add('hidden'); $('#tour').classList.remove('under-panel'); }   // the tour card hides while a panel is open
 // Update the DOM in place: unchanged nodes (icons!) stay, only changed text and attributes are written.
 // A fresh innerHTML re-created every <img> and on phones the icons blinked on each refresh.
@@ -5872,7 +6265,7 @@ function stepStages(live) {   // stage timers: tell once when the next stage can
   S.classes.forEach((c, i) => {
     const b = c.bs; if (!b || Date.now() < (b.end || 0)) return;
     if (b.n >= 3) { delete c.bs; STATS.ev('built', { c: CLASSES[i].id }); dirtyPanel = true; staticKey = '';
-      if (live && !ffwd && !panel) { bsShow = i; openPanel(bsDonePanel); } else toast(`✨ Построено: ${CLASSES[i].name}!`); return; }
+      if (live && !ffwd) iqWin('cel', 'bs' + i, bsDonePanel, { pre: () => { bsShow = i; return true; } }); else toast(`✨ Построено: ${CLASSES[i].name}!`); return; }   // 6d: through the queue
     if (b.told !== b.n + 10) { b.told = b.n + 10; dirtyPanel = true; staticKey = ''; if (live && !ffwd) toast(`${BS[b.n - 1].e} ${BS[b.n - 1].n} готов: ${CLASSES[i].name} — пора дальше!`); }
   });
 }
@@ -5990,7 +6383,7 @@ async function checkReplies() {
     const got = ((await r.json()).replies || []).filter((x) => x && x.text && x.t > since);
     if (!got.length) return;
     localStorage.setItem('magicschool.fbreplies', JSON.stringify(old.concat(got.map((x) => ({ ...x, seen: 0 }))).slice(-30)));
-    if (panel || tourStep >= 0) toast('💌 Автор игры ответил на твой отзыв: открой ⚙️ → «Ответы на отзывы»'); else openPanel(repliesPanel);
+    iqWin('news', 'replies', repliesPanel, { imp: '💌 Автор игры ответил на твой отзыв' });   // 6d: through the queue, counted on the 🔔
   } catch (e) { /* offline: next time */ } finally { replyBusy = false; }
 }
 function repliesPanel() {
@@ -6792,7 +7185,7 @@ function claimMission(key) {
   if (closed === 0 && S.ftue === 1) { S.ftue = 2; STATS.ev('ftue', { k: 'ch1' }); }
   if (closed >= 0 && WORLD === 1) { chronWrite(closed, Date.now()); if (closed === 4 && LORE.startRiddle()) setTimeout(() => toast('📜 В летописи открылась страница «Исчезнувший директор»'), 2600); }
   if (closed >= 0 && calm()) { insp().stars = (insp().stars || 0) + 1; setTimeout(() => toast('⭐ Глава дописана — у школы новая звезда'), 1800); }   // rework step 5: calm players earn stars by chapters
-  if (closed >= 0) { stonesAdd(CH_STONES, 'w' + WORLD + '_ch' + (closed + 1)); STATS.ev('chapter', { n: closed + 1 }); chapShow = closed; if (WORLD === 1 && closed === CHAPTERS.length - 1) chapW2New = w1Finish(); setTimeout(() => openPanel(chapterPanel), 400); }
+  if (closed >= 0) { stonesAdd(CH_STONES, 'w' + WORLD + '_ch' + (closed + 1)); STATS.ev('chapter', { n: closed + 1 }); chapShow = closed; glog('imp', `📜 Новая страница в летописи: глава ${closed + 1}`, WORLD); if (WORLD === 1 && closed === CHAPTERS.length - 1) chapW2New = w1Finish(); setTimeout(() => openPanel(chapterPanel), 400); }
 }
 
 // missions live behind a round button on the map (bottom right); a red badge shows how many can be claimed
@@ -7122,6 +7515,7 @@ function lvBar() {   // «🏫 Уровень 64» and the experience bar across
   el.innerHTML = emojiHtml(`🌟 <span>Уровень ${n}</span>`) + `<span style="flex:1;height:8px;border-radius:4px;background:#ffffff40;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:linear-gradient(90deg,#ffe08a,#ffc24d);border-radius:4px"></span></span><span style="font-size:11px;opacity:.9">${pct}%</span>`;
 }
 function updateHud() {
+  renderBell();   // 6d
   lvBar();
   $('#coins').textContent = fmt(S.coins);
   $('#stars').textContent = fmt(S.stats.graduated);
@@ -7131,7 +7525,11 @@ function updateHud() {
   renderMission(); renderInsp(); renderTkBtn();
   const sb = $('#spbtn'); if (sb) sb.classList.toggle('ready', FORM_KEYS.some((k) => formReady(k) && S.coins >= formCost(k)));   // glows when a card level can be bought (back on the screen, build 306)
 }
-function toast(t) { glog('toast', t, WORLD); const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#fx').appendChild(d); setTimeout(() => d.remove(), 1900); }
+function toast(t) {   // 6d: an identical toast on screen is not repeated, it counts «×N»
+  glog('toast', t, WORLD); const fx = $('#fx'), same = [...fx.querySelectorAll('.toast')].find((x) => x.dataset.t === t);
+  if (same) { const n = (+same.dataset.n || 1) + 1; same.dataset.n = n; same.textContent = `${t} ×${n}`; clearTimeout(same._tm); same._tm = setTimeout(() => same.remove(), 1900); return; }
+  const d = document.createElement('div'); d.className = 'toast'; d.dataset.t = t; d.textContent = t; fx.appendChild(d); d._tm = setTimeout(() => d.remove(), 1900);
+}
 
 // ======================= pinch zoom =======================
 // wide screens (tester Гоша, 2560x1440: «Адаптируй пожалуйста игру под разные разрешения экрана»): the map fills the whole window; the
@@ -7253,6 +7651,7 @@ document.addEventListener('click', (e) => {
   if (AV.click(d)) return;   // avatar buttons
   if (d.war !== undefined) { openWar(); return; }
   if (qClick(d)) return;
+  if (insClick(d)) return;   // 6b-6d: inspector card, open lesson
   if (d.tikhon !== undefined) { tkOpen(); renderTkBtn(); return; }
   if (d.missions !== undefined) { openPanel(missionsPanel); return; }
   if (d.insp !== undefined) { openPanel(inspPanel); return; }
@@ -7854,7 +8253,7 @@ function mgPrizeCheck() {
     const min = MG_PRIZE[place], now = Date.now(), stn = [15, 10, 5][place]; stonesAdd(stn, `mgtop_${g}_${MG.weekKey() - 1}_w${WORLD}`);   // + moonstones (her «делай всё»)
     S.boostEnd = Math.min(now + BOOST_MAX_MIN * 60000, Math.max(now, S.boostEnd || 0) + min * 60000); save(); updateHud();
     const medal = ['🥇', '🥈', '🥉'][place];
-    openPanel(() => `<div class="sh-head"><span class="remoji big">${medal}</span><div><h2>${place + 1}-е место: ${G.title}!</h2><div class="muted">Итоги прошлой недели</div></div><button class="x" data-close>✕</button></div>
+    glog('imp', `${medal} ${place + 1}-е место в турнире «${G.title}»`, WORLD); iqWin('cel', 'tprize_' + G.title, () => `<div class="sh-head"><span class="remoji big">${medal}</span><div><h2>${place + 1}-е место: ${G.title}!</h2><div class="muted">Итоги прошлой недели</div></div><button class="x" data-close>✕</button></div>
       <p>Твоя школа «<b>${escTxt(schoolName())}</b>» заняла <b>${place + 1}-е место</b> в турнире «${G.title}» с результатом <b>${prev.toLocaleString('ru-RU')}</b>!</p>
       <p>Приз: ✨ <b>Вдохновение на ${min} минут</b> — плата за уроки +10%, и ${ST_IMG()} <b>${stn} лунных камней</b>.${place === 0 ? ` А ещё всю эту неделю у названия твоей школы в топе горит${G.mark}.` : ''}</p>
       <button class="btn wide" data-close>Ура!</button>`);
@@ -7967,7 +8366,7 @@ async function cloudAuto() {
 function cloudHint() {   // once per device: show the code so the player can write it down
   if (!cloudCode() || localStorage.getItem('magicschool.cloudShown') || tourStep >= 0 || panel || !S || (S.stats.enrolled || 0) < 3) return;
   localStorage.setItem('magicschool.cloudShown', '1');
-  openPanel(() => `<div class="sh-head"><span class="remoji big">☁️</span><div><h2>Твоя школа сохраняется в облако</h2><div class="muted">Сама, ничего делать не нужно</div></div><button class="x" data-close>✕</button></div>
+  iqWin('hint', 'cloud', () => `<div class="sh-head"><span class="remoji big">☁️</span><div><h2>Твоя школа сохраняется в облако</h2><div class="muted">Сама, ничего делать не нужно</div></div><button class="x" data-close>✕</button></div>
     <p>Это код твоей школы. Запиши его или скопируй себе в заметки: по нему школа откроется на другом телефоне или если игра пропадёт.</p>
     <div class="cloud-code">${cloudCode()}</div>
     <button class="btn wide" data-cloud-copy>📋 Скопировать код</button>
@@ -8051,6 +8450,7 @@ function frame(now) {
   drawnAt = now; fpsStat.drawn++;
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
   if (catchLeft > 0) catchUpSlice(dt); else stepWorld(dt, true);   // the time the game was closed is lived through first, a slice per frame
+  stepIQ();   // 6d: the window queue
   stepIntros(dt);   // feature intros (2026-11-23)
   secT += dt; if (secT >= 1) { stepRates(secT); S.ema = S.ema * 0.97 + (earnedThisSec / secT) * 0.03; S.steadyEma = steadyRate() * 0.99 + Math.min(earnedThisSec / secT, 3 * steadyRate() + 1) * 0.01; S.paceEma = (S.paceEma ?? S.ema) * 0.997 + S.ema / boostK() * 0.003; earnedThisSec = 0; S.outEma = (S.outEma || 0) * 0.97 + (outThisSec / secT) * 0.03; outThisSec = 0; secT = 0; updateHud(); cloudHint(); topPush(); allyTick(); }
   panelT += dt; if (panel && !panel.still && (dirtyPanel || panelT > 1)) { panelT = 0; dirtyPanel = false; refreshPanel(); }
@@ -8231,7 +8631,7 @@ function welcomeBack(sec, gain) {   // build audit 2026-11-24: the real time awa
   if (sec < 60 || (gain < 1 && catchLeft0 < 1)) return;
   const hm = (m) => (m >= 60 ? Math.floor(m / 60) + ' ч ' : '') + (m % 60) + ' мин', mins = Math.round(sec / 60), capH = OFFLINE_CAP_SEC / 3600, over = sec > OFFLINE_CAP_SEC + 60;
   const lost = catchLeft0 >= 1 ? `<p class="center muted">😢 Ушли расстроенными: ${fmt(catchLeft0)}${catchOut >= 1 ? `, им вернули 🪙 ${fmt(catchOut)}` : ''}. Чтобы уходило меньше — больше мест в классах и спальне.</p>` : '';
-  openPanel(() => `<div class="sh-head"><h2>С возвращением!</h2><button class="x" data-close>✕</button></div>
+  iqWin('top', 'welcome', () => `<div class="sh-head"><h2>С возвращением!</h2><button class="x" data-close>✕</button></div>
     <p class="center">Тебя не было ${hm(mins)}. ${over ? `Без тебя школа работает до ${capH} ч — столько и засчитано.` : 'Школа жила своей жизнью.'}</p>
     <div class="center big-txt">🪙 ${gain >= 0 ? '+' : '−'}${fmt(Math.abs(gain))}</div>${lost}<button class="btn wide" data-close>Ура!</button>`);
 }
@@ -8440,5 +8840,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=586').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=587').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
