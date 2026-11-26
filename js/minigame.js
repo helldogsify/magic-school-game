@@ -389,12 +389,12 @@ export function open() {
   showChooser();
 }
 function showChooser() {   // the 🧪 pill: choose a mini-game (tries are shared)
-  const n = charges(), m = mg(), f = fl();
+  const n = charges(), m = mg(), f = fl(), ok = (g) => W2() || !A.allow || A.allow(g);   // 5c: world 1 games open with their annex
   root.innerHTML = A.emojiHtml(`<div class="mg-card">
     <h2>Мини-игры</h2>
     <p><b>Попытки с наградой: ${n > CH_MAX ? n : n + ' из ' + CH_MAX}</b>${n < CH_MAX ? `<br><span class="muted">следующая через ${mmss(nextIn())}</span>` : n > CH_MAX ? '<br><span class="muted">выигранные попытки сверх ' + CH_MAX + ' тоже твои</span>' : ''}<br><span class="muted">общие для всех мини-игр этого мира</span></p>
-    ${W2() ? `<button class="mg-pick" data-mgpick="gem"><span class="mg-pi">${sgImg('gem')}</span><span><b>Огранка самоцветов</b><br><span class="muted">режь камни, не трогай проклятые · рекорд недели ${num(m.wb || 0)}</span></span></button><button class="mg-pick" data-mgpick="tower"><span class="mg-pi">${sgImg('tower')}</span><span><b>Башня из руды</b><br><span class="muted">строй башню как можно выше · рекорд недели ${num(g3().wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button><button class="mg-pick" data-mgpick="fish"><span class="mg-pi">${sgImg('fish')}</span><span><b>Рыбалка</b><br><span class="muted">лови рыбу на лесном озере · рекорд недели ${num(g3().wb || 0)}</span></span></button>`}
-    ${W2() ? `<button class="mg-pick" data-mgpick="f"><span class="mg-pi">${CART_ICON}</span><span><b>Вагонетка в штольне</b><br><span class="muted">мчись по рельсам до первого завала · рекорд недели ${num(f.wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=2" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>`}
+    ${W2() ? `<button class="mg-pick" data-mgpick="gem"><span class="mg-pi">${sgImg('gem')}</span><span><b>Огранка самоцветов</b><br><span class="muted">режь камни, не трогай проклятые · рекорд недели ${num(m.wb || 0)}</span></span></button><button class="mg-pick" data-mgpick="tower"><span class="mg-pi">${sgImg('tower')}</span><span><b>Башня из руды</b><br><span class="muted">строй башню как можно выше · рекорд недели ${num(g3().wb || 0)}</span></span></button>` : `${ok('p') ? `<button class="mg-pick" data-mgpick="p"><span class="mg-pi">${FLASK}</span><span><b>Зельеварка</b><br><span class="muted">три в ряд · рекорд недели ${num(m.wb || 0)}</span></span></button>` : ''}${ok('fish') ? `<button class="mg-pick" data-mgpick="fish"><span class="mg-pi">${sgImg('fish')}</span><span><b>Рыбалка</b><br><span class="muted">лови рыбу на лесном озере · рекорд недели ${num(g3().wb || 0)}</span></span></button>` : ''}`}
+    ${!W2() && !ok('f') ? (ok('p') || ok('fish') ? '' : '<p class="muted">Мини-игры открываются в пристройках классов: их попросят учителя по летописи.</p>') : W2() ? `<button class="mg-pick" data-mgpick="f"><span class="mg-pi">${CART_ICON}</span><span><b>Вагонетка в штольне</b><br><span class="muted">мчись по рельсам до первого завала · рекорд недели ${num(f.wb || 0)}</span></span></button>` : `<button class="mg-pick" data-mgpick="f"><span class="mg-pi"><img src="assets/flight/ring.webp?v=2" alt=""></span><span><b>Полёт через кольца</b><br><span class="muted">лети до первой тучки · рекорд недели ${num(f.wb || 0)}</span></span></button>`}
     ${A.tester && A.tester() ? '<button class="btn wide ghost" data-mgtest>🧪 +20 попыток (тест, видно только тебе)</button>' : ''}
     <button class="btn wide ghost" data-mgback>В школу</button>
   </div>`);
@@ -819,7 +819,7 @@ function flEnd(res, silent) {
   if (FL.rewarded && (score <= 0 || early)) addCharges(1);   // quit or fell at once: the try comes back
   if (score > 0 && !early) f.n = (f.n || 0) + 1;   // only real flights count (daily task, alliance goal)
   A.save();
-  A.onFinish && A.onFinish(score, stars, 'flight');
+  A.onFinish && A.onFinish(score, stars, 'flight', { rewarded: !!FL.rewarded && !early });
   if (silent) return;
   snd('end');
   const n = charges();
@@ -926,7 +926,7 @@ function sgEnd(res, silent) {
   }
   if (SGR.rewarded && score <= 0) addCharges(1);   // quit at once: the try comes back
   if (score > 0) m.n = (m.n || 0) + 1;   // daily task, alliance goal, the battle
-  A.save(); A.onFinish && A.onFinish(score, stars, SGR.id);
+  A.save(); A.onFinish && A.onFinish(score, stars, SGR.id, { rewarded: !!SGR.rewarded });
   if (silent) return;
   snd('end');
   const n = charges();
@@ -961,7 +961,7 @@ function finish(silent) {
   if (R.rewarded && score <= 0) addCharges(1);   // quit at once: the try comes back
   if (score > 0) m.n = (m.n || 0) + 1;   // only real rounds count (daily task, alliance goal)
   A.save();
-  A.onFinish && A.onFinish(score, stars, 'potions');
+  A.onFinish && A.onFinish(score, stars, 'potions', { rewarded: !!R.rewarded });
   if (silent) return;
   snd('end');
   const n = charges();

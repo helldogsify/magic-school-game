@@ -1,23 +1,26 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=587';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=588';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=587';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=587';
-import { initMinigame } from './minigame.js?v=587';
-import { initChests } from './chests.js?v=587';
-import { initValley } from './valley.js?v=587';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=587';
-import { initLore } from './lore.js?v=587';
-import { initAvatar } from './avatar.js?v=587';
-import { initStats } from './stats.js?v=587';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+} from './data.js?v=588';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=588';
+import { initMinigame } from './minigame.js?v=588';
+import { initChests } from './chests.js?v=588';
+import { initValley } from './valley.js?v=588';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=588';
+import { initLore } from './lore.js?v=588';
+import { initAvatar } from './avatar.js?v=588';
+import { initStats } from './stats.js?v=588';
+import { initAnnex } from './annex.js?v=588';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
   onOpen: () => { if (S.inc && Object.keys(S.inc).length) { S.inc = {}; dirtyPanel = true; } },   // a running incident is fixed quietly: the class cannot be tapped from the mini-game
-  onFinish: (sc, stars, g) => { STATS.ev('mg', { g: g || '?', sc: Math.round(sc || 0), st: stars || 0 }); if (sc > 0) warAdd('mg', 5 + 5 * (stars || 0)); topPush(true); },   // ⚔️ battle points per round   // a new weekly best goes to the top at once
+  onFinish: (sc, stars, g, x) => { ANNEX.mgDone(g, sc, stars, x);   // 5c: rare things from rewarded rounds
+    STATS.ev('mg', { g: g || '?', sc: Math.round(sc || 0), st: stars || 0 }); if (sc > 0) warAdd('mg', 5 + 5 * (stars || 0)); topPush(true); },   // ⚔️ battle points per round   // a new weekly best goes to the top at once
+  allow: (g) => ANNEX.mgOk(g),   // 5c: the chooser lists only opened games
   world: () => WORLD,   // world 2 plays «Вагонетка» in place of the flight
   tester: () => { try { return AV.isMod(); } catch (e) { return false; } },   // Maria's phone: «+20 попыток» for tests
   flyers: () => FORM_KEYS.filter((k) => S.forms && S.forms[k] && S.forms[k].seen).map((k) => ({ k, src: formImg(k), name: formTitle(k), faceLeft: !!FACES_LEFT[k.split(':')[0]] })),   // who may fly in «Полёт через кольца»: every look opened in the album
@@ -39,11 +42,20 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
     cls: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return i < 0 ? { built: false, lvl: 0 } : { built: isOpen(i), lvl: S.classes[i].teacher || 1 }; },
     has: (id) => (id === 'dorm2' ? NEWDORM && dorm2Built() : id === 'cant' ? cantBuilt() : id === 'shop' ? shopOpen() : id === 'dir' ? dirBuilt() : id === 'tower' ? towerOpen() : true) }) });
 
+// rework 5c «Пристройки классов» (js/annex.js): the game's tools for the annex module
+const ANNEX = initAnnex({ MISSIONS, CLASSES, WORLD, glog: (k, t, w) => glog(k, t, w), S: () => S, P: (x, y) => P(x, y), get HW() { return HW; }, get HH() { return HH; }, ctx: () => ctx, emoji: (e, x, y, sz, c) => emoji(e, x, y, sz, c), text: (t, x, y, sz, col, c) => text(t, x, y, sz, col, c),
+  signPill: (l, bg, fs, h, b, ink) => signPill(l, bg, fs, h, b, ink), signLabel: (l) => signLabel(l), signRects: () => signRects, onScreen: (x, y, mx, my) => onScreen(x, y, mx, my), glow: (rgb) => glowSprite(rgb),
+  part: (th, n) => part(th, n), slots: () => SLOTS, slotOfCls: (id) => { const i = CLASSES.findIndex((c) => c.id === id); return i >= 0 ? slotOf(i) : null; }, pondW: () => (POND ? pondW() : null),
+  scroller: () => scroller, scale: () => scale, focusTile: (x, y, sm) => focusTile(x, y, sm), openPanel: (fn) => openPanel(fn), closePanel: () => closePanel(), refresh: () => { dirtyPanel = true; },
+  toast: (t) => toast(t), sfx: (k) => sfx(k), fmt: (n) => fmt(n), save: () => save(), bonus: (n) => bonus(n), paced: (pr, n) => paced(pr, n), emojiHtml: (h) => emojiHtml(h),
+  spend: (c) => { spendAct = 'annex'; return spend(c); }, quiet: () => quietNow(), idle: () => idleNow(), tour: () => tourStep >= 0, edit: () => !!EDIT,
+  stats: (n, x) => STATS.ev(n, x), storyCur: () => (S && S.story ? storyCur() : null), chapters: () => CHAPTERS, storyReward: (m) => storyReward(m), lore: (k) => LORE.event(k),
+  openMg: (g) => { MG.open(); const b = document.querySelector(`#mg [data-mgpick="${g}"]`); if (b) b.click(); } });
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 587;   // keep equal to the ?v= number in index.html
+const BUILD = 588;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -308,7 +320,7 @@ const firmK = () => 1;   // 6c: a refusal no longer raises the fee (refuse = 1�
 function cheerAll(d, icon) {   // every student in school gets mood d
   for (const a of agents) if (a.state !== 'fly' && a.state !== 'vanish' && !(a.goal && a.goal.t === 'x')) { a.mood = Math.max(0, Math.min(100, moodOf(a) + d)); if (icon && Math.random() < 0.35) popup(icon, a.x, a.y, d > 0 ? '#ff6fa3' : '#5b7fd6', 44); }
 }
-function quietNow() { try { return !!panel || menuOpen || MG.isOpen() || LORE.isOpen() || CHESTS.isOpen() || VALLEY.isOpen() || icardOn(); } catch (e) { return false; } }   // build 557: a mini-game or the chronicle is open: no events; tester_fb1: any panel, the ✨ menu, the chests or the valley too (a tester lost his feedback text to an incident)
+function quietNow() { try { return !!panel || menuOpen || ANNEX.running() || MG.isOpen() || LORE.isOpen() || CHESTS.isOpen() || VALLEY.isOpen() || icardOn(); } catch (e) { return false; } }   // build 557: a mini-game or the chronicle is open: no events; tester_fb1: any panel, the ✨ menu, the chests or the valley too (a tester lost his feedback text to an incident)
 // ======================= 6d: one queue for every window the game opens by itself (Ruslan 2026-11-26 «Я согласен») =======================
 // A window shows only when no other window is open, the player has not tapped for ~2 s, no tour, no mini-game (quietNow). Priority:
 // top (welcome back) > urgent (inspector at the door) > celebration > news > first-time hints. At most one window a minute (urgent and
@@ -884,7 +896,7 @@ function pondOv() { try { return (((RLAY.rooms.POND || {}).items) || {})['pond_s
 function pondW() { const r = SLOTS.REC, w = POND_GEO.water; return { cx: r.x1 + w[0], cy: r.y1 + w[1], rx: w[2], ry: w[2] }; }   // the painted water as a circle in tiles
 const pondD = (x, y, m = 0) => { if (!POND) return 9; const w = pondW(); return Math.pow((x - w.cx) / (w.rx + m), 2) + Math.pow((y - w.cy) / (w.ry + m), 2); };   // < 1 inside the pond grown by m tiles
 function pondRing(m = 0, n = 56) { const o = []; for (let k = 0; k < n; k++) { const an = k / n * Math.PI * 2, w = 1 + 0.05 * Math.sin(an * 3 + 2) + 0.03 * Math.sin(an * 5); o.push(P(POND.cx + Math.cos(an) * (POND.rx + m) * w, POND.cy + Math.sin(an) * (POND.ry + m) * w)); } return o; }
-function openFish() { MG.open(); const b = document.querySelector('#mg [data-mgpick="fish"]'); if (b) b.click(); }   // straight into «Рыбалка»
+function openFish() { if (ANNEX.fishGate()) return; MG.open(); const b = document.querySelector('#mg [data-mgpick="fish"]'); if (b) b.click(); }   // straight into «Рыбалка»
 const POND_IMG = new Image(), POND_TALL = new Image(); if (WORLD === 1) { POND_IMG.onload = () => { staticKey = ''; }; POND_IMG.src = 'assets/parts/outdoor/pond_ground.webp?v=1'; POND_TALL.src = 'assets/parts/outdoor/pond_tall.webp?v=1'; }   // the painted pond (one picture)
 const FISH_IMG = {}; if (WORLD === 1) for (const k of ['bobber', 'f_gold']) { const im = new Image(); im.src = `assets/fish/${k}.webp?v=1`; FISH_IMG[k] = im; }
 function drawPondFx() {   // on the water, before the sorted things: ripples, the bobber of a waiting try, the golden fish
@@ -1514,7 +1526,7 @@ function freeDesk(i) { for (let d = 0; d < S.classes[i].desks; d++) if (!deskOcc
 function seat(a, i, d) {
   const p = seatPos(i, d);
   deskOcc[i][d] = a.id; a.desk = d; a.c = i; a.state = 'walk'; a.goal = { t: 's', i, d };
-  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1) * (a.rest > 0 ? REST_K : 1); faceTeacher(a, i); });   // a rested student learns faster (dorm roles)   // the teacher is at the back wall: the whole class sits with its back to us   // face the teacher
+  walk(a, p.x, p.y, () => { a.state = 'study'; a.t = 0; a.dur = lessonTime(i) * (a.prepared ? 0.5 : 1) * (a.rest > 0 ? REST_K : 1) * ANNEX.lessonK(i);   /* 5c: greenhouse herbs */ faceTeacher(a, i); });   // a rested student learns faster (dorm roles)   // the teacher is at the back wall: the whole class sits with its back to us   // face the teacher
 }
 // ======================= world 2: ore -> goods -> caravans (her «Супер, делай» 2026-11-22) =======================
 // Every passed lesson in the mine (Штольня) brings ore to the store (capacity grows with the store upgrade); every passed
@@ -1744,8 +1756,8 @@ function finishLesson(a) {
   const dream = (a.dream && CLASSES[i].final ? DREAM_BONUS : 0) + (CLASSES[i].final && loreQ('world') ? 0.03 : 0);   // + Tikhon's exam «Мир»
   if (CLASSES[i].final) a.dream = false;   // dorm roles: slept before the Final (build audit 2026-11-24: this sat inside the comment above, the bonus never wore off)
   a.les = (a.les || 0) + 1; if (a.rest > 0) a.rest--;   // dorm roles: tiredness grows with every lesson, the rest wears off
-  const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + dream; a.prepared = false; a.fed = false; a.luck = 0;   // a meal in the canteen helps one exam
-  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i)), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
+  const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + dream + ANNEX.examB(i);   /* 5c: potion pantry jars */ a.prepared = false; a.fed = false; a.luck = 0;   // a meal in the canteen helps one exam
+  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a)))) { S.stats.passed++; passAt[i] = performance.now(); formXp(a, i); if (ANNEX.xpX(i)) formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i) * ANNEX.payK(i)), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); a.mood = Math.min(100, moodOf(a) + 8); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
   else { S.stats.failed++; (window.__failAt ||= {})[i] = performance.now(); mailFail(a, i); popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
@@ -1804,16 +1816,17 @@ function goCanteen(a, next) {
 const freeCantSeat = () => { for (let k = 0; k < 2 * cantTables(); k++) if (!cantSeats[k]) return k; return -1; };
 function cantServed(a) {   // the tray is ready: pay, take a seat (or wait at the counter while every seat is taken)
   const k = freeCantSeat(); if (k < 0) { a.t = a.dur; return; }
-  const fish = WORLD === 2 && S.w2 && S.w2.fish > 0; if (fish) S.w2.fish--; a.fish = fish;   // a glowing-fish dinner: double price, extra mood
-  earn(cantPrice() * (fish ? 2 : 1), a.x, a.y, '#e08a3d', 44); S.stats.cant = (S.stats.cant || 0) + 1;
-  a.dish = fish ? '🐟' : rnd(cantDishes()); a.cseat = k; cantSeats[k] = a;
+  const fish = WORLD === 2 && S.w2 && S.w2.fish > 0; if (fish) S.w2.fish--; a.fish = fish;
+  const ax = ANNEX.meal(); a.amood = ax.mood;   // 5c: an orange = «Апельсиновый мармелад», a pond fish = fish dinner (world 1, optional)   // a glowing-fish dinner: double price, extra mood
+  earn(cantPrice() * (fish ? 2 : 1) * ax.k, a.x, a.y, '#e08a3d', 44); S.stats.cant = (S.stats.cant || 0) + 1;
+  a.dish = fish ? '🐟' : ax.dish || rnd(cantDishes()); a.cseat = k; cantSeats[k] = a;
   a.back = false; a.inLine = false; const i = cantLine.indexOf(a); if (i >= 0) cantLine.splice(i, 1);
   const p = cantSeatPos(k); a.state = 'walk'; walk(a, p.x, p.y, () => { a.state = 'eat'; a.t = 0; a.dur = CANT_EAT; a.flip = p.flip; a.back = false; });
   cantLine.forEach(cantPlace);   // the line moves up
 }
 function finishEating(a) {
   if (a.cseat >= 0 && cantSeats[a.cseat] === a) cantSeats[a.cseat] = null; a.cseat = -1;
-  a.mood = Math.min(100, moodOf(a) + cantMood() + (a.fish ? 10 : 0)); a.fed = true; a.fish = false;
+  a.mood = Math.min(100, moodOf(a) + cantMood() + (a.fish ? 10 : 0) + (a.amood || 0)); a.fed = true; a.fish = false; a.amood = 0;
   popup(rnd(['😋', '🥰', '😊']), a.x - 0.3, a.y - 0.3, '#e08a3d', 60);
   route(a, a.goal.n);
 }
@@ -2508,7 +2521,7 @@ function rankTry(a, i, p) {   // the rank exam right after a passed lesson
   const T = RANK_AT(i);
   if (!T || !SPECIES.includes(a.sp) || (a.rk || 0) !== T - 1) return;
   S.classes[i].rkTry = (S.classes[i].rkTry || 0) + 1;
-  if (Math.random() >= rankChance(i)) return;
+  if (Math.random() >= rankChance(i) * ANNEX.rankK()) return;   // 5c: observatory star maps
   a.rk = T; if (T === 5) a.el = Math.floor(Math.random() * 4);
   S.classes[i].rkPass = (S.classes[i].rkPass || 0) + 1;
   S.stats.ranks ||= [0, 0, 0, 0, 0, 0]; S.stats.ranks[T]++;
@@ -2836,7 +2849,7 @@ function renderInsp() {
   const res = WORLD === 2 && S.w2 ? `<button class="ipill" data-w2res>⛏️ ${fmt(S.w2.ore)} · ⚒️ ${fmt(S.w2.items)}${S.w2.gems ? ` · 💎 ${fmt(S.w2.gems)}` : ''}</button>` : '';   // world 2: ore, items, gems
   // build 304 (her «Много кнопок на экране ... меню-раскладку»): top, alliance and people live in the ✨ menu; build 306 (her «Миры повторяются,
   // не нужно их в раскладке, зельеварка тоже, звезды тоже. Рейтинг верни ... вверху, а альбом ... внизу»): rating, mini-game, stars, worlds, album stay on screen
-  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button>` + MG.pill() + html + res + rum + warn;   // build 306 (her «Рейтинг верни на прежнее место вверху»)
+  const all = `<button class="ipill rate" data-rating>🏅 ${ratingTxt()}</button>` + (ANNEX.mgAny() ? MG.pill() : '') + html + res + rum + warn;   // build 306 (her «Рейтинг верни на прежнее место вверху»)
   if (el.dataset.h !== all) { el.dataset.h = all; morph(el, emojiHtml(all)); }
   { let sh = document.getElementById('stones-hud'); if (!sh) { sh = document.createElement('div'); sh.id = 'stones-hud'; el.parentElement.appendChild(sh); }   // moonstones alone at the top right, shimmering (tester №73po7zf1, 2026-11-24)
     const sp = `<button class="ipill stones" data-stones aria-label="Лунные камни">${ST_IMG(20)}<b>${stones()}</b></button>`; if (sh.dataset.h !== sp) { sh.dataset.h = sp; sh.innerHTML = sp; } }   // in-place update: icons are never re-created (they blinked)
@@ -3527,7 +3540,7 @@ function layoutOutdoor() {
   const inWorld = (x, y) => { const m = P(x, y); return m.x > -40 && m.x < WW + 40 && m.y > 40 && m.y < WH + 160; };   // trees may stand right at the map edge (crowns cut by it)
   const G0 = GATE_TILE, front = (x, y) => (Math.abs(x - G0.x - 0.5) < 10 && y > G0.y - 4) || (y > BUILDING.y1 && D(x, y) < 10);   // the view of the entrance and the south front stays open
   const behind = new Set(); for (const e of EDGES) if (e.hallWall) for (let k = 1; k <= 5; k++) for (let j = -2; j <= 2; j++) behind.add(e.side === 'y0' ? (e.x + j) + ',' + (e.y - k) : (e.x - k) + ',' + (e.y + j));   // the tall corridor walls hide what stands just behind them
-  const TD = WORLD === 2 && SLOTS.DIR, out = [], put = (n, x, y, minD, sc = 1) => { n = outName(n); if (!n) return false; if (POND && ((x > POND.x0 - 1.5 && x < POND.x1 + 0.5 && y > POND.y0 - 0.5 && y < POND.y1 + 1.5) || POND_PATH.some(([dx, dy]) => Math.abs(x - (POND.x0 + dx + 0.5)) < 1.6 && Math.abs(y - (POND.y1 + dy + 0.5)) < 1.6))) return false;   /* the pond's plot holds only its own things */ if (WORLD === 1 && ['DORM', 'DORM2'].some((k) => { const q = SLOTS[k]; return q && x > q.x0 - 2 && x < q.x1 + 2 && y > q.y0 - 2 && y < q.y1 + 2; })) return false;   /* keep clear of the dorm pavilions */ if (TD && x > TD.x0 - 1 && x < TD.x1 + 5 && y > TD.y0 - 1 && y < TD.y1 + 5) return false; if (WORLD === 2 && SLOTS.CANT && x > SLOTS.CANT.x0 - 1 && x < SLOTS.CANT.x1 + 5 && y > SLOTS.CANT.y0 - 4 && y < SLOTS.CANT.y1 + 5) return false; if (WORLD === 2 && SLOTS.EXPED && x > SLOTS.EXPED.x0 - 1 && x < SLOTS.EXPED.x1 + 5 && y > SLOTS.EXPED.y0 - 1 && y < SLOTS.EXPED.y1 + 5) return false; if (D(x, y) < minD || !inWorld(x, y) || behind.has(Math.floor(x) + ',' + Math.floor(y))) return false; if (minD >= 4 && front(x, y)) return false; if (LAKE && (lakeD(x, y, 1.6) < 1 || (minD >= 4 && x + y > LAKE.cx + LAKE.cy && lakeD(x, y, 7) < 1))) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
+  const TD = WORLD === 2 && SLOTS.DIR, out = [], put = (n, x, y, minD, sc = 1) => { n = outName(n); if (!n) return false; if (POND && ((x > POND.x0 - 1.5 && x < POND.x1 + 0.5 && y > POND.y0 - 0.5 && y < POND.y1 + 1.5) || POND_PATH.some(([dx, dy]) => Math.abs(x - (POND.x0 + dx + 0.5)) < 1.6 && Math.abs(y - (POND.y1 + dy + 0.5)) < 1.6))) return false;   /* the pond's plot holds only its own things */ if (ANNEX.blocks(x, y)) return false;   /* 5c: the annex plots stay free */ if (WORLD === 1 && ['DORM', 'DORM2'].some((k) => { const q = SLOTS[k]; return q && x > q.x0 - 2 && x < q.x1 + 2 && y > q.y0 - 2 && y < q.y1 + 2; })) return false;   /* keep clear of the dorm pavilions */ if (TD && x > TD.x0 - 1 && x < TD.x1 + 5 && y > TD.y0 - 1 && y < TD.y1 + 5) return false; if (WORLD === 2 && SLOTS.CANT && x > SLOTS.CANT.x0 - 1 && x < SLOTS.CANT.x1 + 5 && y > SLOTS.CANT.y0 - 4 && y < SLOTS.CANT.y1 + 5) return false; if (WORLD === 2 && SLOTS.EXPED && x > SLOTS.EXPED.x0 - 1 && x < SLOTS.EXPED.x1 + 5 && y > SLOTS.EXPED.y0 - 1 && y < SLOTS.EXPED.y1 + 5) return false; if (D(x, y) < minD || !inWorld(x, y) || behind.has(Math.floor(x) + ',' + Math.floor(y))) return false; if (minD >= 4 && front(x, y)) return false; if (LAKE && (lakeD(x, y, 1.6) < 1 || (minD >= 4 && x + y > LAKE.cx + LAKE.cy && lakeD(x, y, 7) < 1))) return false; out.push({ n, x, y, th: 'outdoor', s: sc, flip: hash2(Math.floor(x * 7), Math.floor(y * 7), 5) < 0.5 }); return true; };
   // scenes, each tied to a building (skipped when that building's slot is missing)
   const zones = [];
   const keep = [];   // every scene / entrance item: no tree may stand in front of (down-screen of) it
@@ -3823,7 +3836,7 @@ function drawStarfall() {   /* secret «Звездопад»: shooting stars ove
   if (document.hidden || !sfNight()) { sfWasNight = false; sfNext = Math.max(sfNext, now + 60000); if (!sfall) return; }
   else if (!sfWasNight) { sfWasNight = true; sfNext = Math.min(sfNext, now + (20 + Math.random() * 40) * 1000); }   /* night just began or the game came back: the first starfall soon */
   const vw = VIEW.x1 - VIEW.x0, vh = VIEW.y1 - VIEW.y0, k = 1 / scale;
-  if (!sfall && now >= sfNext && !window.__sfOff) { const dir = Math.random() < 0.5 ? 1 : -1; sfall = { t0: now, stars: Array.from({ length: 6 }, (_, j) => ({ d: j * 1100 + Math.random() * 500, dur: 1700 + Math.random() * 700, x: 0.1 + Math.random() * 0.8, y: 0.04 + Math.random() * 0.3, dir, len: 0.22 + Math.random() * 0.1 })) }; }
+  if (!sfall && now >= sfNext && !window.__sfOff && !ANNEX.sfOff()) { const dir = Math.random() < 0.5 ? 1 : -1; sfall = { t0: now, stars: Array.from({ length: 6 }, (_, j) => ({ d: j * 1100 + Math.random() * 500, dur: 1700 + Math.random() * 700, x: 0.1 + Math.random() * 0.8, y: 0.04 + Math.random() * 0.3, dir, len: 0.22 + Math.random() * 0.1 })) }; }
   if (sfall) {
     let alive = false;
     for (const st of sfall.stars) {
@@ -5663,7 +5676,7 @@ const TOUR_W1 = [
   { at: () => [(slotOf(0).x0 + slotOf(0).x1) / 2, (slotOf(0).y0 + slotOf(0).y1) / 2], title: 'Настроение 😊', text: 'Долгие очереди и ожидание в спальне огорчают учеников 😟, уроки и библиотека радуют 😄. Весёлые сдают экзамены лучше. Совсем грустный ученик 😭 может уйти домой. Добавляй парты и сокращай уроки, чтобы никто долго не ждал.' },
   { at: null, title: 'Инспектор и звёзды ⭐', text: 'Примерно раз в 10–15 минут игры приходит инспектор 🦅. Можно пройти его проверку (3 минуты, он проверит слабое место школы), показать открытый урок или попросить зайти позже. Любая медаль — 🥉, 🥈 или 🥇 — это звезда школы: она даёт +3% к плате за уроки, а звёзды нужны для новых классов. Штрафов нет. Если на школу придут 3 жалобы, он придёт без предупреждения.' },
   { at: null, title: 'Спокойный режим 😌', text: 'Не хочется проверок? В ⚙️ можно включить спокойный режим — инспектор не будет приходить. Когда захочешь заработать звёзды, просто выключи его.' },
-  { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту (нажми — «Казна школы»), 🎓 выпускники. Под ними: 🏅 рейтинг, 🏆 топ школ, 🤝 альянсы, 🧪 мини-игра «Зельеварка», ⭐ звёзды школы и 👥 ученики (нажми — увидишь, где они). Справа внизу 📋 задания от летописца Тихона: кнопка «Выполнить» сама откроет нужное место. Слева внизу 🗺️ другие миры и 🎓 альбом учеников. Нажми на зверька — увидишь, что он делает. Повторить обучение можно в ⚙️. Удачи, директор!' },
+  { at: null, title: 'Последнее 💡', text: 'Вверху: 🪙 монеты, 📈 доход в минуту (нажми — «Казна школы»), 🎓 выпускники. Под ними: 🏅 рейтинг, 🏆 топ школ, 🤝 альянсы, 🧪 мини-игры (они открываются в пристройках классов), ⭐ звёзды школы и 👥 ученики (нажми — увидишь, где они). Справа внизу 📋 задания от летописца Тихона: кнопка «Выполнить» сама откроет нужное место. Слева внизу 🗺️ другие миры и 🎓 альбом учеников. Нажми на зверька — увидишь, что он делает. Повторить обучение можно в ⚙️. Удачи, директор!' },
 ];
 const roomAt = (id, dy = 0) => () => { const s = SLOTS[id]; return s ? [(s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2 + dy] : null; };
 const clsAt = (id) => () => { const i = CLASSES.findIndex((c) => (id === 'final' ? c.final : c.id === id)); const s = i >= 0 && SLOTS[CLASS_SLOT[i]]; return s ? [(s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2] : null; };
@@ -5693,7 +5706,7 @@ const INTROS = [
   { key: 'f_dorm', when: () => WORLD === 1 && S.ftue && dorm.some(Boolean), steps: () => tourCards('Спальня') },
   { key: 'f_final', when: () => WORLD === 1 && S.ftue && S.stats.graduated >= 1, steps: () => tourCards('Финальный экзамен', 'Выпускники') },
   { key: 'court', when: () => WORLD === 1 && !!COURT && S.stats.graduated >= 3, steps: () => [TOUR_W1.find((t) => t.title.startsWith('Волшебный двор'))] },
-  { key: 'mg', when: () => S.stats.graduated >= 10, steps: () => [WORLD === 2 ? { at: null, title: 'Мини-игры ✨', text: 'Вверху есть кнопка 🧪 — мини-игры этого мира: «Огранка самоцветов», «Башня из руды» и «Вагонетка в штольне». За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждый час.' } : { at: null, title: 'Зельеварка 🧪', text: 'Вверху есть кнопка 🧪 — мини-игра «Зельеварка». Меняй местами ингредиенты, собирай три в ряд и вари зелья по рецепту. За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждые 20 минут.' }] },
+  { key: 'mg', when: () => S.stats.graduated >= 10 && ANNEX.mgOk('p'), steps: () => [WORLD === 2 ? { at: null, title: 'Мини-игры ✨', text: 'Вверху есть кнопка 🧪 — мини-игры этого мира: «Огранка самоцветов», «Башня из руды» и «Вагонетка в штольне». За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждый час.' } : { at: null, title: 'Зельеварка 🧪', text: 'Вверху есть кнопка 🧪 — мини-игра «Зельеварка». Меняй местами ингредиенты, собирай три в ряд и вари зелья по рецепту. За игру школа получает монеты, за 2–3 звезды ещё ✨ Вдохновение (плата за уроки +10%). Попытки копятся: +1 каждые 20 минут.' }] },
   { key: 'dir', when: () => WORLD === 1 && (dirBuilt() || isOpen(2)), steps: () => [
     { at: roomAt('DIR'), title: 'Кабинет директора 👑', text: dirBuilt() ? 'В кабинете директора ты выбираешь договор с учениками, запускаешь рекламные акции 📣, отвечаешь на письма родителей ✉️ и улучшаешь правила школы.' : `Здесь можно построить кабинет директора 👑 (🪙${fmt(DIR_COST)} и ⭐ ${DIR_STARS} звезды школы — их дают проверки инспектора). В нём выбирают договор с учениками, запускают рекламные акции и отвечают на письма родителей.` },
     { at: roomAt('DIR'), title: 'Летописец Тихон 🐢', text: 'В кабинете живёт летописец Тихон. Он иногда гуляет по школе — нажми на него, и он расскажет, что в школе не так и что улучшить. Задания 📋 тоже от него.' }] },
@@ -5808,6 +5821,7 @@ function render() {
   const slotVisible = (s) => { const L = P(s.x0, s.y1), R = P(s.x1, s.y0), B = P(s.x0, s.y0), F = P(s.x1, s.y1); return R.x > VIEW.x0 - 40 && L.x < VIEW.x1 + 40 && F.y > VIEW.y0 - 40 && B.y - TALL_H() < VIEW.y1 + 40; };
   for (const id of Object.keys(SLOTS)) { const s = SLOTS[id]; if (!slotVisible(s)) continue; list.push({ k1: (s.x0 + s.x1 + s.y0 + s.y1) / 2, k2: -1e9, draw: cachedRoom(id) ? () => drawThemedRoom(id) : () => drawSlot(ctx, id) }); }
   list.push({ k1: Math.floor(GATE_TILE.x) + 1 + GATE_TILE.y - 1, k2: 0, draw: () => drawGate(ctx) });
+  ANNEX.draw(add, list);   // 5c
   if (WORLD === 1 && POND) { const r = SLOTS.REC, b = POND_GEO.tallBase, k = r.x1 + b[0] + r.y1 + b[1]; list.push({ k1: -1e9, k2: 1, draw: drawPondFx }); list.push({ k1: k, k2: k, draw: drawPondTall }); }   // ripples + bobber on the painted water; the willow and hut sorted
   if (WORLD <= 2) { layoutCorridor(); for (const o of CORR) add(o.x, o.y, () => drawCorr(o)); }
   if (cbOn()) for (let i = 0; i < CLASSES.length; i++) if (cbN(i) && isOpen(i)) cbSpots(i).slice(0, cbN(i)).forEach((o) => add(o.x, o.y, () => drawCB(o)));   // 5b: corridor benches
@@ -5994,9 +6008,10 @@ function render() {
     if (onScreen(q.x, q.y, 160, 40)) ctx.drawImage(pl.cv, q.x - pl.w / 2, q.y - pl.h / 2, pl.w, pl.h);
     signRects.push({ id: 'FOUNT', x0: q.x - pl.tw / 2, y0: q.y - pl.hh, x1: q.x + pl.tw / 2, y1: q.y + pl.hh });
   }
-  if (WORLD === 1 && POND) { const n = MG.charges(), W0 = pondW(), q = up(P(W0.cx + W0.rx * 0.95, W0.cy + W0.ry * 0.6 + 0.8), 4), pl = signPill(signLabel(n > 0 ? `🎣 Рыбалка · ${n}` : '🎣 Рыбалка'), n > 0 ? '#fff1b8' : '#d6f0ff', 12, 22, '#ffffff', '#2e2340');   // build 555: the pond's sign
+  if (WORLD === 1 && POND) { const n = MG.charges(), W0 = pondW(), q = up(P(W0.cx + W0.rx * 0.95, W0.cy + W0.ry * 0.6 + 0.8), 4), pl = signPill(signLabel(ANNEX.pondSign(n)), n > 0 ? '#fff1b8' : '#d6f0ff', 12, 22, '#ffffff', '#2e2340');   // build 555: the pond's sign
     if (onScreen(q.x, q.y, 160, 40)) ctx.drawImage(pl.cv, q.x - pl.w / 2, q.y - pl.h / 2, pl.w, pl.h);
     signRects.push({ id: 'POND', x0: q.x - pl.tw / 2, y0: q.y - pl.hh, x1: q.x + pl.tw / 2, y1: q.y + pl.hh }); }
+  ANNEX.signs();   // 5c
   drawIncidents();
   drawWalkers();   // 6b/6c
   if (WORLD === 2) drawShades();
@@ -6106,7 +6121,7 @@ function classPanel(i) {
     let h = `<div class="sh-head"><span class="remoji big">${C.emoji}</span><div><h2>${C.name}</h2><div class="muted">${C.final ? 'Последний шаг: сдал — стал выпускником 🎓, не сдал — в библиотеку' : `Урок ${i + 1} из ${CLASSES.length - 1}`}</div></div><button class="x" data-close>✕</button></div>
       <div class="stats3"><div><span>🪙</span><b>${fmt(tuition(i))}</b><i>плата</i></div><div><span>🎯</span><b>${pct(success(i))}</b><i>сдают экзамен</i></div><div><span>⏱️</span><b>${sec(lessonTime(i))}</b><i>урок</i></div></div>
       ${overflow(i) > 0 ? `<p class="muted">🎯 Шанс уже максимальный (${Math.round(BAL.maxChance * 100)}%). Всё, что сверху (+${Math.round(overflow(i) * 100)}%), превращается в плату: <b>+${Math.round(overflow(i) * 200)}%</b>.</p>` : ''}
-      <p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${cbN(i) ? ` · на скамейках в коридоре: <b>${cbUsed(i)}/${cbN(i) * CB_SEATS}</b>` : ''}${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>${rankSection(i)}${helpersHtml(i)}`;
+      ${ANNEX.classCard(i)}<p class="muted">Очередь у двери: <b>${waitList[i].length}/${MAX_WAIT}</b>${cbN(i) ? ` · на скамейках в коридоре: <b>${cbUsed(i)}/${cbN(i) * CB_SEATS}</b>` : ''}${sleepersFor(i) ? ` · в спальне ждут место: <b>${sleepersFor(i)}</b> 💤 — добавь парты или сократи урок, чтобы они быстрее вернулись` : ''}</p>${rankSection(i)}${helpersHtml(i)}`;
     h += `<div class="card up"><span class="remoji">🧙</span><div class="grow"><b>Учитель: ${C.teacher}</b><div class="muted">ур. ${st.teacher}/${MAX_TEACHER_LEVEL} · ${(() => { const mx = st.teacher >= MAX_TEACHER_LEVEL, b = (d) => { st.teacher += d; }; return `${nnC('плата', tuition(i), peek(b, () => tuition(i)), mx)} · ${nn('сдают', pct(success(i)), pct(peek(b, () => success(i))), mx)}`; })()} (+5% платы и +1,5% к экзамену за уровень)</div></div>
       ${st.teacher >= MAX_TEACHER_LEVEL ? '<span class="done">макс.</span>' : costBtn('↑', teacherCost(i), 'teacher', `data-i="${i}"`)}</div>`;
     h += `<div class="card up"><span class="remoji">🪑</span><div class="grow"><b>Парты: ${st.desks}/${maxDesksOf(i)}</b><div class="muted">больше учеников за раз</div></div>
@@ -6182,7 +6197,7 @@ function cantPanel() {
       return row('cook', '🐲', 'Повар', `${nn('раздача', sec(cantServe()), sec(peek(b('cook'), cantServe)), mx('cook'))} · ${nnC('обед', cantPrice(), peek(b('cook'), cantPrice), mx('cook'))} (быстрее на 12% и обед +3% за уровень)`)
         + row('tables', '🪑', 'Столы', `${nn('столов', cantTables(), peek(b('tables'), cantTables), mx('tables'))} · ${nn('заходят', Math.round(cantChance() * 100) + '%', Math.round(peek(b('tables'), cantChance) * 100) + '%', mx('tables'))}`)
         + row('menu', '📜', 'Меню', `${nnC('обед', cantPrice(), peek(b('menu'), cantPrice), mx('menu'))} · ${nn('настроение', '+' + cantMood() + '%', '+' + peek(b('menu'), cantMood) + '%', mx('menu'))}. Сейчас: ${cantDishes().join(' ')}`); })()}
-    <p class="muted">Обед поднимает настроение на ${cantMood()}%. Сытый ученик сдаёт следующий экзамен на ${Math.round(FED_BONUS * 100)}% легче.</p>${WORLD === 2 ? `<div class="card up"><span class="remoji">🐟</span><div class="grow"><b>Светящаяся рыба: ${(S.w2 && S.w2.fish) || 0}/${FISH_MAX}</b><div class="muted">её ловят на уроках в Озёрном зале. Ужин из рыбы стоит вдвое дороже и поднимает настроение ещё на 10%</div></div></div>` : ''}`;
+    <p class="muted">Обед поднимает настроение на ${cantMood()}%. Сытый ученик сдаёт следующий экзамен на ${Math.round(FED_BONUS * 100)}% легче.</p>${ANNEX.cantCard()}${WORLD === 2 ? `<div class="card up"><span class="remoji">🐟</span><div class="grow"><b>Светящаяся рыба: ${(S.w2 && S.w2.fish) || 0}/${FISH_MAX}</b><div class="muted">её ловят на уроках в Озёрном зале. Ужин из рыбы стоит вдвое дороже и поднимает настроение ещё на 10%</div></div></div>` : ''}`;
 }
 function shopPanel() {
   const u = shopUp();
@@ -6469,7 +6484,7 @@ const CNTS = {
   camps: { g: 'dir', on: () => bossOn(), cost: () => Math.min(...Object.keys(CAMPS).map((k) => campCost(k))), back: 1, now: () => S.stats.camps || 0, n: () => 1, text: () => 'Проведи рекламную акцию в кабинете директора 📣', go: () => ['DIR', '[data-act="camp"]'] },
   mails: { g: 'dir', on: () => bossOn() && S.stats.graduated >= 20 && !calm(), now: () => S.stats.mails || 0, n: () => 1, text: () => 'Ответь на письмо родителей ✉️', go: () => ['DIR', '[data-mailopen]'] },   // build 313 moved the answers into their own window
   games: { g: 'mg', on: () => WORLD === 2, now: () => mgRounds(), n: () => rint(2, 4), text: (n) => `Сыграй ещё ${n} ${nOf(n, 'раз', 'раза', 'раз')} в мини-игры ✨`, go: () => ['@mg', null] },   // world 2: Огранка, Башня, Вагонетка
-  pot: { g: 'mg', on: () => WORLD === 1, now: () => (S.mg && S.mg.pot) || 0, n: () => rint(2, 4), text: (n) => `Свари ещё ${n} ${nOf(n, 'зелье', 'зелья', 'зелий')} в Зельеварке 🧪`, go: () => ['@mg', null] },
+  pot: { g: 'mg', on: () => WORLD === 1 && ANNEX.mgOk('p'), now: () => (S.mg && S.mg.pot) || 0, n: () => rint(2, 4), text: (n) => `Свари ещё ${n} ${nOf(n, 'зелье', 'зелья', 'зелий')} в Зельеварке 🧪`, go: () => ['@mg', null] },
   gifts: { g: 'gift', on: () => allyMates() > 0, keep: () => allyMates() !== 0, now: () => S.stats.gifts || 0, n: () => 1, text: () => 'Отправь подарок другу из альянса 🎁', go: () => ['@ally', null] },
   forms: { g: 'rank', on: () => FORM_KEYS.some(formReady), now: formSum, n: () => 1, text: () => 'Улучши карточку ученика в альбоме 🎓', go: () => ['@album', null],
     cost: () => Math.min(...FORM_KEYS.filter(formReady).map(formCost)) },
@@ -6498,12 +6513,12 @@ function masterHint() {
 // Each chapter = a few steps and one big build at the end (the last id). World 1 only for now; world 2 keeps the flat chain.
 const CH_W1 = [
   { t: 'Первые ученики', e: '🌱', ids: ['pots3', 'herbT3', 'herbD3', 'rec3', 'potions'] },
-  { t: 'Звёзды над школой', e: '🔭', ids: ['g10', 'mg3', 'item10', 'potD4', 'bench2', 'stars'] },
-  { t: 'Своё имя', e: '👑', ids: ['name', 'g100', 'star2', 'dir'] },
-  { t: 'Лавка и столовая', e: '🍽️', ids: ['camp', 'shop', 'cant'] },
-  { t: 'Чары', e: '✨', ids: ['mail', 'fount3', 'charms'] },
-  { t: 'Крылья', e: '🪽', ids: ['ally', 'flight'] },
-  { t: 'Стихии', e: '🔥', ids: ['elements'] },
+  { t: 'Звёзды над школой', e: '🔭', ids: ['g10', 'pantry', 'item10', 'potD4', 'bench2', 'stars'] },
+  { t: 'Своё имя', e: '👑', ids: ['name', 'greenh', 'g100', 'star2', 'dir'] },
+  { t: 'Лавка и столовая', e: '🍽️', ids: ['camp', 'obs', 'shop', 'cant'] },
+  { t: 'Чары', e: '✨', ids: ['orchard', 'mail', 'fount3', 'charms'] },
+  { t: 'Крылья', e: '🪽', ids: ['ally', 'mirror', 'pond', 'flight'] },
+  { t: 'Стихии', e: '🔥', ids: ['kite', 'elements'] },
   { t: 'Башня мастеров', e: '🏰', ids: ['master', 'tower'] },   // mgStar3 is a bonus step after the chronicle (M8: a skill wall on the main path)
 ];
 const CHAPTERS = WORLD === 1 ? CH_W1 : [];
@@ -6530,7 +6545,7 @@ function w1Finish() {   // the world-1 chronicle is written: world 2 opens (true
 }
 let chapBack = false, chapShow = -1;
 function chapBackPay() {   // once per start: chapters closed before this build pay their stones (same keys, never twice)
-  if (chapBack || !S) return; fameUpd();
+  if (chapBack || !S) return; ANNEX.prep();   // 5c: late annex requests are marked before any chapter is counted fameUpd();
   if (!CHAPTERS.length) { chapBack = true; return; }
   if (!S.story) return; chapBack = true; let sum = 0;
   if (WORLD === 1) CHAPTERS.forEach((c, i) => { if (chapDone(i)) chronWrite(i, 0); });   // pages of chapters closed before build 583, without a date
@@ -6949,7 +6964,7 @@ function q6Pick3(skip, acts, noMg) {   // q3 «Для души»: the next kind 
   const mgQ = () => ({ key: 'q3', kind: 'mg', b: mgRounds(), t: 1, text: 'Сыграй в мини-игру 🧪', lk: 'mg', go: ['@mg', null], reward: Math.max(50, nice(qPerMin() * 3 * TIME_SHARE)), at: Date.now() });
   for (let j = 0; j < Q3_ROT.length; j++) {
     const kind = Q3_ROT[((q.r3 || 0) + j) % Q3_ROT.length];
-    if (kind === 'mg' && noMg) continue;
+    if (kind === 'mg' && (noMg || !ANNEX.mgAny())) continue;
     if (kind === 'mg') return mgQ();
     const o = kind === 'rank' ? low((x) => x.act === 'exlvl') : kind === 'form' ? low((x) => x.act === 'formlvl') : kind === 'court' ? low((x) => ['cbench', 'cfount', 'ccoin'].includes(x.act)) : kind === 'corr' ? low((x) => x.act === 'corrb') : low((x) => x.act === 'shopup' || x.act === 'cantup');
     if (!o) continue;
@@ -7156,6 +7171,7 @@ function goTarget(go) {   // open a room and light up the button that helps (mis
   const [id, sel] = go, s = SLOTS[id];
   qLed = { go, t: Date.now() };   // 6a: a purchase right after a pointer is following, not Tikhon's «own wise choice»
   closePanel();
+  if (ANNEX.go(id)) return;   // 5c: an annex request / panel
   if (id === '@mg') { MG.open(); return; }
   if (id === '@top') openTop(); else if (id === '@ally') openAlly(); else if (id === '@insp') openPanel(inspPanel); else if (id === '@album') { const sp = /data-k="([a-z]+):/.exec(sel || ''); if (sp && SPECIES.includes(sp[1])) albumSp = sp[1]; openPanel(speciesPanel); }   // 6a: a card quest opens its creature's page
   else if (id === 'FOUNT') { if (!COURT) return; openPanel(fountainPanel); const c = courtC(); setTimeout(() => focusTile(c.x, c.y), 60); }
@@ -7267,7 +7283,7 @@ const stGot = (key) => !!((stMeta().stones || {}).got || {})[key];
 const qPerMin = () => Math.max(1, (steadyRate() || S.ema || 0) * 60);
 // ---- 📅 daily
 const DQ = [
-  { id: 'mg', on: () => true, n: () => 1, text: () => 'Сыграй в мини-игру 🧪', now: mgRounds, go: () => ['@mg', null] },
+  { id: 'mg', on: () => ANNEX.mgAny(), n: () => 1, text: () => 'Сыграй в мини-игру 🧪', now: mgRounds, go: () => ['@mg', null] },
   { id: 'grad', on: () => true, n: () => lvN(20, 10), text: (n) => `Выпусти ${n} учеников 🎓`, now: () => S.stats.graduated, go: () => missionGo({ type: 'grad' }) },
   { id: 'chest', on: () => true, n: () => 1, text: () => 'Открой сундучок дня 🎁', done: () => { const c = S.chest; return !!c && c.day === qDay() && (c.k > 0 || c.done || c.dead); }, go: () => ['@chest', null] },
   { id: 'moon', on: () => WORLD === 1, n: () => 1, text: () => 'Собери плоды Лунного древа 🌙', now: () => S.stats.moon || 0, go: () => ['@moon', null] },
@@ -7587,6 +7603,7 @@ scroller.addEventListener('click', (e) => {
   const r = scroller.getBoundingClientRect();
   const wx = (e.clientX - r.left + scroller.scrollLeft) / scale, wy = (e.clientY - r.top + scroller.scrollTop) / scale;
   // inverse projection; try the floor point and points slightly lower (taps on walls / tall sprites)
+  if (ANNEX.tap(wx, wy)) return;   // 5c: annex signs, bodies, orchard trees and holes
   const mr = mailRect; if (mr && performance.now() - mr.t < 600 && wx >= mr.x0 && wx <= mr.x1 && wy >= mr.y0 && wy <= mr.y1) { openPanel(mailPanel); return; }   // the envelope over the office opens the letter (build 311)
   { const h = sfHits.find((q) => Math.hypot(wx - q.x, wy - q.y) < q.r); if (h) { h.st.caught = 1; sfBursts.push({ x: h.x, y: h.y, t: performance.now(), r: Math.random() }); S.stardust = (S.stardust || 0) + 1; popup('+1 ✨', h.x, h.y, '#f4d35e', 26); save(); LORE.event('star'); return; } }   /* secret «Звездопад»: a caught star */
   if (pukh && !pukh.caught && pukhHit && Math.hypot(wx - pukhHit.x, wy - pukhHit.y) < pukhHit.r) { pukh.caught = performance.now(); pukh.cx = pukhHit.x; pukh.cy = pukhHit.y; LORE.event('pukh'); return; }   // secret «Совёнок Пух»
@@ -8840,5 +8857,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=587').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=588').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
