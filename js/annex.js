@@ -713,7 +713,7 @@ function elClick(e) {
   if (e.target.closest('[data-el-bookx]')) { RUN.bookOn = false; return; }
   if (e.target.closest('.anx-x')) { finishEv(true); return; }
   if (RUN.bookOn) return;
-  if (e.target.closest('[data-el-book]')) { RUN.bookOn = true; ELM.w.querySelector('.el-bookov').innerHTML = A.emojiHtml(`<div class="el-bkhd"><b>📖 Книга стихий</b><button class="el-bkx" data-el-bookx>Закрыть</button></div>${bookBody()}`); return; }
+  if (e.target.closest('[data-el-book]')) { RUN.bookOn = true; ELM.w.querySelector('.el-bookov').innerHTML = A.emojiHtml(`<div class="el-bkhd"><b>📖 Книга стихий</b><button class="el-bkx" data-el-bookx>Закрыть</button></div>${bookBody()}<button class="el-bkx el-bkx2" data-el-bookx>Закрыть книгу</button>`); return; }   /* her «Невозможно закрыть»: the top button sat under the iPhone status bar; a second one at the bottom */
   if (e.target.closest('[data-el-skip]')) { skipTask(); return; }
   const rb = e.target.closest('[data-el-res]'); if (rb) { resolve(rb.dataset.elRes === 'keep'); return; }
   const s = e.target.closest('[data-el-slot]'); if (s && !RUN.res.length && !RUN.mixAt) { const k = +s.dataset.elSlot; if (RUN.bench[k]) { RUN.bench[k] = null; A.sfx('tick'); } }
@@ -1043,9 +1043,9 @@ function css() { const s = document.createElement('style'); s.id = 'anx-css'; s.
 .el-ghost{position:fixed;z-index:40;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:16px;background:#fffdf5;color:#2e2340;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 8px 22px #0007;pointer-events:none;font-size:36px;transform:rotate(-4deg)}
 .el-ghost small{font:800 12px ui-rounded,"Nunito",sans-serif}
 .el-foot{display:flex;gap:8px;margin-top:auto}.el-fb{flex:1;border:0;border-radius:12px;background:#ffffff22;color:#fff;font:800 14px ui-rounded,"Nunito",sans-serif;padding:10px 6px}.el-fb:disabled{opacity:.35}
-.el-bookov{display:none;position:absolute;inset:8px;z-index:3;background:#fffdf5;color:#2e2340;border-radius:18px;padding:10px 12px;overflow-y:auto;touch-action:pan-y}.el-bookov.on{display:block}
+.el-bookov{display:none;position:absolute;inset:calc(env(safe-area-inset-top, 0px) + 8px) 8px calc(env(safe-area-inset-bottom, 0px) + 8px) 8px;z-index:3;background:#fffdf5;color:#2e2340;border-radius:18px;padding:10px 12px;overflow-y:auto;touch-action:pan-y}.el-bookov.on{display:block}
 .el-bkhd{display:flex;align-items:center;justify-content:space-between;font:800 18px ui-rounded,"Nunito",sans-serif;position:sticky;top:-10px;background:#fffdf5;padding:4px 0}.el-bkx{border:0;border-radius:10px;background:#2e2340;color:#fff;font:800 14px sans-serif;padding:6px 12px}
-.el-bookov h3{margin:10px 0 4px;font:800 15px ui-rounded,"Nunito",sans-serif}
+.el-bkx2{display:block;width:100%;margin:12px 0 4px;padding:10px}.el-bookov h3{margin:10px 0 4px;font:800 15px ui-rounded,"Nunito",sans-serif}
 .el-book{display:flex;flex-direction:column;gap:3px}
 .el-rec{font:600 14px ui-rounded,"Nunito",sans-serif;padding:4px 7px;border-radius:8px;background:#f4efff;color:#2e2340}
 .el-rec.off{background:#f2f2f2;color:#888}

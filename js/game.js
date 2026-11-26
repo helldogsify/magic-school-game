@@ -1,24 +1,24 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=611';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=612';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=611';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=611';
-import { initMinigame } from './minigame.js?v=611';
-import { initChests } from './chests.js?v=611';
-import { initValley } from './valley.js?v=611';
-import { initValley2 } from './valley2.js?v=611';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=611';
-import { initLore } from './lore.js?v=611';
-import { initAvatar } from './avatar.js?v=611';
-import { initStats } from './stats.js?v=611';
-import { initStudents } from './students.js?v=611';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initHeroes, HERO_BAL } from './heroes.js?v=611';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
-import { initAnnex } from './annex.js?v=611';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
-import { ANNEX_BAL } from './annex.js?v=611';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
-import { initToday } from './today.js?v=611';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
+} from './data.js?v=612';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=612';
+import { initMinigame } from './minigame.js?v=612';
+import { initChests } from './chests.js?v=612';
+import { initValley } from './valley.js?v=612';
+import { initValley2 } from './valley2.js?v=612';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=612';
+import { initLore } from './lore.js?v=612';
+import { initAvatar } from './avatar.js?v=612';
+import { initStats } from './stats.js?v=612';
+import { initStudents } from './students.js?v=612';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes, HERO_BAL } from './heroes.js?v=612';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=612';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=612';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=612';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -125,7 +125,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 611;   // keep equal to the ?v= number in index.html
+const BUILD = 612;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -9090,5 +9090,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=611').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=612').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
