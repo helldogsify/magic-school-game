@@ -345,7 +345,8 @@ function evTick() {
   }
 }
 function startEv(id) {
-  const e = st(id).ev; if (!e || RUN || A.quiet()) return false;
+  const e = st(id).ev; if (!e || RUN) return false;
+  A.closePanel(); if (A.quiet()) return false;   // the «Играть» button lives in the annex panel: close it first
   const paid = e.k < ANNEX_BAL.ev.perDay;   // any time; the first perDay plays of a day give rewards
   e.rdy = 0; e.w = 0; if (paid) e.k++; e.next = rand(ANNEX_BAL.ev.gapMin, ANNEX_BAL.ev.gapMax);
   const g = geo(id); A.closePanel(); A.focusTile(g.x, g.y, false);
@@ -981,7 +982,7 @@ function onClick(e) {
   const b = e.target.closest && e.target.closest('[data-anx]'); if (!b || !A) return; e.stopPropagation(); e.preventDefault();
   const k = b.dataset.anx, id = b.dataset.id;
   if (k === 'build') startBuild(id); else if (k === 'lvl') levelUp(id); else if (k === 'plant') plant(+id); else if (k === 'harvest') harvest();
-  else if (k === 'play') { (A.S().hints ||= {})['anx_' + GAME_OF[id]] = 1; openMg(id); } else if (k === 'start') startEv(id);
+  else if (k === 'play') { (A.S().hints ||= {})['anx_' + GAME_OF[id]] = 1; openMg(id); } else if (k === 'start') { A.closePanel(); setTimeout(() => { if (!startEv(id)) A.toast('Сейчас нельзя начать — закрой окна и попробуй ещё раз'); }, 60); }   // start after this click is fully handled
   else if (k === 'book') PANEL_MODE = 'book'; else if (k === 'back') PANEL_MODE = '';
   A.refresh();
 }
