@@ -240,6 +240,13 @@ export function event(kind) {   // called by game.js; true = handled (the game d
     if (r.coins >= 10 && canFind(3)) findLine(3); else if (r.coins >= 10) { (r.w ||= [])[3] = 1; A.save(); waitCard('🍀 Все десять счастливых желаний пойманы.'); } else say(`🍀 Поймано счастливое желание: ${r.coins} из 10`, 2500);
     if (root) redraw(); return true;
   }
+  if (kind === 'crownMiss') {   // a tap on the director's office while the crown (note line 5) is still to find
+    if (!r.start || has(4) || LS().prize) return false;
+    if (takenToday()) return tkHint('crDay', '👑 На столе директора что-то спит под тканью… На сегодня летопись дописана — загляни сюда завтра утром.');
+    if (!(QS().world || {}).done) return tkHint('crWorld', '👑 На столе директора что-то лежит под тканью, но не даётся в руки. Наверное, сначала нужно узнать мир — пройди испытание главы «Мир» в летописи Тихона.');
+    if (!isMorning()) return tkHint('crTime', '👑 На столе директора что-то лежит под тканью… Похоже, оно просыпается только утром, с первыми лучами солнца.');
+    return false;
+  }
   if (kind === 'crown') { if (crownWanted() && !LS().prize) { if (isMorning() && (QS().world || {}).done && canFind(4)) { findLine(4); return true; } } return !!LS().prize; }
   if (kind === 'tikhonHome') {   // a tap on Tikhon in his office while the note's line 3 waits
     if (!r.start || has(2)) return false;
