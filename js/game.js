@@ -1,22 +1,23 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=565';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=566';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=565';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=565';
-import { initMinigame } from './minigame.js?v=565';
-import { initChests } from './chests.js?v=565';
-import { initValley } from './valley.js?v=565';
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=565';
-import { initLore } from './lore.js?v=565';
-import { initAvatar } from './avatar.js?v=565';
+} from './data.js?v=566';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=566';
+import { initMinigame } from './minigame.js?v=566';
+import { initChests } from './chests.js?v=566';
+import { initValley } from './valley.js?v=566';
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=566';
+import { initLore } from './lore.js?v=566';
+import { initAvatar } from './avatar.js?v=566';
+import { initStats } from './stats.js?v=566';   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
-const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
+const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
   onOpen: () => { if (S.inc && Object.keys(S.inc).length) { S.inc = {}; dirtyPanel = true; } },   // a running incident is fixed quietly: the class cannot be tapped from the mini-game
-  onFinish: (sc, stars) => { if (sc > 0) warAdd('mg', 5 + 5 * (stars || 0)); topPush(true); },   // ⚔️ battle points per round   // a new weekly best goes to the top at once
+  onFinish: (sc, stars, g) => { STATS.ev('mg', { g: g || '?', sc: Math.round(sc || 0), st: stars || 0 }); if (sc > 0) warAdd('mg', 5 + 5 * (stars || 0)); topPush(true); },   // ⚔️ battle points per round   // a new weekly best goes to the top at once
   world: () => WORLD,   // world 2 plays «Вагонетка» in place of the flight
   tester: () => { try { return AV.isMod(); } catch (e) { return false; } },   // Maria's phone: «+20 попыток» for tests
   flyers: () => FORM_KEYS.filter((k) => S.forms && S.forms[k] && S.forms[k].seen).map((k) => ({ k, src: formImg(k), name: formTitle(k), faceLeft: !!FACES_LEFT[k.split(':')[0]] })),   // who may fly in «Полёт через кольца»: every look opened in the album
@@ -38,7 +39,8 @@ const LORE = initLore({ state: () => S, save: () => save(), emojiHtml, on: () =>
 const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + WORLD;   // every world keeps its own save
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
-const BUILD = 565;   // keep equal to the ?v= number in index.html
+let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
+const BUILD = 566;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -339,7 +341,7 @@ function earn(n, x, y, color, lift) { S.coins += n; S.stats.earned = (S.stats.ea
 // (a chest then a mini-game round paid ~1160 min instead of 10; prices x14-x32 for half an hour after the chests)
 function bonus(n, x, y, color, lift) { if (!(n > 0)) return; S.coins += n; S.stats.bonus = (S.stats.bonus || 0) + n; if (x !== undefined) popup(`+${fmt(n)}`, x, y, color || '#c98a00', lift); }
 const rateNow = () => (steadyRate() || S.ema || 0) / boostK();   // income per second for pricing rewards and costs: spikes clipped, a running boost taken out
-function spend(c) { if (!Number.isFinite(c) || c < 0) return false; if (S.coins < c) { toast('Не хватает монет 🪙'); return false; } S.coins -= c; return true; }   // a purchase: the next prices are taken anew
+function spend(c) { if (!Number.isFinite(c) || c < 0) return false; if (S.coins < c) { toast('Не хватает монет 🪙'); return false; } S.coins -= c; STATS.buy(spendAct || 'other', c); spendAct = ''; return true; }   // a purchase: the next prices are taken anew
 
 // ======================= world geometry (isometric tile map) =======================
 // Tile coords (x, y). Screen: sx = OX + (x - y) * HW, sy = OY + (x + y) * HH.
@@ -2411,7 +2413,7 @@ function stepWorld(dt, live = false) {
   concPlace(); stepConcierge(dt); if (NEWDORM) stepConcierge2(dt);
   wakeSleepers();
   if (cantBuilt() && S.cant.end && Date.now() >= S.cant.end) { S.cant.end = 0; toast(WORLD === 2 ? '🍖 Пиршественный зал открыт!' : '🍽️ Столовая открыта!'); dirtyPanel = true; staticKey = ''; }
-  S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; staticKey = ''; } });
+  S.classes.forEach((c, i) => { if (c.built && c.buildEnd && Date.now() >= c.buildEnd) { c.buildEnd = 0; STATS.ev('built', { c: CLASSES[i].id }); toast(`✨ Построено: ${CLASSES[i].name}!`); dirtyPanel = true; staticKey = ''; } });
   stepAgents(dt, live);
   stepTower(dt);
   for (let i = popups.length - 1; i >= 0; i--) { const p = popups[i]; p.t += dt; p.lift += 26 * dt; if (p.t > 1.3) popups.splice(i, 1); }
@@ -3427,12 +3429,12 @@ const ST_ICON = '🔮';   // plain text (toasts)
 const ST_IMG = (h = 18) => `<img src="assets/ui/moonstone.webp?v=1" alt="" style="height:${h}px;width:auto;vertical-align:-${Math.round(h * 0.2)}px">`;   // the moonstone picture (art/moonstone, SYNTX)
 const stMeta = () => { try { return JSON.parse(localStorage.getItem('magicschool.meta') || '{}') || {}; } catch (e) { return {}; } };
 const stones = () => { const m = stMeta(); return (m.stones && m.stones.n) || 0; };
-function stonesAdd(n, key) {   // key: a one-time source (never paid twice); returns true when paid
+function stonesAdd(n, key, why) {   // key: a one-time source (never paid twice); why: a label for the statistics; returns true when paid
   const m = stMeta(), st = (m.stones ||= { n: 0, got: {} }); st.got ||= {};
   if (key && st.got[key]) return false;
   st.n = Math.max(0, (st.n || 0) + n); if (key) st.got[key] = Date.now();
   try { localStorage.setItem('magicschool.meta', JSON.stringify(m)); } catch (e) { return false; }
-  dirtyPanel = true; return true;
+  STATS.ev('stones', { n, k: String(key || why || '').slice(0, 24) }); dirtyPanel = true; return true;
 }
 const ST_ACH = [   // big one-time goals, per world (key wN_id; the second world's opening once), amounts in stones
   { id: 'grad1k', t: '1 000 выпускников', n: 5, ok: () => S.stats.graduated >= 1000 },
@@ -3517,13 +3519,13 @@ function stonesPanel() {
 }
 function stonesFount(k) {   // buy (once) and choose a fountain water colour
   const f = FOUNT_COL[k]; if (!f) return; const m = stMeta(), st = (m.stones ||= { n: 0, got: {} }); st.own ||= {};
-  if (f.price && !st.own['fnt_' + k] && !(k === 'rainbow' && st.own.fnt_gold)) { if ((st.n || 0) < f.price) { toast(`Нужно ${ST_ICON} ${f.price}`); return; } st.n -= f.price; st.own['fnt_' + k] = Date.now(); }
+  if (f.price && !st.own['fnt_' + k] && !(k === 'rainbow' && st.own.fnt_gold)) { if ((st.n || 0) < f.price) { toast(`Нужно ${ST_ICON} ${f.price}`); return; } st.n -= f.price; STATS.ev('stones', { n: -f.price, k: 'fnt_' + k }); st.own['fnt_' + k] = Date.now(); }
   st.fnt = k; localStorage.setItem('magicschool.meta', JSON.stringify(m)); save(); toast(`⛲ Вода в фонтане: ${f.name.toLowerCase()}`); dirtyPanel = true;
 }
 function stonesBuy(k) {
   const it = ST_SHOP.find((x) => x.k === k); if (!it) return;
   if (!it.can()) { toast(it.why()); return; } if (stones() < it.price) { toast(`Нужно ${ST_ICON} ${it.price}`); return; }
-  const price = it.price; if (!stonesAdd(-price)) { toast('Не получилось сохранить покупку'); return; }   // build audit 2026-11-24: pay first, then give
+  const price = it.price; if (!stonesAdd(-price, '', 'shop_' + k)) { toast('Не получилось сохранить покупку'); return; }   // build audit 2026-11-24: pay first, then give
   it.buy(); save(); toast(`${it.icon} ${it.name}!`); dirtyPanel = true;
 }
 // ======================= «Уровень школы» (Maria 2026-11-24: «Может быть нужно в игре ввести какие-то уровни? ... в топах соревноваться
@@ -6236,6 +6238,7 @@ function claimMission(key) {
   const list = missionList(), m = list.find((x) => x.key === key);
   if (!m || !m.ok) return;
   S.coins += m.reward;
+  { const c0 = key === 'f' ? storyCur() : null; STATS.ev('quest', { k: c0 ? 'story:' + c0.id : 'dyn', r: Math.round(m.reward) }); }
   if (key === 'f') { const c = storyCur(); if (c) { S.story[c.id] = 1; if (c.v1) S.mission = (S.mission || 0) + 1; } } else S.dynList.splice(+key.slice(1), 1);
   toast(`🎁 Награда 🪙${fmt(m.reward)}`); updateHud(); save();
 }
@@ -6283,7 +6286,7 @@ function openWorld(w) {
   if (!confirm(`Открыть новый мир за 🪙${fmt(n.coins)}? Монеты спишутся в Школе магии${n.stars ? ', звёзды ⭐ останутся у тебя' : ''}.`)) return;
   S.coins -= n.coins; save();   // build audit 2026-11-24: the stars are a requirement, no longer spent
   const m = readMetaLocal(); m.unlocked = [...new Set([...(m.unlocked || []), w])]; localStorage.setItem('magicschool.meta', JSON.stringify(m));
-  toast('✨ Новый мир открыт!'); openPanel(worldsPanel);
+  STATS.ev('world', { w }); toast('✨ Новый мир открыт!'); openPanel(worldsPanel);
 }
 
 // ======================= quest tabs (build 454, Maria 2026-11-24: «разложить задания по вкладкам, как в хороших онлайн-играх»; her «Да!»
@@ -6516,7 +6519,7 @@ function qClick(d) {   // true when the button was ours
   if (d.qtab !== undefined) { qTab = d.qtab; refreshPanel(); const sh = $('#sheet'); if (sh) sh.scrollTop = 0; return true; }
   if (d.qgo !== undefined) { qGo([d.qgo, null]); return true; }
   if (d.dqgo !== undefined) { const x = dqList().find((t) => t.id === d.dqgo); if (x) qGo(x.go); return true; }
-  if (d.dqc !== undefined) { const x = dqList().find((t) => t.id === d.dqc); if (x && x.ok && !x.got) { S.dq.c[x.id] = 1; S.coins += S.dq.r; warAdd('dq', WAR_PTS.dq); toast(`🎁 Награда 🪙${fmt(S.dq.r)}`); updateHud(); save(); } refreshPanel(); return true; }
+  if (d.dqc !== undefined) { const x = dqList().find((t) => t.id === d.dqc); if (x && x.ok && !x.got) { S.dq.c[x.id] = 1; S.coins += S.dq.r; STATS.ev('quest', { k: 'day:' + x.id, r: Math.round(S.dq.r) }); warAdd('dq', WAR_PTS.dq); toast(`🎁 Награда 🪙${fmt(S.dq.r)}`); updateHud(); save(); } refreshPanel(); return true; }
   if (d.dqall !== undefined) { if (dqAllReady()) { S.dq.all = 1; if (stonesAdd(DQ_STONES, dqAllKey())) toast(`📅 Все дела дня! ${ST_ICON} +${DQ_STONES} лунных камня`); save(); } refreshPanel(); return true; }
   if (d.mswap !== undefined) {   // build audit 2026-11-24: a stuck level mission can be swapped, once a day
     const k = +String(d.mswap).slice(1), m = S.dynList && S.dynList[k];
@@ -6742,6 +6745,7 @@ document.addEventListener('click', (e) => {
   if (d.tourBack !== undefined) { showTour(tourStep - 1); return; }
   if (d.tourSkip !== undefined) { showTour(-1); return; }
   if (d.reset !== undefined) { if (confirm('Точно начать заново? Весь прогресс пропадёт.')) { localStorage.removeItem(SAVE_KEY); S = null; location.reload(); } return; }
+  spendAct = d.act || '';
   const tkW = tkWiseOf(d, i), tkC0 = S.coins;   // Tikhon: a wise choice is paid for after the purchase
   const st = S.classes[i];
   if (d.act === 'teacher') { if (spend(teacherCost(i))) st.teacher++; }
@@ -7618,8 +7622,15 @@ function bootFrame(now) {
   if (catchLeft > 0 || (imgP < 1 && now - bootT0 < BOOT_MAX_MS)) return true;
   if (bootDrawn < 2) { render(); bootDrawn++; if (bar) bar.style.transform = 'scaleX(1)'; return true; }   // the map is baked under the curtain
   bootOn = false; window.__ready = performance.now(); glog('app', `запуск игры, сборка ${BUILD}, мир ${WORLD}`, WORLD);
+  if (!STATS.pid) try { STATS = initStats({ build: BUILD, world: WORLD, off: !!EDIT, away: catchReal || 0, snap: statSnap }); } catch (e) { /* statistics never break the game */ }
   const el = document.getElementById('boot'); if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; setTimeout(() => el.remove(), 450); }
   return false;
+}
+function statSnap() {   // small numbers of progress for the statistics (no names)
+  const sum = (f) => S.classes.reduce((a, c) => a + (f(c) || 0), 0);
+  return { coins: Math.round(S.coins), inc: Math.round(((S.paceEma ?? S.ema) || 0) * 60), m: S.mission || 0, story: Object.keys(S.story || {}).length,
+    built: S.classes.filter((c) => c.built).length, tch: sum((c) => c.teacher), desks: sum((c) => c.desks), grad: S.stats.graduated || 0,
+    masters: (S.stats.ranks || [])[5] || 0, stones: stones(), stars: (() => { try { return schoolStars(); } catch (e) { return -1; } })() };
 }
 function welcomeBack(sec, gain) {   // build audit 2026-11-24: the real time away, the 4 h limit said plainly, losses shown too
   glog('app', `возвращение: не было ${Math.round(sec / 60)} мин, заработано ${fmt(gain || 0)}`, WORLD);
@@ -7832,5 +7843,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=565').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=566').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
