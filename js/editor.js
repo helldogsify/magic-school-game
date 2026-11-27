@@ -11,11 +11,20 @@ export function initEditor(A) {
   const key = localStorage.getItem(KEY_LS) || '';
   const api = (p) => `${E.api}/${p}?key=${encodeURIComponent(key)}`;
   const clone = (o) => JSON.parse(JSON.stringify(o));
+  /* per-size layouts (Maria 2026-11-27 «чтобы могла расставлять и для больших и для маленьких комнат»): a class keeps one
+     arrangement per size; the base size (big) is rooms[cid], another size is rooms['cid@size'], a copy of the base
+     until she changes it. Style (walls, floor, colour of all items / places) is shared by all sizes: rooms[cid]. */
+  const SZD = !RM && !C.final, BASE = A.layBase ? A.layBase(cid) : 3, ZS = SZD ? E.size || BASE : BASE, RK = SZD && ZS !== BASE ? cid + '@' + ZS : cid;
+  const ARR = ['items', 'desks', 'add', 'walls'], arrOf = (R) => { const o = {}; for (const k of ARR) if (R && R[k] !== undefined) o[k] = clone(R[k]); return o; };
+  const ownSize = () => RK !== cid && !!L.rooms[RK] && JSON.stringify(L.rooms[RK]) !== JSON.stringify(arrOf(L.rooms[cid]));
   let deskAll = false, tab = 'items', L = { v: 1, rooms: {} }, sel = null, undo = [], dirty = false, night = false;
-  const room = () => (L.rooms[cid] ||= {});
+  const room = () => (RK === cid ? (L.rooms[cid] ||= {}) : (L.rooms[RK] ||= arrOf(L.rooms[cid])));   // the arrangement being edited
+  const sty = () => (L.rooms[cid] ||= {});   // walls, floor and the colour of all things: every size
+  const dropSeed = () => { if (RK !== cid && L.rooms[RK] && !ownSize()) delete L.rooms[RK]; };   /* only looked at: not stored, the size keeps following the base */
   const apply = (walls) => { if (walls) A.setLayout(L); else if (A.layout !== L) A.setLayout(L); dirty = true; localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); status(''); };
   const snap = () => { undo.push(JSON.stringify(L)); if (undo.length > 60) undo.shift(); };
-  const tidy = () => { const R = room(); if (R.desks) for (const k of Object.keys(R.desks)) { const o = R.desks[k]; if (!o.dx && !o.dy && !o.flip && !(o.k && o.k !== 1)) delete R.desks[k]; } for (const k of ['items', 'walls', 'desks', 'allTint', 'deskTint']) if (R[k] && !Object.keys(R[k]).length) delete R[k]; if (R.add && !R.add.length) delete R.add; if (!Object.keys(R).length) delete L.rooms[cid]; };
+  const tidy1 = (rk) => { const R = L.rooms[rk]; if (!R) return; if (R.desks) for (const k of Object.keys(R.desks)) { const o = R.desks[k]; if (!o.dx && !o.dy && !o.flip && !(o.k && o.k !== 1)) delete R.desks[k]; } for (const k of ['items', 'walls', 'desks', 'allTint', 'deskTint']) if (R[k] && !Object.keys(R[k]).length) delete R[k]; if (R.add && !R.add.length) delete R.add; if (!Object.keys(R).length) delete L.rooms[rk]; };
+  const tidy = () => { tidy1(RK); if (RK !== cid) { tidy1(cid); dropSeed(); } szInfo(); };   /* a size still equal to the base is not stored */
 
   // ---------- UI ----------
   document.body.classList.add('editing');
@@ -29,6 +38,8 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
 #ed-top .grow { flex: 1; }
 #ed-top .save { background: #d8f2dc; } #ed-top .pub { background: #7b5cd6; color: #fff; }
 #ed-st { font-size: 12px; color: #8a7a99; width: 100%; }
+#ed-szi { font-size: 12px; color: #6b4fb0; width: 100%; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#ed-szi button { padding: 3px 9px; font-size: 12px; }
 #ed-bot { bottom: 0; background: #fffaf2f2; box-shadow: 0 -2px 10px #3a2f4a33; padding: 6px 8px calc(env(safe-area-inset-bottom) + 6px); }
 #ed-tabs, #ed-groups { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
 #ed-tabs .on, #ed-groups .on { background: #7b5cd6; color: #fff; }
@@ -66,15 +77,24 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   const names = A.CLASSES.filter((c) => !c.w2 && c.id).map((c) => `<option value="${c.id}"${c.id === cid ? ' selected' : ''}>${c.emoji || ''} ${c.name}</option>`).join('') + RMS.map((c) => `<option value="${c.id}"${c.id === cid ? ' selected' : ''}>${c.emoji} ${c.name}</option>`).join('');
   const top = document.createElement('div'); top.id = 'ed-top'; top.innerHTML = `
 <select id="ed-cls" aria-label="Класс">${names}</select>
-<span><button data-size="1">Мал.</button> <button data-size="2">Сред.</button> <button data-size="3">Бол.</button></span>
+<span${SZD ? '' : ' style="display:none"'}><button data-size="1">Маленькая</button> <button data-size="2">Средняя</button> <button data-size="3">Большая</button></span>
 <button id="ed-stage" title="Уровень предметов класса">Ур. ${E.stage}</button>
 <button id="ed-day">☀️ День</button>
 <button id="ed-undo">↶</button><button id="ed-go" style="display:none;background:#ffe3a8"></button>
 <span class="grow"></span>
 <button id="ed-save" class="save">💾 Сохранить</button><button id="ed-pub" class="pub">🚀 Опубликовать</button>
-<div id="ed-st"></div>`;
+<div id="ed-szi"></div><div id="ed-st"></div>`;
   document.body.appendChild(top);
-  top.querySelectorAll('[data-size]').forEach((b) => b.classList.toggle('on', +b.dataset.size === E.size));
+  top.querySelectorAll('[data-size]').forEach((b) => b.classList.toggle('on', +b.dataset.size === ZS));
+  const SZN = ['', 'Маленькая', 'Средняя', 'Большая'], SZG = ['', 'маленькой', 'средней', 'большой'];
+  function szInfo() {   // which size is edited and whether it has its own arrangement
+    const el = $('#ed-szi'); if (!el) return; if (!SZD) { el.style.display = 'none'; return; }
+    el.innerHTML = RK === cid ? `📐 ${SZN[ZS]} комната. Эта расстановка — для всех размеров, у которых нет своей.`
+      : ownSize() ? `📐 ${SZN[ZS]} комната: своя расстановка ✓ <button id="ed-szr">↺ Как в ${SZG[BASE]}</button>`
+        : `📐 ${SZN[ZS]} комната: пока стоит как в ${SZG[BASE]}. Подвинь что-нибудь — и здесь будет своя расстановка.`;
+    const r = $('#ed-szr'); if (r) r.onclick = () => { if (!confirm(`Вернуть расстановку как в ${SZG[BASE]} комнате?`)) return; snap(); delete L.rooms[RK]; sel = null; apply(true); showSel(); szInfo(); };
+  }
+  szInfo();
   const bot = document.createElement('div'); bot.id = 'ed-bot'; bot.innerHTML = `
 <div id="ed-tabs"><button data-tab="items" class="on">🪑 Предметы</button><button data-tab="layers">📚 Слои</button><button data-tab="game">🎮 Игровые</button><button data-tab="wall">🎨 Стены и пол</button><button id="ed-hidden" style="display:none"></button></div>
 <div id="ed-items"><div id="ed-groups"></div><div id="ed-grid"></div></div>
@@ -83,13 +103,13 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   const selBar = document.createElement('div'); selBar.id = 'ed-sel'; document.body.appendChild(selBar);
   const ov = document.createElement('canvas'); ov.id = 'ed-ov'; document.body.appendChild(ov); const oc = ov.getContext('2d');
   function status(t) { $('#ed-st').textContent = t || (dirty ? 'Есть несохранённые изменения' : ''); }
-  const reload = (o) => { const u = new URL(location.href); for (const [k, v] of Object.entries(o)) u.searchParams.set(k, v); u.searchParams.delete('key'); localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); location.href = u.toString(); };
+  const reload = (o) => { dropSeed(); const u = new URL(location.href); for (const [k, v] of Object.entries(o)) u.searchParams.set(k, v); u.searchParams.delete('key'); localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); location.href = u.toString(); };
   $('#ed-cls').onchange = (e) => reload({ c: e.target.value });
   top.querySelectorAll('[data-size]').forEach((b) => (b.onclick = () => reload({ size: b.dataset.size })));
   $('#ed-stage').onclick = () => { const st = [1, 10, 25, 40], n = st[(st.indexOf(E.stage) + 1) % st.length] ?? 40; reload({ stage: n }); };
   $('#ed-day').onclick = () => { night = !night; window.__hour = night ? 23 : 13; $('#ed-day').textContent = night ? '🌙 Ночь' : '☀️ День'; };
   window.__hour = 13;
-  $('#ed-undo').onclick = () => { if (!undo.length) return; L = JSON.parse(undo.pop()); sel = null; A.setLayout(L); dirty = true; showSel(); };
+  $('#ed-undo').onclick = () => { if (!undo.length) return; L = JSON.parse(undo.pop()); sel = null; A.setLayout(L); dirty = true; showSel(); szInfo(); };
   bot.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { bot.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('on', x === b)); tab = b.dataset.tab; $('#ed-items').style.display = tab === 'items' ? '' : 'none'; $('#ed-wall').style.display = tab === 'wall' ? 'block' : 'none'; $('#ed-layers').style.display = tab === 'layers' ? 'block' : 'none'; $('#ed-game').style.display = tab === 'game' ? 'block' : 'none'; sel = null; showSel(); if (tab === 'wall') wallUi(); if (tab === 'layers') layersUi(); selBar.style.bottom = bot.offsetHeight + 8 + 'px'; }));
 
   // ---------- save / publish ----------
@@ -109,6 +129,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
     let pub = null; try { const r = await fetch('layouts/layouts.json?t=' + Date.now()); pub = r.ok ? await r.json() : null; } catch (e) { pub = null; }
     const pick = [loc, srv && srv.rooms ? srv : null].filter(Boolean).sort((a, b) => (b.t || 0) - (a.t || 0))[0] || pub;
     if (pick && pick.rooms) { L = { v: 1, rooms: pick.rooms, t: pick.t }; A.setLayout(L); }
+    szInfo();
     status(srv ? '' : key ? 'Компьютер не отвечает — сохраняю только на этом устройстве' : 'Нет ключа редактора: сохранять можно только на этом устройстве');
   })();
 
@@ -275,25 +296,25 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
     const R = room(); let get, walls = false, title = '🎨 Цвет предмета', all = true;
     if (sel.t === 'item') get = () => (R.items ||= {})[sel.key] ||= { dx: 0, dy: 0, ...pivotOf(sel.key) };
     else if (sel.t === 'add') { const j = +sel.key.split('#')[1]; get = () => R.add[j]; }
-    else if (sel.t === 'desk') { get = () => (R.deskTint ||= {}); title = '🎨 Цвет всех мест учеников класса'; all = false; }
+    else if (sel.t === 'desk') { get = () => (sty().deskTint ||= {}); title = '🎨 Цвет всех мест учеников класса'; all = false; }
     else { get = () => (R.walls ||= {})[sel.key] ||= {}; walls = true; all = false; }
     const o = get();
     el.innerHTML = `<b>${title}</b>${tintBlock(o)}<div class="row"><button class="w" data-done style="background:#7b5cd6;color:#fff">✓ Готово</button><button class="w" data-reset>Сбросить цвет</button>${all ? '<button class="w" data-all>🪄 Так же — всем предметам класса</button>' : ''}</div>`;
     wireTint(el, get, walls, colPanel);
     el.querySelector('[data-reset]').onclick = () => { snap(); const t = get(); for (const k of ['col', 'amt', 'bri', 'sat', 'con']) delete t[k]; tidy(); apply(walls); colPanel(); };
-    const ab = el.querySelector('[data-all]'); if (ab) ab.onclick = () => { snap(); const t = get(), c = {}; for (const k of ['col', 'amt', 'bri', 'sat', 'con']) if (t[k] !== undefined) c[k] = t[k]; R.allTint = c; tidy(); apply(false); status('Цвет применён ко всем предметам класса (кроме тех, у кого свой цвет)'); };
+    const ab = el.querySelector('[data-all]'); if (ab) ab.onclick = () => { snap(); const t = get(), c = {}; for (const k of ['col', 'amt', 'bri', 'sat', 'con']) if (t[k] !== undefined) c[k] = t[k]; sty().allTint = c; tidy(); apply(false); status('Цвет применён ко всем предметам класса (кроме тех, у кого свой цвет)'); };
     el.querySelector('[data-done]').onclick = () => { colOpen = false; showSel(); };
     el.style.display = 'block'; el.style.top = 'auto'; el.style.bottom = '0'; bot.style.display = 'none'; selBar.style.display = 'none';   /* the colour panel takes the palette's place, the room stays visible */
     if (colFor !== sel.key) { colFor = sel.key; const e = curEnt(); if (e && e.bb) { const sc = A.scroller, tb = $('#ed-top').offsetHeight, free = innerHeight - tb - el.offsetHeight; sc.scrollLeft = (e.bb.x0 + e.bb.x1) / 2 * A.scale - sc.clientWidth / 2; sc.scrollTop = (e.bb.y0 + e.bb.y1) / 2 * A.scale - (tb + free / 2) + A.canvas.getBoundingClientRect().top; } }   /* bring the thing into view */
   };
   function wallUi() {
-    const R = room(), texs = Object.keys(A.parts).filter((k) => /\/(wall|floor)$/.test(k) && A.parts[k].complete && A.parts[k].naturalWidth);
+    const R = sty(), texs = Object.keys(A.parts).filter((k) => /\/(wall|floor)$/.test(k) && A.parts[k].complete && A.parts[k].naturalWidth);
     const sec = (n, title) => { const o = R[n] || {}; return `<h4>${title}</h4>
 <div class="row"><button class="sw${!o.col ? ' on' : ''}" data-n="${n}" data-col="" title="Без краски" style="background:linear-gradient(135deg,#fff 45%,#e05 50%,#fff 55%)"></button>${COLS.map((c) => `<button class="sw${o.col === c ? ' on' : ''}" data-n="${n}" data-col="${c}" style="background:${c}"></button>`).join('')}<input type="color" data-n="${n}" value="${o.col || '#e9d6ff'}" title="Свой цвет"></div>
 <div class="row"><label>Сила цвета <input type="range" min="0" max="100" value="${Math.round((o.amt ?? 0.6) * 100)}" data-n="${n}" data-k="amt"></label><label>Светлее/темнее <input type="range" min="-60" max="60" value="${Math.round((o.bri || 0) * 100)}" data-n="${n}" data-k="bri"></label></div>
 <div class="row"><img class="tx${!o.tex ? ' on' : ''}" data-n="${n}" data-tex="" src="${(A.parts[cid + '/' + n] || {}).src || ''}" title="Свой узор класса">${texs.filter((k) => k.endsWith('/' + n) && k !== cid + '/' + n).map((k) => `<img class="tx${o.tex === k ? ' on' : ''}" data-n="${n}" data-tex="${k}" src="${A.parts[k].src}">`).join('')}</div>`; };
     $('#ed-wall').innerHTML = sec('wall', '🧱 Стены') + sec('floor', '🟫 Пол') + `<h4>🪑 Все предметы класса (у кого нет своего цвета)</h4><div id="ed-allt" class="edt">${tintBlock(R.allTint || {})}</div>`;
-    wireTint($('#ed-allt'), () => (room().allTint ||= {}), false, wallUi);
+    wireTint($('#ed-allt'), () => (sty().allTint ||= {}), false, wallUi);
     const set = (n, f) => { snap(); const o = (R[n] ||= {}); f(o); for (const k of Object.keys(o)) if (o[k] === undefined || o[k] === '' || o[k] === 0) delete o[k]; if (!Object.keys(o).length) delete R[n]; tidy(); apply(true); };
     $('#ed-wall').querySelectorAll('.sw[data-n]').forEach((b) => (b.onclick = () => { set(b.dataset.n, (o) => { o.col = b.dataset.col || undefined; }); wallUi(); }));
     $('#ed-wall').querySelectorAll('input[type=color][data-n]').forEach((b) => (b.onchange = () => { set(b.dataset.n, (o) => { o.col = b.value; }); wallUi(); }));
@@ -320,6 +341,6 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
     for (const w of myWalls()) box(w.bb, sel && sel.key === w.key);
   }
   requestAnimationFrame(frame);
-  window.addEventListener('beforeunload', () => { localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); });
-  window.__ed = { get L() { return L; }, hit, select: (t, k) => { sel = { t, key: k }; showSel(); }, ents: myEnts, walls: myWalls, start, move, end: () => { drag = null; tidy(); showSel(); } };   // test hooks
+  window.addEventListener('beforeunload', () => { dropSeed(); localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); });
+  window.__ed = { get L() { return L; }, RK, hit, select: (t, k) => { sel = { t, key: k }; showSel(); }, ents: myEnts, walls: myWalls, start, move, end: () => { drag = null; tidy(); showSel(); } };   // test hooks
 }
