@@ -252,7 +252,9 @@ function cardHtml() {
   if (!st) return `<div class="v2-muted">Загружаю долину…</div>`;
   if (st.need === 'ally' || !st.me) return `<b>🤝 Долина — игра альянсов</b><div class="v2-muted">Чтобы выйти в долину со своим отрядом героев, вступи в альянс (окно 🤝). Каждую неделю альянсы спорят за земли, бьют общего босса и выполняют тайные задания.</div>`;
   const s = curSq();
-  if (!s) return `<b>⚔️ Нет отряда</b><div class="v2-muted">Поставь героев в отряд в башне (вкладка «⚔️ Отряд»): до 5 героев от каждой школы.</div>${msg ? `<div class="v2-msg">${msg}</div>` : ''}`;
+  if (!s) { const tw = !A.towerBuilt || A.towerBuilt();   // the button closes the valley; js/heroes.js opens the tower on the «⚔️ Отряд» tab (data-hx tabopen:squad)
+    return tw ? `<b>⚔️ Нет отряда</b><div class="v2-muted">В долину ходят герои из твоей Башни. Выбери до 5 героев — и они выйдут на карту у твоего замка.</div><div class="v2-act"><button class="btn" data-v2tower data-hx="tabopen:squad">⚔️ Собрать отряд</button></div>${msg ? `<div class="v2-msg">${msg}</div>` : ''}`
+      : `<b>⚔️ Нет отряда</b><div class="v2-muted">В долину ходят герои из Башни. Сначала построй Башню в своей школе.</div><div class="v2-act"><button class="btn" data-v2tower data-hx="tabopen:squad">🏰 К Башне</button></div>${msg ? `<div class="v2-msg">${msg}</div>` : ''}`; }
   const ap = st.me.ap;
   if (!sel) return `<b>Твой ход</b> <span class="v2-muted">· ⚡ ${ap.left} из ${ap.max}${ap.mines ? ` (шахты +${Math.min(4, ap.mines) * 3})` : ''}${ap.today ? ' (☀️ +3)' : ''}</span><div class="v2-muted">Нажми на клетку с белой рамкой рядом с отрядом — её можно захватить. По своим клеткам отряд ходит. Ничьи земли берутся легко, чужие — трудно.</div>${msg ? `<div class="v2-msg">${msg}</div>` : ''}`;
   const c = cellAt(sel.q, sel.r), ti = TI()[c.t], a = alOf(c.o), here = cellAt(s.pos[0], s.pos[1]), L = sqOn(c.q, c.r);
@@ -397,6 +399,7 @@ async function resultCheck() {   // Monday: last week's result (once per week pe
 function onClick(e) {
   const b = e.target.closest('button'); if (!b || !root || !root.contains(b)) return; const d = b.dataset;
   if (d.v2x !== undefined) return close();
+  if (d.v2tower !== undefined) { close(); return; }   // the same click goes on to js/heroes.js, which opens the tower
   if (d.v2tab) { tab = d.v2tab; render(); return; }
   if (d.v2sq) { mySq = d.v2sq; const s = curSq(); sel = s ? { q: s.pos[0], r: s.pos[1] } : null; odds = null; render(); return; }
   if (d.v2z !== undefined) { const r = cv.getBoundingClientRect(); if (d.v2z === '0') { view.fit = false; fitView(); } else zoomAt(r.left + r.width / 2, r.top + r.height / 2, d.v2z === '1' ? 1.3 : 1 / 1.3); draw(); return; }

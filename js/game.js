@@ -1,24 +1,24 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=613';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=614';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=613';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=613';
-import { initMinigame } from './minigame.js?v=613';
-import { initChests } from './chests.js?v=613';
-import { initValley } from './valley.js?v=613';
-import { initValley2 } from './valley2.js?v=613';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=613';
-import { initLore } from './lore.js?v=613';
-import { initAvatar } from './avatar.js?v=613';
-import { initStats } from './stats.js?v=613';
-import { initStudents } from './students.js?v=613';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initHeroes, HERO_BAL } from './heroes.js?v=613';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
-import { initAnnex } from './annex.js?v=613';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
-import { ANNEX_BAL } from './annex.js?v=613';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
-import { initToday } from './today.js?v=613';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
+} from './data.js?v=614';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=614';
+import { initMinigame } from './minigame.js?v=614';
+import { initChests } from './chests.js?v=614';
+import { initValley } from './valley.js?v=614';
+import { initValley2 } from './valley2.js?v=614';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=614';
+import { initLore } from './lore.js?v=614';
+import { initAvatar } from './avatar.js?v=614';
+import { initStats } from './stats.js?v=614';
+import { initStudents } from './students.js?v=614';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes, HERO_BAL } from './heroes.js?v=614';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=614';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=614';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=614';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -47,7 +47,7 @@ function v2Squad() {   // this school's squad for the server: heroes with rarity
     return { heroes, sk: { banner: Math.max(0, (q.atk || 1) - 1 - sum[0] / 400), guard: Math.max(0, (q.def || 1) - 1 - sum[1] / 400), siege: q.siege || 0 }, face: heroes[0].e || '' }; } catch (e) { return null; }
 }
 function v2TodayClosed() { try { const td = (JSON.parse(localStorage.getItem('magicschool.meta') || '{}') || {}).td || {}, d = new Date(); const dn = Math.round(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTime() / 86400000); return td.last != null && td.last >= dn - 1; } catch (e) { return false; } }   // TRUST: the server takes the client's word (valley2_deploy.md)
-const VALLEY2 = initValley2({ token: () => anonToken(), world: () => WORLD, emojiHtml, emojiImage, toast: (t) => toast(t), schoolName: () => schoolName(),
+const VALLEY2 = initValley2({ token: () => anonToken(), world: () => WORLD, emojiHtml, emojiImage, toast: (t) => toast(t), schoolName: () => schoolName(), towerBuilt: () => towerOpen(),
   stones: (n, k) => stonesAdd(n, k, 'valley2'),
   coins: (min, k) => { if (!v2Once(k)) return false; const n = Math.max(50, Math.round((rateNow() || 1) * 60 * min)); S.coins += n; toast(`🪙 Клад из долины: +${fmt(n)}`); save(); return true; },
   gear: (rar, k) => { if (!towerOpen()) return false; if (window.heroDrop) { const it = window.heroDrop('v2', k, { min: rar }); save(); return !!it; } if (!v2Once(k)) return false; const it = HERO && HERO.drop ? HERO.drop('valley', rar) : null; save(); return !!it; },   // gear_sources.py: idempotent by token
@@ -125,7 +125,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 613;   // keep equal to the ?v= number in index.html
+const BUILD = 614;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -9091,5 +9091,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=613').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=614').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
