@@ -29,17 +29,17 @@ export const ANNEX_BAL = {
   dailyMaxDays: 7,                    // the daily rare thing: days away credited up to 7
   ev: { first: 20, gapMin: 480, gapMax: 900, wait: 1800, perDay: 3 },   // screen seconds: first readiness after the build, gap between events, wait while ready
   mgRare: [0, 0, 1, 2],               // rare things for a rewarded mini-game round by stars (2★ = 1, 3★ = 2)
-  pantry: { cost: 600, reward: 300, per: 90, cap: 30, examB: 0.05, pots: 3 },
-  greenh: { cost: 3000, reward: 1500, per: 90, cap: 30, lessonK: 0.85, buds: 5, wait: 6, grow: [2.0, 1.8, 1.6, 1.5, 1.4], sweet: 0.85, over: 0.6 },
-  obs: { cost: 20000, reward: 10000, per: 120, cap: 30, rankK: 1.25, starsDay: 8, starsNight: 12, fall: 3.2, dustNeed: [0, 0, 10, 25, 50, 100] },
-  orchard: { cost: 150000, reward: 75000, holes: 8, sapling: 40000, saplingK: 1.7, grow1: 300, grow: 3600, fruit: 900, perTree: 5, cap: 50, day: [7, 21.5], priceK: 1.2, mood: 5 },
-  pond: { cost: 600000, reward: 300000, per: 120, cap: 30, priceK: 1.1, mood: 8 },
-  mirror: { cost: 1500000, reward: 750000, per: 120, cap: 30, payK: 1.1, figs: 5, show: 1.2, trace: [6, 5.5, 5, 4.5, 4], R: [16, 15, 14, 13, 12], good: [0.58, 0.8] },
-  kite: { cost: 6000000, reward: 3000000, per: 120, cap: 30, xpK: 2 },
+  pantry: { cost: 600, reward: 180, per: 90, cap: 30, examB: 0.05, pots: 3 },
+  greenh: { cost: 3000, reward: 900, per: 90, cap: 30, lessonK: 0.85, buds: 5, wait: 6, grow: [2.0, 1.8, 1.6, 1.5, 1.4], sweet: 0.85, over: 0.6 },
+  obs: { cost: 20000, reward: 6000, per: 120, cap: 30, rankK: 1.25, starsDay: 8, starsNight: 12, fall: 3.2, dustNeed: [0, 0, 10, 25, 50, 100] },
+  orchard: { cost: 150000, reward: 45000, holes: 8, sapling: 40000, saplingK: 1.7, grow1: 300, grow: 3600, fruit: 900, perTree: 5, cap: 50, day: [7, 21.5], priceK: 1.2, mood: 5 },
+  pond: { cost: 600000, reward: 180000, per: 120, cap: 30, priceK: 1.1, mood: 8 },
+  mirror: { cost: 1500000, reward: 450000, per: 120, cap: 30, payK: 1.1, figs: 5, show: 1.2, trace: [6, 5.5, 5, 4.5, 4], R: [16, 15, 14, 13, 12], good: [0.58, 0.8] },
+  kite: { cost: 6000000, reward: 1800000, per: 120, cap: 30, xpK: 2 },
   // «Гроза четырёх стихий» v2: tasks per event; 💎 taskCrys per task + newItem per new item (once) + bookAll for every item found (title);
   // points = pts × chain steps of the item (× fastK if made within fastSec × steps s of the task's start; × 2 hero); blobFade s; blobHint = blobs in a row
   // before Буря's hint; depthL[L] = the deepest item depth tasks may ask at circle level L (and ≤ deepest found + 1); unkP = share of new items in tasks
-  elcirc: { cost: 15000000, reward: 7500000, per: 120, cap: 30, lessonK: 0.85, tasks: 5, taskCrys: 1, newItem: 1, bookAll: 5, pts: 10, fastK: 1.5, fastSec: 12,
+  elcirc: { cost: 15000000, reward: 4500000, per: 120, cap: 30, lessonK: 0.85, tasks: 5, taskCrys: 1, newItem: 1, bookAll: 5, pts: 10, fastK: 1.5, fastSec: 12,
     blobFade: 2, blobHint: 3, lvlRare: [0, 0, 10, 20, 35, 50], depthL: [0, 4, 6, 8, 10, 99], unkP: 0.6, teach: ['steam', 'puddle', 'mud', 'pond', 'stone'] },
 };
 // Maria's art drops in here (WebP under assets/annex/, drawn centred on the footprint, bottom on the ground): '' = drawn placeholder

@@ -28,8 +28,9 @@ const GIFT_P0 = 0.01, GIFT_P1 = 0.03;   // chance of a gifted newcomer: GIFT_P0 
 const GIFT_GAP = 180;         // s of play time between two gifted newcomers at least (a big school gets hundreds of arrivals a minute)
 const GIFT_RANK = 0.10;       // + chance on every rank exam (absolute)
 const GIFT_WAIT = 2;          // a gifted newcomer waits this many times longer at the gate
-const CROWD_WAIT = 180;       // s of play time a newcomer waits at the gate before leaving quietly
-const PLATE_T = 60;           // s of sustained jam before the plate replaces the small counter
+const CROWD_WAIT = 240;       // s of play time a newcomer waits at the gate before leaving quietly
+const PLATE_T = 90; const PLATE_LEFT = 5;   // econ: plate after 90 s of jam and 5+ left in 10 min (was 60 s, 1+)
+          // s of sustained jam before the plate replaces the small counter
 const PLATE_OFF = 10;         // s without a jam that end the episode (the timer restarts)
 const LEFT_WIN = 600;         // s: «ушли, не дождавшись» on the plate counts the last 10 min of play time
 const RT_LESSONS = 4;         // stage 3: a favourite's rank-exam retake costs this many lessons of that class (then the pace floor, paced(…, 1))
@@ -261,7 +262,7 @@ export function initStudents(api) {
     if (jamNow()) { jamT += dt; offT = 0; } else if ((offT += dt) >= PLATE_OFF) jamT = 0;
     // the plate means a real loss: a sustained jam AND somebody left without getting in during the last LEFT_WIN s (measured: Maria's
     // save has 12 waiting ~100 % of the time but nobody leaves - everyone gets in within the wait; then the small counter is enough)
-    const on = jamT >= (window.__s8aPlateT ?? PLATE_T) && (leftWin().n > 0 || !!window.__s8aPlateT);
+    const on = jamT >= (window.__s8aPlateT ?? PLATE_T) && (leftWin().n >= PLATE_LEFT || !!window.__s8aPlateT);
     if (on && !plateOn) { plateOn = true; plateEp = clock; plateEpLeft = M.left; M.episodes++; }
     else if (!on && plateOn) { plateOn = false; api.stats('gate', { k: 'plate', d: Math.round(clock - plateEp), n: M.left - plateEpLeft }); }
     const vis = !live || !document.hidden;

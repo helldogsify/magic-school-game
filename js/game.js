@@ -1,24 +1,24 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=622';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=623';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=622';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=622';
-import { initMinigame } from './minigame.js?v=622';
-import { initChests } from './chests.js?v=622';
-import { initValley } from './valley.js?v=622';
-import { initValley2 } from './valley2.js?v=622';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=622';
-import { initLore } from './lore.js?v=622';
-import { initAvatar } from './avatar.js?v=622';
-import { initStats } from './stats.js?v=622';
-import { initStudents } from './students.js?v=622';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initHeroes, HERO_BAL } from './heroes.js?v=622';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
-import { initAnnex } from './annex.js?v=622';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
-import { ANNEX_BAL } from './annex.js?v=622';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
-import { initToday } from './today.js?v=622';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
+} from './data.js?v=623';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=623';
+import { initMinigame } from './minigame.js?v=623';
+import { initChests } from './chests.js?v=623';
+import { initValley } from './valley.js?v=623';
+import { initValley2 } from './valley2.js?v=623';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=623';
+import { initLore } from './lore.js?v=623';
+import { initAvatar } from './avatar.js?v=623';
+import { initStats } from './stats.js?v=623';
+import { initStudents } from './students.js?v=623';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes, HERO_BAL } from './heroes.js?v=623';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=623';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=623';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=623';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -125,7 +125,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 622;   // keep equal to the ?v= number in index.html
+const BUILD = 623;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -163,9 +163,23 @@ function save() {
   localStorage.setItem(SAVE_KEY, JSON.stringify(S));
 }
 
+// ---- economy rework 2026-11-27 (registry §5b, Ruslan «Все цифры на тебе»): one table of the knobs, tuned with the economy simulator
+// (_econ/bots: casual / quest / optimizer / rare bots on the real code). Why: offline earned 92-97 % of all coins, an upgrade cost 1-5 min of
+// income and added ~0.5 % to it (hundreds of buys a day, none felt), world 1 was done in 7 days by a quest-follower (goal ~2 weeks).
+const ECON = {
+  offK: 0.5,            // offline: the school without its director earns half (was 100 %); playing matters, coming back still pays
+  floorM: 6, floorG: 1.12, // pace floor: an upgrade level costs at least 6 min of income x1.12 per level (was 0.5 x1.08): fewer, bigger buys
+  itemPay: 0.12, itemOk: 0.015,   // per item level: +12 % pay / +1.5 % exam chance (was 8 % / 1 %): each buy is felt
+  teachPay: 0.07, teachOk: 0.02,  // per teacher level: +7 % pay / +2 % chance (was 5 % / 1.5 %)
+  starsFull: 10, starK: 0.03, starK2: 0.01, starMax: 0.5,   // school stars: +3 % each up to 10, then +1 %, at most +50 % (was +3 % each, unbounded)
+  overPay: 2,           // an exam chance above 95 % is not wasted: each 1 % above pays +2 % for that lesson (heroes, annexes, library, canteen felt)
+  rewardShare: 0.2,     // story steps and quests pay back 20 % of the price (was 30 %)
+  inspBack: [150, 300], // after 20+ min away the inspector comes 2.5-5 min into the session (was a full 10-15 min of screen time)
+};
+const starK = () => { const s = schoolStars(); return 1 + Math.min(ECON.starMax, ECON.starK * Math.min(s, ECON.starsFull) + ECON.starK2 * Math.max(0, s - ECON.starsFull)); };
 // ---- balance (rebalance 2026-11-22, her goal: world 1 in ~1.5 weeks, first master on ~day 5; tuned with tools/sim_driver.js) ----
 const BAL_NEW = { chance0: 0.45, maxChance: 0.8, item: 1.5, teacher: 1.6, expand: 600, expandK: 4, desk: 3.0, examDesk: 1.8, time: 2.0, rec: 1.5, ads: 1.55,
-  build: [0, 2000, 12000, 3000000, 20000000, 100000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 50000000, pay: 0.55, lesson: 2, floorM: 0.5, floorG: 1.08, itemHi: 1.25 };   // pace floor (build 297, her pick «Мягкая планка»): 0.5 min of income for the 1st level, x1.08 per level   // lesson: length multiplier of every lesson (build 184, her «ученики слишком быстро сменяются»: 2.6 s at max level was shorter than the walk)   // pay 0.45 since build 178 (0.5 in 177): the queue fix (build 176) nearly doubled the flow; sim back to Elements ~4.2 d, first master ~5 d
+  build: [0, 2000, 15000, 4000000, 30000000, 300000000], buildTime: [0, 60, 600, 3600, 3 * 3600, 6 * 3600], tower: 200000000, pay: 0.55, lesson: 2, floorM: ECON.floorM, floorG: ECON.floorG, itemHi: 1.25 };   // pace floor (build 297, her pick «Мягкая планка»): 0.5 min of income for the 1st level, x1.08 per level   // lesson: length multiplier of every lesson (build 184, her «ученики слишком быстро сменяются»: 2.6 s at max level was shorter than the walk)   // pay 0.45 since build 178 (0.5 in 177): the queue fix (build 176) nearly doubled the flow; sim back to Elements ~4.2 d, first master ~5 d
 const BAL_OLD = { pay: 1, chance0: 0.6, maxChance: 0.85, item: 1.25, teacher: 1.35, expand: 120, expandK: 3, desk: 2.3, examDesk: 1.6, time: 1.6, rec: 1.4, ads: 1.45, build: [], buildTime: [], tower: 500000 };
 BAL_NEW.lessonLate = { charms: 1.4, flight: 1.4, elements: 1.4 };   // build 237, her pick «1 вариант для стихий» (42 waiting for Elements): these classes x1.4 instead of BAL.lesson x2; Flight too, else the queue only moved to Flight (her save: 40 waiting there); sim all classes 4.7 d, first master 5.2 d
 Object.assign(BAL_NEW.lessonLate, { gems: 1.4, guards: 1.4, lake: 1.4 });   // build audit 2026-11-24: world 2's 4th-6th halls, like charms/flight/elements (they ran x2.0, +43% longer)
@@ -176,12 +190,12 @@ const buildTime = (i) => (WORLD <= 2 && BAL.buildTime[i] !== undefined ? BAL.bui
 const cls = (id) => S.classes[CLASSES.findIndex((c) => c.id === id)];
 const isOpen = (i) => S.classes[i].built && Date.now() >= S.classes[i].buildEnd && !S.classes[i].bs;   // bs: a staged build in progress (M2)
 const kindSum = (i, kind) => CLASSES[i].items.reduce((a, it, k) => a + (it.kind === kind ? S.classes[i].items[k] : 0), 0);
-const rawSuccess = (i) => BAL.chance0 + 0.015 * (S.classes[i].teacher - 1) + 0.01 * kindSum(i, 'success');
+const rawSuccess = (i) => BAL.chance0 + ECON.teachOk * (S.classes[i].teacher - 1) + ECON.itemOk * kindSum(i, 'success');
 const success = (i) => Math.min(BAL.maxChance, rawSuccess(i));
 const overflow = (i) => Math.max(0, rawSuccess(i) - BAL.maxChance);   // chance above the cap is not wasted: each 1% gives +2% tuition
 const W2_PAY = 0.5;   // build audit 2026-11-24: was 0.7; caravans now bring ~1/4 of world-2 income (w2_report.md). World 2 pays less (pacing sim 2026-11-22: first Хранитель ~day 7, all halls ~6.5, album ~10; her «мир 2 недели, мастер ~неделя»)
 let FAME_K = 1; const FAME_STEP = 0.1;   // «Слава школы» (M8): +10 % per world whose chronicle is finished, set by fameUpd()
-const tuition = (i) => Math.round(FAME_K * CLASSES[i].tuition * (1 + 0.08 * kindSum(i, 'tuition')) * (1 + 0.05 * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * (1 + 0.03 * schoolStars()) * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY * relicK() : 1) * boostK() * (WORLD === 1 && S && S.lore && S.lore.prize ? 1.1 : 1) * TODAY.k('cls', i));   // s7: class day +10 %, graduation day +5 %   // «Последняя ночь» prize   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
+const tuition = (i) => Math.round(FAME_K * CLASSES[i].tuition * (1 + ECON.itemPay * kindSum(i, 'tuition')) * (1 + ECON.teachPay * (S.classes[i].teacher - 1)) * (1 + 2 * overflow(i)) * starK() * (i === NCLS - 1 ? 1 + 0.03 * mastersLiving() : 1) * BAL.pay * (WORLD === 2 ? W2_PAY * relicK() : 1) * boostK() * (WORLD === 1 && S && S.lore && S.lore.prize ? 1.1 : 1) * TODAY.k('cls', i));   // s7: class day +10 %, graduation day +5 %   // «Последняя ночь» prize   // BAL.pay: one knob for every income (build 177, her «усложняй экономику»)   // every school star: +3% to every lesson
 const lessonTime = (i) => CLASSES[i].lesson * ((BAL.lessonLate || {})[CLASSES[i].id] || BAL.lesson || 1) * Math.pow(0.92, S.classes[i].time) * (loreQ('teachers') ? 0.97 : 1);
 const itemCost = (i, k) => { const raw = CLASSES[i].tuition * 2 * (1 + k) * Math.pow(BAL.item, Math.min(25, S.classes[i].items[k])) * Math.pow(BAL.itemHi, Math.max(0, S.classes[i].items[k] - 25)); return Math.round(Math.max(raw, paced(raw, S.classes[i].items[k] + 1) * itemW(i))); };
 // build audit 2026-11-24: Herbology earns ~1/100 of Elements per lesson, but the pace floor priced its items like Elements' ones
@@ -1845,7 +1859,8 @@ function finishLesson(a) {
   if (CLASSES[i].final) a.dream = false;   // dorm roles: slept before the Final (build audit 2026-11-24: this sat inside the comment above, the bonus never wore off)
   a.les = (a.les || 0) + 1; if (a.rest > 0) a.rest--;   // dorm roles: tiredness grows with every lesson, the rest wears off
   const bonus = (a.prepared ? libBonus() : 0) + (a.fed ? FED_BONUS : 0) + (mcActive(i) ? MC_BONUS : 0) + (a.luck || 0) + dream + ANNEX.examB(i) + HERO.examB(i);   /* 8b: mentor */   /* 5c: potion pantry jars */ a.prepared = false; a.fed = false; a.luck = 0;   // a meal in the canteen helps one exam
-  if (Math.random() < Math.max(0.05, Math.min(0.95, success(i) + bonus + moodBonus(a) + STU.examB(a, i)))) { S.stats.passed++; STU.ev(a, 'pass', i); passAt[i] = performance.now(); formXp(a, i); if (ANNEX.xpX(i)) formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i) * ANNEX.payK(i) * HERO.payK(i)), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); STU.rankAfter(a, i); a.mood = Math.min(100, moodOf(a) + 8 + HERO.moodB(i)); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
+  const pRaw = success(i) + bonus + moodBonus(a) + STU.examB(a, i), overK = 1 + ECON.overPay * Math.max(0, pRaw - 0.95);   // econ: above 95 % pays
+  if (Math.random() < Math.max(0.05, Math.min(0.95, pRaw))) { S.stats.passed++; STU.ev(a, 'pass', i); passAt[i] = performance.now(); formXp(a, i); if (ANNEX.xpX(i)) formXp(a, i); mcLesson(i); if (CLASSES[i].final && !ffwd) examSeal(i, a.desk); earn(Math.round(tuition(i) * payMul(a) * w2Pay(i) * ANNEX.payK(i) * HERO.payK(i) * overK), p.x, p.y, null, 46); w2Lesson(i, p); rumbleLesson(i, p); rankTry(a, i, p); STU.rankAfter(a, i); a.mood = Math.min(100, moodOf(a) + 8 + HERO.moodB(i)); popup(rnd(['🎉', '🥳', '😄']), p.x - 0.3, p.y - 0.3, '#ff8a3d', 62); leaveDesk(a); }
   else { S.stats.failed++; (window.__failAt ||= {})[i] = performance.now(); mailFail(a, i); STU.ev(a, 'fail', i); popup('💧 не сдал', p.x, p.y, '#5b7fd6', 46); if (libFree()) { freeDeskOf(a); goLibrary(a, i); } else { a.t = 0; a.dur = lessonTime(i); } }
 }
 // library: students who failed study here, then go back to their class for the exam again
@@ -2343,7 +2358,7 @@ function stepInspector(dt, live) {
   }
   if ((I.cmp || 0) >= CMP_MAX) { inspCall('cmp'); return; }
   I.t -= dt; if (I.t > 0) return;
-  I.t = planGap(); if (!(I.cmp > 0)) inspCall('plan');   // a planned visit only for a school without complaints
+  I.t = planGap(); inspCall(I.cmp > 0 ? 'cmp' : 'plan');   // econ §5b: a school with 1-2 complaints gets its visit about them (was: no visit until the 3rd)
 }
 function inspStart() {
   const I = insp(); if (!I.v) return;
@@ -2413,9 +2428,9 @@ const STAR_STONE_FROM = 15;   // from the 16th star every new star also gives a 
 function inspPanel() {   // short and plain (her «миллион текста и глаза пугаются»)
   const I = insp(), c = I.cur, n = schoolStars(), M = I.med || {}, row = (ic, t) => `<div class="card up"><span class="remoji">${ic}</span><div class="grow">${t}</div></div>`, K = c && INSP_KINDS[c.kind];
   return `<div class="sh-head"><span class="remoji big">⭐</span><div><h2>Звёзды школы</h2><div class="muted">медали: 🥇 ${M.g || 0} · 🥈 ${M.s || 0} · 🥉 ${M.b || 0} · без медали ${I.failed || 0}</div></div><button class="x" data-close>✕</button></div>
-    <div class="card" style="justify-content:center;text-align:center;font-size:19px"><b>⭐ ${n} = +${3 * n}% к плате за уроки</b></div>
+    <div class="card" style="justify-content:center;text-align:center;font-size:19px"><b>⭐ ${n} = +${Math.round((starK() - 1) * 100)}% к плате за уроки</b></div>
     <h3>Что даёт звезда</h3>
-    ${row('💰', '<b>+3% к плате за все уроки</b>, пока звезда у школы')}
+    ${row('💰', `<b>+${Math.round(ECON.starK * 100)}% к плате за все уроки</b> за каждую из первых ${ECON.starsFull} звёзд, дальше +${Math.round(ECON.starK2 * 100)}% (всего до +${Math.round(ECON.starMax * 100)}%)`)}
     ${row(ST_IMG(24), `<b>+1 лунный камень</b> за каждую новую звезду после ${STAR_STONE_FROM}-й`)}
     ${row('🏗️', 'Нужны для постройки классов, кабинета директора и новых миров')}
     <h3>Как получить</h3>
@@ -6826,7 +6841,7 @@ function storyReward(m) {
 const storyNote = (m) => { try { const t = m.note && m.note(G); return t ? ` (${t})` : ''; } catch (e) { return ''; } };   // e.g. calm mode: no letters come
 window.__ms = { list: () => missionList(), make: () => makeMission(), go: (k) => goMission(k), claim: (k) => claimMission(k), story: () => storyCur(), goT: (g) => goTarget(g), hint: () => (document.getElementById('mhint') || {}).textContent || '', introNow: () => { introT = 0; }, tour: () => [tourStep, tourList.length, introKey], UPS, CNTS, CUPS };   // test hook
 // upgrades pay back REWARD_SHARE of what they cost; counting missions pay for the minutes they really take at the current pace
-const REWARD_SHARE = 0.3, TIME_SHARE = 0.25;
+const REWARD_SHARE = ECON.rewardShare, TIME_SHARE = 0.25;
 const nice = (x) => { const e = Math.pow(10, Math.max(0, Math.floor(Math.log10(Math.max(1, x))) - 1)); return Math.round(x / e) * e; };
 // coins a mission still needs, with today's prices (build 310, tester «в заданиях видеть сколько нужно денег на выполнение задания. Если
 // не хватает красным, если хватает зелёным»): multi-level upgrades = the next price x the geometric growth; -1 = not a purchase
@@ -8835,7 +8850,7 @@ function catchUpSlice(dt, budget = catchMs()) {
   const l0 = leftNow(), p0 = S.stats.passed, f0 = S.stats.failed, er0 = S.stats.earned || 0, o0 = (S.stats.refunded || 0) + (S.stats.fined || 0), g0 = S.stats.graduated, x0 = schoolXp();
   ffwd = true;
   try { while (catchLeft > 0 && performance.now() - t0 < budget) { stepWorld(catchDt); catchLeft -= catchDt; catchSimT += catchDt; } } finally { ffwd = false; }
-  popups.length = 0; popups.push(...keep); earnedThisSec = e0; catchGain += S.coins - c0; catchGrad += S.stats.graduated - g0; catchXp += schoolXp() - x0;
+  popups.length = 0; popups.push(...keep); earnedThisSec = e0; { const got = S.coins - c0; if (got > 0 && ECON.offK < 1) { const cut = Math.round(got * (1 - ECON.offK)); S.coins -= cut; S.stats.earned = Math.max(0, (S.stats.earned || 0) - cut); } } catchGain += S.coins - c0; catchGrad += S.stats.graduated - g0; catchXp += schoolXp() - x0;
   catchLeft0 += leftNow() - l0; catchOut += (S.stats.refunded || 0) + (S.stats.fined || 0) - o0;
   { const c = S.insp && S.insp.cur; if (c) { if (c.v !== undefined) c.v += leftNow() - l0; if (c.p !== undefined) { c.p += S.stats.passed - p0; c.f += S.stats.failed - f0; } if (c.e !== undefined) c.e += (S.stats.earned || 0) - er0; } }   // build audit 2026-11-24: time away never counts into a running check   // as fastForward(): no flying coins or toasts from the past
   while (fx.childElementCount > fxN) fx.lastElementChild.remove();
@@ -8853,6 +8868,7 @@ function catchUpSlice(dt, budget = catchMs()) {
     if (xp > 0) { S.xp = schoolXp() + xp; const lv1 = schoolLevel(); if (lv1 > lv0) { S.lvTop = Math.max(S.lvTop || lv0, lv1); /* s7: no level stones */ } }
   }
   catchExtra = 0;
+  { const I = S.insp; if (catchReal >= 1200 && I && !I.v && !I.cur && I.t > ECON.inspBack[1]) I.t = ECON.inspBack[0] + Math.random() * (ECON.inspBack[1] - ECON.inspBack[0]); }   // econ: a returning director meets the inspector soon
   updateHud(); dirtyPanel = true;
   if (panel || tourStep >= 0) { if (catchAway >= 60 && catchGain >= 1) toast(`🪙 +${fmt(catchGain)}: школа жила, пока тебя не было`); } else welcomeBack(catchReal, catchGain);   // never over an open panel or the tour
   save();
@@ -8903,7 +8919,7 @@ function welcomeBack(sec, gain) {   // build audit 2026-11-24: the real time awa
   const hm = (m) => (m >= 60 ? Math.floor(m / 60) + ' ч ' : '') + (m % 60) + ' мин', mins = Math.round(sec / 60), capH = OFFLINE_CAP_SEC / 3600, over = sec > OFFLINE_CAP_SEC + 60;
   const lost = catchLeft0 >= 1 ? `<p class="center muted">😢 Ушли расстроенными: ${fmt(catchLeft0)}${catchOut >= 1 ? `, им вернули 🪙 ${fmt(catchOut)}` : ''}. Чтобы уходило меньше — больше мест в классах и спальне.</p>` : '';
   iqWin('top', 'welcome', () => `<div class="sh-head"><h2>С возвращением!</h2><button class="x" data-close>✕</button></div>
-    <p class="center">Тебя не было ${hm(mins)}. ${over ? `Без тебя школа работает до ${capH} ч — столько и засчитано.` : 'Школа жила своей жизнью.'}</p>
+    <p class="center">Тебя не было ${hm(mins)}. ${over ? `Без тебя школа работает до ${capH} ч — столько и засчитано.` : 'Школа жила своей жизнью.'} Без директора она зарабатывает ${ECON.offK >= 0.5 ? 'вполсилы' : 'меньше: ' + Math.round(ECON.offK * 100) + ' % от обычного'}.</p>
     <div class="center big-txt">🪙 ${gain >= 0 ? '+' : '−'}${fmt(Math.abs(gain))}</div>${lost}<button class="btn wide" data-close>Ура!</button>`);
 }
 // ======================= incident sounds (build 256, her wish «во время происшествий проигрывать звуковой эффект ... тематический,
@@ -9111,5 +9127,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, layBase, layKey, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=622').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=623').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
