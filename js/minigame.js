@@ -76,13 +76,15 @@ function pool() {   // the shared pool {ch, t}; first time: the old device-local
   return p;
 }
 const PK = () => (W2() ? 'mgch2' : 'mgch');   // own tries per world (her «И попытки для каждого мира свои»)
-const savePool = (p) => { try { const m = readMeta(); m[PK()] = { ch: p.ch, t: p.t, ...(p.run ? { run: p.run } : {}) }; localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) { /* storage full */ } };   // run: a rewarded round is in progress (tester_fb1)
+let chMemo = null;   // mg_charges_cache.py: charges() of the last second (asked every frame by the pond)
+const savePool = (p) => { chMemo = null; try { const m = readMeta(); m[PK()] = { ch: p.ch, t: p.t, ...(p.run ? { run: p.run } : {}) }; localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) { /* storage full */ } };   // run: a rewarded round is in progress (tester_fb1)
 export function charges() {
-  const p = pool(), now = Date.now();
-  if (p.ch >= CH_MAX) { p.t = now; savePool(p); return p.ch; }
+  const now = Date.now(), pk = PK(); if (chMemo && chMemo.k === pk && now - chMemo.at < 1000 && now >= chMemo.at) return chMemo.ch;
+  const stored = !!readMeta()[pk], p = pool();
+  if (p.ch >= CH_MAX) { if (!stored) { p.t = now; savePool(p); } chMemo = { k: pk, at: now, ch: p.ch }; return p.ch; }
   const k = Math.floor((now - p.t) / CH_MS);
   if (k > 0) { p.ch = Math.min(CH_MAX, p.ch + k); p.t = p.ch >= CH_MAX ? now : p.t + k * CH_MS; }
-  savePool(p); return p.ch;
+  if (k > 0 || !stored) savePool(p); chMemo = { k: pk, at: now, ch: p.ch }; return p.ch;
 }
 export function addCharges(n = 1) { charges(); const p = pool(); p.ch = (p.ch || 0) + n; if (p.ch > CH_MAX) p.t = Date.now(); savePool(p); }   // won attempts go above 3
 function spendCharge() { const p = pool(); if (p.ch >= CH_MAX) p.t = Date.now(); p.ch = Math.max(0, p.ch - 1); p.run = Date.now(); savePool(p); }   // run = «round in progress» marker (tester_fb1)
