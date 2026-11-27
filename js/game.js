@@ -1,24 +1,24 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=614';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=615';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=614';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=614';
-import { initMinigame } from './minigame.js?v=614';
-import { initChests } from './chests.js?v=614';
-import { initValley } from './valley.js?v=614';
-import { initValley2 } from './valley2.js?v=614';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=614';
-import { initLore } from './lore.js?v=614';
-import { initAvatar } from './avatar.js?v=614';
-import { initStats } from './stats.js?v=614';
-import { initStudents } from './students.js?v=614';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initHeroes, HERO_BAL } from './heroes.js?v=614';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
-import { initAnnex } from './annex.js?v=614';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
-import { ANNEX_BAL } from './annex.js?v=614';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
-import { initToday } from './today.js?v=614';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
+} from './data.js?v=615';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=615';
+import { initMinigame } from './minigame.js?v=615';
+import { initChests } from './chests.js?v=615';
+import { initValley } from './valley.js?v=615';
+import { initValley2 } from './valley2.js?v=615';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=615';
+import { initLore } from './lore.js?v=615';
+import { initAvatar } from './avatar.js?v=615';
+import { initStats } from './stats.js?v=615';
+import { initStudents } from './students.js?v=615';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes, HERO_BAL } from './heroes.js?v=615';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=615';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=615';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=615';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -125,7 +125,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 614;   // keep equal to the ?v= number in index.html
+const BUILD = 615;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -8699,6 +8699,7 @@ function frame(now) {
   const vlOpen = VALLEY2.isOpen() || VALLEY.isOpen();   // build valley_perf.py: a full-screen valley hides the school
   if (now - drawnAt < (vlOpen || now - inputAt > 1500 ? 28 : 12)) { fpsStat.skipped++; requestAnimationFrame(frame); return; }   // 'last' is not moved: the next frame lives through both
   drawnAt = now; fpsStat.drawn++;
+  { const g = now - last; if (g > 100 && g < 1000 && !document.hidden) fpsStat.jank = (fpsStat.jank || 0) + 1; }   // perf_stats.py: a stutter the eye sees
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;   // the first frame after a reload can be stamped before 'last': a negative dt made 0/0 = NaN positions (frozen reception, report 2026-11-21)
   if (catchLeft > 0) catchUpSlice(dt); else stepWorld(dt, true);   // the time the game was closed is lived through first, a slice per frame
   stepIQ();   // 6d: the window queue
@@ -8871,11 +8872,17 @@ function bootFrame(now) {
   const el = document.getElementById('boot'); if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; setTimeout(() => el.remove(), 450); }
   return false;
 }
+let perfAt = 0, perfD = 0, perfJ = 0;
+function perfSnap() {   // perf_stats.py: how smooth the game runs on this phone since the last snapshot
+  const t = performance.now(), sec = (t - perfAt) / 1000, j = fpsStat.jank || 0;
+  const r = { rms: Math.round(renderMs * 10) / 10, fps: perfAt && sec > 0 ? Math.round((fpsStat.drawn - perfD) / sec) : -1, jank: j - perfJ, dpr: Math.round((window.devicePixelRatio || 1) * 10) / 10, cw: canvas.width, ch: canvas.height, sw: stat.width, sh: stat.height };
+  perfAt = t; perfD = fpsStat.drawn; perfJ = j; return r;
+}
 function statSnap() {   // small numbers of progress for the statistics (no names)
   const sum = (f) => S.classes.reduce((a, c) => a + (f(c) || 0), 0);
   return { coins: Math.round(S.coins), inc: Math.round(((S.paceEma ?? S.ema) || 0) * 60), m: S.mission || 0, story: Object.keys(S.story || {}).length,
     built: S.classes.filter((c) => c.built).length, tch: sum((c) => c.teacher), desks: sum((c) => c.desks), grad: S.stats.graduated || 0,
-    masters: (S.stats.ranks || [])[5] || 0, stones: stones(), stars: (() => { try { return schoolStars(); } catch (e) { return -1; } })() };
+    masters: (S.stats.ranks || [])[5] || 0, stones: stones(), stars: (() => { try { return schoolStars(); } catch (e) { return -1; } })(), ...(() => { try { return perfSnap(); } catch (e) { return {}; } })() };
 }
 function welcomeBack(sec, gain) {   // build audit 2026-11-24: the real time away, the 4 h limit said plainly, losses shown too
   glog('app', `возвращение: не было ${Math.round(sec / 60)} мин, заработано ${fmt(gain || 0)}`, WORLD);
@@ -9091,5 +9098,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=614').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=615').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
