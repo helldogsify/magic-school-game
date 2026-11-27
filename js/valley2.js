@@ -128,28 +128,61 @@ function fitView() {
   const s = curSq(); if (s && view.z < 0.9) { view.z = 1.15; const p0 = { x: S0 * view.z * Math.sqrt(3) * (s.pos[0] + s.pos[1] / 2), y: S0 * view.z * 1.5 * s.pos[1] }; view.x = w / 2 - p0.x * 0.6; view.y = h / 2 - p0.y * 0.6; }
 }
 function sizeCv() { if (!cv) return; const dpr = Math.min(2, window.devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight; if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); } return dpr; }
-function draw() {
-  if (!cv || !st || !st.cells) return; const dpr = sizeCv(), cx = cv.getContext('2d'); cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, cv.width, cv.height);
-  if (!view.fit) fitView();
-  const s = S0 * view.z, T0 = performance.now() / 1000, pulse = 0.5 + 0.5 * Math.sin(T0 * 4), me = curSq(), al = myAl(), T = TI();
-  const ico = (e, x, y, z) => { const im = A.emojiImage && A.emojiImage(e); if (im) cx.drawImage(im, x - z / 2, y - z / 2, z, z); else { cx.font = `${z * 0.85}px serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(e, x, y); } };
-  const hereC = me ? cellAt(me.pos[0], me.pos[1]) : null;
-  for (const c of cells().sort((a, b) => a.r - b.r || a.q - b.q)) {
-    const { x, y } = px(c.q, c.r); if (x < -s * 2 || y < -s * 2 || x > cv.clientWidth + s * 2 || y > cv.clientHeight + s * 2) continue;
+// Speed (Maria 2026-11-27 «Невероятно сильно лагает долина», tools/_patch/valley_perf.py): the board used to be painted whole 25 times
+// a second (up to 271 hexes, a gradient and emoji text each). Now the still terrain is painted ONCE into an offscreen layer BG (the
+// screen plus a margin for panning) and re-painted only when the board (st), the zoom, the screen size or the side change; every frame
+// = one copy of the layer + the moving bits (lake waves, glows, the dashed targets, squads, selection). Pinch-zoom stretches the old
+// layer until the fingers rest.
+let BG = null, inputT = 0, dirty = true, sortedOf = null, sortedC = [], sqOf = null, sqCells = [];
+const ico0 = (cx, e, x, y, z) => { const im = A.emojiImage && A.emojiImage(e); if (im) { cx.drawImage(im, x - z / 2, y - z / 2, z, z); return true; } cx.font = `${z * 0.85}px serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(e, x, y); return false; };
+function sortedCells() { if (sortedOf !== st) { sortedOf = st; sortedC = cells().sort((a, b) => a.r - b.r || a.q - b.q); } return sortedC; }
+function squadCells() { if (sqOf !== st) { sqOf = st; const by = new Map(); for (const q of (st && st.sq) || []) { const k = q.pos[0] + ',' + q.pos[1]; if (!by.has(k)) by.set(k, []); by.get(k).push(q); } sqCells = cells().filter((c) => by.has(c.q + ',' + c.r)).map((c) => [c, by.get(c.q + ',' + c.r)]); } return sqCells; }
+function paintTerrain(dpr, cw, ch) {   // the still part of the board, into BG (css px of the layer = screen px + margin)
+  const mx = Math.ceil(cw * 0.4), my = Math.ceil(ch * 0.4), lw = cw + 2 * mx, lh = ch + 2 * my;
+  if (!BG) BG = { c: document.createElement('canvas') };
+  const L = BG.c; if (L.width !== Math.round(lw * dpr) || L.height !== Math.round(lh * dpr)) { L.width = Math.round(lw * dpr); L.height = Math.round(lh * dpr); }
+  const cx = L.getContext('2d'); cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, lw, lh);
+  const s = S0 * view.z, T = TI(); let miss = false;
+  const ico = (e, x, y, z) => { if (!ico0(cx, e, x, y, z)) miss = true; };
+  for (const c of sortedCells()) {
+    const p = px(c.q, c.r), x = p.x + mx, y = p.y + my; if (x < -s * 2 || y < -s * 2 || x > lw + s * 2 || y > lh + s * 2) continue;
     const ti = T[c.t] || T.plain, a = alOf(c.o), base = a ? mix(ti[2], a.color, 0.35) : ti[2];
     if (!['lake', 'chasm'].includes(c.t)) { hexPath(cx, x, y + s * 0.16, s * 0.97); cx.fillStyle = mix(base, '#000000', 0.35); cx.fill(); }
     hexPath(cx, x, y, s * 0.97); const g = cx.createRadialGradient(x - s * 0.3, y - s * 0.4, s * 0.05, x, y, s * 1.1); g.addColorStop(0, mix(base, '#ffffff', 0.3)); g.addColorStop(1, base); cx.fillStyle = g; cx.fill();
     cx.lineWidth = 1; cx.strokeStyle = 'rgba(255,255,255,0.5)'; cx.stroke();
     if (a) { hexPath(cx, x, y, s * 0.86); cx.lineWidth = Math.max(2, s * 0.12); cx.strokeStyle = a.color; cx.stroke(); }
-    if (c.t === 'lake') { cx.strokeStyle = 'rgba(255,255,255,0.7)'; cx.lineWidth = Math.max(1, s * 0.05); for (const dy of [-0.2, 0.18]) { const sh = Math.sin(T0 * 1.5 + c.q + dy * 9) * s * 0.08; cx.beginPath(); cx.moveTo(x - s * 0.4 + sh, y + s * dy); cx.quadraticCurveTo(x + sh, y + s * (dy - 0.12), x + s * 0.4 + sh, y + s * dy); cx.stroke(); } }
-    else if (c.t === 'chasm') { cx.strokeStyle = '#1e1726'; cx.lineWidth = Math.max(2, s * 0.12); cx.beginPath(); cx.moveTo(x - s * 0.5, y - s * 0.1); cx.lineTo(x - s * 0.1, y + s * 0.12); cx.lineTo(x + s * 0.15, y - s * 0.12); cx.lineTo(x + s * 0.5, y + s * 0.08); cx.stroke(); }
+    if (c.t === 'chasm') { cx.strokeStyle = '#1e1726'; cx.lineWidth = Math.max(2, s * 0.12); cx.beginPath(); cx.moveTo(x - s * 0.5, y - s * 0.1); cx.lineTo(x - s * 0.1, y + s * 0.12); cx.lineTo(x + s * 0.15, y - s * 0.12); cx.lineTo(x + s * 0.5, y + s * 0.08); cx.stroke(); }
     else if (c.t === 'boss') { const B = st.boss; ico(B.dead ? '💀' : B.e, x, y - s * 0.05, s * 1.25); if (!B.dead) { cx.beginPath(); cx.arc(x, y, s * 0.82, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * B.hp / B.max); cx.lineWidth = s * 0.12; cx.strokeStyle = '#e2574c'; cx.stroke(); } }
-    else if (ti[1]) { if (c.t === 'forest') { ico(ti[1], x - s * 0.28, y - s * 0.1, s * 0.55); ico(ti[1], x + s * 0.28, y - s * 0.14, s * 0.55); } else ico(ti[1], x, y - s * 0.12, s * (c.t === 'castle' ? 1.05 : 0.75)); }
-    if (c.tk && ['ruins', 'shrine'].includes(c.t)) { const k = 0.5 + 0.5 * Math.sin(T0 * 3 + c.q); cx.fillStyle = `rgba(255,240,120,${0.4 + 0.5 * k})`; cx.beginPath(); cx.arc(x + s * 0.4, y - s * 0.45, s * 0.1, 0, 7); cx.fill(); }
+    else if (c.t !== 'lake' && ti[1]) { if (c.t === 'forest') { ico(ti[1], x - s * 0.28, y - s * 0.1, s * 0.55); ico(ti[1], x + s * 0.28, y - s * 0.14, s * 0.55); } else ico(ti[1], x, y - s * 0.12, s * (c.t === 'castle' ? 1.05 : 0.75)); }
     if (passC(c) && c.t !== 'castle' && s > 18) { cx.font = `800 ${Math.max(8, s * 0.3)}px ui-rounded,sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillStyle = 'rgba(40,30,60,0.75)'; cx.fillText('🛡' + c.f, x, y + s * 0.55); }
-    if (me && hereC && c.o !== al && passC(c) && c.t !== 'castle' && E.dist(c, hereC) === 1 && !battle) { hexPath(cx, x, y, s * 0.93); cx.lineWidth = 2 + 1.5 * pulse; cx.strokeStyle = `rgba(255,255,255,${0.45 + 0.5 * pulse})`; cx.setLineDash([5, 4]); cx.stroke(); cx.setLineDash([]); }
   }
-  for (const c of cells()) { const L = sqOn(c.q, c.r); if (!L.length) continue; const { x, y } = px(c.q, c.r);   // squads: figures (placeholder: a coloured pawn with the school's emoji)
+  Object.assign(BG, { st, z: view.z, ox: view.x, oy: view.y, mx, my, lw, lh, dpr, cw, ch, al: myAl(), w: W(), miss, tries: miss ? (BG.tries || 0) + 1 : 0, at: performance.now() });
+  window.__v2paints = (window.__v2paints || 0) + 1;   // test hook: how many times the terrain was painted
+}
+function draw() {
+  if (!cv || !st || !st.cells) return; const dpr = sizeCv(), cx = cv.getContext('2d'), cw = cv.clientWidth, ch = cv.clientHeight;
+  if (!view.fit) fitView();
+  const now = performance.now(), touching = now - inputT < 220;
+  const same = BG && BG.st === st && BG.dpr === dpr && BG.cw === cw && BG.ch === ch && BG.al === myAl() && BG.w === W() && !(BG.miss && BG.tries < 6 && now - BG.at > 600);   // an emoji picture still loading: paint again a few times
+  const inside = same && BG.z === view.z && Math.abs(view.x - BG.ox) <= BG.mx && Math.abs(view.y - BG.oy) <= BG.my;
+  cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, cv.width, cv.height);
+  if (inside) {   // a plain copy of the visible part of the layer, whole device pixels
+    const sx = Math.max(0, Math.min(BG.c.width - cv.width, Math.round((BG.mx - (view.x - BG.ox)) * dpr))), sy = Math.max(0, Math.min(BG.c.height - cv.height, Math.round((BG.my - (view.y - BG.oy)) * dpr)));
+    cx.drawImage(BG.c, sx, sy, cv.width, cv.height, 0, 0, cv.width, cv.height);
+  } else if (same && touching) {   // fingers still zooming: stretch the old layer, paint it anew when they rest
+    const k = view.z / BG.z; cx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (view.x - k * (BG.mx + BG.ox)), dpr * (view.y - k * (BG.my + BG.oy))); cx.drawImage(BG.c, 0, 0, BG.lw, BG.lh);
+  } else { paintTerrain(dpr, cw, ch); cx.drawImage(BG.c, Math.round(BG.mx * dpr), Math.round(BG.my * dpr), cv.width, cv.height, 0, 0, cv.width, cv.height); }
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const s = S0 * view.z, T0 = now / 1000, pulse = 0.5 + 0.5 * Math.sin(T0 * 4), me = curSq(), al = myAl();
+  const ico = (e, x, y, z) => ico0(cx, e, x, y, z), vis = (x, y) => !(x < -s * 2 || y < -s * 2 || x > cw + s * 2 || y > ch + s * 2);
+  for (const c of sortedCells()) {   // the moving bits of the terrain: lake waves, the glow of a reward
+    if (c.t === 'lake') { const { x, y } = px(c.q, c.r); if (!vis(x, y)) continue; cx.strokeStyle = 'rgba(255,255,255,0.7)'; cx.lineWidth = Math.max(1, s * 0.05); for (const dy of [-0.2, 0.18]) { const sh = Math.sin(T0 * 1.5 + c.q + dy * 9) * s * 0.08; cx.beginPath(); cx.moveTo(x - s * 0.4 + sh, y + s * dy); cx.quadraticCurveTo(x + sh, y + s * (dy - 0.12), x + s * 0.4 + sh, y + s * dy); cx.stroke(); } }
+    else if (c.tk && (c.t === 'ruins' || c.t === 'shrine')) { const { x, y } = px(c.q, c.r); if (!vis(x, y)) continue; const k = 0.5 + 0.5 * Math.sin(T0 * 3 + c.q); cx.fillStyle = `rgba(255,240,120,${0.4 + 0.5 * k})`; cx.beginPath(); cx.arc(x + s * 0.4, y - s * 0.45, s * 0.1, 0, 7); cx.fill(); }
+  }
+  const hereC = me ? cellAt(me.pos[0], me.pos[1]) : null;
+  if (hereC && !battle) for (const [a, b] of E.DIRS) { const c = cellAt(hereC.q + a, hereC.r + b); if (!c || c.o === al || !passC(c) || c.t === 'castle') continue;   // where my squad can strike
+    const { x, y } = px(c.q, c.r); hexPath(cx, x, y, s * 0.93); cx.lineWidth = 2 + 1.5 * pulse; cx.strokeStyle = `rgba(255,255,255,${0.45 + 0.5 * pulse})`; cx.setLineDash([5, 4]); cx.stroke(); cx.setLineDash([]); }
+  for (const [c, L] of squadCells()) { const { x, y } = px(c.q, c.r); if (!vis(x, y)) continue;   // squads: figures (placeholder: a coloured pawn with the school's emoji)
     L.forEach((q, k) => { const a = alOf(q.al), ox = (k - (L.length - 1) / 2) * s * 0.5, fx = x + ox, fy = y - s * 0.05, r = s * 0.3;
       cx.beginPath(); cx.ellipse(fx, fy + r * 1.1, r * 0.9, r * 0.35, 0, 0, 7); cx.fillStyle = 'rgba(0,0,0,0.25)'; cx.fill();
       cx.beginPath(); cx.moveTo(fx - r * 0.8, fy + r * 1.05); cx.quadraticCurveTo(fx, fy - r * 0.2, fx + r * 0.8, fy + r * 1.05); cx.closePath(); cx.fillStyle = a ? a.color : '#888'; cx.fill();
@@ -160,16 +193,18 @@ function draw() {
   if (sel) { const { x, y } = px(sel.q, sel.r); hexPath(cx, x, y, s * 1.03); cx.lineWidth = 4; cx.strokeStyle = '#ffd84a'; cx.stroke(); }
   if (battle && battle.arrow) { const a = px(battle.arrow[0], battle.arrow[1]), b = px(battle.arrow[2], battle.arrow[3]); cx.strokeStyle = 'rgba(255,90,60,0.9)'; cx.lineWidth = 5; cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); }
 }
-function loop() { if (!root) { raf = 0; return; } raf = requestAnimationFrame(loop); const t = performance.now(); if (tab !== 'map' || document.hidden || t - lastDraw < 40) return; lastDraw = t; draw(); }
+// one draw per screen frame while a finger moves the map (pointer events used to draw on every event), 25 fps for the slow pulses otherwise
+function loop() { if (!root) { raf = 0; return; } raf = requestAnimationFrame(loop); const t = performance.now(); if (tab !== 'map' || document.hidden) return; if (t - lastDraw < (dirty || t - inputT < 220 ? 14 : 40)) return; lastDraw = t; dirty = false; draw(); }
+const moved0 = () => { dirty = true; inputT = performance.now(); };
 function hitCell(e) { const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, s = S0 * view.z; let best = null, bd = 1e9; for (const c of cells()) { const p = px(c.q, c.r), d = (p.x - x) ** 2 + (p.y - y) ** 2; if (d < bd) { bd = d; best = c; } } return best && bd < (s * 1.0) ** 2 ? best : null; }
 function wirePan() {
   const P = new Map(); let moved = 0, pinch = 0;
   cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); P.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; if (P.size === 2) { const [a, b] = [...P.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
   cv.addEventListener('pointermove', (e) => { if (!P.has(e.pointerId)) return; const [ox, oy] = P.get(e.pointerId), dx = e.clientX - ox, dy = e.clientY - oy; P.set(e.pointerId, [e.clientX, e.clientY]);
-    if (P.size === 1) { view.x += dx; view.y += dy; moved += Math.abs(dx) + Math.abs(dy); } else if (P.size === 2) { const [a, b] = [...P.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) zoomAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, d / pinch); pinch = d; moved = 99; } draw(); });
+    if (P.size === 1) { view.x += dx; view.y += dy; moved += Math.abs(dx) + Math.abs(dy); } else if (P.size === 2) { const [a, b] = [...P.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) zoomAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, d / pinch); pinch = d; moved = 99; } moved0(); });
   const up = (e) => { if (!P.has(e.pointerId)) return; P.delete(e.pointerId); if (!P.size && moved < 8) { const c = hitCell(e); if (c) pick(c); } if (P.size < 2) pinch = 0; };
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', (e) => P.delete(e.pointerId));
-  cv.addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 1 / 1.15); draw(); }, { passive: false });
+  cv.addEventListener('wheel', (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 1 / 1.15); moved0(); }, { passive: false });
 }
 function zoomAt(cx0, cy0, k) { const r = cv.getBoundingClientRect(), x = cx0 - r.left, y = cy0 - r.top, z = Math.max(0.35, Math.min(3, view.z * k)); k = z / view.z; view.x = x - (x - view.x) * k; view.y = y - (y - view.y) * k; view.z = z; }
 
@@ -388,7 +423,7 @@ function oldPrize() {   // the old valley stays loaded only to pay its last week
   const k = 'magicschool.v1prize', wk = String(E.weekKey(Date.now())); if (LS(k) === wk || !window.__valley || !window.__valley.prize) return;
   try { localStorage.setItem(k, wk); } catch (e) { /* private */ } window.__valley.prize().catch(() => {});
 }
-export function close() { clearInterval(pollT); if (root) root.remove(); root = null; cv = null; battle = null; const b = document.getElementById('v2-battle'); if (b) b.remove(); }
+export function close() { clearInterval(pollT); if (root) root.remove(); root = null; cv = null; battle = null; BG = null; sortedOf = sqOf = null; const b = document.getElementById('v2-battle'); if (b) b.remove(); }
 export function initValley2(api) {
   A = api;
   window.addEventListener('resize', () => { if (root && cv) draw(); });
