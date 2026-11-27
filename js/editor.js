@@ -47,7 +47,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   #ed-top > * { flex: none; }
   #ed-top select, #ed-top button { padding: 6px 8px; }
   #ed-top select { max-width: 36vw; }
-  #ed-undo { order: 1; } #ed-save { order: 2; } #ed-pub { order: 3; } #ed-top > span { order: 4; } #ed-stage { order: 5; } #ed-day { order: 6; } #ed-go { order: 7; }   /* undo / save / publish always on screen, sizes after */
+  #ed-undo { order: 1; } #ed-save { order: 2; } #ed-pub { order: 3; } #ed-top > span { order: 4; } #ed-stage { order: 5; } #ed-day { order: 6; } #ed-snd { order: 0; } #ed-go { order: 7; }   /* undo / save / publish always on screen, sizes after */
   #ed-top .grow { display: none; }
   #ed-info { position: fixed; left: 0; right: 0; z-index: 89; display: flex; gap: 8px; align-items: center; padding: 2px 8px 3px; background: #fffaf2dd; font: 600 11px ui-rounded, system-ui, sans-serif; white-space: nowrap; overflow: hidden; }
   #ed-info #ed-szi, #ed-info #ed-st { width: auto; font-size: 11px; flex-wrap: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -93,6 +93,7 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
 <span${SZD ? '' : ' style="display:none"'}><button data-size="1">Маленькая</button> <button data-size="2">Средняя</button> <button data-size="3">Большая</button></span>
 <button id="ed-stage" title="Уровень предметов класса">Ур. ${E.stage}</button>
 <button id="ed-day">☀️ День</button>
+<button id="ed-snd" title="Звук"></button>
 <button id="ed-undo">↶</button><button id="ed-go" style="display:none;background:#ffe3a8"></button>
 <span class="grow"></span>
 <button id="ed-save" class="save">💾 Сохранить</button><button id="ed-pub" class="pub">🚀 Опубликовать</button>
@@ -127,6 +128,9 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   $('#ed-stage').onclick = () => { const st = [1, 10, 25, 40], n = st[(st.indexOf(E.stage) + 1) % st.length] ?? 40; reload({ stage: n }); };
   $('#ed-day').onclick = () => { night = !night; window.__hour = night ? 23 : 13; $('#ed-day').textContent = innerWidth < 900 ? (night ? '🌙' : '☀️') : night ? '🌙 Ночь' : '☀️ День'; };
   window.__hour = 13;
+  { const MK = 'magicschool.editor.mute', b = $('#ed-snd'), show = () => { const m = localStorage.getItem(MK) === '1'; b.textContent = innerWidth < 900 ? (m ? '🔇' : '🔊') : m ? '🔇 Без звука' : '🔊 Звук'; };
+    const set = (m) => { localStorage.setItem(MK, m ? '1' : '0'); if (A.mute) A.mute(m); show(); };   /* her choice stays on this device */
+    b.onclick = () => set(localStorage.getItem(MK) !== '1'); if (localStorage.getItem(MK) === '1' && A.mute) A.mute(true); show(); }
   $('#ed-undo').onclick = () => { if (!undo.length) return; L = JSON.parse(undo.pop()); sel = null; A.setLayout(L); dirty = true; showSel(); szInfo(); };
   bot.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { bot.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('on', x === b)); tab = b.dataset.tab; $('#ed-items').style.display = tab === 'items' ? '' : 'none'; $('#ed-wall').style.display = tab === 'wall' ? 'block' : 'none'; $('#ed-layers').style.display = tab === 'layers' ? 'block' : 'none'; $('#ed-game').style.display = tab === 'game' ? 'block' : 'none'; sel = null; showSel(); if (tab === 'wall') wallUi(); if (tab === 'layers') layersUi(); selBar.style.bottom = bot.offsetHeight + 8 + 'px'; }));
 
