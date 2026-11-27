@@ -209,8 +209,13 @@ function say(t, ms = 4500) {   // a longer note than the game's 2-s toast: Tikho
   if (!document.getElementById('lore-say-css')) { const st = document.createElement('style'); st.id = 'lore-say-css'; st.textContent = '.lo-say{position:fixed;left:50%;top:calc(var(--safe-t,0px) + 110px);transform:translateX(-50%);z-index:30;max-width:calc(100vw - 32px);width:max-content;padding:10px 16px;border-radius:16px;background:#fff6e2f2;color:#4a3420;border:2px solid #c9a46a;font:600 15px/1.35 Georgia,serif;text-align:center;box-shadow:0 6px 18px #0003;white-space:pre-line;animation:losay '+ (ms / 1000) + 's ease forwards;pointer-events:none}@keyframes losay{0%{opacity:0;transform:translate(-50%,8px)}8%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}'; document.head.appendChild(st); }
   setTimeout(() => d.remove(), ms);
 }
-let tkTaps = 0, tkLast = 0, luckAt = 0; const tkHinted = {};   // Tikhon's «not now» hints: once per 10 min per reason
-const tkHint = (k, t) => { const n = Date.now(); if (n - (tkHinted[k] || 0) < 600000) return false; tkHinted[k] = n; say(t, 5500); return true; }; const LUCK_WIN = 2500;
+let tkTaps = 0, tkLast = 0, luckAt = 0; const tkHinted = {};   // Tikhon's «not now» hints: index of the last variant per reason
+const TK_HINTS = {   // Maria 2026-11-27: every tap at the wrong time gets his line (no 10-min throttle that let the window open instead); variants rotate, never the same twice in a row
+  time: ['Хорошая прогулка… Но разговоры я люблю вечером, когда солнце уходит.', 'Днём я считаю шаги, а не слова. Слова — это для вечера.', 'Солнце ещё высоко… Спросите меня, когда оно сядет за холмы.'],
+  home: ['Днём я весь в делах… А вот вечером, на прогулке, может, и поболтаем.', 'Чернила ещё не высохли… Вечером я выйду пройтись — вот тогда и поговорим.'],
+  homeD: ['Не сейчас, я в бумагах… Скоро выйду пройтись — вот тогда и спрашивай.', 'Ещё строчку допишу — и на прогулку. Там и спрашивай.'],
+  day: ['На сегодня летопись уже дописана. Приходи завтра вечером — может, тогда и поговорим.', 'Одна строчка в день — так велит летопись. Завтра вечером, хорошо?'] };
+const tkHint = (k) => { const l = TK_HINTS[k], i = l.length > 1 ? (((tkHinted[k] ?? -1) + 1 + Math.floor(Math.random() * (l.length - 1))) % l.length) : 0; tkHinted[k] = i; say('Тихон: «' + l[i] + '»', 5500); return true; }; const LUCK_WIN = 2500;
 export function event(kind) {   // called by game.js; true = handled (the game does nothing else for this tap)
   if (!S() || !A.on()) return false;
   const r = RD();
@@ -243,13 +248,13 @@ export function event(kind) {   // called by game.js; true = handled (the game d
   if (kind === 'crown') { if (crownWanted() && !LS().prize) { if (isMorning() && (QS().world || {}).done && canFind(4)) { findLine(4); return true; } } return !!LS().prize; }
   if (kind === 'tikhonHome') {   // a tap on Tikhon in his office while the note's line 3 waits
     if (!r.start || has(2)) return false;
-    if (takenToday()) return tkHint('day', 'Тихон: «На сегодня летопись уже дописана. Приходи завтра вечером — может, тогда и поговорим.»');
-    return tkHint(isDusk() ? 'homeD' : 'home', isDusk() ? 'Тихон: «Не сейчас, я в бумагах… Скоро выйду пройтись — вот тогда и спрашивай.»' : 'Тихон: «Днём я весь в делах… А вот вечером, на прогулке, может, и поболтаем.»');
+    if (takenToday()) return tkHint('day');
+    return tkHint(isDusk() ? 'homeD' : 'home');
   }
   if (kind === 'tikhon') {
     if (!r.start || has(2)) return false;
-    if (takenToday()) return tkHint('day', 'Тихон: «На сегодня летопись уже дописана. Приходи завтра вечером — может, тогда и поговорим.»');
-    if (!isDusk()) return tkHint('time', 'Тихон: «Хорошая прогулка… Но разговоры я люблю вечером, когда солнце уходит.»');
+    if (takenToday()) return tkHint('day');
+    if (!isDusk()) return tkHint('time');
     const now = Date.now(); if (now - tkLast > TK_RESET && tkTaps) { tkTaps = 0; say('Тихон: «Хм? О чём это я…»'); tkLast = now; return true; }
     tkLast = now; const k = Math.min(tkTaps, TK_LINES.length - 1); tkTaps++;
     if (k === TK_LINES.length - 1 && !canFind(2)) { tkTaps = 0; (r.w ||= [])[2] = 1; A.save(); say('Тихон: «(тянется за пазуху и останавливается) Не сегодня. Сегодня в летопись уже легла одна строчка. Завтра я отдам вам листок сам.»', 7000); setTimeout(() => waitCard('📜 Тихон сдался и готов отдать листок.'), 1500); return true; }   // before: he said «Возьмите» and gave nothing
