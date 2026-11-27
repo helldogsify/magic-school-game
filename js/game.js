@@ -1,24 +1,24 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=619';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=620';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=619';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=619';
-import { initMinigame } from './minigame.js?v=619';
-import { initChests } from './chests.js?v=619';
-import { initValley } from './valley.js?v=619';
-import { initValley2 } from './valley2.js?v=619';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=619';
-import { initLore } from './lore.js?v=619';
-import { initAvatar } from './avatar.js?v=619';
-import { initStats } from './stats.js?v=619';
-import { initStudents } from './students.js?v=619';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initHeroes, HERO_BAL } from './heroes.js?v=619';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
-import { initAnnex } from './annex.js?v=619';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
-import { ANNEX_BAL } from './annex.js?v=619';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
-import { initToday } from './today.js?v=619';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
+} from './data.js?v=620';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=620';
+import { initMinigame } from './minigame.js?v=620';
+import { initChests } from './chests.js?v=620';
+import { initValley } from './valley.js?v=620';
+import { initValley2 } from './valley2.js?v=620';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=620';
+import { initLore } from './lore.js?v=620';
+import { initAvatar } from './avatar.js?v=620';
+import { initStats } from './stats.js?v=620';
+import { initStudents } from './students.js?v=620';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes, HERO_BAL } from './heroes.js?v=620';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=620';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=620';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=620';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -125,7 +125,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 619;   // keep equal to the ?v= number in index.html
+const BUILD = 620;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2829,7 +2829,7 @@ function retakeHome(a) {   // back from the exam hall: update the resident, walk
   walk(a, s.x0 + 1.5 + Math.random() * 3, s.y0 + 1.5 + Math.random() * 3, () => { a.gone = true; });
 }
 function twFurn() {   /* the masters' hall furniture where her editor put it: beds, armchairs, tea table (tile positions) */
-  const T = THEMES.TOWER, s = SLOTS.TOWER; if (!(T && T.mhall) || !s) return null; const R = RLAY.rooms.TOWER, it = (R && R.items) || {}, cnt = {}, out = { beds: [], chairs: [], tea: null };
+  const T = THEMES.TOWER, s = SLOTS.TOWER; if (!(T && T.mhall) || !s) return null; const R = RLAY.rooms[towerWide() ? 'TOWER_L' : 'TOWER'], it = (R && R.items) || {}, cnt = {}, out = { beds: [], chairs: [], tea: null };
   for (const o of T.extras(s)) { cnt[o.n] = (cnt[o.n] || 0) + 1; const ov = it[o.n + '#' + cnt[o.n]] || {}; if (ov.hide) continue; const x = o.x + (ov.dx || 0), y = o.y + (ov.dy || 0), k = ov.k || 1, fl = !!o.flip !== !!ov.flip;
     if (/^tw_bed_/.test(o.n)) out.beds.push({ x, y, k, fl, low: o.n === 'tw_bed_earth' }); else if (o.n === 'tw_armchair') out.chairs.push({ x, y, k }); else if (o.n === 'tw_tea') out.tea = { x, y }; }
   return out; }
@@ -4916,7 +4916,7 @@ function editState() {   // the editor's school: every class built, at the chose
   freshState(); noSave = true;
   S.classes.forEach((c, i) => { c.built = true; c.buildEnd = 0; delete c.bs; c.teacher = 10; if (!CLASSES[i].final) c.size = EDIT.size; c.items = c.items.map(() => EDIT.stage); });
   S.classes.forEach((c, i) => { c.desks = maxDesksOf(i); }); S.tourDone = true;   // no intro tour over the room
-  S.cant = { built: true, end: 0, cook: 1, tables: 1, menu: 1 }; S.shop = { built: true, end: 0, seller: 1, shelves: 1, goods: 1 }; S.tower = { built: true, end: 0, cap: 0, res: [], wait: [] };   /* every building stands in the editor */
+  S.cant = { built: true, end: 0, cook: 1, tables: 1, menu: 1 }; S.shop = { built: true, end: 0, seller: 1, shelves: 1, goods: 1 }; S.tower = { built: true, end: 0, cap: 0, res: [], wait: [], wide: EDIT.cls === 'TOWER_L' };   /* every building stands in the editor */
   S.dirBuilt = true; S.dirEnd = 0; S.dormUp.room2 = true; S.dormUp.room2End = 0;
 }
 const EX_BOW = {};   /* exam hall: when the portrait last bowed to a graduate */
@@ -6121,9 +6121,10 @@ function render() {
       for (let b = 0; b < (EDIT ? DORM_STRIDE : n); b += 4) { const c = DORM_SPOTS[from + b].nest, o = { n: 'dm_nest_canopy', x: c.x, y: c.y, th }, num = b / 4 + 1; aN(c.x - 0.45, c.y - 0.45, () => { drawProp(o); if (EDIT) { const m = P(c.x, c.y); ctx.save(); ctx.font = '800 9px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.fillStyle = '#6b3fb0'; ctx.strokeText(String(num), m.x, m.y + 6); ctx.fillText(String(num), m.x, m.y + 6); ctx.restore(); } }, 0, 'dm_nest'); }   /* the editor shows all 8, numbered: players get them in this order */ }
     else if (T.beds) { const from = rid === 'DORM' ? 0 : DORM_STRIDE, n = rid === 'DORM' ? beds1() : beds2();
       DORM_SPOTS.slice(from, from + n).forEach((q, k) => { const o = { n: T.beds[k % T.beds.length], x: q.x, y: q.y - 0.02, th }; add(o.x, o.y, () => drawProp(o)); }); }
-    const addR = (rid === 'REC' || rid === 'DORM' || rid === 'DORM2' || (rid === 'CANT' && T.tavern) || (rid === 'LIB' && T.oldlib) || (rid === 'TOWER' && T.mhall)) && WORLD === 1 ? layAdd(rid, s, add) : null;   /* the reception's furniture is editable in the room editor */
+    const lid = rid === 'TOWER' && towerWide() ? 'TOWER_L' : rid;   /* the long hall has its own layout */
+    const addR = (rid === 'REC' || rid === 'DORM' || rid === 'DORM2' || (rid === 'CANT' && T.tavern) || (rid === 'LIB' && T.oldlib) || (rid === 'TOWER' && T.mhall)) && WORLD === 1 ? layAdd(lid, s, add) : null;   /* the reception's furniture is editable in the room editor */
     for (const o of (T.extras ? T.extras(s) : [])) { const oo = { ...o, th }; if (addR) addR(oo.x, oo.y, () => drawProp(oo), 0, oo.n); else add(oo.x, oo.y, () => drawProp(oo)); }
-    if (addR) layExtra(rid, s, add);
+    if (addR) layExtra(lid, s, add);
     if (T.arrival) { const pl = part(th, 'rc_plane'); if (pl) for (let m = 0; m < 2; m++) { const T0 = performance.now() / 1000 + m * 4.5, u = (T0 % 9) / 9; if (u > 0.55) continue; const v = u / 0.55, x = s.x0 + 1.75 + (1.3 - 1.75) * v, y = s.y0 + 3.6 + (0.4 - 3.6) * v;   /* paper airplanes fly from the counter to the notice board */
       add(x + 0.4, y + 0.4, () => { const p = P(x, y), h = 46 + Math.sin(v * Math.PI) * 22, w = 13; ctx.save(); ctx.globalAlpha = Math.min(1, v * 6, (1 - v) * 6); ctx.translate(p.x, p.y - h); ctx.rotate(-0.35 + Math.sin(v * 9) * 0.08); ctx.drawImage(pl, -w / 2, -w * 0.35, w, w * 0.7); ctx.restore(); }); } }
   }
@@ -9103,5 +9104,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=619').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=620').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
