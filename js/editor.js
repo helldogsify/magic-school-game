@@ -40,6 +40,19 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
 #ed-st { font-size: 12px; color: #8a7a99; width: 100%; }
 #ed-szi { font-size: 12px; color: #6b4fb0; width: 100%; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 #ed-szi button { padding: 3px 9px; font-size: 12px; }
+#ed-szi:empty, #ed-st:empty { display: none; }
+@media (max-width: 899px) {   /* phone: one scrolling row of buttons + one thin info line (her «плашка закрывает весь рабочий экран») */
+  #ed-top { flex-wrap: nowrap; overflow-x: auto; gap: 4px; padding: calc(env(safe-area-inset-top) + 4px) 6px 4px; font-size: 13px; scrollbar-width: none; }
+  #ed-top::-webkit-scrollbar { display: none; }
+  #ed-top > * { flex: none; }
+  #ed-top select, #ed-top button { padding: 6px 8px; }
+  #ed-top select { max-width: 36vw; }
+  #ed-undo { order: 1; } #ed-save { order: 2; } #ed-pub { order: 3; } #ed-top > span { order: 4; } #ed-stage { order: 5; } #ed-day { order: 6; } #ed-go { order: 7; }   /* undo / save / publish always on screen, sizes after */
+  #ed-top .grow { display: none; }
+  #ed-info { position: fixed; left: 0; right: 0; z-index: 89; display: flex; gap: 8px; align-items: center; padding: 2px 8px 3px; background: #fffaf2dd; font: 600 11px ui-rounded, system-ui, sans-serif; white-space: nowrap; overflow: hidden; }
+  #ed-info #ed-szi, #ed-info #ed-st { width: auto; font-size: 11px; flex-wrap: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #ed-info:has(#ed-szi:empty):has(#ed-st:empty) { display: none; }
+}
 #ed-bot { bottom: 0; background: #fffaf2f2; box-shadow: 0 -2px 10px #3a2f4a33; padding: 6px 8px calc(env(safe-area-inset-bottom) + 6px); }
 #ed-tabs, #ed-groups { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
 #ed-tabs .on, #ed-groups .on { background: #7b5cd6; color: #fff; }
@@ -85,13 +98,18 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
 <button id="ed-save" class="save">💾 Сохранить</button><button id="ed-pub" class="pub">🚀 Опубликовать</button>
 <div id="ed-szi"></div><div id="ed-st"></div>`;
   document.body.appendChild(top);
+  const PH = innerWidth < 900;   /* phone: short labels, the info under the bar */
+  if (PH) { const lb = { 1: 'Мал.', 2: 'Сред.', 3: 'Бол.' }; top.querySelectorAll('[data-size]').forEach((b) => (b.textContent = lb[b.dataset.size])); $('#ed-day').textContent = '☀️'; $('#ed-save').textContent = '💾'; $('#ed-save').title = 'Сохранить'; $('#ed-pub').textContent = '🚀'; $('#ed-pub').title = 'Опубликовать'; $('#ed-stage').textContent = 'Ур.' + E.stage;
+    const inf = document.createElement('div'); inf.id = 'ed-info'; inf.appendChild($('#ed-szi')); inf.appendChild($('#ed-st')); document.body.appendChild(inf);
+    const place = () => { inf.style.top = top.offsetHeight + 'px'; }; place(); addEventListener('resize', place); }
   top.querySelectorAll('[data-size]').forEach((b) => b.classList.toggle('on', +b.dataset.size === ZS));
   const SZN = ['', 'Маленькая', 'Средняя', 'Большая'], SZG = ['', 'маленькой', 'средней', 'большой'];
   function szInfo() {   // which size is edited and whether it has its own arrangement
     const el = $('#ed-szi'); if (!el) return; if (!SZD) { el.style.display = 'none'; return; }
-    el.innerHTML = RK === cid ? `📐 ${SZN[ZS]} комната. Эта расстановка — для всех размеров, у которых нет своей.`
-      : ownSize() ? `📐 ${SZN[ZS]} комната: своя расстановка ✓ <button id="ed-szr">↺ Как в ${SZG[BASE]}</button>`
-        : `📐 ${SZN[ZS]} комната: пока стоит как в ${SZG[BASE]}. Подвинь что-нибудь — и здесь будет своя расстановка.`;
+    const ph = innerWidth < 900;
+    el.innerHTML = RK === cid ? (ph ? '' : `📐 ${SZN[ZS]} комната. Эта расстановка — для всех размеров, у которых нет своей.`)
+      : ownSize() ? `📐 ${ph ? 'Своя расстановка' : SZN[ZS] + ' комната: своя расстановка'} ✓ <button id="ed-szr">↺ Как в ${SZG[BASE]}</button>`
+        : ph ? `📐 Пока как в ${SZG[BASE]}` : `📐 ${SZN[ZS]} комната: пока стоит как в ${SZG[BASE]}. Подвинь что-нибудь — и здесь будет своя расстановка.`;
     const r = $('#ed-szr'); if (r) r.onclick = () => { if (!confirm(`Вернуть расстановку как в ${SZG[BASE]} комнате?`)) return; snap(); delete L.rooms[RK]; sel = null; apply(true); showSel(); szInfo(); };
   }
   szInfo();
@@ -102,12 +120,12 @@ body.editing #top, body.editing #quest, body.editing #insp, body.editing .mbtn, 
   document.body.appendChild(bot); document.body.appendChild($('#ed-col'));   // the colour panel lives outside the bottom panel (it replaces it while open)
   const selBar = document.createElement('div'); selBar.id = 'ed-sel'; document.body.appendChild(selBar);
   const ov = document.createElement('canvas'); ov.id = 'ed-ov'; document.body.appendChild(ov); const oc = ov.getContext('2d');
-  function status(t) { $('#ed-st').textContent = t || (dirty ? 'Есть несохранённые изменения' : ''); }
+  function status(t) { $('#ed-st').textContent = t || (dirty ? (innerWidth < 900 ? '• не сохранено' : 'Есть несохранённые изменения') : ''); }
   const reload = (o) => { dropSeed(); const u = new URL(location.href); for (const [k, v] of Object.entries(o)) u.searchParams.set(k, v); u.searchParams.delete('key'); localStorage.setItem(DRAFT_LS, JSON.stringify({ ...L, t: Date.now() })); location.href = u.toString(); };
   $('#ed-cls').onchange = (e) => reload({ c: e.target.value });
   top.querySelectorAll('[data-size]').forEach((b) => (b.onclick = () => reload({ size: b.dataset.size })));
   $('#ed-stage').onclick = () => { const st = [1, 10, 25, 40], n = st[(st.indexOf(E.stage) + 1) % st.length] ?? 40; reload({ stage: n }); };
-  $('#ed-day').onclick = () => { night = !night; window.__hour = night ? 23 : 13; $('#ed-day').textContent = night ? '🌙 Ночь' : '☀️ День'; };
+  $('#ed-day').onclick = () => { night = !night; window.__hour = night ? 23 : 13; $('#ed-day').textContent = innerWidth < 900 ? (night ? '🌙' : '☀️') : night ? '🌙 Ночь' : '☀️ День'; };
   window.__hour = 13;
   $('#ed-undo').onclick = () => { if (!undo.length) return; L = JSON.parse(undo.pop()); sel = null; A.setLayout(L); dirty = true; showSel(); szInfo(); };
   bot.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { bot.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('on', x === b)); tab = b.dataset.tab; $('#ed-items').style.display = tab === 'items' ? '' : 'none'; $('#ed-wall').style.display = tab === 'wall' ? 'block' : 'none'; $('#ed-layers').style.display = tab === 'layers' ? 'block' : 'none'; $('#ed-game').style.display = tab === 'game' ? 'block' : 'none'; sel = null; showSel(); if (tab === 'wall') wallUi(); if (tab === 'layers') layersUi(); selBar.style.bottom = bot.offsetHeight + 8 + 'px'; }));
