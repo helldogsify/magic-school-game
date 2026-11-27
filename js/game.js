@@ -1,24 +1,24 @@
 // Magic school idle tycoon — v0.3: isometric campus with walking creatures.
 import './clock.js?v=470';   // build audit 2026-11-24: trusted clock (server time), must stay the first import
-import './edit_guard.js?v=615';   // room editor (?edit only): in-memory storage, no cloud
+import './edit_guard.js?v=616';   // room editor (?edit only): in-memory storage, no cloud
 import {
   OFFLINE_CAP_SEC, MAX_DESKS, MAX_ITEM_LEVEL, MAX_TEACHER_LEVEL, MAX_TIME_LEVEL,
   CLASSES, SPECIES, NAMES, MISSIONS, WORLDS, WORLD, META,
-} from './data.js?v=615';
-import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=615';
-import { initMinigame } from './minigame.js?v=615';
-import { initChests } from './chests.js?v=615';
-import { initValley } from './valley.js?v=615';
-import { initValley2 } from './valley2.js?v=615';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
-import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=615';
-import { initLore } from './lore.js?v=615';
-import { initAvatar } from './avatar.js?v=615';
-import { initStats } from './stats.js?v=615';
-import { initStudents } from './students.js?v=615';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
-import { initHeroes, HERO_BAL } from './heroes.js?v=615';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
-import { initAnnex } from './annex.js?v=615';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
-import { ANNEX_BAL } from './annex.js?v=615';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
-import { initToday } from './today.js?v=615';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
+} from './data.js?v=616';
+import { EMOJI_RE, emojiImage, preloadEmoji, watchEmoji, emojiHtml } from './emoji.js?v=616';
+import { initMinigame } from './minigame.js?v=616';
+import { initChests } from './chests.js?v=616';
+import { initValley } from './valley.js?v=616';
+import { initValley2 } from './valley2.js?v=616';   // «Долина» v2 board game behind the flag magicschool.valley2 (tools/_patch/valley2_client.py)
+import { log as glog, tail as gtail, entries as gentries, lineOf as gline, dump as gdump } from './gamelog.js?v=616';
+import { initLore } from './lore.js?v=616';
+import { initAvatar } from './avatar.js?v=616';
+import { initStats } from './stats.js?v=616';
+import { initStudents } from './students.js?v=616';   // student path 1-3 (tools/_patch/students_s8a.py), same ?v as every module
+import { initHeroes, HERO_BAL } from './heroes.js?v=616';   // heroes 8b (tools/_patch/heroes_s8b.py), same ?v as every module
+import { initAnnex } from './annex.js?v=616';   // rework 5c: class annexes (tools/_patch/annex_s5c.py), same ?v as every module   // anonymous play statistics -> lazy /game/stats (report: tools/stats_report.mjs)
+import { ANNEX_BAL } from './annex.js?v=616';   // s7: the starfall theme doubles the observatory's stars (the same module instance)
+import { initToday } from './today.js?v=616';   // rework step 7: the daily bar «☀️ Сегодня» (tools/_patch/today_s7.py), same ?v as every module
 // mini-game «Зельеварка» (match-3, js/minigame.js): a pill on the main screen, its own overlay; the school keeps living under it
 const MG = initMinigame({ state: () => S, earn: (n) => bonus(n), rate: () => rateNow(), save: () => save(), stones: () => stones(), spendStones: (n) => stonesAdd(-n, '', 'mg_cont'), toast: (t) => toast(t), fmt: (n) => fmt(n), emojiHtml, emojiImage,
   audioOut: () => { if (!sfxOn() || document.hidden) return null; const c = audio(); return c && c.state === 'running' ? { c, out: AOUT } : null; },
@@ -125,7 +125,7 @@ const SAVE_KEY = WORLD === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' +
 const saveKeyOf = (w) => (w === 1 ? 'magicschool.save.v2' : 'magicschool.save.v2.w' + w);
 const VERSION = '0.9';
 let STATS = { ev() {}, buy() {} }, spendAct = '';   // js/stats.js after the boot curtain; spendAct: what the next spend() pays for
-const BUILD = 615;   // keep equal to the ?v= number in index.html
+const BUILD = 616;   // keep equal to the ?v= number in index.html
 const $ = (s, r = document) => r.querySelector(s);
 const rnd = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -595,6 +595,7 @@ const ART = {                                               // room pictures wit
   CANT: { src: 'assets/parts/canteen/ct_room.webp?v=1', L: [103.5, 715], R: [950, 722.5], F: [525, 970] },   /* the tavern canteen, painted from the approved concept (live since her OK 2026-11-26) */
   LIB: { src: 'assets/parts/library/lb_room.webp?v=1', L: [70.6, 821], R: [946.2, 739.9], F: [441.4, 1045.5], band: 1, fill: 1 },   /* the old sunlit library, painted from the approved concept (live since her OK 2026-11-26) */
   TOWER: { src: 'assets/parts/tower/tw_room.webp?v=1', L: [144.4, 482.2], R: [866.7, 482.2], F: [511.1, 709.8], band: 1, fill: 1 },   /* the masters' hall, painted from the approved concept (live since her OK 2026-11-26) */
+  TOWER_L: { src: 'assets/parts/tower/tw_room_long.webp?v=1', L: [144.4, 482.2], R: [1111.2, 633.9], F: [755.6, 861.5], band: 1, fill: 1 },   /* the masters' hall after «Пристройка» (6 x 10) */
   REC: { src: 'assets/parts/reception/rc_room.webp?v=1', L: [11, 689], R: [953, 699], F: [502, 952] },   /* the Arrival Hall (live since her OK 2026-11-25) */   /* the Arrival Hall, painted from the approved concept */
 };
 // ---- rooms assembled from parts (any size looks whole): seamless wall + floor textures, wall decor hung
@@ -921,7 +922,7 @@ function genLayoutCourt() {
   if (ART.LIB) SLOTS.LIB.extra = [];   /* the old library: students walk in through the middle of its painted arch */
   SLOTS.CANT = slot(Xr, cy0 + 12, [[Xr, cy0 + 14], [Xr - 1, cy0 + 14]], {}, 6, 6, [[[Xr, cy0 + 15], [Xr - 1, cy0 + 15]]]);
   if (ART.CANT) SLOTS.CANT.extra = [];   /* the tavern: students walk in through the middle of its painted arch */
-  SLOTS.TOWER = slot(XR + 2, cy1 - 2, [[XR + 2, cy1 + 1], [XR + 1, cy1 + 1]], {}, 6, 6, [[[XR + 2, cy1 + 2], [XR + 1, cy1 + 2]]]);
+  SLOTS.TOWER = slot(XR + 2, cy1 - 2, [[XR + 2, cy1 + 1], [XR + 1, cy1 + 1]], {}, towerWide() ? 10 : 6, 6, [[[XR + 2, cy1 + 2], [XR + 1, cy1 + 2]]]);   /* «Пристройка»: the hall grows to the right */
   if (ART.TOWER) SLOTS.TOWER.extra = [];   /* the masters' hall: one lane through the middle of its painted arch */
   PATHS.push({ x0: XR, y0: cy1, x1: XR + 2, y1: Yf });
   // front row (build 250, her «плинтусы и мебель заходят друг на друга»): shop | gap | reception (its middle door looks up the court at
@@ -2682,6 +2683,8 @@ const towerOpen = () => WORLD <= 2 && !!(S && bReady(S.tower));
 const towerCap = () => TOWER_BASE + Math.min(TOWER_MAXUP, towerUp().cap);   // places bought above the new max are not counted: residents stay, nobody new moves in until under 15
 const towerCost = () => BAL.tower;
 // build audit 2026-11-24: places grew x2.3 each (12th 6.8B, 20th 5.33T, never paid back); x1.45: all 20 cost ~25B in total
+function towerWide() { return WORLD === 1 && typeof S !== 'undefined' && !!(S && S.tower && S.tower.wide); }   /* «🏰 Пристройка» bought (hoisted: the layout runs early) */
+const towerWideCost = () => paced(BAL.tower * 0.6, 1);
 const towerCapCost = () => paced(BAL.tower * 0.4 * Math.pow(1.45, towerUp().cap), towerUp().cap + 1);
 const RES_K = { 4: 0.015, 5: 0.05 };   // coins per second = tuition of the last class x this
 const resRate = (r) => { const li = NCLS - 1; return isOpen(li) ? tuition(li) * (RES_K[r.rk] || 0) * HERO.incK(r) : 0; };   // 8b: × hero level/skills/set (level 1 = ×1)
@@ -2839,7 +2842,7 @@ function towerLife(k) {   /* a resident's place in the masters' hall: in bed at 
 function towerPos(k) {   // render-only: residents stroll slowly in a ring around the velvet sofa, each now and then stops
   { const L = towerLife(k); if (L) return { x: L.x, y: L.y, sx: L.sx, sy: L.sy, z: L.z, sleep: L.sleep, moving: false, flip: L.flip, pose: L.bed ? 'sleep' : 'sit' }; }
   { const F = twFurn(); if (F) { const s = SLOTS.TOWER, T = performance.now() / 1000, pts = [];   /* free spots: a grid away from beds, chairs and the table */
-    for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) { const x = s.x0 + 0.6 + i * 0.96, y = s.y0 + 0.6 + j * 0.96, far = (q, r) => !q || Math.hypot(q.x - x, q.y - y) > r; if (F.beds.every((b) => far(b, 1.15)) && F.chairs.every((c) => far(c, 0.8)) && far(F.tea, 0.85)) pts.push({ x, y }); }
+    for (let i = 0; i < Math.round((s.x1 - s.x0) / 0.96); i++) for (let j = 0; j < 6; j++) { const x = s.x0 + 0.6 + i * 0.96, y = s.y0 + 0.6 + j * 0.96, far = (q, r) => !q || Math.hypot(q.x - x, q.y - y) > r; if (F.beds.every((b) => far(b, 1.15)) && F.chairs.every((c) => far(c, 0.8)) && far(F.tea, 0.85)) pts.push({ x, y }); }
     if (pts.length > 1) { const per = 11, t0 = T + k * 4.1, leg = Math.floor(t0 / per), u = (t0 % per) / per, hs = (a) => Math.abs(Math.sin(a * 12.9898 + k * 78.233) * 43758.5453) % 1, A = pts[Math.floor(hs(leg) * pts.length)], B = pts[Math.floor(hs(leg + 1) * pts.length)], w = u < 0.45, v = w ? 0.5 - 0.5 * Math.cos(Math.PI * u / 0.45) : 1;
       const x = A.x + (B.x - A.x) * v, y = A.y + (B.y - A.y) * v, rs = towerUp().res[k]; return { x, y, moving: w && Math.hypot(B.x - A.x, B.y - A.y) > 0.1, flip: P(B.x, B.y).x < P(A.x, A.y).x, pose: w ? null : (k % 2 || (rs && rs.rk >= 5) ? 'read' : 'wand') }; } }
   if (F && F.tea) { const s = SLOTS.TOWER, T = performance.now() / 1000, ph = (T * 0.09 + k * 0.37) % 1, ang = k * 2.4 + T * 0.06 + 0.5 * Math.sin(T * 0.11 + k * 1.3), r = 1.45 + 0.15 * Math.sin(k * 2.1), x = F.tea.x + Math.cos(ang) * r, y = F.tea.y + Math.sin(ang) * r;   /* the hall: a ring around the tea table */
@@ -2872,6 +2875,7 @@ function towerPanel() {
     ${T.res.length > towerCap() ? `<p class="muted">Теперь ${TW.inS} ${towerCap()} мест: 7 наставников, 3 советника и 5 героев отряда. Все, кто уже живёт здесь, остаются; новый жилец заселится, когда их станет меньше ${towerCap()}.</p>` : ''}
     <div class="card up"><span class="remoji">🛏️</span><div class="grow"><b>Ещё одно место</b> <span class="muted">${towerCap()}/${TOWER_BASE + TOWER_MAXUP}</span><div class="muted">${TW.inS} смогут жить больше ${TW.mastersG}</div></div>
       ${T.cap >= TOWER_MAXUP ? '<span class="done">макс.</span>' : costBtn('+1', towerCapCost(), 'towercap')}</div>
+    ${W2T ? '' : `<div class="card up"><span class="remoji">🏰</span><div class="grow"><b>Пристройка</b><div class="muted">${T.wide ? 'зал стал вдвое длиннее: мастерам просторно' : 'зал станет почти вдвое длиннее: у мастеров будет больше места'}</div></div>${T.wide ? '<span class="done">готово</span>' : costBtn('↑', towerWideCost(), 'towerwide')}</div>`}
     <div class="card up"><span class="remoji">🚪</span><div class="grow"><b>Принимать только ${TW.mastersG}</b><div class="muted">${T.onlyM ? `включено: ${TW.eldersD} ${W2T ? 'Чертог отказывает сам' : 'башня отказывает сама'}, они просто выпускаются` : `выключено: ${W2T ? 'в Чертог' : 'в башню'} просятся и ${TW.elders}`}</div></div>
       <button class="btn${T.onlyM ? '' : ' ghost'}" data-act="toweronly">${T.onlyM ? 'Вкл' : 'Выкл'}</button></div>
     ${T.wait.length ? `<h3>Ждут у двери: ${T.wait.length}</h3>${wait}<p class="muted">Освободи место — и первый ждущий сразу заселится. Если мест нет, а у двери уже ${TOWER_WAIT}, следующие выпускаются как обычно.</p>` : ''}
@@ -4283,7 +4287,7 @@ function litRooms() {   // screen polygons (device px) of every built room: floo
     if (id === 'GARDEN' || id === 'TRADE' || (ci >= 0 && !S.classes[ci].built) || (id === 'DORM2' && !dorm2Built()) || (id === 'DIR' && !dirBuilt()) || (id === 'TOWER' && !towerOpen()) || (id === 'CANT' && !cantBuilt()) || (id === 'SHOP' && !shopOpen())) continue;
     const a = P(s.x0, s.y1), b = P(s.x0, s.y0), c = P(s.x1, s.y0), d = P(s.x1, s.y1);
     if (!onScreen(b.x, b.y, 600, 600) && !onScreen(d.x, d.y, 600, 600)) continue;
-    const fullLit = WORLD === 1 && (id === 'TOWER' || id === 'LIB' || id === 'CANT') && ART[id] && arts[id] && arts[id].naturalWidth;   /* painted rooms: no cut over the doorway */
+    const fullLit = WORLD === 1 && (id === 'TOWER' || id === 'LIB' || id === 'CANT' || id === 'DORM' || id === 'DORM2') && ART[id] && arts[id] && arts[id].naturalWidth;   /* painted rooms: no cut over the doorway */
     const eh = (x, y, sd) => (fullLit || litEdges.has(`${id},${x},${y},${sd}`) ? WALLH : 0), q = [];   // her «Часть дороги подсвечивается как комната»: no light over a doorway
     for (let y = s.y1 - 1; y >= s.y0; y--) { const h = eh(s.x0, y, 'x0'); q.push(up(P(s.x0, y + 1), h), up(P(s.x0, y), h)); }
     for (let x = s.x0; x < s.x1; x++) { const h = eh(x, s.y0, 'y0'); q.push(up(P(x, s.y0), h), up(P(x + 1, s.y0), h)); }
@@ -5354,7 +5358,7 @@ function drawSlot(c, id) {
     return;
   }
   const col = roomColors(id);
-  const artKey = ci >= 0 ? CLASSES[ci].id : id;
+  const artKey = ci >= 0 ? CLASSES[ci].id : id === 'TOWER' && towerWide() ? 'TOWER_L' : id;
   const art = WORLD === 1 ? arts[artKey] : null;
   if (art && art.complete && art.naturalWidth) {
     const A = ART[artKey];
@@ -8003,6 +8007,7 @@ document.addEventListener('click', (e) => {
   else if (d.act === 'shopbuild') { if (!(S.shop && S.shop.built) && spend(SHOP_COST)) { shopUp().built = true; S.shop.end = Date.now() + BTIME.SHOP * 1000; staticKey = ''; toast(WORLD === 2 ? '💎 Самоцветная лавка открыта!' : '🛍️ Лавка открыта!'); panel = shopPanel; } }
   else if (d.act === 'towerbuild') { if (!(S.tower && S.tower.built) && isOpen(NCLS - 1) && spend(towerCost())) { towerUp().built = true; S.tower.end = Date.now() + BTIME.TOWER * 1000; staticKey = ''; toast(WORLD === 2 ? '🗝️ Чертог Хранителей построен!' : '🏰 Башня мастеров построена!'); panel = towerPanel; } }
   else if (d.act === 'towerprep') { if (retakeLvl() < RETAKE_MAX && spend(retakeCost())) { towerUp().prep = retakeLvl() + 1; towerUp().rt = Math.min(towerUp().rt ?? 1e9, retakeInterval()); } }
+  else if (d.act === 'towerwide') { if (WORLD === 1 && !towerUp().wide && spend(towerWideCost())) { towerUp().wide = true; relayout(); toast('🏰 Пристройка готова: зал мастеров стал длиннее!'); } }
   else if (d.act === 'towercap') { if (towerUp().cap < TOWER_MAXUP && spend(towerCapCost())) { towerUp().cap++; towerPull(); } }
   else if (d.act === 'towerfree') { const T = towerUp(), r = T.res[+d.k]; if (r && !r.away && !r.mc && confirm(`Проводить ${r.name} (${resTitle(r)})? ${r.name} откроет свою школу за морем: слава школы +1 %, вещи вернутся в сундук, половина опыта перейдёт ${T.wait.length ? T.wait[0].name + ' — он(а) займёт место и пост' : 'следующему герою'}.`)) towerFarewell(r, null); }
   else if (d.act === 'towerno') { towerUp().wait.splice(+d.k, 1); }
@@ -9098,5 +9103,5 @@ if (EDIT) {   // room editor: js/editor.js gets the game's room tools
     get zoom() { return zoom; }, get scale() { return scale; }, get dpr() { return dpr; }, scroller, canvas,
     get layout() { return RLAY; }, setLayout, pond: () => null, entries: () => LAY_ENT.slice(), walls: (th) => (LAY_WALLS[th] || []).slice(), layPos, layIm, texPart, thumb: (n, th) => { if (n === 'conc') return th === 'DORM2' ? LYALYA.src : (sprites.staff_concierge || {}).src || ''; if (n === 'dm_nest') n = 'dm_nest_canopy'; const im = n && (ITEM_IMS[n] || parts[th + '/' + n] || parts[th + '/iso_' + n] || LAY_IMS[n]); return im ? im.src : ''; },
     zoomAt: (z, x, y) => { setZoom(z, 0, 0, 0, 0); focusTile(x, y, false); } };
-  import('./editor.js?v=615').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
+  import('./editor.js?v=616').then((m) => m.initEditor(window.__EDIT_API)).catch((e) => { console.error(e); alert('Редактор не загрузился: ' + e.message); });
 }
